@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<!-- Build Metadata (local313): เลข Version ของ Build นี้ — กำหนดที่บรรทัดนี้ที่เดียว ใช้ทั้งเว็บไซต์ (ป้ายมุมขวาบนอ่านจากที่นี่) -->
+<meta name="nj-build" content="local313">
 <title>Mapping Export Hi-Tech HTML</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -134,6 +136,9 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 .main{margin-left:240px;flex:1;min-height:100vh;display:flex;flex-direction:column;overflow:hidden;min-width:0;max-width:calc(100vw - 240px)}
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
 .page-title{font-size:18px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:10px}
+.tb-ver{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:8px;border:1px solid rgba(16,185,129,.45);background:rgba(16,185,129,.10);color:#34d399;font-size:12px;font-weight:700;white-space:nowrap;line-height:1.2}
+.tb-ver[hidden]{display:none}
+@media (max-width:700px){.tb-ver-pre{display:none}.tb-ver{padding:4px 9px;font-size:11px}.topbar{flex-wrap:wrap;gap:6px 10px;padding:10px 12px}.tb-right{margin-left:auto}.tb-date{display:none}}
 .company-badge{padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace;letter-spacing:.06em}
 .company-badge.celestica{background:rgba(59,130,246,.15);color:var(--blue2);border:1px solid rgba(59,130,246,.3)}
 .company-badge.thaixm{background:rgba(245,158,11,.15);color:var(--amber2);border:1px solid rgba(245,158,11,.3)}
@@ -543,6 +548,11 @@ body.wide-1col .up-card .pdf-file{padding:6px 10px;font-size:11.5px}
       <span class="label">The Shell</span>
       <span class="nav-badge shell">THE SHELL</span>
     </a>
+<a class="sb-item" href="javascript:void(0)" data-nav="grohe" onclick="switchCustomer('grohe')">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      <span class="label">GROHE SIAM</span>
+      <span class="nav-badge shell">GROHE SIAM</span>
+    </a>
     <a class="sb-item" href="javascript:void(0)" data-nav="delta_truck" onclick="switchCustomer('delta_truck')">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 8h2l3 4v5h-2a2 2 0 0 1-4 0H9a2 2 0 0 1-4 0H2V6a2 2 0 0 1 2-2h11v4zm-11 8.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm11 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm2-7V12h3l-2-2.5h-1z"/></svg>
       <span class="label">Delta Ieat 002</span>
@@ -592,6 +602,8 @@ body.wide-1col .up-card .pdf-file{padding:6px 10px;font-size:11.5px}
     </div>
     <div class="tb-right">
       <span class="tb-date" id="tb-date"></span>
+      <span class="tb-ver" id="tb-ver" hidden><span class="tb-ver-pre">Deploy github</span><span id="tb-ver-no"></span></span>
+      <script>(function(){ var m=document.querySelector('meta[name="nj-build"]'), v=m?String(m.content||'').trim():''; if(!/^local\d+$/.test(v)) return; var el=document.getElementById('tb-ver'); document.getElementById('tb-ver-no').textContent=v; el.title='Deploy github '+v; el.hidden=false; })();</script>
     </div>
   </div>
 
@@ -797,11 +809,18 @@ body.wide-1col .up-card .pdf-file{padding:6px 10px;font-size:11.5px}
       <div class="doa-panel">
         <h2 id="u-delta-hdr">📄 1. อัพโหลดไฟล์</h2>
         <div class="doa-uploads" id="u-delta-uploads"></div>
+        <!-- THE SHELL (local312): ตาราง TOTAL ทุกคอลัมน์ปริมาณ — อยู่เหนือปุ่ม EXPORT EXCEL -->
+        <div id="shell-total-panel" style="display:none"></div>
+        <!-- GROHE SIAM (local313): ตาราง TOTAL ทุกคอลัมน์ปริมาณ — เหนือปุ่ม EXPORT EXCEL -->
+        <div id="grohe-total-panel" style="display:none"></div>
         <div class="doa-row-actions" id="u-delta-actions"></div>
       </div>
 
       <!-- THE SHELL: INVOICE PDF — AI อ่านข้อมูล (local305) · แสดงเฉพาะโหมด shell -->
       <div class="doa-panel" id="shell-ai-panel" style="display:none"></div>
+
+      <!-- GROHE SIAM (local313): รายการ PDF / สรุปผล / รายการที่ต้องแก้ไข -->
+      <div class="doa-panel" id="grohe-ai-panel" style="display:none"></div>
 
       <!-- Panel 2: Preview (hidden until user clicks Preview) -->
       <div class="doa-panel" id="u-delta-preview-panel" style="display:none">
@@ -1199,6 +1218,28 @@ const CUSTOMERS = {
    * Logic: Split แยกก่อนตาม Ship-To Party → จากนั้นแยก Sheet ตาม Plant ในแต่ละไฟล์
    * Output: ZIP ที่ข้างในมีหลาย .xlsx (1 ไฟล์ต่อ 1 Ship-To Party · ใน 1 ไฟล์มี Sheet ต่อ Plant)
    * ═══════════════════════════════════════════════════════════════════════ */
+  /* ═══════════════ GROHE SIAM (local313) ═══════════════
+   * Input: INVOICE PDF (AI อ่าน) + XLSX (N.W. เท่านั้น) + MASTER (.xlsx · Save ได้)
+   * Output: MAPPING_GROHE_INVOICE.xlsx — 32 คอลัมน์ตามไฟล์ตัวอย่าง MAPPING GROHE -INVOICE.xls
+   * ═══════════════════════════════════════════════════ */
+  grohe: {
+    name:'GROHE SIAM', badge:'GROHE SIAM',
+    title:'GROHE SIAM',
+    subtitle:'วาง INVOICE PDF (AI) + XLSX (N.W.) + MASTER → กด EXPORT EXCEL ครั้งเดียว',
+    exportName:'MAPPING_GROHE_INVOICE.xlsx',
+    showPoInput:false,
+    debugLabels:{ nwRows:'N.W. rows (XLSX)', masterRows:'Master rows' },
+    slots:[
+      {key:'NW_XLSX', type:'excel', color:'amber', icon:'⚖️',
+        title:'XLSX — NET WEIGHT (N.W.)', keyBadge:'ใช้หา N.W. เท่านั้น',
+        cols:'Z=Net weight · AA=Weight unit · I=Delivery · X=Material · Y=Quantity · A=Billing Document — ไม่ดึงราคา/รายละเอียดสินค้า'},
+      {key:'MASTER', type:'excel', color:'purple', icon:'⚙️',
+        title:'MASTER (.xlsx)', keyBadge:'PRODUCT → Desc / Tariff / BOI',
+        cols:'A=PRODUCT · B=EN DESC. · C=TH DESC. · D=TARIFF CODE · E=stat · F=brandName · G–L=BOI — กด Save ไว้ใช้ครั้งต่อไป',
+        joinKeys:['PRODUCT','Product','product']},
+    ]
+  },
+
   shell: {
     name:'THE SHELL', badge:'THE SHELL',
     title:'The Shell',
@@ -1276,13 +1317,13 @@ const CUSTOMERS = {
 let activeCustomer = 'hitech';
 const slotData = {};
 Object.keys(CUSTOMERS).forEach(c=>{
-  slotData[c] = {PDF:[], PLPDF:[], INVOICE:null, INVOICE_XLSX:[], NWGW:null, MASTER:null, BRAND_MAP:null};
+  slotData[c] = {PDF:[], PLPDF:[], INVOICE:null, INVOICE_XLSX:[], NWGW:null, MASTER:null, BRAND_MAP:null, NW_XLSX:null};
 });
 
 /* ═══ MASTER persistence — localStorage สำหรับลูกค้า 6 รายในหน้า unified
  *    ให้ข้อมูล Master ที่อัพโหลดไม่หาย (จนกว่าจะกด Delete)  ═══ */
 const MASTER_KEY_PREFIX = '_masterDB_';
-const MASTER_PERSIST_CUSTOMERS = ['hitech','hitechxlsx'];
+const MASTER_PERSIST_CUSTOMERS = ['hitech','hitechxlsx','grohe'];
 function getMasterStorageKey(cust){ return MASTER_KEY_PREFIX + cust + '_v1'; }
 
 function saveCurrentMaster(cust){
@@ -1295,6 +1336,9 @@ function saveCurrentMaster(cust){
     slotData[cust].MASTER.savedAt = payload.savedAt;
     renderSlots(); refreshDebug(); refreshButtons();
     const title = (CUSTOMERS[cust]||{}).title || cust;
+    // GROHE SIAM (local313): แชร์ให้ทุกเครื่องผ่านตาราง delta_master เดิม (ไม่ต้องเพิ่ม SQL)
+    if(cust === 'grohe') _deltaMasterSaveSupabase('grohe_master', { name:m.name, rows:m.rows })
+      .then(r => toast(r && r.ok ? `☁️ แชร์ Master GROHE SIAM ไปยัง Supabase แล้ว (${m.rows.length} rows)` : '💾 บันทึกในเครื่องแล้ว · Supabase offline', r && r.ok ? 'ok' : 'warn'), () => {});
     toast(`💾 บันทึก Master ${title}: ${m.name} (${m.rows.length} rows)`, 'ok');
     return true;
   } catch(e){
@@ -1324,6 +1368,7 @@ function deleteCurrentMaster(cust){
   const title = (CUSTOMERS[cust]||{}).title || cust;
   if(!confirm('ต้องการลบข้อมูล Master ของ ' + title + ' ออกจาก localStorage และหน้าปัจจุบัน?')) return;
   try{ localStorage.removeItem(getMasterStorageKey(cust)); } catch(e){}
+  if(cust === 'grohe') _deltaMasterDeleteSupabase('grohe_master').catch(() => {});   // local313: ลบที่แชร์ไว้ด้วย
   slotData[cust].MASTER = null;
   renderSlots(); refreshDebug(); refreshButtons();
   toast('🗑️ ลบ Master ' + title + ' แล้ว', 'ok');
@@ -1441,6 +1486,19 @@ function switchCustomer(key){
     if(saved && saved.rows){
       slotData[key].MASTER = { name: saved.name, rows: saved.rows, savedAt: saved.savedAt };
     }
+  }
+
+  // GROHE SIAM (local313): Master ที่ Save ไว้ — localStorage ก่อน แล้วซิงก์จาก Supabase (ตาราง delta_master เดิม · id 'grohe_master')
+  if(key === 'grohe'){
+    (async () => { try{
+      const remote = await _deltaMasterLoadSupabase('grohe_master');
+      if(!remote || !Array.isArray(remote.rows) || !remote.rows.length) return;
+      const localTS = slotData.grohe.MASTER && slotData.grohe.MASTER.savedAt;
+      if(!localTS || (remote.savedAt && new Date(remote.savedAt) > new Date(localTS))){
+        slotData.grohe.MASTER = { name:remote.name, rows:remote.rows, savedAt:remote.savedAt };
+        renderSlots(); refreshDebug(); refreshButtons();
+      }
+    } catch(e){ console.warn('grohe master sync:', e); } })();
   }
 
   // Auto-load saved BRAND_MAP for Shell mode
@@ -1657,7 +1715,7 @@ function renderSlots(){
  *   ไม่แตะ parser/exporter/logic/data structure เลย
  * ══════════════════════════════════════════════════════════════ */
 
-const DELTA_UI_APPLIES = ['hitech','hitechxlsx','shell'];
+const DELTA_UI_APPLIES = ['hitech','hitechxlsx','shell','grohe'];
 
 function escHtml(s){
   return String(s == null ? '' : s)
@@ -1686,6 +1744,7 @@ function renderUnifiedDeltaView(){
     hitech:      '1. อัพโหลดไฟล์ HI-TECH APPAREL',
     hitechxlsx:  '1. อัพโหลดไฟล์ HI-TECH APPAREL EXCEL',
     shell:       '1. อัพโหลดไฟล์ THE SHELL',
+    grohe:       '1. อัพโหลดไฟล์ GROHE SIAM',
   };
   const hdr = document.getElementById('u-delta-hdr');
   if(hdr) hdr.textContent = '📄 ' + (LABELS[key] || '1. อัพโหลดไฟล์');
@@ -1788,6 +1847,12 @@ function renderUnifiedDeltaView(){
     uploads.style.gridTemplateColumns = 'minmax(0,3fr) minmax(0,3fr) minmax(0,4fr)';
     uploads.insertAdjacentHTML('beforeend', '<div class="doa-drop" id="sai-zone"></div>');
   }
+  // GROHE SIAM (local313): 3 กรอบแถวเดียว — INVOICE PDF (AI) 40% | XLSX N.W. 30% | MASTER 30%
+  if(key === 'grohe'){
+    uploads.classList.add('shell-compact');
+    uploads.style.gridTemplateColumns = 'minmax(0,4fr) minmax(0,3fr) minmax(0,3fr)';
+    uploads.insertAdjacentHTML('afterbegin', '<div class="doa-drop" id="gai-zone"></div>');
+  }
 
   // ── Build action row ตามโหมด (match Delta/Schaeffler button labels) ──
   const actions = document.getElementById('u-delta-actions');
@@ -1797,6 +1862,10 @@ function renderUnifiedDeltaView(){
     btnHtml = `
       <button class="btn btn-success" onclick="doExportHITECH_BOI()" id="u-btn-boi" disabled>⬇ Download BOI</button>
       <button class="btn btn-success" onclick="doExportHITECH_BCTR()" id="u-btn-bctr" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)" disabled>⬇ Download BCTR</button>
+      <button class="btn btn-ghost" onclick="doClear()">ล้าง</button>`;
+  } else if(key === 'grohe'){
+    btnHtml = `
+      <button class="btn btn-success" onclick="doExportGROHE()" id="u-btn-grohe" style="background:linear-gradient(135deg,#10b981,#059669)" disabled>⬇ EXPORT EXCEL</button>
       <button class="btn btn-ghost" onclick="doClear()">ล้าง</button>`;
   } else if(key === 'shell'){
     btnHtml = `
@@ -1845,6 +1914,7 @@ function renderUnifiedDeltaView(){
     }
   } catch(e){ console.warn('auto-preview:', e); }
   try{ if(typeof shellAiMount === 'function') shellAiMount(key); } catch(e){ console.warn('shellAiMount:', e); }
+  try{ if(typeof groheAiMount === 'function') groheAiMount(key); } catch(e){ console.warn('groheAiMount:', e); }
 }
 
 function uDeltaRefreshStatus(){
@@ -1869,6 +1939,8 @@ function uDeltaRefreshStatus(){
   if(btnBOI)   btnBOI.disabled   = !multiHas;
   if(btnBCTR)  btnBCTR.disabled  = !(multiHas && hasMs);
   if(btnShell) btnShell.disabled = !multiHas;
+  const btnGrohe = document.getElementById('u-btn-grohe');     // local313: ต้องมี XLSX (N.W.) + MASTER ก่อน (ตรวจ PDF ในขั้น Export)
+  if(btnGrohe) btnGrohe.disabled = !(d.NW_XLSX && hasMs);
 
   // Hi-Tech 3-button flow buttons
   if(key === 'hitech'){
@@ -2225,7 +2297,10 @@ async function processFiles(files, key){
       toast('ต้องเป็น .xlsx หรือ .xls', 'err'); return;
     }
     try{
-      const rows = await readXLSX(f);
+      let rows;
+      if(activeCustomer === 'grohe' && key === 'NW_XLSX')      rows = await readGroheNwXlsx(f);      // local313: ใช้หา N.W. เท่านั้น
+      else if(activeCustomer === 'grohe' && key === 'MASTER')  rows = await readGroheMaster(f);
+      else                                                     rows = await readXLSX(f);
       slotData[activeCustomer][key] = {name:f.name, rows};
       toast(`${slotCfg.title}: ${rows.length} rows จาก ${f.name}`, 'ok');
 
@@ -2766,8 +2841,9 @@ function doClear(){
   const any = d.PDF.length>0 || (d.PLPDF && d.PLPDF.length>0) || d.INVOICE || (d.INVOICE_XLSX && d.INVOICE_XLSX.length>0) || d.NWGW || d.MASTER;
   if(!any){ toast('ยังไม่มีข้อมูลให้ล้าง', 'warn'); return; }
   if(!confirm('ล้างข้อมูลทั้งหมดของ ' + CUSTOMERS[activeCustomer].title + '?\n(ข้อมูล Master ที่บันทึกใน localStorage จะยังอยู่)')) return;
-  slotData[activeCustomer] = {PDF:[], PLPDF:[], INVOICE:null, INVOICE_XLSX:[], NWGW:null, MASTER:null, BRAND_MAP:null};
+  slotData[activeCustomer] = {PDF:[], PLPDF:[], INVOICE:null, INVOICE_XLSX:[], NWGW:null, MASTER:null, BRAND_MAP:null, NW_XLSX:null};
   if(activeCustomer === 'shell' && typeof shellAiReset === 'function'){ try{ shellAiReset(); } catch(e){} }
+  if(activeCustomer === 'grohe' && typeof groheAiReset === 'function'){ try{ groheAiReset(); } catch(e){} }
 
   // Auto-restore saved Master จาก localStorage (6 ลูกค้า unified)
   if(MASTER_PERSIST_CUSTOMERS.includes(activeCustomer)){
@@ -5124,6 +5200,9 @@ async function _doExportSHELLRun(){
     byPlant.get(r.plant).push(r);
   });
 
+  // local312: คอลัมน์ "ปริมาณ" ตามโครงสร้าง Master (บวกยอดได้) — ไม่รวม A item / B Invoice / C Date / P,Q HS CODE ที่เป็นเลขอ้างอิง
+  const SUM_COLS = [4, 6, 7, 8, 9];   // E Package · G Net W./Qty. Inv · H Gross Weight · I Qty. ใบขน · J Amount
+  const sheetsOut = [];               // ข้อมูลที่เขียนลง Excel จริง → ใช้คำนวณ TOTAL (ไม่คำนวณซ้ำจากแหล่งอื่น)
   const HEADERS = [
     'item','Invoice','Date','Description','Package','หน่วยนับหีบห่อ',
     'Net W./Qty. Inv',' Gross\nWeight','\tQty. ใบขน',
@@ -5198,6 +5277,7 @@ async function _doExportSHELLRun(){
         if(ws[addr]) ws[addr].s = { alignment: { wrapText: true, vertical: 'top' } };
       }
       const sheetName = _shellSheetName(`Mapping THE SHELL Plant ${plantShort}`);
+      sheetsOut.push({ file:_shellSanitize(shipTo) + '.xlsx', sheet:sheetName, headers:HEADERS, rows:aoa.slice(1) });   // local312: แถวข้อมูลจริง (ไม่รวมแถวหัวตาราง)
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
       sheetCount++;
       rowCount += items.length;
@@ -5208,6 +5288,9 @@ async function _doExportSHELLRun(){
     zip.file(fname, xlsxBin);
     fileCount++;
   }
+
+  // local312: FLOW — MAPPING → เรียง Invoice น้อย→มาก (_ai.order) → คำนวณ TOTAL จากข้อมูลที่เขียนลงไฟล์ → แสดงสรุปเหนือปุ่ม EXPORT → ดาวน์โหลด
+  if(typeof shellAiTotals === 'function') shellAiTotals(sheetsOut, SUM_COLS);
 
   // Generate zip blob and download
   const blob = await zip.generateAsync({type:'blob', compression:'DEFLATE', compressionOptions:{level:6}});
@@ -5231,6 +5314,177 @@ async function _doExportSHELLRun(){
   return true;
 }
 
+
+/* ══════════════════════════════════════════════════════════════
+ * GROHE SIAM (local313) — INVOICE PDF (AI) + XLSX (N.W.) + MASTER → MAPPING_GROHE_INVOICE.xlsx
+ *   PDF = Invoice No. / Date / Product / Description / Qty / Unit price / Amount / COO
+ *   XLSX = Net weight (คอลัมน์ Z) + หน่วย (AA) + Delivery (Shipping mark) เท่านั้น
+ *   MASTER = EN DESC. / TH DESC. / TARIFF CODE / stat / brandName / BOI (จับคู่ด้วย PRODUCT)
+ * ══════════════════════════════════════════════════════════════ */
+const _groheTxt = v => v == null ? '' : String(v).trim();
+const _groheNum = v => { if(v === '' || v == null) return null; const n = parseFloat(String(v).replace(/,/g,'')); return isNaN(n) ? null : n; };
+// หาคอลัมน์จากชื่อหัวตาราง (ไม่สนช่องว่าง / ขึ้นบรรทัดใหม่ / ตัวพิมพ์) — ไม่พบ = ใช้ตำแหน่งสำรองตามไฟล์ต้นแบบ
+function _groheCol(hdr, names, fallback){
+  const norm = x => _groheTxt(x).replace(/\s+/g,'').toLowerCase().replace(/\.$/,'');
+  for(const n of names){ const i = hdr.findIndex(h => norm(h) === norm(n)); if(i >= 0) return i; }
+  for(const n of names){ const i = hdr.findIndex(h => norm(h).startsWith(norm(n))); if(i >= 0) return i; }
+  return fallback;
+}
+function _groheSheetAoa(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => { try{
+      const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      if(!ws) throw new Error('ไฟล์นี้ไม่มี sheet');
+      resolve(XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null}));
+    } catch(err){ reject(err); } };
+    reader.onerror = () => reject(new Error('FileReader error'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+/* XLSX — ใช้หา N.W. เท่านั้น (Net weight / Weight unit / Delivery / Material / Quantity / Billing Document) */
+async function readGroheNwXlsx(file){
+  const aoa = await _groheSheetAoa(file);
+  let hr = aoa.findIndex(r => (r || []).some(c => /net\s*weight/i.test(_groheTxt(c))));
+  if(hr < 0) hr = 0;
+  const hdr = (aoa[hr] || []).map(_groheTxt);
+  const cNw   = _groheCol(hdr, ['Net weight','Net Weight','น้ำหนักสุทธิ'], 25);
+  const cUnit = _groheCol(hdr, ['Weight unit','Weight Unit'], 26);
+  const cMat  = _groheCol(hdr, ['Material'], 23);
+  const cQty  = _groheCol(hdr, ['Quantità','Quantita','Quantity','Qty'], 24);
+  const cDel  = _groheCol(hdr, ['Delivery'], 8);
+  const cBill = _groheCol(hdr, ['Billing Document'], 0);
+  const cCtry = _groheCol(hdr, ['Paese (Partner Shipping)','Paese (Partner Ship','Country'], 15);
+  const rows = [];
+  for(let r = hr + 1; r < aoa.length; r++){
+    const a = aoa[r] || []; const mat = _groheTxt(a[cMat]);
+    if(!mat) continue;
+    rows.push({ srcRow:r + 1, billing:_groheTxt(a[cBill]), delivery:_groheTxt(a[cDel]), material:mat,
+                qty:_groheNum(a[cQty]), nw:_groheNum(a[cNw]), unit:_groheTxt(a[cUnit]), country:_groheTxt(a[cCtry]) });
+  }
+  if(!rows.length) throw new Error('ไม่พบข้อมูล N.W. ในไฟล์นี้ (ต้องมีคอลัมน์ Net weight)');
+  return rows;
+}
+/* MASTER — PRODUCT → EN/TH DESC. · TARIFF · stat · brandName · BOI (รักษาเลขศูนย์นำหน้า) */
+async function readGroheMaster(file){
+  const aoa = await _groheSheetAoa(file);
+  let hr = aoa.findIndex(r => (r || []).some(c => /^product$/i.test(_groheTxt(c))));
+  if(hr < 0) hr = 0;
+  const hdr = (aoa[hr] || []).map(_groheTxt);
+  const c = {
+    product:_groheCol(hdr, ['PRODUCT'], 0), en:_groheCol(hdr, ['EN DESC.','EN DESC'], 1), th:_groheCol(hdr, ['TH DESC.','TH DESC'], 2),
+    tariff:_groheCol(hdr, ['TARIFF CODE'], 3), stat:_groheCol(hdr, ['stat'], 4), brand:_groheCol(hdr, ['brandName/FIX','brandName'], 5),
+    boi:_groheCol(hdr, ['สิทธิประโยชน์ BOI/FIX ช่อง MAPPING','สิทธิประโยชน์ BOI'], 6), lic:_groheCol(hdr, ['BOI License No : /FIX ช่อง MAPPING','BOI License No'], 7),
+    lic2:_groheCol(hdr, ['เลขที่ใบอนุญาต/FIX ช่อง MAPPING','เลขที่ใบอนุญาต'], 8), org:_groheCol(hdr, ['หน่วยงาน/FIX ช่อง MAPPING','หน่วยงาน'], 9),
+    issued:_groheCol(hdr, ['วันที่ ออก/FIX ช่อง MAPPING','วันที่ ออก'], 10), preview:_groheCol(hdr, ['พีวิวโชว์/FIX ช่อง MAPPING','พีวิวโชว์'], 11),
+    lic2b:_groheCol(hdr, ['เลขที่ใบอนุญาต/2'], -1), org2:_groheCol(hdr, ['หน่วยงาน/2'], -1),
+    issued2:_groheCol(hdr, ['วันที่ ออก/ 2','วันที่ ออก/2'], -1), preview2:_groheCol(hdr, ['พีวิวโชว์/2'], -1),
+  };
+  const g = (a, i) => i >= 0 ? _groheTxt(a[i]) : '';
+  const rows = [];
+  for(let r = hr + 1; r < aoa.length; r++){
+    const a = aoa[r] || []; const p = _groheTxt(a[c.product]);
+    if(!p) continue;
+    rows.push({ srcRow:r + 1, product:p, en:g(a,c.en), th:g(a,c.th), tariff:g(a,c.tariff), stat:g(a,c.stat), brand:g(a,c.brand),
+                boi:g(a,c.boi), lic:g(a,c.lic), lic2:g(a,c.lic2), org:g(a,c.org), issued:g(a,c.issued), preview:g(a,c.preview),
+                lic2b:g(a,c.lic2b), org2:g(a,c.org2), issued2:g(a,c.issued2), preview2:g(a,c.preview2) });
+  }
+  if(!rows.length) throw new Error('ไม่พบข้อมูลใน MASTER (ต้องมีคอลัมน์ PRODUCT)');
+  return rows;
+}
+/* ONE-CLICK: กด ⬇ EXPORT EXCEL ครั้งเดียว → AI/Cache → ตรวจ → N.W. → MASTER → เรียง Invoice ASC → TOTAL → ดาวน์โหลด */
+async function doExportGROHE(){
+  if(typeof groheAiExportBegin !== 'function'){ toast('ระบบ AI ของ GROHE SIAM ยังไม่พร้อม — รีโหลดหน้าเว็บ', 'err'); return; }
+  if(!groheAiExportBegin()){ toast('กำลังประมวลผล EXPORT อยู่ — ใช้งานเดิม ไม่สร้างงาน AI ซ้ำ', 'warn'); return; }
+  let ok = false;
+  try{ const r = await _doExportGROHERun(); ok = (r === true || r === 'partial') ? r : false; }
+  catch(e){ console.error('doExportGROHE:', e); toast('Export ไม่สำเร็จ: ' + ((e && e.message) || e), 'err'); }
+  finally { groheAiExportDone(ok); }
+}
+async function _doExportGROHERun(){
+  const _ai = await groheAiExport();
+  if(!_ai.ok){ toast(_ai.msg, 'err'); return false; }
+  const HEADERS = [
+    "INVOICE NO./คีย์ มือแมนนวน จาก INVOICE PDF",
+    "INVOICE DATE",
+    "ITEMS",
+    "PRODUCT",
+    "EN DESC.",
+    "TH DESC.",
+    "Qty. Inv+Qty ใบขน",
+    "หน่วย Qty. Inv+ใบขน /FIX",
+    "Unit price",
+    "Amont/คีย์ มือแมนนวน จาก INVOICE ยอด Net value",
+    "Currency",
+    "หีบห่อ",
+    "หน่วยหีบห่อ",
+    "NET WEIGHT",
+    "GROSS WEIGHT",
+    "Shippimg mark ",
+    "Purchase Country",
+    "COO/Country of Origin",
+    "Product Year / fix",
+    "TARIFF CODE",
+    "stat/จับผ่าน MASTER",
+    "brandName",
+    "สิทธิประโยชน์ BOI/ fix",
+    "BOI License No : fix",
+    "เลขที่ใบอนุญาต/ fix",
+    "หน่วยงาน/ fix",
+    "วันที่ ออก/ fix แบบรันออโต้ต่อวันที่ทำmapping เลยได้หรือไม่",
+    "พีวิวโชว์/ fix",
+    "เลขที่ใบอนุญาต/2",
+    "หน่วยงาน/2",
+    "วันที่ ออก/ 2",
+    "พีวิวโชว์/2",
+  ];
+  const SUM_COLS = [6, 9, 13];          // G Qty · J Amount · N NET WEIGHT (ไม่รวม Unit price ที่เป็นอัตรา · ไม่รวม ITEMS / Invoice / Product / Tariff ที่เป็นรหัส)
+  const aoa = [HEADERS];
+  _ai.rows.forEach((x, idx) => {
+    const m = x.m, i = x.i, it = i.it, ms = i.ms, nw = i.nw || {};
+    const invNo = /^\d{1,15}$/.test(m.invoiceNo) ? Number(m.invoiceNo) : m.invoiceNo;
+    const [yy, mm, dd] = m.date.split('-').map(Number);
+    const prod = /^\d{1,15}$/.test(_groheTxt(it.product)) ? Number(it.product) : _groheTxt(it.product);
+    aoa.push([
+      invNo,                                   // A INVOICE NO. — PDF
+      new Date(yy, mm - 1, dd),                // B INVOICE DATE — PDF
+      idx + 1,                                 // C ITEMS — ลำดับที่ส่งออก
+      prod,                                    // D PRODUCT — PDF (เลขล้วน = ตัวเลข · มีตัวอักษร = ข้อความ)
+      ms.en, ms.th,                            // E/F EN DESC. · TH DESC. — MASTER
+      i.qty,                                   // G Qty — PDF
+      'C62',                                   // H หน่วย — FIX
+      i.unitPrice,                             // I Unit price = Amount ÷ Qty
+      i.amount,                                // J Amount — PDF
+      m.currency,                              // K Currency — PDF
+      '', '',                                  // L/M หีบห่อ — ไม่มีข้อมูล
+      _groheNum(nw.nw),                        // N NET WEIGHT — XLSX คอลัมน์ Z
+      '',                                      // O GROSS WEIGHT — ไม่มีข้อมูล
+      nw.delivery ? nw.delivery + ' Address' : '',  // P Shipping mark — Delivery จาก XLSX
+      nw.country || '',                        // Q Purchase Country — XLSX
+      _groheTxt(it.coo),                       // R COO — PDF
+      yy,                                      // S Product Year — ปีของ Invoice Date
+      ms.tariff, ms.stat, ms.brand, ms.boi, ms.lic, ms.lic2, ms.org, ms.issued, ms.preview,   // T–AB MASTER
+      ms.lic2b || '', ms.org2 || '', ms.issued2 || '', ms.preview2 || '',                      // AC–AF MASTER (ถ้ามีในไฟล์ Master)
+    ]);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(aoa, {cellDates:true});
+  ws['!cols'] = [{wch:14},{wch:12},{wch:7},{wch:12},{wch:34},{wch:34},{wch:10},{wch:10},{wch:12},{wch:12},{wch:9},{wch:9},{wch:9},
+                 {wch:12},{wch:12},{wch:20},{wch:9},{wch:9},{wch:9},{wch:12},{wch:9},{wch:11},{wch:9},{wch:30},{wch:20},{wch:16},{wch:12},{wch:9},{wch:14},{wch:16},{wch:12},{wch:9}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'MAPPING');
+  // TOTAL จากข้อมูลที่เขียนลงไฟล์จริง → แสดงเหนือปุ่ม EXPORT ก่อนดาวน์โหลด
+  if(typeof groheAiTotals === 'function') groheAiTotals([{ file:CUSTOMERS.grohe.exportName, sheet:'MAPPING', headers:HEADERS, rows:aoa.slice(1) }], SUM_COLS);
+  const bin = XLSX.write(wb, {type:'array', bookType:'xlsx', cellDates:true});
+  const blob = new Blob([bin], {type:'application/octet-stream'});
+  const a = document.createElement('a'); const url = URL.createObjectURL(blob);
+  a.href = url; a.download = CUSTOMERS.grohe.exportName;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  if(_ai.partial){ toast(`⚠ ${_ai.msg} · ${CUSTOMERS.grohe.exportName} (${aoa.length - 1} รายการ) — ดูรายการที่ข้ามในสรุปบนหน้าจอ`, 'warn'); return 'partial'; }
+  toast(`✓ Export: ${CUSTOMERS.grohe.exportName} (${_ai.exported.length} Invoice · ${aoa.length - 1} รายการ)`, 'ok');
+  return true;
+}
 
 /* ══════════════════════════════════════════════════════════════
  * DELTA TRUCK — INVOICE PDF + PACKING PDF → Mapping Excel
@@ -7826,6 +8080,8 @@ async function doLogin(){
 
   if(match){
     _currentUser = match;
+    try{ if(srvSession){ if(typeof groheAiSetSession === 'function') groheAiSetSession(srvSession); }
+         else if(typeof groheAiUseSupabaseAuth === 'function') groheAiUseSupabaseAuth(match.username); } catch(e){}   // GROHE SIAM AI ใช้ Session เดียวกับการ Login
     try{ if(srvSession){ if(typeof shellAiSetSession === 'function') shellAiSetSession(srvSession); }
          else if(typeof shellAiUseSupabaseAuth === 'function') shellAiUseSupabaseAuth(match.username); } catch(e){}   // THE SHELL AI ใช้ Session เดียวกับ Login
     if(err) err.style.display = 'none';
@@ -7902,6 +8158,7 @@ function doLogout(){
   if(!confirm('ยืนยันออกจากระบบ?\n(ข้อมูล Master ที่ Save ไว้ใน localStorage จะยังอยู่)')) return;
   _currentUser = null;
   try{ if(typeof shellAiLogout === 'function'){ shellAiLogout(); shellAiReset(); } } catch(e){}
+  try{ if(typeof groheAiLogout === 'function'){ groheAiLogout(); groheAiReset(); } } catch(e){}
   document.getElementById('login-wrap').style.display = 'flex';
   const pe = document.getElementById('login-p'); if(pe) pe.value = '';
   const ue = document.getElementById('login-u'); if(ue) ue.value = '';
@@ -9136,7 +9393,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
 </script>
 <script>
 /* ═══════════════════════════════════════════════════════════════════════════
- * THE SHELL — ONE-CLICK AI EXPORT (local310)
+ * THE SHELL — ONE-CLICK AI EXPORT (local312)
  * อัปโหลด INV.xlsx + INVOICE PDF หลายไฟล์ → กด ⬇ EXPORT EXCEL ครั้งเดียว
  *   → Cache/AI อ่าน PDF (nj-invoice-ai-shell · Background Job + Polling) → ตรวจอัตโนมัติ → MAPPING → ดาวน์โหลดอัตโนมัติ
  * ไม่มีปุ่มตรวจสอบ / ติ๊กยืนยัน / ยืนยันก่อน MAPPING — กดครั้งเดียวได้ไฟล์
@@ -9149,6 +9406,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
  * MAPPING (local307): 1 รายการ PDF ↔ 1 แถว Excel เท่านั้น — จับคู่ซ้ำ / กำกวม = หยุด Export
  * local308: กรอบ PDF อยู่แถวเดียวกับ Invoice / Brand Map (#sai-zone) · สถานะ AI มาจากการตรวจที่ Server (probe) เท่านั้น
  *   จับคู่ตามเอกสารจริง: Invoice ↔ Excel G ด้วย Delivery Number ใน PDF · Product Code = Material · น้ำหนักสุทธิ KG = Excel M
+ * local312: ก่อนดาวน์โหลด — เรียง Invoice น้อย→มาก · คำนวณ TOTAL ทุกคอลัมน์ปริมาณจากข้อมูลที่เขียนลง Excel จริง แล้วแสดงตารางสรุปเหนือปุ่ม EXPORT EXCEL
  * local310: Qty. ใบขน = INV.xlsx → Total Vol.(L) (คอลัมน์ O) ของแถว Excel ที่จับคู่และตรวจแล้ว โดยอัตโนมัติ 100% — หน่วย L · ไม่มีการเลือกที่มา
  *   ไม่ใช้ Quantity / น้ำหนัก / จำนวนหีบห่อจาก PDF · ไม่คำนวณ ไม่แปลงหน่วย · ช่องว่าง = แจ้งเฉพาะรายการนั้น (ไม่ใส่ 0) · ไม่อ่านค่าที่มาที่เคยเลือกไว้ในเครื่อง (ค่าเก่าใน Browser ไม่มีผล)
  * ═══════════════════════════════════════════════════════════════════════════ */
@@ -9224,7 +9482,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   window.shellAiReset = function(){
     if(S.exporting){ toast_('กำลังประมวลผล EXPORT — รอให้เสร็จก่อน', 'warn'); return; }
     S.files.forEach(f => { if(f.url) try{ URL.revokeObjectURL(f.url); } catch(e){} });
-    S.files = []; S.inv = {}; S.item = {}; S.report = null; S.pend = null; S.lastOk = false; S.problemsOnly = true; render();
+    S.files = []; S.inv = {}; S.item = {}; S.report = null; totalsClear(); S.pend = null; S.lastOk = false; S.problemsOnly = true; render();
   };
 
   /* ── API ─────────────────────────────────────────────── */
@@ -9293,7 +9551,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
           Object.assign(f, { pages:n, status:ST.WAIT, msg:'' });
           if(S.orphans[f.sha]){ applyResult(f, S.orphans[f.sha]); delete S.orphans[f.sha]; }
         } catch(e){ f.status = ST.FAIL; f.bad = true; f.msg = (e && e.message) || 'อ่านไฟล์ไม่ได้'; }
-        S.report = null; S.lastOk = false; render();
+        S.report = null; totalsClear(); S.lastOk = false; render();
       }
     })();
     prepping.add(job); try{ await job; } finally { prepping.delete(job); }
@@ -9302,16 +9560,16 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     if(S.exporting){ toast_('กำลังประมวลผล EXPORT — รอให้เสร็จก่อนลบ', 'warn'); return; }
     const f = S.files.find(x => x.id === id); if(!f) return;
     if(f.url) try{ URL.revokeObjectURL(f.url); } catch(e){}
-    S.files = S.files.filter(x => x !== f); S.report = null; S.lastOk = false; render();
+    S.files = S.files.filter(x => x !== f); S.report = null; totalsClear(); S.lastOk = false; render();
   }
   // ตรวจใหม่ (รายไฟล์): ไฟล์ที่ยังไม่มีผล = อ่านซ้ำเฉพาะไฟล์นั้น (Server ตรวจ Cache ก่อน) · ไฟล์ที่มีผลแล้ว = ตรวจข้อมูลซ้ำจากผลเดิม ไม่เรียก API
   async function retryFile(id){
     const f = S.files.find(x => x.id === id); if(!f || f.busy) return;
     if(S.exporting){ toast_('กำลังประมวลผล EXPORT — รอให้เสร็จก่อน', 'warn'); return; }
-    if(f.result){ S.report = null; render(); toast_(`ตรวจ ${f.name} ใหม่จากผล AI เดิม (ไม่เรียก API ซ้ำ)`, 'ok'); return; }
+    if(f.result){ S.report = null; totalsClear(); render(); toast_(`ตรวจ ${f.name} ใหม่จากผล AI เดิม (ไม่เรียก API ซ้ำ)`, 'ok'); return; }
     if(f.bad){ toast_(`${f.name}: ${f.msg} — ลบแล้วแนบไฟล์ที่ถูกต้อง`, 'warn'); return; }
     if(!S.authMode){ toast_('ยังไม่ได้เข้าสู่ระบบ', 'err'); return; }
-    f.busy = true; S.report = null;
+    f.busy = true; S.report = null; totalsClear();
     const job = (async () => {
       try{ f.status = ST.PREP; f.msg = 'กำลังตรวจสอบเอกสาร'; render();
         if(S.authPromise) await S.authPromise;
@@ -9542,7 +9800,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     S.pend = null;
     if(prepping.size){ setPhase('กำลังเตรียมไฟล์ PDF...'); await Promise.all([...prepping]); }
     if(!S.files.length) return { ok:false, msg:'กรุณาแนบ INVOICE PDF อย่างน้อย 1 ไฟล์ — ไม่มีเอกสารต้นทางสำหรับ AI (แนบแล้วกด ⬇ EXPORT EXCEL)' };
-    S.report = null;
+    S.report = null; totalsClear();
     const sig0 = filesSig();
     // 0) Session / สิทธิ์ / Function / API Key / nj_ai_jobs — ตรวจที่ Server ทุกครั้งก่อนอ่าน PDF และ Export (probe ไม่เรียก AI)
     if(!S.authMode) return { ok:false, msg:'ยังไม่ได้เข้าสู่ระบบ' };
@@ -9590,9 +9848,47 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     return { ok:true, map, order, rows, partial, msg, skipped:ev.skipped, exported:S.pend.exported };
   };
 
+  /* ── TOTAL ทุกคอลัมน์ปริมาณ (local312) — คำนวณจากข้อมูลที่เขียนลง Excel จริง (เฉพาะแถวที่ส่งออกจริง) ─────────── */
+  const totalPanel = id => document.getElementById(id || 'shell-total-panel');     // local313: ใช้ร่วมกับโหมด GROHE SIAM ได้ (ส่ง id ของกรอบมา)
+  function totalsClear(id){ const p = totalPanel(id); if(p){ p.innerHTML = ''; p.style.display = 'none'; } }
+  window.shellAiTotalsClear = totalsClear;
+  const colLetter = c => { let s = '', n = c + 1; while(n > 0){ const k = (n - 1) % 26; s = String.fromCharCode(65 + k) + s; n = Math.floor((n - 1) / 26); } return s; };
+  const sumRound = (a, d) => Math.round(a * Math.pow(10, d)) / Math.pow(10, d);
+  // sheets = [{ file, sheet, headers, rows }] — rows = แถวข้อมูลที่เขียนลงไฟล์ (ไม่รวมแถวหัวตาราง) · measure = ลำดับคอลัมน์ปริมาณตามโครงสร้าง Master
+  window.shellAiTotals = function(sheets, measure, panelId){
+    const p = totalPanel(panelId); if(!p) return null;
+    if(!sheets || !sheets.length){ totalsClear(panelId); return null; }
+    const hdr = (sheets[0].headers || []).map(h => String(h == null ? '' : h).replace(/[\t\r\n]+/g, ' ').trim());
+    const nCol = hdr.length;
+    const cells = c => { const out = []; sheets.forEach(s => s.rows.forEach(r => { const v = r[c]; if(v != null && v !== '') out.push(v); })); return out; };
+    const isNum = c => { const v = cells(c); return v.length > 0 && v.every(x => typeof x === 'number' && isFinite(x)); };
+    const cols = (measure || []).filter(c => c < nCol && isNum(c));
+    const skipped = [];                                   // คอลัมน์ตัวเลขที่เป็นเลขอ้างอิง (item / Invoice / HS CODE) — ไม่นำมารวม
+    for(let c = 0; c < nCol; c++) if(cols.indexOf(c) < 0 && isNum(c)) skipped.push(hdr[c] || colLetter(c));
+    if(!cols.length){ totalsClear(panelId); return null; }
+    // หน่วยของคอลัมน์: คอลัมน์ถัดไปที่เป็นข้อความและมีค่าเดียวทั้งไฟล์ (เช่น Amount → Currency) — อ่านจากข้อมูลจริง ไม่กำหนดตายตัว
+    const unitOf = c => { if(c + 1 >= nCol) return ''; const v = cells(c + 1); if(!v.length || !v.every(x => typeof x === 'string' && x.length <= 12)) return '';
+      const u = [...new Set(v.map(x => x.trim()))]; return u.length === 1 ? u[0] : ''; };
+    const dec = c => Math.min(3, cells(c).reduce((d, v) => Math.max(d, (String(v).split('.')[1] || '').length), 0));
+    const meta = cols.map(c => ({ c, head: hdr[c] || colLetter(c), col: colLetter(c), unit: unitOf(c), d: dec(c) }));
+    const sumOf = (rows, c, d) => sumRound(rows.reduce((t, r) => t + (typeof r[c] === 'number' ? r[c] : 0), 0), d);
+    const per = sheets.map(s => ({ file:s.file, sheet:s.sheet, n:s.rows.length, v:meta.map(x => sumOf(s.rows, x.c, x.d)) }));
+    const all = sheets.reduce((a, s) => a.concat(s.rows), []);
+    const grand = { n:all.length, v:meta.map(x => sumOf(all, x.c, x.d)) };
+    const nFile = new Set(sheets.map(s => s.file)).size;
+    const th = meta.map(x => `<th class="sai-num">${esc(x.head)}${x.unit ? ` (${esc(x.unit)})` : ''}<div class="sai-msg">คอลัมน์ ${esc(x.col)}</div></th>`).join('');
+    const body = per.map(r => `<tr><td>${esc(r.file)}</td><td>${esc(r.sheet)}</td><td class="sai-num">${r.n}</td>${r.v.map((v, k) => `<td class="sai-num">${fmt(v, meta[k].d)}</td>`).join('')}</tr>`).join('');
+    const foot = `<tr class="sai-grand"><td colspan="2">TOTAL ทั้งหมด (${nFile} ไฟล์ · ${sheets.length} Sheet)</td><td class="sai-num">${grand.n}</td>${grand.v.map((v, k) => `<td class="sai-num">${fmt(v, meta[k].d)}</td>`).join('')}</tr>`;
+    p.innerHTML = `<h2>🧮 TOTAL ก่อน EXPORT — ทุกคอลัมน์ปริมาณในไฟล์ Excel ที่จะดาวน์โหลด</h2>
+      <div class="sai-scroll"><table class="sai-tbl sai-total" id="sai-total-tbl"><thead><tr><th>ไฟล์</th><th>Sheet</th><th class="sai-num">แถว</th>${th}</tr></thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table></div>
+      <div class="sai-msg">รวมเฉพาะแถวที่ส่งออกจริง · Invoice เรียงน้อย→มาก${skipped.length ? ` · ไม่รวมคอลัมน์ที่เป็นเลขอ้างอิง: ${esc(skipped.join(', '))}` : ''}</div>`;
+    p.style.display = '';
+    return { meta:meta.map(x => ({ col:x.col, head:x.head, unit:x.unit })), per, grand };
+  };
+
   /* ── UI ──────────────────────────────────────────────── */
   function panel(){ return document.getElementById('shell-ai-panel'); }
-  window.shellAiMount = function(key){ S.mounted = key === 'shell'; const p = panel(); if(p && !S.mounted) p.style.display = 'none'; if(S.mounted){ if(!S.exporting) setPhase(S.phase); render(); } };
+  window.shellAiMount = function(key){ S.mounted = key === 'shell'; const p = panel(); if(p && !S.mounted){ p.style.display = 'none'; totalsClear(); } if(S.mounted){ if(!S.exporting) setPhase(S.phase); render(); } };
   function sessBox(){
     const name = esc(String((S.user && S.user.username) || '').toUpperCase());
     if(S.sessState === 'ok') return `<span class="sai-pill sai-ok">AI พร้อมใช้งาน · ${name}</span>`;
@@ -9736,9 +10032,9 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     p.querySelectorAll('[data-act]').forEach(b => b.onclick = e => { e.preventDefault(); act(b); });
     p.querySelectorAll('[data-inv]').forEach(el => el.onchange = () => { if(S.exporting) return; const o = S.inv[el.dataset.inv] || (S.inv[el.dataset.inv] = {}); o[el.dataset.f] = el.value;
       if(el.dataset.f === 'excelGroup') Object.keys(S.item).forEach(k => { if(k.startsWith(el.dataset.inv + '/')) delete S.item[k].excelKey; });
-      S.report = null; S.lastOk = false; render(); });
+      S.report = null; totalsClear(); S.lastOk = false; render(); });
     p.querySelectorAll('[data-item]').forEach(el => el.onchange = () => { if(S.exporting) return; const e = S.item[el.dataset.item] || (S.item[el.dataset.item] = {}); const f = el.dataset.f;
-      e[f] = f === 'amount' ? num(el.value) : el.value; S.report = null; S.lastOk = false; render(); });
+      e[f] = f === 'amount' ? num(el.value) : el.value; S.report = null; totalsClear(); S.lastOk = false; render(); });
   }
 
   /* ── CSS (เฉพาะแผงนี้ · รองรับมือถือ) ─────────────────── */
@@ -9769,11 +10065,494 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   .sai-sub{margin-top:10px;font-size:12px;font-weight:700;color:var(--text2,var(--text))}
   .sai-rep{margin-top:10px;padding:10px;border-radius:8px;font-size:12px;max-height:300px;overflow:auto}.sai-repl{margin-top:4px;word-break:break-word}
   .sai-repok{border:1px solid rgba(16,185,129,.45);color:#10b981}.sai-repwarn{border:1px solid rgba(245,158,11,.55);color:#f59e0b}
+  #shell-total-panel{margin-top:12px}#shell-total-panel h2{font-size:13px;margin:0 0 6px}
+  .sai-total tfoot td{font-weight:700;border-top:2px solid var(--border2);background:rgba(245,158,11,.08)}
   .sai-blk{margin-top:10px;padding:10px;border:1px solid rgba(239,68,68,.4);border-radius:8px;font-size:12px;color:#ef4444;max-height:260px;overflow:auto}
   @media (max-width:900px){.sai-sum{grid-template-columns:repeat(3,minmax(0,1fr))}.sai-sum .sai-wide{grid-column:span 3}.sai-tbl{font-size:11px}.sai-desc{min-width:160px}}
   @media (max-width:520px){.sai-sum{grid-template-columns:repeat(2,minmax(0,1fr))}.sai-sum .sai-wide{grid-column:span 2}.sai-actions .btn{flex:1 1 auto}}`;
   document.head.appendChild(css);
 })();
 </script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+ * GROHE SIAM — ONE-CLICK AI EXPORT (local313)
+ * อัปโหลด INVOICE PDF (AI) + XLSX (N.W. เท่านั้น) + MASTER → กด ⬇ EXPORT EXCEL ครั้งเดียว
+ *   → Cache/AI อ่าน PDF (nj-invoice-ai-grohe · Background Job + Polling) → ตรวจ → หา N.W. → MASTER MAPPING
+ *   → เรียง Invoice น้อย→มาก → TOTAL → ดาวน์โหลด
+ * PDF = แหล่งข้อมูลเดียวของ Invoice No. / Date / Product / Description / Qty / Unit Price / Amount / COO
+ * XLSX = ใช้หา Net weight (คอลัมน์ Z) + หน่วย (AA) + Delivery (Shipping mark) เท่านั้น — ไม่ทับข้อมูลจาก PDF
+ * MASTER = EN DESC. / TH DESC. / TARIFF CODE / stat / brandName / BOI (จับคู่ด้วย PRODUCT)
+ * ไฟล์ใหญ่เกิน 8 MB: แบ่งเป็นช่วงหน้าอัตโนมัติ (pdf-lib) แล้วรวมผลตาม Invoice — ไม่ตัดรายการทิ้ง
+ * แยกจาก THE SHELL ทุกส่วน: Edge Function / Prompt / prompt_ver / Cache ของตัวเอง
+ * ═══════════════════════════════════════════════════════════════════════════ */
+(function(){
+  'use strict';
+  const FN_URL = SUPA_URL + '/functions/v1/nj-invoice-ai-grohe';
+  const JOBS_KEY = 'grohe_ai_jobs_v1';
+  const MAX_BYTES = 8 * 1024 * 1024, CHUNK_TARGET = 6.5 * 1024 * 1024;
+  const BTN_LABEL = '⬇ EXPORT EXCEL';
+  const ST = { WAIT:'รอการตรวจสอบ', PREP:'กำลังเตรียมไฟล์', AI:'กำลังอ่านด้วย AI', OK:'อ่านสำเร็จ', FAIL:'อ่านไม่สำเร็จ' };
+  const G = window.groheAi = {
+    session:null, user:null, sessState:'none', sessMsg:'', authMode:'', authPromise:null, showDetail:false, mounted:false,
+    files:[], orphans:{}, exporting:false, phase:'', report:null, pend:null, lastOk:false
+  };
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const num = v => { if(v == null || v === '') return null; const n = parseFloat(String(v).replace(/,/g,'')); return isFinite(n) ? n : null; };
+  const fmt = (x, d=2) => x == null ? '—' : Number(x).toLocaleString('en-US', {minimumFractionDigits:d, maximumFractionDigits:d});
+  const U = s => String(s == null ? '' : s).trim().toUpperCase();
+  const key8 = s => { const t = String(s == null ? '' : s).trim(); return /^\d+$/.test(t) ? t.replace(/^0+/, '') || '0' : t.toUpperCase(); };
+  const eq = (a, b) => a != null && b != null && Math.abs(a - b) < 0.0005;
+  const invCmp = (a, b) => { const A = String(a||''), B = String(b||''); if(/^\d+$/.test(A) && /^\d+$/.test(B)) return A.length - B.length || (A < B ? -1 : A > B ? 1 : 0); return A.localeCompare(B); };
+  const toast_ = (m, t) => { try{ toast(m, t); } catch(e){} };
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  /* ── ปุ่ม EXPORT EXCEL ─────────────────────────────────── */
+  function setPhase(t){ G.phase = t || ''; const b = document.getElementById('u-btn-grohe'); if(b) b.textContent = G.phase ? '⏳ ' + G.phase : BTN_LABEL; }
+  window.groheAiExportBegin = function(){ if(G.exporting) return false; G.exporting = true; G.lastOk = false; return true; };
+  window.groheAiExportBusy = function(){ return G.exporting; };
+  window.groheAiExportDone = function(ok){
+    G.exporting = false;
+    if(ok){ G.lastOk = true; if(G.pend) G.report = G.pend; setPhase('ดาวน์โหลดสำเร็จ');
+      const b = document.getElementById('u-btn-grohe'); if(b) b.textContent = ok === 'partial' ? '⚠ สำเร็จบางส่วน' : '✓ ดาวน์โหลดสำเร็จ';
+      setTimeout(() => { if(!G.exporting) setPhase(''); }, 4000); }
+    else setPhase('');
+    G.pend = null; render();
+  };
+
+  /* ── Session / ความพร้อม AI (probe — ไม่เรียก Claude · ไม่มีค่า API) ── */
+  function verify(){
+    G.sessState = 'checking'; G.sessMsg = ''; render();
+    G.authPromise = (async () => { const { status, j } = await api({ action:'probe' });
+      if(status === 200 && j && j.success){
+        if(j.api_key === false){ G.sessState = 'fail'; G.sessMsg = 'Server ยังไม่ได้ตั้งค่า ANTHROPIC_API_KEY — AI อ่าน PDF ไม่ได้ (ตรวจพบจาก probe · HTTP 200)'; }
+        else if(j.jobs === false){ G.sessState = 'fail'; G.sessMsg = 'Edge Function เข้าถึงตารางงาน AI (nj_ai_jobs) ไม่ได้ (ตรวจพบจาก probe · HTTP 200)'; }
+        else { G.sessState = 'ok'; G.sessMsg = ''; G.showDetail = false; resumeOrphans(); } }
+      else { G.sessState = status === 401 ? 'expired' : status === 403 ? 'denied' : 'fail'; G.sessMsg = (j && j.msg) || 'ไม่สามารถเชื่อมต่อระบบ AI ได้'; }
+      G.authPromise = null; render(); })();
+    return G.authPromise;
+  }
+  window.groheAiSetSession = function(d){ G.authMode = 'token'; G.session = d.session; G.user = { username:d.username, role:d.role }; return verify(); };
+  window.groheAiUseSupabaseAuth = function(username){ G.authMode = 'jwt'; G.session = null; G.user = { username, role:null }; return verify(); };
+  window.groheAiLogout = function(){ G.session = null; G.user = null; G.sessState = 'none'; G.authMode = ''; G.authPromise = null; };
+  window.groheAiReset = function(){
+    if(G.exporting){ toast_('กำลังประมวลผล EXPORT — รอให้เสร็จก่อน', 'warn'); return; }
+    G.files.forEach(f => { if(f.url) try{ URL.revokeObjectURL(f.url); } catch(e){} });
+    G.files = []; G.report = null; G.pend = null; G.lastOk = false; totalsClear(); render();
+  };
+
+  /* ── API ─────────────────────────────────────────────── */
+  async function credential(){
+    if(G.authMode === 'token') return G.session ? { session:G.session } : null;
+    if(G.authMode === 'jwt'){ try{ const sb = initSupabase(); const { data } = await sb.auth.getSession(); const t = data && data.session && data.session.access_token; return t ? { access_token:t } : null; } catch(e){ return null; } }
+    return null;
+  }
+  function explain(status, j, kind){
+    const srv = j && typeof j.error === 'string' && j.msg ? j.msg : '';
+    if(kind === 'timeout') return 'ติดต่อระบบ AI ไม่ได้ — หมดเวลารอ (Timeout · ไม่มี HTTP Code) กรุณาลองใหม่';
+    if(kind === 'network') return 'ติดต่อ Edge Function nj-invoice-ai-grohe ไม่ได้ — เครือข่ายขัดข้อง หรือ Browser ถูกปฏิเสธการเชื่อมต่อ (CORS) หรือ Function ยังไม่ได้ Deploy (ไม่มี HTTP Code)';
+    if(status === 401) return (srv || 'Session ไม่ถูกต้องหรือหมดอายุ กรุณาเข้าสู่ระบบใหม่') + ' (401)';
+    if(status === 403) return (srv || 'ไม่มีสิทธิ์ใช้งาน') + ' (403)';
+    if(status === 404 && !srv) return 'ไม่พบ Edge Function nj-invoice-ai-grohe (404) — Function ยังไม่ได้ Deploy';
+    if(status === 429) return 'มีการจำกัดจำนวนคำขอ (429) — รอสักครู่แล้วลองใหม่';
+    if(status >= 500) return (srv || 'ระบบ Server หรือ Function ขัดข้อง') + ` (${status})`;
+    return (srv || 'ระบบ AI ตอบผิดพลาด') + ` (${status})`;
+  }
+  async function api(body, timeoutMs){
+    let res, j = null;
+    const cred = await credential();
+    if(!cred){ G.sessState = 'expired'; G.sessMsg = 'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่ (401)'; return { status:401, j:{ success:false, error:'unauthorized', msg:G.sessMsg } }; }
+    const ac = new AbortController(), tm = setTimeout(() => ac.abort(), timeoutMs || 45000);
+    try{ res = await fetch(FN_URL, { method:'POST', signal:ac.signal, headers:{ 'Content-Type':'application/json', apikey:SUPA_ANON_KEY, Authorization:'Bearer ' + SUPA_ANON_KEY }, body:JSON.stringify({ ...cred, ...body }) }); }
+    catch(e){ const kind = e && e.name === 'AbortError' ? 'timeout' : 'network'; console.warn('[grohe-ai]', { action:body.action || 'read', kind });
+      return { status:0, j:{ success:false, error:kind, msg:explain(0, null, kind) } }; }
+    finally { clearTimeout(tm); }
+    try{ j = await res.json(); } catch(e){ j = null; }
+    if(!res.ok || !j || j.success === false){ console.warn('[grohe-ai]', { action:body.action || 'read', status:res.status, error:j && j.error });
+      if(!res.ok || !j) j = { success:false, error:(j && typeof j.error === 'string' && j.error) || 'http_' + res.status, msg:explain(res.status, j) }; }
+    if(res.status === 401){ G.sessState = 'expired'; G.sessMsg = j.msg; if(G.authMode === 'token') G.session = null; }
+    if(res.status === 403 && j.error === 'forbidden'){ G.sessState = 'denied'; G.sessMsg = j.msg; }
+    return { status:res.status, j };
+  }
+  const jobsGet = () => { try{ return JSON.parse(sessionStorage.getItem(JOBS_KEY) || '{}') || {}; } catch(e){ return {}; } };
+  const jobsSet = o => { try{ sessionStorage.setItem(JOBS_KEY, JSON.stringify(o)); } catch(e){} };
+  function jobRemember(sha, jobId, name){ const o = jobsGet(); o[sha] = { job_id:jobId, name, at:Date.now() }; jobsSet(o); }
+  function jobForget(sha){ const o = jobsGet(); delete o[sha]; jobsSet(o); }
+
+  /* ── รับไฟล์ PDF · นับหน้า · แบ่งไฟล์ใหญ่เป็นช่วงหน้า ── */
+  async function sha256(buf){ const d = await crypto.subtle.digest('SHA-256', buf); return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2,'0')).join(''); }
+  async function pageCount(buf){ const doc = await pdfjsLib.getDocument({ data:new Uint8Array(buf.slice(0)) }).promise; const n = doc.numPages; try{ doc.destroy(); } catch(e){} return n; }
+  // แบ่ง PDF ที่ใหญ่เกิน 8 MB เป็นช่วงหน้าต่อเนื่อง (ไม่ข้ามหน้า ไม่สลับลำดับ) — ผลอ่านจะถูกรวมกลับตาม Invoice
+  async function splitPdf(buf, pages){
+    const src = await PDFLib.PDFDocument.load(buf, { ignoreEncryption:true });
+    const per = Math.max(1, Math.floor(pages / Math.ceil(buf.byteLength / CHUNK_TARGET)));
+    const parts = []; let from = 0;
+    while(from < pages){
+      let take = Math.min(per, pages - from), bytes = null;
+      while(take >= 1){
+        const doc = await PDFLib.PDFDocument.create();
+        const idx = []; for(let i = 0; i < take; i++) idx.push(from + i);
+        const cp = await doc.copyPages(src, idx); cp.forEach(p => doc.addPage(p));
+        bytes = await doc.save();
+        if(bytes.byteLength <= MAX_BYTES) break;
+        take = Math.floor(take / 2); bytes = null;
+      }
+      if(!bytes) throw new Error('หน้า PDF เดี่ยวใหญ่เกิน 8 MB — กรุณาลดความละเอียดไฟล์สแกน');
+      parts.push({ from:from + 1, to:from + take, bytes });
+      from += take;
+    }
+    return parts;
+  }
+  const prepping = new Set();
+  async function addFiles(list){
+    if(G.exporting){ toast_('กำลังประมวลผล EXPORT — เพิ่มไฟล์หลังจากเสร็จ', 'warn'); return; }
+    const arr = [...(list || [])];
+    const job = (async () => {
+      for(const file of arr){
+        if(!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf'){ toast_(`❌ ${file.name}: รับเฉพาะไฟล์ PDF`, 'err'); continue; }
+        const f = { id:'g' + Date.now().toString(36) + Math.random().toString(36).slice(2,7), file, name:file.name, size:file.size, sha:'', pages:0,
+                    status:ST.PREP, msg:'กำลังเตรียมไฟล์ PDF', parts:[], url:null, bad:false, busy:false };
+        G.files.push(f); render();
+        try{
+          const buf = await file.arrayBuffer();
+          const head = new Uint8Array(buf.slice(0, 4)); if(!(head[0]===0x25 && head[1]===0x50 && head[2]===0x44 && head[3]===0x46)) throw new Error('เนื้อไฟล์ไม่ใช่ PDF');
+          f.sha = await sha256(buf);
+          const dup = G.files.find(x => x !== f && x.sha === f.sha);
+          if(dup){ G.files = G.files.filter(x => x !== f); toast_(`⚠ พบไฟล์ซ้ำ: ${file.name} = ${dup.name} (SHA-256 เดียวกัน) — ไม่เพิ่มซ้ำ`, 'warn'); render(); continue; }
+          let n; try{ n = await pageCount(buf); } catch(e){ throw new Error('ไฟล์ PDF เสียหาย หรือเปิดไม่ได้'); }
+          if(!n) throw new Error('PDF ไม่มีหน้า');
+          f.pages = n;
+          if(buf.byteLength <= MAX_BYTES) f.parts = [{ from:1, to:n, bytes:new Uint8Array(buf) }];
+          else { f.msg = 'ไฟล์ใหญ่เกิน 8 MB — กำลังแบ่งเป็นช่วงหน้า'; render(); f.parts = await splitPdf(buf, n); }
+          for(const p of f.parts){ p.sha = await sha256(p.bytes.buffer.slice(p.bytes.byteOffset, p.bytes.byteOffset + p.bytes.byteLength)); p.result = null; p.status = ST.WAIT;
+            if(G.orphans[p.sha]){ p.result = G.orphans[p.sha].result; p.status = ST.OK; delete G.orphans[p.sha]; } }
+          f.status = f.parts.every(p => p.result) ? ST.OK : ST.WAIT; f.msg = f.parts.length > 1 ? `แบ่งเป็น ${f.parts.length} ช่วงหน้า (${f.pages} หน้า)` : '';
+        } catch(e){ f.status = ST.FAIL; f.bad = true; f.msg = (e && e.message) || 'อ่านไฟล์ไม่ได้'; }
+        G.report = null; totalsClear(); render();
+      }
+    })();
+    prepping.add(job); try{ await job; } finally { prepping.delete(job); }
+  }
+  function removeFile(id){
+    if(G.exporting){ toast_('กำลังประมวลผล EXPORT — รอให้เสร็จก่อนลบ', 'warn'); return; }
+    const f = G.files.find(x => x.id === id); if(!f) return;
+    if(f.url) try{ URL.revokeObjectURL(f.url); } catch(e){}
+    G.files = G.files.filter(x => x !== f); G.report = null; totalsClear(); render();
+  }
+  function viewPdf(id, page){
+    const f = G.files.find(x => x.id === id); if(!f) return;
+    if(!f.url) f.url = URL.createObjectURL(f.file);
+    window.open(f.url + (page ? '#page=' + page : ''), '_blank', 'noopener');
+  }
+
+  /* ── อ่านด้วย AI (Server ตรวจ Cache ก่อนเสมอ) ───────────── */
+  function b64Of(bytes){ let s = ''; const chunk = 0x8000; for(let i = 0; i < bytes.length; i += chunk) s += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk)); return btoa(s); }
+  async function pollJob(p, jobId, wait){
+    const t0 = Date.now();
+    while(Date.now() - t0 < 9 * 60_000){
+      await sleep(Math.max(1500, wait || 2500));
+      const { j } = await api({ action:'job_status', job_id:jobId });
+      if(j && j.pending){ wait = j.poll_after_ms; continue; }
+      if(j && j.success){ p.result = j.result; p.cached = !!j.cached; p.status = ST.OK; jobForget(p.sha); return; }
+      p.status = ST.FAIL; p.msg = (j && j.msg) || 'อ่าน PDF ไม่สำเร็จ'; if(j && j.error !== 'network') jobForget(p.sha); return;
+    }
+    p.status = ST.FAIL; p.msg = 'รอผลนานเกินกำหนด — กด EXPORT EXCEL อีกครั้ง';
+  }
+  async function readPart(f, p){
+    p.status = ST.AI; f.status = ST.AI; f.msg = f.parts.length > 1 ? `กำลังอ่านหน้า ${p.from}–${p.to} ด้วย AI` : 'กำลังอ่านข้อมูลด้วย AI'; render();
+    const { status, j } = await api({ name:`${f.name} (p${p.from}-${p.to}).pdf`, mime:'application/pdf', pdf:b64Of(p.bytes), idempotency_key:p.sha }, 120000);
+    if(status === 200 && j && j.success){ p.result = j.result; p.cached = !!j.cached; p.status = ST.OK; return; }
+    if(status === 202 && j && j.job_id){ jobRemember(p.sha, j.job_id, f.name); render(); await pollJob(p, j.job_id, j.poll_after_ms); return; }
+    p.status = ST.FAIL; p.msg = (j && j.msg) || 'ไม่สามารถเชื่อมต่อระบบ AI ได้';
+  }
+  async function readOne(f){
+    for(const p of f.parts){ if(p.result) continue; await readPart(f, p); if(p.status === ST.FAIL){ f.status = ST.FAIL; f.msg = p.msg + (f.parts.length > 1 ? ` (หน้า ${p.from}–${p.to})` : ''); return; } }
+    f.status = ST.OK; f.msg = f.parts.every(p => p.cached) ? 'พบไฟล์ซ้ำ ใช้ข้อมูลเดิมจาก Cache' : 'อ่านข้อมูลสำเร็จ';
+  }
+  async function retryFile(id){
+    const f = G.files.find(x => x.id === id); if(!f || f.busy) return;
+    if(G.exporting){ toast_('กำลังประมวลผล EXPORT — รอให้เสร็จก่อน', 'warn'); return; }
+    if(f.bad){ toast_(`${f.name}: ${f.msg} — ลบแล้วแนบไฟล์ที่ถูกต้อง`, 'warn'); return; }
+    if(f.parts.length && f.parts.every(p => p.result)){ G.report = null; totalsClear(); render(); toast_(`ตรวจ ${f.name} ใหม่จากผล AI เดิม (ไม่เรียก API ซ้ำ)`, 'ok'); return; }
+    if(!G.authMode){ toast_('ยังไม่ได้เข้าสู่ระบบ', 'err'); return; }
+    f.busy = true; G.report = null; totalsClear();
+    const job = (async () => {
+      try{ if(G.authPromise) await G.authPromise; if(G.sessState !== 'ok') await verify();
+        if(G.sessState !== 'ok'){ f.status = ST.FAIL; f.msg = 'AI ไม่พร้อมใช้งาน: ' + (G.sessMsg || 'ไม่ทราบสาเหตุ'); }
+        else await readOne(f); }
+      catch(e){ f.status = ST.FAIL; f.msg = 'อ่าน PDF ไม่สำเร็จ'; }
+      finally { f.busy = false; render(); }
+    })();
+    prepping.add(job); try{ await job; } finally { prepping.delete(job); }
+  }
+  async function resumeOrphans(){
+    const o = jobsGet(); const shas = Object.keys(o); if(!shas.length) return;
+    for(const sha of shas){
+      const { j } = await api({ action:'job_status', job_id:o[sha].job_id });
+      if(j && j.success && !j.pending){ G.orphans[sha] = j; jobForget(sha);
+        G.files.forEach(f => f.parts.forEach(p => { if(p.sha === sha){ p.result = j.result; p.status = ST.OK; delete G.orphans[sha]; } })); }
+      else if(!(j && j.pending)) jobForget(sha);
+    }
+    render();
+  }
+
+  /* ── MODEL: รวมผลทุกช่วงหน้า → Invoice (น้อย→มาก) → รายการตามลำดับใน PDF ── */
+  // รวมผลข้ามช่วงหน้า: Invoice เดียวกันที่ถูกแบ่งคนละช่วง = Invoice เดียว · รายการต่อกันตามลำดับหน้า · ไม่ซ้ำรายการเดิม
+  function mergeInvoices(){
+    const out = [];
+    G.files.forEach(f => f.parts.forEach(p => {
+      const r = p.result; if(!r || !Array.isArray(r.invoices)) return;
+      r.invoices.forEach(iv => {
+        const no = String(iv.invoice_no || '');
+        let m = out.find(x => x.f === f && String(x.iv.invoice_no || '') === no);
+        if(!m){ m = { f, iv:{ ...iv, items:[] }, keys:new Set() }; out.push(m); }
+        (iv.items || []).forEach(it => {
+          const k = [String(it.item_no || ''), String(it.product || ''), String(it.qty || ''), String(it.amount || '')].join('|');
+          if(m.keys.has(k)) return;                       // ช่วงหน้าทับกัน / Packing List ซ้ำ = ไม่เพิ่มซ้ำ
+          m.keys.add(k); m.iv.items.push(it);
+        });
+      });
+    }));
+    return out;
+  }
+  // N.W. (XLSX): จับคู่ด้วยข้อมูลจริง — Delivery (ถ้า PDF พิมพ์ไว้) + Material + Quantity ภายในกลุ่มของ Invoice เดียวกัน
+  function nwGroups(){
+    const d = slotData.grohe && slotData.grohe.NW_XLSX;
+    const rows = (d && d.rows) || [];
+    const byDoc = new Map();
+    rows.forEach(r => { const k = String(r.billing == null ? '' : r.billing).trim() || '-';
+      if(!byDoc.has(k)) byDoc.set(k, []); byDoc.get(k).push(r); });
+    return { rows, byDoc };
+  }
+  function masterIndex(){
+    const d = slotData.grohe && slotData.grohe.MASTER;
+    const idx = new Map();
+    ((d && d.rows) || []).forEach(r => { const k = key8(r.product); if(k && !idx.has(k)) idx.set(k, r); });
+    return idx;
+  }
+  function build(){
+    const merged = mergeInvoices();
+    const model = merged.map(x => ({ f:x.f, iv:x.iv, invoiceNo:String(x.iv.invoice_no || ''), date:String(x.iv.date || ''), currency:String(x.iv.currency || ''),
+      items:(x.iv.items || []).map((it, k) => ({ seq:k + 1, it })) }))
+      .sort((a, b) => invCmp(a.invoiceNo, b.invoiceNo));          // เรียง Invoice น้อย→มาก ก่อนตรวจ/ส่งออก
+    const { rows, byDoc } = nwGroups(), M = masterIndex();
+    const docs = [...byDoc.keys()].sort(invCmp);
+    const used = new Set();
+    // จับคู่ Invoice ↔ กลุ่ม N.W.: ใช้เลขอ้างอิงที่ PDF พิมพ์ไว้ก่อน · ถ้าไม่มี ใช้กลุ่มที่จำนวนรายการตรงกันและสินค้า/จำนวนตรงกันทุกบรรทัดเท่านั้น
+    model.forEach((m, mi) => {
+      const refs = [...new Set([...(m.iv.delivery_refs || []), ...m.items.map(i => i.it.delivery_ref)].map(s => String(s || '').trim()).filter(Boolean))];
+      let g = null, why = '';
+      const byRef = docs.filter(k => !used.has(k) && (refs.includes(k) || byDoc.get(k).some(r => refs.includes(String(r.delivery || '').trim()))));
+      if(byRef.length === 1){ g = byRef[0]; why = 'เลขอ้างอิงใน PDF ตรงกับ XLSX'; }
+      else {
+        const fit = docs.filter(k => !used.has(k) && byDoc.get(k).length === m.items.length &&
+          m.items.every((i, k2) => key8(byDoc.get(k)[k2].material) === key8(i.it.product) && eq(num(byDoc.get(k)[k2].qty), num(i.it.qty))));
+        if(fit.length === 1){ g = fit[0]; why = 'สินค้า + จำนวน ตรงกันทุกบรรทัด'; }
+        else if(fit.length > 1){ g = fit[mi] !== undefined && fit.includes(docs[mi]) ? docs[mi] : fit[0]; why = 'สินค้า + จำนวน ตรงกันทุกบรรทัด'; }
+        else why = rows.length ? 'ไม่พบกลุ่มใน XLSX ที่สินค้าและจำนวนตรงกับ Invoice นี้' : 'ยังไม่ได้อัปโหลด XLSX (N.W.)';
+      }
+      if(g) used.add(g);
+      m.nwDoc = g; m.nwWhy = why;
+      const pool = g ? byDoc.get(g).slice() : [];
+      const taken = new Set();
+      m.items.forEach(i => {
+        const it = i.it;
+        i.errs = [];
+        ['product','qty','amount'].forEach(k => { if(it[k] == null || it[k] === '') i.errs.push(`ไม่สามารถอ่าน ${k === 'product' ? 'Product' : k === 'qty' ? 'Quantity' : 'Amount'} รายการที่ ${i.seq} หน้า ${it.pg || '?'}${it.note ? ' (' + it.note + ')' : ''}`); });
+        i.qty = num(it.qty); i.amount = num(it.amount);
+        i.unitPrice = (i.qty && i.amount != null && i.qty !== 0) ? i.amount / i.qty : null;
+        // N.W. — ต้องตรงทั้ง Material และ Quantity ของบรรทัดนั้น (ไม่ใช้ลำดับแถวเพียงอย่างเดียว)
+        const cand = pool.filter((r, k) => !taken.has(k) && key8(r.material) === key8(it.product) && eq(num(r.qty), i.qty));
+        if(!g) i.errs.push('ยังไม่ได้จับคู่กลุ่ม N.W. ของ Invoice นี้');
+        else if(!cand.length) i.errs.push(`ไม่พบ N.W. ใน XLSX สำหรับ Product ${it.product || '?'} จำนวน ${it.qty || '?'} (รายการที่ ${i.seq})`);
+        else { const r = cand[0]; taken.add(pool.indexOf(r)); i.nw = r;
+          if(num(r.nw) == null) i.errs.push(`N.W. ของ Product ${it.product} ใน XLSX ว่าง (แถว ${r.srcRow})`);
+          if(r.unit && U(r.unit) !== 'KG') i.errs.push(`หน่วยน้ำหนักใน XLSX ไม่ใช่ KG (${r.unit}) แถว ${r.srcRow}`); }
+        // MASTER — จับคู่ด้วย PRODUCT
+        i.ms = M.get(key8(it.product)) || null;
+        if(!i.ms) i.errs.push(`ไม่พบ Product ${it.product || '?'} ใน MASTER (รายการที่ ${i.seq})`);
+        i.state = i.errs.length ? 'bad' : 'ok';
+      });
+      m.errs = [];
+      if(!m.invoiceNo) m.errs.push('ไม่พบเลข Invoice');
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(m.date)) m.errs.push('ไม่พบ Invoice Date');
+      if(!m.currency) m.errs.push('ไม่พบสกุลเงิน');
+      if(!m.items.length) m.errs.push('ไม่พบรายการสินค้าใน Invoice นี้');
+      const tot = num(m.iv.total_amount), sum = m.items.reduce((s, i) => s + (i.amount || 0), 0);
+      m.sum = Math.round(sum * 100) / 100; m.total = tot;
+      if(tot != null && Math.abs(m.sum - tot) > 0.05) m.errs.push(`ยอดรวมไม่ตรงกับ Invoice (รวมรายการ ${fmt(sum)} / TOTAL ${fmt(tot)})`);
+    });
+    return { model, nw:rows, master:M };
+  }
+  function evaluate(built){
+    const pass = [], skipped = [];
+    built.model.forEach(m => {
+      const why = m.errs.slice();
+      m.items.forEach(i => i.errs.forEach(e => why.push(e)));
+      if(why.length) skipped.push({ t:'inv', no:m.invoiceNo || '?', file:m.f.name, why }); else pass.push(m);
+    });
+    G.files.forEach(f => { if(!f.parts.length || !f.parts.every(p => p.result)) skipped.push({ t:'file', file:f.name, why:[f.status === ST.FAIL ? (f.msg || 'อ่านไม่สำเร็จ') : 'ยังไม่ได้อ่านด้วย AI'] }); });
+    return { pass, skipped };
+  }
+  const skipInvN = sk => sk.filter(x => x.t === 'inv').length;
+  const skipFileN = sk => sk.filter(x => x.t === 'file').length;
+
+  /* ── ONE-CLICK: เรียกจาก doExportGROHE ── */
+  const filesSig = () => G.files.map(f => f.id + ':' + f.sha).join('|');
+  window.groheAiExport = async function(){
+    G.pend = null;
+    if(prepping.size){ setPhase('กำลังเตรียมไฟล์ PDF...'); await Promise.all([...prepping]); }
+    if(!G.files.length) return { ok:false, msg:'กรุณาแนบ INVOICE PDF อย่างน้อย 1 ไฟล์ (แนบแล้วกด ⬇ EXPORT EXCEL)' };
+    const nwD = slotData.grohe && slotData.grohe.NW_XLSX, msD = slotData.grohe && slotData.grohe.MASTER;
+    if(!nwD || !(nwD.rows || []).length) return { ok:false, msg:'กรุณาแนบไฟล์ XLSX — NET WEIGHT (N.W.) ก่อน' };
+    if(!msD || !(msD.rows || []).length) return { ok:false, msg:'กรุณาแนบ MASTER (.xlsx) หรือกด Save ไว้ก่อน' };
+    G.report = null; totalsClear();
+    const sig0 = filesSig();
+    if(!G.authMode) return { ok:false, msg:'ยังไม่ได้เข้าสู่ระบบ' };
+    setPhase('กำลังตรวจสอบ AI...');
+    if(G.authPromise) await G.authPromise;
+    await verify();
+    if(G.sessState !== 'ok'){ G.showDetail = true; render(); return { ok:false, msg:'AI ไม่พร้อมใช้งาน: ' + (G.sessMsg || 'ไม่ทราบสาเหตุ') }; }
+    const todo = G.files.filter(f => !f.bad && !f.parts.every(p => p.result));
+    if(todo.length){
+      setPhase('กำลังอ่าน PDF ด้วย AI...'); render();
+      const queue = [...todo];
+      const worker = async () => { while(queue.length){ const f = queue.shift(); try{ await readOne(f); } catch(e){ f.status = ST.FAIL; f.msg = 'อ่าน PDF ไม่สำเร็จ'; } render(); } };
+      await Promise.all([worker(), worker()]);
+    }
+    if(filesSig() !== sig0) return { ok:false, msg:'ไฟล์เปลี่ยนระหว่างประมวลผล — กด ⬇ EXPORT EXCEL อีกครั้ง (ใช้ผล AI เดิม)' };
+    setPhase('กำลังตรวจสอบข้อมูล...'); await sleep(0);
+    const built = build();
+    setPhase('กำลังจับคู่ N.W. / MASTER...'); await sleep(0);
+    const ev = evaluate(built);
+    const nSkip = skipInvN(ev.skipped), nFile = skipFileN(ev.skipped);
+    if(!ev.pass.length){
+      G.report = { kind:'none', exported:[], skipped:ev.skipped }; render();
+      return { ok:false, msg:`ไม่ Export — ไม่มี Invoice ที่ผ่านการตรวจ (ไม่ผ่าน ${nSkip} Invoice${nFile ? ` · อ่านไม่สำเร็จ ${nFile} ไฟล์` : ''}) · ดูสาเหตุในสรุปด้านล่าง` };
+    }
+    const partial = ev.skipped.length > 0;
+    const msg = partial ? `EXPORT สำเร็จบางส่วน — ส่งออก ${ev.pass.length} Invoice / ข้าม ${nSkip} Invoice${nFile ? ` · อ่านไม่สำเร็จ ${nFile} ไฟล์` : ''}`
+                        : `EXPORT สำเร็จ — ส่งออก ${ev.pass.length} Invoice ครบทุกรายการ`;
+    const rows = [];
+    ev.pass.forEach(m => m.items.forEach(i => rows.push({ m, i })));
+    G.pend = { kind:partial ? 'partial' : 'full', msg, exported:ev.pass.map(m => m.invoiceNo), skipped:ev.skipped, rows:rows.length };
+    setPhase('กำลังสร้าง Excel...'); render();
+    return { ok:true, rows, partial, msg, exported:G.pend.exported, skipped:ev.skipped };
+  };
+
+  /* ── TOTAL (ใช้ตัวคำนวณชุดเดียวกับ THE SHELL · แสดงในกรอบของ GROHE) ── */
+  function totalsClear(){ if(typeof shellAiTotalsClear === 'function') shellAiTotalsClear('grohe-total-panel'); }
+  window.groheAiTotals = function(sheets, measure){ return (typeof shellAiTotals === 'function') ? shellAiTotals(sheets, measure, 'grohe-total-panel') : null; };
+
+  /* ── UI ──────────────────────────────────────────────── */
+  function panel(){ return document.getElementById('grohe-ai-panel'); }
+  window.groheAiMount = function(key){ G.mounted = key === 'grohe'; const p = panel(); if(p && !G.mounted){ p.style.display = 'none'; totalsClear(); } if(G.mounted){ if(!G.exporting) setPhase(G.phase); render(); } };
+  function sessBox(){
+    const name = esc(String((G.user && G.user.username) || '').toUpperCase());
+    if(G.sessState === 'ok') return `<span class="sai-pill sai-ok">AI พร้อมใช้งาน · ${name}</span>`;
+    if(G.sessState === 'checking') return '<span class="sai-pill sai-wait">กำลังตรวจสอบ AI</span>';
+    if(G.sessState === 'none') return '<span class="sai-pill sai-warn">ยังไม่ได้ตรวจสอบการเชื่อมต่อ AI</span>';
+    return '<button type="button" class="sai-pill sai-bad sai-pillbtn" data-act="aidetail">AI ไม่พร้อมใช้งาน — ดูรายละเอียด</button>';
+  }
+  function fileView(f, built){
+    if(!f.parts.length || !f.parts.every(p => p.result)){
+      if(f.status === ST.PREP || f.status === ST.AI) return { k:'work', invs:[], why:[f.msg || f.status] };
+      if(f.status === ST.FAIL) return { k:'fail', invs:[], why:[f.msg || 'อ่านไม่สำเร็จ'] };
+      return { k:'wait', invs:[], why:[] };
+    }
+    if(!built) return { k:'ok', invs:[], why:[] };
+    const bad = built.model.filter(m => m.f === f && (m.errs.length || m.items.some(i => i.errs.length)));
+    if(!bad.length) return { k:'ok', invs:[], why:[] };
+    return { k:'review', invs:bad.map(m => m.invoiceNo || '?'), why:bad.map(m => { const all = [...m.errs, ...m.items.flatMap(i => i.errs)];
+      return `Invoice ${m.invoiceNo || '?'}: ${all[0]}${all.length > 1 ? ` (และอีก ${all.length - 1} จุด)` : ''}`; }) };
+  }
+  function counts(v){ const c = { n:v.length, ok:0, bad:0, work:0, wait:0 };
+    v.forEach(x => { if(x.k === 'ok') c.ok++; else if(x.k === 'fail' || x.k === 'review') c.bad++; else if(x.k === 'work') c.work++; else c.wait++; }); return c; }
+  function summaryLine(c){ return c.n && c.ok === c.n ? `สำเร็จ ${c.n}/${c.n} ไฟล์`
+    : `ทั้งหมด ${c.n} ไฟล์ | สำเร็จ ${c.ok} | ไม่สำเร็จ ${c.bad}${c.work ? ` | กำลังอ่าน ${c.work}` : ''}${c.wait ? ` | รออ่าน ${c.wait}` : ''}`; }
+  function zoneHtml(views){
+    const n = G.files.length, c = counts(views);
+    const chips = G.files.map((f, k) => { const v = views[k].k, cl = v === 'fail' || v === 'review' ? 'bad' : v === 'ok' ? 'ok' : v === 'work' ? 'wait' : 'warn';
+      return `<span class="sai-chip sai-${cl}" title="${esc(f.name)} — ${f.pages || '?'} หน้า">${esc(f.name)}${G.exporting ? '' : `<b data-act="rm" data-id="${f.id}" title="ลบไฟล์นี้">×</b>`}</span>`; }).join('');
+    return `<div class="dico">📄</div><div class="dlabel">INVOICE PDF — AI อ่านข้อมูล (หลายไฟล์)</div><div class="dhint">ลากวาง / กดเลือก · รองรับ PDF หลายหน้า</div>
+      <div class="sai-zrow">${sessBox()}<span class="sai-msg">${n ? esc(summaryLine(c)) : 'ยังไม่มีไฟล์ PDF'}</span></div>
+      ${n ? `<div class="sai-chips">${chips}</div>` : ''}
+      <input type="file" id="gai-input" accept=".pdf,application/pdf" multiple style="display:none">`;
+  }
+  function reportHtml(){
+    const r = G.report; if(!r) return '';
+    const lab = x => x.t === 'inv' ? `Invoice ${x.no} (ไฟล์ ${x.file})` : `ไฟล์ ${x.file}`;
+    const sk = r.skipped.slice(0, 40).map(x => `<div>• <b>${esc(lab(x))}</b> — ${esc(x.why.slice(0, 4).join(' · '))}${x.why.length > 4 ? ` (และอีก ${x.why.length - 4} จุด)` : ''}</div>`).join('')
+      + (r.skipped.length > 40 ? `<div>… อีก ${r.skipped.length - 40} รายการ</div>` : '');
+    if(r.kind === 'none') return `<div class="sai-blk" id="gai-report" data-kind="none"><b>ไม่ Export — ไม่มี Invoice ที่ผ่านการตรวจ</b>${sk}<div class="sai-msg">แก้ไขแล้วกด ⬇ EXPORT EXCEL อีกครั้ง — ใช้ผล AI เดิม · อ่านซ้ำเฉพาะไฟล์ที่ล้มเหลว</div></div>`;
+    const ex = `<div class="sai-repl"><b>ส่งออกแล้ว ${r.exported.length} Invoice</b> (${r.rows} รายการ): ${esc(r.exported.join(', '))}</div>`;
+    if(r.kind === 'full') return `<div class="sai-rep sai-repok" id="gai-report" data-kind="full"><b>✓ ${esc(r.msg)}</b>${ex}</div>`;
+    return `<div class="sai-rep sai-repwarn" id="gai-report" data-kind="partial"><b>⚠ ${esc(r.msg)}</b>${ex}
+      <div class="sai-repl"><b>ไม่ได้ส่งออก ${skipInvN(r.skipped)} Invoice${skipFileN(r.skipped) ? ` · อ่านไม่สำเร็จ ${skipFileN(r.skipped)} ไฟล์` : ''}</b> (ไม่ถูกเขียนลง Excel):</div>${sk}
+      <div class="sai-msg">ไฟล์ Excel ที่ดาวน์โหลดมีเฉพาะ Invoice ที่ผ่านการตรวจ — แก้ไข / ตรวจใหม่ แล้วกด ⬇ EXPORT EXCEL อีกครั้ง (ใช้ผล AI เดิม)</div></div>`;
+  }
+  function render(){
+    if(!G.mounted) return;
+    const built = G.files.some(f => f.parts.length && f.parts.every(p => p.result)) ? build() : null;
+    const views = G.files.map(f => fileView(f, built)), c = counts(views);
+    const z = document.getElementById('gai-zone');
+    if(z){ z.className = 'doa-drop' + (G.files.length ? ' loaded' : '') + (G.exporting ? ' sai-locked' : ''); z.innerHTML = zoneHtml(views); bindZone(z); }
+    const p = panel(); if(!p) return;
+    const lock = G.exporting ? 'disabled' : '';
+    const rows = G.files.map((f, k) => { const v = views[k]; if(v.k === 'ok' || v.k === 'wait') return '';
+      const pill = v.k === 'work' ? '<span class="sai-pill sai-wait">⏳ กำลังทำงาน</span>' : v.k === 'fail' ? '<span class="sai-pill sai-bad">อ่านไม่สำเร็จ</span>' : '<span class="sai-pill sai-warn">ต้องตรวจสอบ</span>';
+      const busy = v.k === 'work' || f.busy;
+      return `<tr data-file="${f.id}" data-k="${v.k}"><td class="sai-fn" title="${esc(f.name)}">${esc(f.name)}</td><td class="sai-invs sai-mono">${v.invs.length ? esc(v.invs.join(', ')) : '—'}</td>
+        <td>${pill}${v.why.slice(0, 4).map(w => `<div class="sai-msg">${esc(w)}</div>`).join('')}${v.why.length > 4 ? `<div class="sai-msg">… อีก ${v.why.length - 4} รายการ</div>` : ''}</td>
+        <td class="sai-act"><button type="button" class="btn btn-ghost sai-mini" data-act="retry" data-id="${f.id}" ${lock || (busy || f.bad ? 'disabled' : '')}>ตรวจใหม่</button>
+          <button type="button" class="btn btn-ghost sai-mini" data-act="view" data-id="${f.id}">ดู PDF</button>
+          <button type="button" class="btn btn-ghost sai-mini" data-act="rm" data-id="${f.id}" ${lock}>ลบ</button></td></tr>`; }).join('');
+    let html = '';
+    if(G.showDetail && G.sessState !== 'ok' && G.sessState !== 'checking') html += `<div class="sai-blk" id="gai-aidetail"><b>AI ไม่พร้อมใช้งาน</b><div>• ${esc(G.sessMsg || 'ยังไม่ได้ตรวจสอบ')}</div>
+        <div class="sai-actions"><button type="button" class="btn btn-ghost sai-mini" data-act="recheck">ตรวจสอบอีกครั้ง</button></div></div>`;
+    if(G.files.length) html += `<h2 id="gai-filesum">📄 INVOICE PDF — ${esc(summaryLine(c))} ${G.exporting && G.phase ? `<span class="sai-pill sai-wait">⏳ ${esc(G.phase)}</span>` : ''}</h2>
+        ${rows ? `<div class="sai-sub">INVOICE PDF — รายการที่ไม่สำเร็จ / ต้องตรวจสอบ</div>
+        <div class="sai-scroll"><table class="sai-tbl" id="gai-files"><thead><tr><th>ไฟล์</th><th>Invoice</th><th>สาเหตุ</th><th>จัดการ</th></tr></thead><tbody>${rows}</tbody></table></div>` : ''}
+        <div class="sai-actions"><button type="button" class="btn btn-ghost" data-act="clear" ${lock}>ล้าง PDF</button></div>`;
+    html += reportHtml();
+    if(built && built.model.length) html += previewHtml(built);
+    p.style.display = html ? '' : 'none';
+    p.innerHTML = html; bind(p);
+  }
+  function previewHtml({ model }){
+    const items = model.reduce((a, m) => a + m.items.length, 0);
+    const bad = model.reduce((a, m) => a + m.items.filter(i => i.errs.length).length, 0);
+    const amt = {}; model.forEach(m => m.items.forEach(i => { if(i.amount != null) amt[m.currency || '?'] = (amt[m.currency || '?'] || 0) + i.amount; }));
+    const pages = G.files.reduce((a, f) => a + (f.pages || 0), 0);
+    const show = model.filter(m => m.errs.length || m.items.some(i => i.errs.length));
+    const body = show.map(m => `<tr class="sai-inv"><td colspan="8"><b>Invoice</b> ${esc(m.invoiceNo)} · <b>Date</b> ${esc(m.date)} · ${esc(m.currency)} TOTAL ${fmt(m.total)} · รวมรายการ ${fmt(m.sum)}
+        · <b>N.W. กลุ่ม</b> ${esc(m.nwDoc || '—')} <span class="sai-msg">${esc(m.nwWhy || '')}</span>
+        · <a href="javascript:void(0)" data-act="view" data-id="${m.f.id}">${esc(m.f.name)}</a>
+        ${m.errs.map(e => `<div class="sai-e">❌ ${esc(e)}</div>`).join('')}</td></tr>`
+      + m.items.filter(i => i.errs.length).map(i => `<tr class="sai-badr"><td>${i.seq}</td><td class="sai-mono">${esc(i.it.item_no || '')}</td><td class="sai-mono">${esc(i.it.product || '')}</td>
+        <td>${esc(String(i.it.desc || '').slice(0, 40))}</td><td class="sai-num">${esc(i.it.qty || '')}</td><td class="sai-num">${esc(i.it.amount || '')}</td>
+        <td><a href="javascript:void(0)" data-act="view" data-id="${m.f.id}" data-pg="${i.it.pg || ''}">หน้า ${esc(i.it.pg || '?')}</a></td>
+        <td>${i.errs.map(e => `<div class="sai-e">❌ ${esc(e)}</div>`).join('')}</td></tr>`).join('')).join('');
+    return `<div class="sai-sum">
+        <div><span>PDF</span><b>${G.files.length}</b></div><div><span>หน้า</span><b>${pages}</b></div><div><span>Invoice</span><b>${model.length}</b></div>
+        <div><span>รายการ</span><b>${items}</b></div><div><span>ผ่าน</span><b class="sai-okc">${items - bad}</b></div><div><span>ไม่ผ่าน</span><b class="sai-bc">${bad}</b></div>
+        <div class="sai-wide"><span>TOTAL Amount (PDF)</span><b>${Object.keys(amt).length ? Object.keys(amt).map(k => `${esc(k)} ${fmt(amt[k])}`).join(' · ') : '—'}</b></div></div>
+      ${body ? `<div class="sai-sub">รายการที่ต้องแก้ไข</div><div class="sai-scroll sai-prev"><table class="sai-tbl"><thead><tr><th>#</th><th>Item</th><th>Product</th><th>Description</th><th>Qty</th><th>Amount</th><th>หน้า</th><th>สาเหตุ</th></tr></thead><tbody>${body}</tbody></table></div>` : ''}`;
+  }
+  function bindZone(z){
+    const inp = z.querySelector('#gai-input');
+    z.onclick = e => { const t = e.target.closest('[data-act]'); if(t){ e.preventDefault(); e.stopPropagation(); act(t); return; } if(!G.exporting && inp) inp.click(); };
+    z.ondragover = e => { e.preventDefault(); e.stopPropagation(); z.classList.add('drag'); }; z.ondragleave = () => z.classList.remove('drag');
+    z.ondrop = e => { e.preventDefault(); e.stopPropagation(); z.classList.remove('drag'); addFiles(e.dataTransfer.files); };
+    if(inp){ inp.onclick = e => e.stopPropagation(); inp.onchange = () => { const fl = [...inp.files]; inp.value = ''; addFiles(fl); }; }
+  }
+  function act(b){ const a = b.dataset.act, id = b.dataset.id;
+    if(a === 'rm') removeFile(id); else if(a === 'view') viewPdf(id, b.dataset.pg); else if(a === 'retry') retryFile(id);
+    else if(a === 'clear'){ if(confirm('ล้าง INVOICE PDF ทั้งหมดของ GROHE SIAM?')) groheAiReset(); }
+    else if(a === 'aidetail'){ G.showDetail = !G.showDetail; render(); }
+    else if(a === 'recheck'){ if(G.authMode && !G.exporting) verify(); } }
+  function bind(p){ p.querySelectorAll('[data-act]').forEach(b => b.onclick = e => { e.preventDefault(); act(b); }); }
+})();
+</script>
+
 </body>
 </html>
