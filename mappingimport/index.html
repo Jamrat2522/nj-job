@@ -2391,10 +2391,12 @@ body.legacy-active .content-area { display: none !important; }
     </div>
     <input type="file" id="tx-pdf-input" accept=".pdf" multiple style="display:none"/>
     <div class="tx-actions">
+      <button class="btn btn-primary" id="tx-btn-run" onclick="txRun()" disabled>🔎 ตรวจสอบ</button>
       <button class="btn btn-success" id="tx-btn-export" onclick="txDownload()" disabled>📊 EXPORT EXCEL</button>
       <button class="btn" onclick="txReset()">♻ ล้าง</button>
       <div class="tx-status" id="tx-status">รอไฟล์ INVOICE PDF</div>
     </div>
+    <div id="tx-result" style="display:none;margin-top:10px"></div>
   </div>
 </div><!-- /tx-view -->
 
@@ -11139,44 +11141,296 @@ function txB64ToU8(b64){
   for(let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
   return u8;
 }
-const txState = { pdfs: [] };
+const txState = { pdfs: [], stat: {}, res: null, list: null, usage: null };
+
+/* ══════════════════════════════════════════════════════════════════════════
+   [AI 16/11/2026] TEXAS DB12 — อ่าน INVOICE PDF ด้วย Claude ผ่าน Edge Function
+   ★ ใช้ Edge Function แยกของโหมดนี้เท่านั้น (nj-invoice-ai-tx) — ไม่แตะของ KDC
+   ★ ไม่มี API Key ใด ๆ ฝั่งหน้าเว็บ · ยืนยันตัวตนด้วย Session ที่ Server ออกให้
+   ★ Export ยังใช้ txBuildBook() / TX_TPL_B64 / TX_HDR_KEY เดิม 100%
+   ══════════════════════════════════════════════════════════════════════════ */
+const TX_AI_FN    = 'nj-invoice-ai-tx';
+const TX_AI_MODEL = 'claude-sonnet-5-5';
+const TX_AI_MAXMS = 7 * 60 * 1000;          // เพดานรอผลต่อไฟล์
+let   _txSess     = null;                    // { token, exp } — เก็บในหน่วยความจำเท่านั้น
+
+/* รับ Session จาก RPC nj_tx_login (เรียกตอนเข้าสู่ระบบ) — ไม่เก็บรหัสผ่านไว้ที่ใด */
+async function txIssueSession(username, password){
+  try{
+    const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/nj_tx_login', {
+      method:'POST',
+      headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json' },
+      body: JSON.stringify({ p_username: username, p_password: password })
+    });
+    const j = await r.json().catch(()=>null);
+    if(j && j.success && j.session){ _txSess = { token:j.session, exp: Date.parse(j.expires_at||'') || 0 }; return true; }
+  }catch(e){ try{ console.debug('[TX] session', e && e.message); }catch(_){} }
+  _txSess = null; return false;
+}
+function txHasSession(){ return !!(_txSess && _txSess.token && (!_txSess.exp || _txSess.exp > Date.now() + 5000)); }
+
+const txB64Of = async (file) => {
+  const buf = new Uint8Array(await file.arrayBuffer());
+  let bin = ''; const CH = 0x8000;
+  for(let i = 0; i < buf.length; i += CH) bin += String.fromCharCode.apply(null, buf.subarray(i, i + CH));
+  return btoa(bin);
+};
+async function txAiPost(body){
+  const r = await fetch(SUPABASE_URL + '/functions/v1/' + TX_AI_FN, {
+    method:'POST',
+    headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json' },
+    body: JSON.stringify(body)
+  });
+  let j = null; try{ j = await r.json(); }catch(e){}
+  if(!j) throw new Error('เซิร์ฟเวอร์ตอบข้อมูลไม่ถูกต้อง (HTTP ' + r.status + ')');
+  return j;
+}
+/* อ่าน 1 ไฟล์: ส่ง → Polling จนเสร็จ · กดซ้ำระหว่างทำงานจะได้ job เดิม ไม่เสียค่า API เพิ่ม */
+async function txAiRead(file, onTick){
+  const pdf = await txB64Of(file);
+  let j = await txAiPost({ session:_txSess.token, name:file.name, mime:'application/pdf', pdf, model:TX_AI_MODEL });
+  const t0 = Date.now();
+  while(j && j.success && j.pending && j.job_id){
+    if(Date.now() - t0 > TX_AI_MAXMS) throw new Error('ใช้เวลานานเกินกำหนด กรุณาลองใหม่');
+    if(onTick) onTick(Math.round((Date.now() - t0) / 1000));
+    await new Promise(res => setTimeout(res, j.poll_after_ms || 2000));
+    j = await txAiPost({ session:_txSess.token, action:'job_status', job_id:j.job_id });
+  }
+  if(!j || !j.success) throw new Error((j && j.msg) || 'อ่าน PDF ไม่สำเร็จ');
+  return j;
+}
+
+/* ── ข้อความเตือนภาษาไทย: แปลด้วย Frontend เท่านั้น (ห้ามเรียก API เพิ่ม) ── */
+const TX_TH = [
+  [/not clearly legible|illegible|unreadable/i, 'อ่านตัวอักษรไม่ชัด'],
+  [/not printed|missing|no value/i,             'ไม่มีพิมพ์ไว้ในเอกสาร'],
+  [/blurred|blurry|low quality|poor scan/i,     'ไฟล์สแกนไม่ชัด'],
+  [/cut ?off|cropped|truncated/i,               'ข้อความถูกตัดขอบ'],
+  [/overlap|stamp|handwrit/i,                   'มีตราประทับ/ลายมือทับข้อความ'],
+  [/page \d+/i,                                 'มีปัญหาที่หน้าเอกสาร']
+];
+function txThai(v){
+  const t = String(v == null ? '' : v).trim(); if(!t) return '';
+  if(/[\u0E00-\u0E7F]/.test(t)) return t;                      // เป็นภาษาไทยอยู่แล้ว
+  for(const [re, th] of TX_TH) if(re.test(t)) return th;
+  return 'AI พบข้อสังเกตเพิ่มเติม กรุณาตรวจสอบข้อมูลกับเอกสาร PDF ต้นฉบับ';
+}
+
+/* ── แปลงผลจาก AI → โครงสร้างเดิมของโหมดนี้ (rec/items) ที่ txBuildBook ใช้ ── */
+const txN = v => { const t = String(v == null ? '' : v).replace(/,/g, '').trim(); return t === '' ? NaN : Number(t); };
+function txFromAi(res, srcName, map, unclear){
+  for(const iv of ((res && res.invoices) || [])){
+    const inv = String(iv.inv == null ? '' : iv.inv).trim();
+    if(!inv) continue;
+    let rec = map.get(inv);
+    if(!rec){
+      const d = String(iv.date || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      rec = { inv, y: d ? +d[1] : 0, m: d ? +d[2] : 0, d: d ? +d[3] : 0,
+              cur: iv.cur || '', items: [], tq: null, tv: null, _keys: new Map(), _src: srcName };
+      map.set(inv, rec);
+    }
+    if(rec.tq == null && iv.tq != null && !isNaN(txN(iv.tq))) rec.tq = txN(iv.tq);
+    if(rec.tv == null && iv.tv != null && !isNaN(txN(iv.tv))) rec.tv = txN(iv.tv);
+    for(const a of (iv.items || [])){
+      const it = { item: txN(a.item), ti: a.ti || '', hts: a.hts || '', qty: txN(a.qty),
+                   unit: txN(a.unit), sub: txN(a.sub), coo: a.coo || '', cust: a.cust || '',
+                   desc: a.desc || '', _pg: a.pg || 0, _note: a.note || '' };
+      const key = rec.inv + '|' + it.item + '|' + it.ti;
+      if(rec._keys.has(key)) continue;                           // ห้ามมี Item ซ้ำ
+      rec._keys.set(key, it); rec.items.push(it);
+      if(it._note) unclear.push({ inv: rec.inv, item: a.item, pg: a.pg, why: txThai(it._note) });
+    }
+    /* เรียงตามลำดับที่พิมพ์ใน PDF เท่านั้น (หน้า → เลข Item) ห้าม Sort ด้วย Part No. */
+    rec.items.sort((x, y) => (x._pg - y._pg) || (x.item - y.item));
+  }
+  if(res && res.remarks) unclear.push({ inv: '—', item: '—', pg: '—', why: txThai(res.remarks) });
+}
+
+/* ── ตรวจเลขคณิตราย Invoice (กติกาเดิมของโหมดนี้ ไม่เปลี่ยน) ── */
+function txValidate(list){
+  const errs = [];
+  for(const r of list){
+    const why = [];
+    const sq = r.items.reduce((v, x) => v + (isFinite(x.qty) ? x.qty : 0), 0);
+    const sv = Math.round(r.items.reduce((v, x) => v + (isFinite(x.sub) ? x.sub : 0), 0) * 100) / 100;
+    if(!r.items.length)                              why.push('ไม่พบรายการสินค้า');
+    if(r.tq == null || sq !== r.tq)                  why.push('ผลรวม Quantity (' + sq + ') ไม่ตรงกับ Total Quantity (' + (r.tq == null ? '—' : r.tq) + ')');
+    if(r.tv == null || Math.abs(sv - r.tv) >= 0.005) why.push('ผลรวม Total Price (' + sv.toFixed(2) + ') ไม่ตรงกับ Total Value (' + (r.tv == null ? '—' : r.tv.toFixed(2)) + ')');
+    if(!r.y || !r.m || !r.d)                         why.push('อ่าน Invoice date ไม่ได้');
+    if(!r.cur)                                       why.push('อ่านสกุลเงินไม่ได้');
+    if(r.items.some(x => !x.coo))                    why.push('อ่าน COO (Origin) ไม่ครบทุกรายการ');
+    if(r.items.some(x => !(x.cust || x.ti)))         why.push('อ่าน Product Code ไม่ครบทุกรายการ');
+    if(r.items.some(x => !isFinite(x.qty) || !isFinite(x.sub))) why.push('อ่าน Quantity / Subtotal ไม่ครบทุกรายการ');
+    const noDesc = r.items.filter(x => !x.desc).map(x => x.item);
+    if(noDesc.length) why.push('ไม่พบ Description ของ Item ' + noDesc.join(', '));
+    const noHts = r.items.filter(x => !x.hts).map(x => x.item);
+    if(noHts.length)  why.push('ไม่พบ HTS number ของ Item ' + noHts.join(', '));
+    if(why.length) errs.push({ inv: r.inv, why });
+  }
+  return errs;
+}
+
+/* ── Preview + TOTAL ── */
+function txRenderResult(){
+  const box = document.getElementById('tx-result'); if(!box) return;
+  const R = txState.res;
+  if(!R){ box.style.display = 'none'; box.innerHTML = ''; return; }
+  const list = R.list, esc = txEscHtml;
+  const nf = (v, d) => (isFinite(v) ? v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—');
+  const rows = list.reduce((v, r) => v + r.items.length, 0);
+  const tq   = list.reduce((v, r) => v + r.items.reduce((a, x) => a + (isFinite(x.qty) ? x.qty : 0), 0), 0);
+  const cur  = {};
+  for(const r of list){ const c = r.cur || '—'; cur[c] = (cur[c] || 0) + r.items.reduce((a, x) => a + (isFinite(x.sub) ? x.sub : 0), 0); }
+  const amt  = Object.keys(cur).map(c => nf(Math.round(cur[c] * 100) / 100, 2) + ' ' + c).join(' · ') || '—';
+  const okMath = R.errs.length === 0;
+  let h = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">' +
+    [['ไฟล์ PDF', R.files], ['Invoice', list.length], ['รายการทั้งหมด', rows],
+     ['TOTAL QTY', nf(tq, 0)], ['TOTAL AMT', amt],
+     ['ค่า API รอบนี้', '$' + (R.usage.cost || 0).toFixed(4) + (R.usage.cached ? ' (ใช้ผลเดิม)' : '')]]
+    .map(([k, v]) => '<div style="background:#f1f5f9;border-radius:8px;padding:6px 10px;font-size:11.5px">' +
+      '<b>' + esc(k) + ':</b> ' + esc(String(v)) + '</div>').join('') + '</div>';
+  h += '<div style="font-size:11.5px;margin-bottom:8px;color:' + (okMath ? '#16a34a' : '#b91c1c') + '">' +
+       (okMath ? '✅ ตรวจเลขคณิตผ่าน — ผลรวม Quantity และ Subtotal ตรงกับ Total ที่พิมพ์ใน PDF ทุก Invoice'
+               : '⚠ ตรวจเลขคณิตไม่ผ่าน ' + R.errs.length + ' Invoice (ยัง Export ได้ แต่โปรดตรวจกับ PDF ต้นฉบับ)') + '</div>';
+  if(R.errs.length) h += '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px;margin-bottom:8px;font-size:11px">' +
+    R.errs.map(e => '<div>• Invoice ' + esc(e.inv) + ' — ' + esc(e.why.join(' · ')) + '</div>').join('') + '</div>';
+  if(R.unclear.length) h += '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px;margin-bottom:8px;font-size:11px">' +
+    '<b>⚠ รายการที่อ่านไม่ชัด (' + R.unclear.length + ')</b>' +
+    R.unclear.slice(0, 50).map(u => '<div>• Invoice ' + esc(u.inv) + ' · Item ' + esc(u.item) + ' · หน้า ' + esc(u.pg) + ' — ' + esc(u.why) + '</div>').join('') + '</div>';
+  h += '<div class="doa-preview-wrap" style="max-height:360px;overflow:auto"><table class="doa-tbl" style="font-size:11px">' +
+       '<thead><tr><th>No.</th><th>Invoice</th><th>Date</th><th>Item</th><th>TI part</th><th>Customer part</th>' +
+       '<th>HTS</th><th>COO</th><th>Qty</th><th>Unit</th><th>Subtotal</th><th>Cur</th><th>Description</th></tr></thead><tbody>';
+  let no = 0;
+  for(const r of list) for(const it of r.items){
+    no++;
+    h += '<tr><td>' + no + '</td><td>' + esc(r.inv) + '</td><td>' +
+      (r.y ? (String(r.d).padStart(2,'0') + '/' + String(r.m).padStart(2,'0') + '/' + r.y) : '—') + '</td>' +
+      '<td>' + esc(it.item) + '</td><td>' + esc(it.ti) + '</td><td>' + esc(it.cust) + '</td><td>' + esc(it.hts) + '</td>' +
+      '<td>' + esc(it.coo) + '</td><td style="text-align:right">' + nf(it.qty, 0) + '</td>' +
+      '<td style="text-align:right">' + nf(it.unit, 6) + '</td><td style="text-align:right">' + nf(it.sub, 2) + '</td>' +
+      '<td>' + esc(r.cur) + '</td><td>' + esc(it.desc) + '</td></tr>';
+  }
+  h += '</tbody></table></div>';
+  box.style.display = ''; box.innerHTML = h;
+}
+
+/* ── ปุ่ม "ตรวจสอบ" ── */
+let _txRunning = false;
+async function txRun(){
+  if(_txRunning) return;                                   // กดซ้ำระหว่างประมวลผล = ไม่สร้างคำขอใหม่
+  if(!txState.pdfs.length) return;
+  const bRun = document.getElementById('tx-btn-run'), bExp = document.getElementById('tx-btn-export');
+  _txRunning = true; if(bRun) bRun.disabled = true; if(bExp) bExp.disabled = true;
+  txState.res = null; txState.list = null; txRenderResult();
+  try{
+    if(!txHasSession()) throw new Error('บัญชีนี้ยังไม่ได้รับสิทธิ์ใช้ AI ในโหมดนี้ — กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่');
+    const map = new Map(), unclear = [];
+    let cost = 0, inTok = 0, outTok = 0, reqs = 0, allCached = true, modelUsed = '';
+    for(let i = 0; i < txState.pdfs.length; i++){
+      const f = txState.pdfs[i];
+      txState.stat[f.name] = 'processing'; txRenderLists();
+      txSetStatus('กำลังให้ AI อ่านไฟล์ ' + (i + 1) + '/' + txState.pdfs.length + ' · ' + f.name + ' …');
+      try{
+        const j = await txAiRead(f, sec => txSetStatus('กำลังให้ AI อ่านไฟล์ ' + (i + 1) + '/' + txState.pdfs.length +
+          ' · ' + f.name + ' … ' + sec + ' วินาที'));
+        txFromAi(j.result, f.name, map, unclear);
+        const u = j.usage || {};
+        reqs += (u.cached ? 0 : 1); cost += Number(u.cost_usd_est || 0);
+        inTok += Number(u.input_tokens || 0); outTok += Number(u.output_tokens || 0);
+        if(!j.cached) allCached = false;
+        modelUsed = u.model || TX_AI_MODEL;
+        txState.stat[f.name] = j.cached ? 'cached' : 'success';
+      }catch(e){
+        txState.stat[f.name] = 'error:' + (e && e.message ? e.message : 'อ่านไม่สำเร็จ');
+      }
+      txRenderLists();
+    }
+    const bad = txState.pdfs.filter(f => String(txState.stat[f.name] || '').indexOf('error') === 0);
+    if(!map.size) throw new Error(bad.length ? 'อ่าน PDF ไม่สำเร็จทุกไฟล์ — กดลองใหม่เฉพาะไฟล์ที่ผิดพลาดได้' : 'ไม่พบ Invoice ในไฟล์ที่แนบ');
+    /* เรียง Invoice จากน้อยไปมาก · ภายใน Invoice เรียงตาม PDF (เรียงไว้แล้วใน txFromAi) */
+    const list = [...map.values()].sort((a, b) => {
+      const na = Number(a.inv), nb = Number(b.inv);
+      if(isFinite(na) && isFinite(nb) && na !== nb) return na - nb;
+      return a.inv < b.inv ? -1 : a.inv > b.inv ? 1 : 0;
+    });
+    const errs = txValidate(list);
+    txState.list = list;
+    txState.res  = { list, errs, unclear, files: txState.pdfs.length,
+                     usage: { cost, inTok, outTok, reqs, cached: allCached, model: modelUsed } };
+    txRenderResult();
+    const rows = list.reduce((v, r) => v + r.items.length, 0);
+    txSetStatus('✓ ตรวจสอบเสร็จ · ' + list.length + ' Invoice · ' + rows + ' รายการ' +
+      (bad.length ? ' · ⚠ อ่านไม่สำเร็จ ' + bad.length + ' ไฟล์' : '') +
+      (errs.length ? ' · ⚠ เลขคณิตไม่ตรง ' + errs.length + ' Invoice' : ''), errs.length || bad.length ? '' : 'ok');
+    if(bExp) bExp.disabled = !!bad.length;                  // ยังมีไฟล์อ่านไม่เสร็จ = ห้าม Export
+  }catch(e){
+    txSetStatus('✗ ' + (e && e.message ? e.message : e), 'err');
+  }finally{
+    _txRunning = false; if(bRun) bRun.disabled = !txState.pdfs.length;
+  }
+}
+/* ลองใหม่เฉพาะไฟล์ที่ล้มเหลว — ไม่กระทบไฟล์ที่อ่านสำเร็จแล้ว (ใช้ Cache เดิม) */
+function txRetry(i){ const f = txState.pdfs[i]; if(!f) return; txState.stat[f.name] = ''; txRun(); }
 
 function txOpenInput(ev, k){ if(ev) ev.stopPropagation(); const el = document.getElementById('tx-' + k + '-input'); if(el) el.click(); }
 function txSetStatus(msg, cls){ const el = document.getElementById('tx-status'); if(!el) return; el.textContent = msg; el.className = 'tx-status' + (cls ? ' ' + cls : ''); }
 function txEscHtml(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function txRenderLists(){
   const p = document.getElementById('tx-pdf-list');
-  if(p) p.innerHTML = txState.pdfs.map((f, i) =>
-    '<div class="doa-file-entry"><span class="dfn">📄 ' + txEscHtml(f.name) + '</span>' +
-    '<button class="drm" title="ลบไฟล์นี้" onclick="event.stopPropagation();txRemovePdf(' + i + ')">✕</button></div>').join('');
+  if(p) p.innerHTML = txState.pdfs.map((f, i) => {
+    const st = String(txState.stat[f.name] || '');
+    const bad = st.indexOf('error') === 0;
+    const lab = bad ? '❌ ' + txEscHtml(st.slice(6) || 'อ่านไม่สำเร็จ')
+      : st === 'processing' ? '⏳ กำลังอ่าน…'
+      : st === 'cached'     ? '✅ ใช้ผลเดิม (ไม่เสียค่า API)'
+      : st === 'success'    ? '✅ อ่านสำเร็จ' : '• รอตรวจสอบ';
+    return '<div class="doa-file-entry"><span class="dfn">📄 ' + txEscHtml(f.name) +
+      ' <span style="color:' + (bad ? '#b91c1c' : st === 'processing' ? '#b45309' : '#64748b') + '">— ' + lab + '</span></span>' +
+      (bad ? '<button class="drm" title="ลองใหม่เฉพาะไฟล์นี้" onclick="event.stopPropagation();txRetry(' + i + ')">↻</button>' : '') +
+      '<button class="drm" title="ลบไฟล์นี้" onclick="event.stopPropagation();txRemovePdf(' + i + ')">✕</button></div>';
+  }).join('');
   const ps = document.getElementById('tx-pdf-stat');
   if(ps){ ps.textContent = txState.pdfs.length ? ('✓ แนบแล้ว ' + txState.pdfs.length + ' ไฟล์') : 'ยังไม่ได้แนบไฟล์';
           ps.className = 'tx-fstat' + (txState.pdfs.length ? ' on' : ''); }
 }
 function txHint(){
   return txState.pdfs.length
-    ? ('✓ แนบแล้ว ' + txState.pdfs.length + ' ไฟล์ — กด EXPORT EXCEL ได้เลย')
+    ? ('✓ แนบแล้ว ' + txState.pdfs.length + ' ไฟล์ — กด "ตรวจสอบ" เพื่อให้ AI อ่าน')
     : 'รอไฟล์ INVOICE PDF';
 }
+/* แนบ/ลบไฟล์ = ผลตรวจเดิมใช้ไม่ได้แล้ว ต้องตรวจสอบใหม่ก่อน Export */
+function txInvalidate(){ txState.res = null; txState.list = null; txRenderResult(); }
 function txRemovePdf(i){
   if(i < 0 || i >= txState.pdfs.length) return;
-  txState.pdfs.splice(i, 1);
+  delete txState.stat[txState.pdfs[i].name];
+  txState.pdfs.splice(i, 1); txInvalidate();
   const pi = document.getElementById('tx-pdf-input'); if(pi) pi.value = '';
   txRenderLists(); txCheckReady(); txSetStatus(txHint());
 }
 function txAddPdfFiles(files){
   const fs = [...(files || [])].filter(f => /\.pdf$/i.test(f.name));
-  for(const f of fs) if(!txState.pdfs.some(x => x.name === f.name && x.size === f.size)) txState.pdfs.push(f);
-  txRenderLists(); txCheckReady(); txSetStatus(txHint());
+  let added = 0, dup = 0;
+  for(const f of fs){
+    if(txState.pdfs.some(x => x.name === f.name && x.size === f.size)){ dup++; continue; }
+    txState.pdfs.push(f); txState.stat[f.name] = ''; added++;
+  }
+  if(added) txInvalidate();
+  txRenderLists(); txCheckReady();
+  txSetStatus(txHint() + (dup ? ' · ข้ามไฟล์ซ้ำ ' + dup + ' ไฟล์' : ''));
 }
 function txCheckReady(){
+  const r = document.getElementById('tx-btn-run');
   const b = document.getElementById('tx-btn-export');
-  if(b) b.disabled = !txState.pdfs.length;
+  if(r) r.disabled = !txState.pdfs.length || _txRunning;
+  /* Export เปิดเมื่อ: ตรวจสอบเสร็จ · ไม่มีไฟล์ค้าง preparing/processing · สร้าง Preview แล้ว */
+  const busy = txState.pdfs.some(f => txState.stat[f.name] === 'processing');
+  const bad  = txState.pdfs.some(f => String(txState.stat[f.name] || '').indexOf('error') === 0);
+  if(b) b.disabled = !(txState.res && txState.res.list && txState.res.list.length) || busy || bad || _txRunning;
 }
 function txReset(){
-  txState.pdfs = [];
+  txState.pdfs = []; txState.stat = {}; txState.res = null; txState.list = null;
   const pi = document.getElementById('tx-pdf-input'); if(pi) pi.value = '';
-  txRenderLists(); txCheckReady(); txSetStatus(txHint());
+  txRenderResult(); txRenderLists(); txCheckReady(); txSetStatus(txHint());
 }
 
 /* ── OCR Fallback (ใช้เฉพาะโหมด Texas db12 และเฉพาะเมื่อหน้านั้นไม่มี Text Layer) ──
@@ -11853,93 +12107,23 @@ function txFailReason(cx){
   return p.join(' · ');
 }
 
+/* ── EXPORT EXCEL — ใช้ผลที่ "ตรวจสอบ" ไว้แล้วเท่านั้น (ห้าม Export ก่อนตรวจสอบ)
+   ★ Mapping / Template / รูปแบบไฟล์ ใช้ txBuildBook() เดิม 100% ไม่แก้แม้แต่คอลัมน์เดียว ── */
 async function txDownload(){
   const btn = document.getElementById('tx-btn-export');
-  let ocrWorker = null;
-  const cx = {
-    debug: true,
-    pagesRead: 0, textItems: 0, hasCommercial: false,
-    ocrUsed: false, ocrOk: 0, ocrFail: [], terms: 0, termsSeen: 0, noInv: 0, ocrErr: '',
-    fi: 1, fn: 1,
-    getWorker: async () => {
-      if(ocrWorker) return ocrWorker;                       // สร้าง Worker ตัวเดียวต่อการ Export แล้ว Reuse ทุกหน้า
-      txSetStatus('กำลังเตรียม OCR (โหลดครั้งแรกอาจใช้เวลาสักครู่) …');
-      ocrWorker = await txOcrCreateWorker();
-      return ocrWorker;
-    },
-    onDoc: (n) => { txSetStatus('ตรวจพบ PDF ' + n + ' หน้า'); try{ console.debug('[TX] pages', n); }catch(e){} },
-    onPage: (i, n, st) => {
-      const pre = (cx.fn > 1 ? 'ไฟล์ ' + cx.fi + '/' + cx.fn + ' · ' : '');
-      if(st === 'text')          txSetStatus(pre + 'กำลังอ่านหน้า ' + i + '/' + n);
-      else if(st === 'ocr-wait') txSetStatus(pre + 'หน้า ' + i + ' ไม่มี Text Layer — กำลัง OCR');
-      else if(st === 'ocr')      txSetStatus(pre + 'กำลัง OCR หน้า ' + i + '/' + n);
-    },
-    onPageInfo: (n, info) => {
-      if(/^terms/.test(info)) txSetStatus('หน้า ' + n + ': ข้ามหน้า Terms of Sale');
-      else if(/^invoice /.test(info)) txSetStatus('หน้า ' + n + ': พบ ' + info.replace(/^invoice /, 'Invoice '));
-      try{ console.debug('[TX] page', n, '->', info); }catch(e){}
-    },
-    onInvoice: (inv) => { try{ console.debug('[TX] invoice complete', inv); }catch(e){} }
-  };
+  if(btn) btn.disabled = true;
   try{
-    if(btn) btn.disabled = true;
-    if(!txState.pdfs.length) throw new Error('ยังไม่ได้แนบไฟล์ INVOICE PDF');
+    const list = txState.list;
+    if(!list || !list.length) throw new Error('กรุณากด "ตรวจสอบ" ก่อน');
+    const busy = txState.pdfs.some(f => txState.stat[f.name] === 'processing');
+    const bad  = txState.pdfs.some(f => String(txState.stat[f.name] || '').indexOf('error') === 0);
+    if(busy) throw new Error('ยังมีไฟล์ที่ AI อ่านไม่เสร็จ');
+    if(bad)  throw new Error('ยังมีไฟล์ที่อ่านไม่สำเร็จ — กดลองใหม่เฉพาะไฟล์นั้น หรือลบไฟล์ออกก่อน');
 
-    // 1) อ่าน PDF ทุกไฟล์
-    const map = new Map();
-    cx.fn = txState.pdfs.length;
-    for(let fi = 0; fi < txState.pdfs.length; fi++){
-      const f = txState.pdfs[fi];
-      cx.fi = fi + 1;
-      txSetStatus('กำลังอ่านไฟล์ ' + cx.fi + '/' + cx.fn + ' — ' + f.name);
-      try{ console.debug('[TX] file', cx.fi + '/' + cx.fn, f.name, f.size + ' bytes'); }catch(e){}
-      const pgs = await txPdfPages(f, cx);
-      for(const p of pgs){
-        cx.textItems += (p.raw ? p.raw.length : 0);
-        if(/COMMERCIAL\s+INVOICE/i.test(p.fullText || '')) cx.hasCommercial = true;
-      }
-      txParsePages(pgs, map, cx);
-    }
-    if(!map.size) throw new Error(txFailReason(cx));
-    txSetStatus('พบ Invoice ทั้งหมด ' + map.size + ' Invoice · กำลังตรวจสอบรายการสินค้า …');
-    try{ console.debug('[TX] invoices', map.size, [...map.keys()].join(',')); }catch(e){}
-
-    // 2) เรียงตามเลข Invoice จากน้อยไปมาก (แบบตัวเลข)
-    const list = [...map.values()].sort((a, b) => {
-      const na = Number(a.inv), nb = Number(b.inv);
-      if(isFinite(na) && isFinite(nb) && na !== nb) return na - nb;
-      return a.inv < b.inv ? -1 : a.inv > b.inv ? 1 : 0;
-    });
-
-    // 3) ตรวจสอบภายในแยกตาม Invoice
-    const errs = [];
-    for(const r of list){
-      const why = [];
-      const sq = r.items.reduce((v, x) => v + x.qty, 0);
-      const sv = Math.round(r.items.reduce((v, x) => v + x.sub, 0) * 100) / 100;
-      if(!r.items.length)                              why.push('ไม่พบรายการสินค้า');
-      if(r.tq == null || sq !== r.tq)                  why.push('ผลรวม Quantity (' + sq + ') ไม่ตรงกับ Total Quantity (' + (r.tq == null ? '—' : r.tq) + ')');
-      if(r.tv == null || Math.abs(sv - r.tv) >= 0.005) why.push('ผลรวม Total Price (' + sv.toFixed(2) + ') ไม่ตรงกับ Total Value (' + (r.tv == null ? '—' : r.tv.toFixed(2)) + ')');
-      if(!r.y || !r.m || !r.d)                         why.push('อ่าน Invoice date ไม่ได้');
-      if(!r.cur)                                       why.push('อ่านสกุลเงินไม่ได้');
-      if(r.items.some(x => !x.coo))                    why.push('อ่าน COO (Origin) ไม่ครบทุกรายการ');
-      if(r.items.some(x => !(x.cust || x.ti)))         why.push('อ่าน Product Code ไม่ครบทุกรายการ');
-      const noDesc = r.items.filter(x => !x.desc).map(x => x.item);
-      if(noDesc.length) why.push('ไม่พบ Description ของ Item ' + noDesc.join(', '));
-      const noHts = r.items.filter(x => !x.hts).map(x => x.item);
-      if(noHts.length)  why.push('ไม่พบ HTS number ของ Item ' + noHts.join(', '));
-      if(why.length) errs.push('ไม่สามารถ Export Invoice ' + r.inv + ' ได้ เนื่องจาก ' + why.join(' · '));
-    }
-    if(errs.length){
-      alert(errs.join('\n\n'));
-      txSetStatus('✗ ตรวจสอบไม่ผ่าน ' + errs.length + ' Invoice — ยังไม่ได้สร้างไฟล์', 'err');
-      return;
-    }
-
-    // 4) สร้าง Excel ไฟล์เดียว รวมทุก Invoice + ดาวน์โหลดทันที
     txSetStatus('กำลังสร้าง Excel …');
     const buf  = await txBuildBook(list);
-    const name = (list.length === 1 ? list[0].inv : list[0].inv + '-' + list[list.length - 1].inv) + '.xlsx';
+    const name = 'TEXAS DB12 ' + (list.length === 1 ? list[0].inv
+                   : list[0].inv + '-' + list[list.length - 1].inv) + '.xlsx';
     const rows = list.reduce((v, r) => v + r.items.length, 0);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
@@ -11951,8 +12135,7 @@ async function txDownload(){
     console.error('[TX]', e);
     txSetStatus('✗ ' + (e && e.message ? e.message : e), 'err');
   }finally{
-    if(ocrWorker){ try{ await ocrWorker.terminate(); }catch(e){} ocrWorker = null; }
-    if(btn) btn.disabled = false; txCheckReady();
+    txCheckReady();
   }
 }
 
@@ -24817,6 +25000,10 @@ async function doLogin(){
       _isLocalUser = true;
       _currentUser = fakeSession.user;
       try{ localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(fakeSession.user)); }catch(_){}
+      /* [AI 16/11/2026] ขอ Session ฝั่ง Server สำหรับโหมด TEXAS DB12 (RPC nj_tx_login)
+         ★ เพิ่มอย่างเดียว — ไม่เปลี่ยนวิธีเข้าสู่ระบบ/สิทธิ์เดิม · ล้มเหลวก็เข้าระบบได้ตามปกติ
+         ★ เก็บเฉพาะ Token ในหน่วยความจำ · ไม่เก็บรหัสผ่านไว้ที่ใด */
+      try{ if(typeof txIssueSession === 'function') txIssueSession(ulocal, pass); }catch(_){}
       authMsg('เข้าสู่ระบบ (Local) ✓', 'ok');
       await onAuthSuccess(fakeSession);
       return;
