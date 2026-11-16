@@ -2427,6 +2427,7 @@ body.legacy-active .content-area { display: none !important; }
     <div class="tx-actions">
       <button class="btn btn-primary" id="tx-btn-run" onclick="txRun()" disabled>🔎 ตรวจสอบ</button>
       <button class="btn btn-success" id="tx-btn-export" onclick="txDownload()" disabled>📊 EXPORT EXCEL</button>
+      <button class="btn" id="tx-btn-relink" onclick="txRelink()" style="display:none;border-color:#d99a00;color:#b45309">🔌 เชื่อมต่อ AI ใหม่</button>
       <button class="btn" onclick="txReset()">♻ ล้าง</button>
       <div class="tx-status" id="tx-status">รอไฟล์ INVOICE PDF</div>
     </div>
@@ -11186,9 +11187,22 @@ const txState = { pdfs: [], stat: {}, res: null, list: null, usage: null };
 const TX_AI_FN    = 'nj-invoice-ai-tx';
 const TX_AI_MODEL = 'claude-sonnet-5-5';
 const TX_AI_MAXMS = 7 * 60 * 1000;          // เพดานรอผลต่อไฟล์
-let   _txSess     = null;                    // { token, exp } — เก็บในหน่วยความจำเท่านั้น
-let   _txSessReady = false;                  // true = ขอ Session สำเร็จแล้ว (ใช้คุมปุ่มตรวจสอบ)
-const TX_NO_SESS   = 'ยังเชื่อมต่อ AI สำหรับ TEXAS DB12 ไม่สำเร็จ กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่';
+let   _txSess        = null;   // { token, exp, username } — Memory + sessionStorage เท่านั้น
+let   _txSessReady   = false; // true = มี Token ที่ใช้ได้ (คุมการเปิดปุ่มตรวจสอบ)
+let   _txSessVerified= false; // true = ผ่าน session_check กับ Server แล้วในรอบเปิดหน้านี้
+let   _txSessChecking= false; // true = กำลังตรวจกับ Server — ปิดปุ่มไว้ก่อน
+const TX_SS_KEY      = 'TX_AI_SESSION_V1';   // sessionStorage เท่านั้น — ปิด Tab/Browser แล้วหาย
+const TX_NO_SESS     = 'เชื่อมต่อ AI สำหรับ TEXAS DB12 ไม่สำเร็จ กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่';
+const TX_CHECKING    = 'กำลังตรวจสอบการเชื่อมต่อ AI…';
+
+/* ลบ Session ทุกที่ — ใช้ตอน Logout · Session หมดอายุ · Username ไม่ตรง · ตรวจไม่ผ่าน */
+function txClearSession(){
+  _txSess = null; _txSessReady = false; _txSessVerified = false; _txSessChecking = false;
+  try{ sessionStorage.removeItem(TX_SS_KEY); }catch(_){}
+  try{ txCheckReady(); }catch(_){}
+}
+/* เก็บเฉพาะ Token + วันหมดอายุ + Username — ห้ามเก็บรหัสผ่าน / API Key / Service Role Key */
+function txSaveSession(){ try{ sessionStorage.setItem(TX_SS_KEY, JSON.stringify(_txSess)); }catch(_){} }
 
 /* รับ Session จาก RPC nj_tx_login (เรียกตอนเข้าสู่ระบบ) — ไม่เก็บรหัสผ่านไว้ที่ใด */
 async function txIssueSession(username, password){
@@ -11200,17 +11214,70 @@ async function txIssueSession(username, password){
     });
     const j = await r.json().catch(()=>null);
     if(j && j.success && j.session){
-      _txSess = { token:j.session, exp: Date.parse(j.expires_at||'') || 0 };
-      _txSessReady = true;
+      _txSess = { token:j.session, exp: Date.parse(j.expires_at||'') || 0,
+                  username: String(username||'').toLowerCase() };
+      _txSessReady = true; _txSessVerified = false;
+      txSaveSession();
       try{ txCheckReady(); }catch(_){}
       return true;
     }
   }catch(e){ try{ console.error('[TX] ออก Session ไม่สำเร็จ', e); }catch(_){} }
-  _txSess = null; _txSessReady = false;
-  try{ txCheckReady(); }catch(_){}
+  txClearSession();
   return false;
 }
-function txHasSession(){ return !!(_txSess && _txSess.token && (!_txSess.exp || _txSess.exp > Date.now() + 5000)); }
+/* กู้ Session หลัง Refresh — อ่านจาก sessionStorage เท่านั้น · ห้ามส่ง PDF · ห้ามสร้าง Session ใหม่เอง */
+function txRestoreSession(){
+  try{
+    const raw = sessionStorage.getItem(TX_SS_KEY);
+    if(!raw) return false;
+    const sv    = JSON.parse(raw);
+    const token = String((sv && sv.token) || '');
+    const exp   = Number((sv && sv.exp) || 0);
+    const uname = String((sv && sv.username) || '').toLowerCase();
+    if(!token || !exp || exp <= Date.now() + 5000){ txClearSession(); return false; }
+    _txSess = { token:token, exp:exp, username:uname };
+    return true;
+  }catch(e){ txClearSession(); return false; }
+}
+/* หมดอายุเมื่อไร = ลบทิ้งทันที (ไม่เรียกซ้ำกลับเพื่อกัน Recursion) */
+function txHasSession(){
+  if(_txSess && _txSess.exp && _txSess.exp <= Date.now() + 5000){
+    _txSess = null; _txSessReady = false; _txSessVerified = false;
+    try{ sessionStorage.removeItem(TX_SS_KEY); }catch(_){}
+  }
+  return !!(_txSess && _txSess.token && _txSessReady);
+}
+/* ถาม Server ว่า Session ยังใช้ได้จริงไหม — ไม่เรียก Claude · ไม่สร้างแถวใน nj_ai_jobs · ไม่คิดค่า API */
+async function txSessionCheck(){
+  if(!(_txSess && _txSess.token)) return false;
+  try{
+    const j = await txAiPost({ session:_txSess.token, action:'session_check' });
+    if(j && j.success && j.authenticated){ _txSessReady = true; _txSessVerified = true; return true; }
+  }catch(e){ try{ console.warn('[TX] ตรวจ Session ไม่สำเร็จ', e); }catch(_){} }
+  txClearSession();
+  return false;
+}
+/* เปิดเว็บ/Refresh: กู้ Session → Username ต้องตรงผู้ใช้ปัจจุบัน → ถาม Server */
+async function txBootSession(username){
+  const cur = String(username||'').toLowerCase();
+  if(!txRestoreSession()){ try{ txCheckReady(); }catch(_){} return false; }
+  if(cur && _txSess.username && _txSess.username !== cur){
+    txClearSession();                       // คนละคน — ห้ามใช้ Session ของผู้ใช้ก่อนหน้า
+    return false;
+  }
+  _txSessReady = false; _txSessVerified = false; _txSessChecking = true;
+  try{ txCheckReady(); txSetStatus(TX_CHECKING); }catch(_){}
+  const ok = await txSessionCheck();
+  _txSessChecking = false;
+  try{ txCheckReady(); txSetStatus(txHint(), ok ? '' : 'err'); }catch(_){}
+  return ok;
+}
+/* ปุ่ม "เชื่อมต่อ AI ใหม่" — ไม่ขอรหัสผ่าน · ไม่เรียก Claude · ไม่ส่ง PDF · ไฟล์ที่แนบไว้ไม่หาย */
+function txRelink(){
+  txClearSession();
+  if(typeof toast === 'function') toast('กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่เพื่อเชื่อมต่อ AI', 'warn');
+  txSetStatus('⚠ ' + TX_NO_SESS, 'err');
+}
 
 const txB64Of = async (file) => {
   const buf = new Uint8Array(await file.arrayBuffer());
@@ -11367,6 +11434,8 @@ async function txRun(){
   txState.res = null; txState.list = null; txRenderResult();
   try{
     if(!txHasSession()) throw new Error(TX_NO_SESS);
+    /* [438] ก่อนส่ง PDF ครั้งแรกของรอบนี้ — ถาม Server ว่า Session ยังใช้ได้จริง (ไม่เรียก Claude) */
+    if(!_txSessVerified && !(await txSessionCheck())) throw new Error(TX_NO_SESS);
     const map = new Map(), unclear = [];
     let cost = 0, inTok = 0, outTok = 0, reqs = 0, allCached = true, modelUsed = '';
     for(let i = 0; i < txState.pdfs.length; i++){
@@ -11437,6 +11506,7 @@ function txRenderLists(){
           ps.className = 'tx-fstat' + (txState.pdfs.length ? ' on' : ''); }
 }
 function txHint(){
+  if(_txSessChecking)      return TX_CHECKING;            // [438] ระหว่างตรวจ Session — ปิดปุ่มไว้ก่อน
   if(!txState.pdfs.length) return 'รอไฟล์ INVOICE PDF';
   if(!txHasSession())      return '⚠ ' + TX_NO_SESS;      // ไม่มี Session = ปุ่มตรวจสอบถูกปิด
   return '✓ แนบแล้ว ' + txState.pdfs.length + ' ไฟล์ — กด "ตรวจสอบ" เพื่อให้ AI อ่าน';
@@ -11471,9 +11541,12 @@ function txCheckReady(){
      ไม่มี Session = ปิดปุ่ม · ห้ามส่ง PDF · ห้ามเรียก Edge Function · ห้าม fallback ไปของ KDC */
   const preparing = txState.pdfs.some(f => txState.stat[f.name] === 'processing');
   const okSess = txHasSession();
-  if(r) r.disabled = !txState.pdfs.length || _txRunning || preparing || !okSess;
+  if(r) r.disabled = !txState.pdfs.length || _txRunning || preparing || !okSess || _txSessChecking;
+  /* [438] Session ใช้ไม่ได้ → โชว์ปุ่ม "เชื่อมต่อ AI ใหม่" แทน — ห้ามใช้ปุ่ม Export เป็นทางแก้ */
+  const rl = document.getElementById('tx-btn-relink');
+  if(rl) rl.style.display = (!okSess && !_txSessChecking) ? '' : 'none';
   const el = document.getElementById('tx-status');
-  if(!okSess && txState.pdfs.length && el && !_txRunning && el.textContent.indexOf('✗') !== 0)
+  if(!okSess && !_txSessChecking && txState.pdfs.length && el && !_txRunning && el.textContent.indexOf('✗') !== 0)
     txSetStatus(txHint(), 'err');
   /* Export เปิดเมื่อ: ตรวจสอบเสร็จ · ไม่มีไฟล์ค้าง preparing/processing · สร้าง Preview แล้ว */
   const busy = txState.pdfs.some(f => txState.stat[f.name] === 'processing');
@@ -24687,7 +24760,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local437';
+const DEPLOY_VERSION = 'local438';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
@@ -24777,6 +24850,8 @@ async function onAuthSuccess(session){
 async function doLogout(){
   if(!confirm('ออกจากระบบ?')) return;
   try{ localStorage.removeItem(LOCAL_SESSION_KEY); }catch(_){}
+  /* [438] ลบ TEXAS AI Session (_txSess + TX_AI_SESSION_V1) ก่อน Reload · ไม่แตะ Cache ใน nj_ai_jobs */
+  try{ if(typeof txClearSession === 'function') txClearSession(); }catch(_){}
   _isLocalUser = false;
   _allowedNav  = null;   // [DEMO USER] คืนสิทธิ์เต็มให้ Session ถัดไป
   _curNav      = '';
@@ -24897,6 +24972,10 @@ async function addNewMember(){
         _isLocalUser = true;
         _currentUser = u;
         await onAuthSuccess({ user: u });
+        /* [438] ต้นเหตุของ "ยังไม่เชื่อมต่อ AI" — Local Login ถูก Restore แต่ TEXAS Session อยู่ใน Memory จึงหาย
+           กู้จาก sessionStorage → Username ต้องตรง → ถาม Server ด้วย session_check (ไม่เรียก Claude · ไม่ส่ง PDF) */
+        try{ if(typeof txBootSession === 'function')
+               await txBootSession(u.user_metadata && u.user_metadata.username); }catch(_){}
         return;
       }
       // ข้อมูลค้าง/ไม่ valid → ลบทิ้ง
@@ -24916,7 +24995,12 @@ async function addNewMember(){
   }
   try {
     const { data } = await sbClient.auth.getSession();
-    if(data.session){ await onAuthSuccess(data.session); }
+    if(data.session){ await onAuthSuccess(data.session);
+      /* [438] ผู้ใช้ Supabase ไม่มี TEXAS Session — เรียกเพื่อล้าง Session ค้างของคนก่อนหน้า */
+      try{ if(typeof txBootSession === 'function')
+             await txBootSession(data.session.user && data.session.user.user_metadata
+                                 && data.session.user.user_metadata.username); }catch(_){}
+    }
     else { showAuth(); }
   } catch(e) {
     console.error('Session check failed:', e);
