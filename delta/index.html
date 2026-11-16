@@ -1795,7 +1795,7 @@ function renderUnifiedDeltaView(){
       <button class="btn btn-ghost" onclick="doClear()">ล้าง</button>`;
   } else if(key === 'shell'){
     btnHtml = `
-      <button class="btn btn-success" onclick="doExportSHELL()" id="u-btn-shell" style="background:linear-gradient(135deg,#f59e0b,#d97706)" disabled>⬇ Download Shell ZIP</button>
+      <button class="btn btn-success" onclick="doExportSHELL()" id="u-btn-shell" style="background:linear-gradient(135deg,#f59e0b,#d97706)" disabled>⬇ EXPORT EXCEL</button>
       <button class="btn btn-ghost" onclick="doClear()">ล้าง</button>`;
   } else if(key === 'hitech'){
     // Hi-Tech 3-button flow: Export Excel + Export Mapping ชดเชย + Export Mapping BOI
@@ -5078,19 +5078,29 @@ function normalizeShellShipTo(value){
 }
 
 /* Export Shell → 1 zip ที่มี 1 .xlsx ต่อ Ship-To Party */
+// local306 ONE-CLICK: กด ⬇ EXPORT EXCEL ครั้งเดียว → AI อ่าน PDF → ตรวจ → MAPPING → ดาวน์โหลด · กดซ้ำระหว่างทำงาน = ไม่สร้างงานซ้ำ
 async function doExportSHELL(){
+  if(typeof shellAiExportBegin !== 'function'){ toast('ระบบ AI ของ THE SHELL ยังไม่พร้อม — รีโหลดหน้าเว็บ', 'err'); return; }
+  if(!shellAiExportBegin()){ toast('กำลังประมวลผล EXPORT อยู่ — ใช้งานเดิม ไม่สร้างงาน AI ซ้ำ', 'warn'); return; }
+  let ok = false;
+  try{ ok = (await _doExportSHELLRun()) === true; }
+  catch(e){ console.error('doExportSHELL:', e); toast('Export ไม่สำเร็จ: ' + ((e && e.message) || e), 'err'); }
+  finally { shellAiExportDone(ok); }
+}
+async function _doExportSHELLRun(){
   const d = slotData.shell;
   const files = d.INVOICE_XLSX || [];
-  if(!files.length){ toast('โปรดอัพโหลด Invoice Excel (INV.xlsx)', 'err'); return; }
+  if(!files.length){ toast('โปรดอัพโหลด Invoice Excel (INV.xlsx)', 'err'); return false; }
 
   // รวม rows จากทุกไฟล์ invoice (user โยนได้หลายไฟล์แต่ปกติ 1 ไฟล์)
   const allRows = [];
   files.forEach(f => (f.rows || []).forEach(r => allRows.push(r)));
-  if(!allRows.length){ toast('ไม่พบ data rows ใน invoice (ทุก row เป็น subtotal?)', 'err'); return; }
+  if(!allRows.length){ toast('ไม่พบ data rows ใน invoice (ทุก row เป็น subtotal?)', 'err'); return false; }
 
-  // THE SHELL AI (local305): มี PDF → ต้องยืนยันก่อน และใช้ค่าจาก PDF เฉพาะ Invoice/Date/Description/Qty.ใบขน/Amount/Currency · ไม่มี PDF → แบบเดิมทุกประการ
-  const _ai = (typeof shellAiExportPlan === 'function') ? shellAiExportPlan(allRows) : { active:false };
-  if(_ai.active && !_ai.ok){ toast(_ai.msg, 'err'); return; }
+  // THE SHELL AI (local306): Invoice / Date / Description / Qty. ใบขน / Amount / Currency มาจาก INVOICE PDF (AI) เท่านั้น
+  //   ไม่มี PDF / อ่านไม่ได้ / ข้อมูลไม่ตรง → หยุด Export (ไม่มีค่าจำลอง 100 / วันที่ Export / ค่าจาก Excel)
+  const _ai = await shellAiExport(allRows);
+  if(!_ai.ok){ toast(_ai.msg, 'err'); return false; }
 
   // Group: Ship-To → Plant → [rows]
   const byShipTo = new Map();
@@ -5121,12 +5131,10 @@ async function doExportSHELL(){
   let brandOverrideCount = 0;
   let brandDefaultCount  = 0;
 
-  const today = new Date();
-
   // Check JSZip availability (loaded from same CDN as xlsx if needed)
   if(typeof JSZip === 'undefined'){
     toast('JSZip library ยังไม่โหลด กรุณารีโหลดหน้าเว็บ', 'err');
-    return;
+    return false;
   }
   const zip = new JSZip();
 
@@ -5138,24 +5146,24 @@ async function doExportSHELL(){
     for(const [plant, items] of byPlant){
       const plantShort = _shellPlantShort(plant);
       const aoa = [HEADERS];
-      const _rows = _ai.active ? [...items].sort((a, b) => _ai.order.get(a) - _ai.order.get(b)) : items;  // PDF: Invoice น้อย→มาก · รายการตามลำดับ PDF
+      const _rows = [...items].sort((a, b) => _ai.order.get(a) - _ai.order.get(b));  // Invoice น้อย→มาก · รายการตามลำดับ PDF
       _rows.forEach((r, idx) => {
-        const _p = _ai.active ? _ai.map.get(r) : null;
+        const _p = _ai.map.get(r);
         const brand = _shellMatchBrand(r.desc, brandRules);
         if(brand === SHELL_DEFAULT_BRAND) brandDefaultCount++;
         else                              brandOverrideCount++;
         aoa.push([
           idx + 1,                                               // A item
-          _p ? _p.invoice : r.delivery,                          // B Invoice (PDF เมื่อยืนยันแล้ว)
-          _p ? _p.date : today,                                  // C Date (PDF Invoice Date · ไม่มี PDF = export date แบบเดิม)
-          _p ? _p.desc : r.desc,                                 // D Description
+          _p.invoice,                                            // B Invoice — PDF Invoice Number
+          _p.date,                                               // C Date — PDF Invoice Date
+          _p.desc,                                               // D Description — PDF Product Description
           r.qty,                                                 // E Package
           mapSU(r.su),                                           // F หน่วยนับหีบห่อ — จาก L SU
           r.nw,                                                  // G Net W./Qty. Inv
           r.gw,                                                  // H Gross Weight
-          _p ? _p.qtyBK : r.vol,                                 // I Qty. ใบขน (ค่าที่ผู้ใช้ยืนยัน)
-          _p ? _p.amount : 100,                                  // J Amount (PDF รายการ)
-          _p ? _p.currency : 'USD',                              // K Currency (PDF)
+          _p.qtyBK,                                              // I Qty. ใบขน — PDF Quantity ที่ยืนยันหน่วยแล้ว
+          _p.amount,                                             // J Amount — PDF Item Amount
+          _p.currency,                                           // K Currency — PDF
           brand,                                                 // L Brand name — override จาก Brand Map
           r.mark,                                                // M Shipping Mark
           [r.plant, r.delivery, r.shipment, r.material].join(' '), // N Note
@@ -5203,6 +5211,7 @@ async function doExportSHELL(){
     ? ` · Brand: ${brandOverrideCount} override + ${brandDefaultCount} default (SHELL BRAND)`
     : ' · Brand: all SHELL BRAND (no Brand Map)';
   toast(`✓ Export ZIP: ${CUSTOMERS.shell.exportName} (${fileCount} Ship-To files · ${sheetCount} sheets · ${rowCount} rows${brandInfo})`, 'ok');
+  return true;
 }
 
 
@@ -7489,25 +7498,25 @@ const SUPA_URL = 'https://sytgqjglcnsabcszbngg.supabase.co';
 const SUPA_ANON_KEY = 'sb_publishable_e2yN3kPpkQ0dzi-K2EBa8g_hlo1gUYp';
 let _supa = null;
 
-/* ผู้ใช้ภายใน — fallback ถ้า Supabase offline หรือยังไม่สร้าง table
-   (ถอดมาจาก Triumph module ต้นฉบับ) */
+/* ผู้ใช้ภายใน — ข้อมูลแสดงผลเท่านั้น (ชื่อ / Role ตั้งต้น / Avatar / สี)
+   local307: ไม่มีรหัสผ่านใน Frontend — ตรวจรหัสผ่านที่ Server ด้วย RPC nj_shell_login (bcrypt) · Role จริงมาจาก Server */
 const LOCAL_USERS = [
-  {username:'Jamrat', password:'Jam497522', name:'Jamrat', role:'Super Admin', avatar:'J', color:'#f97316'},
-  {username:'NJ1', password:'NJ1234', name:'NJ1', role:'User', avatar:'1', color:'#3b82f6'},
-  {username:'NJ2', password:'NJ1234', name:'NJ2', role:'User', avatar:'2', color:'#10b981'},
-  {username:'NJ3', password:'NJ1234', name:'NJ3', role:'User', avatar:'3', color:'#a855f7'},
-  {username:'NJ4', password:'NJ1234', name:'NJ4', role:'User', avatar:'4', color:'#ef4444'},
-  {username:'NJ5', password:'NJ1234', name:'NJ5', role:'User', avatar:'5', color:'#06b6d4'},
-  {username:'NJ6', password:'NJ1234', name:'NJ6', role:'User', avatar:'6', color:'#f59e0b'},
-  {username:'NJ7', password:'NJ1234', name:'NJ7', role:'User', avatar:'7', color:'#ec4899'},
-  {username:'NJ8', password:'NJ1234', name:'NJ8', role:'User', avatar:'8', color:'#14b8a6'},
-  {username:'NJ9', password:'NJ1234', name:'NJ9', role:'User', avatar:'9', color:'#84cc16'},
-  {username:'NJ10', password:'NJ1234', name:'NJ10', role:'User', avatar:'10', color:'#6366f1'},
-  {username:'NJ11', password:'NJ1234', name:'NJ11', role:'User', avatar:'11', color:'#f43f5e'},
-  {username:'NJ12', password:'NJ1234', name:'NJ12', role:'User', avatar:'12', color:'#0ea5e9'},
-  {username:'NJ13', password:'NJ1234', name:'NJ13', role:'User', avatar:'13', color:'#d97706'},
-  {username:'NJ14', password:'NJ1234', name:'NJ14', role:'User', avatar:'14', color:'#8b5cf6'},
-  {username:'NJ15', password:'NJ1234', name:'NJ15', role:'User', avatar:'15', color:'#059669'},
+  {username:'Jamrat', name:'Jamrat', role:'Super Admin', avatar:'J', color:'#f97316'},
+  {username:'NJ1', name:'NJ1', role:'User', avatar:'1', color:'#3b82f6'},
+  {username:'NJ2', name:'NJ2', role:'User', avatar:'2', color:'#10b981'},
+  {username:'NJ3', name:'NJ3', role:'User', avatar:'3', color:'#a855f7'},
+  {username:'NJ4', name:'NJ4', role:'User', avatar:'4', color:'#ef4444'},
+  {username:'NJ5', name:'NJ5', role:'User', avatar:'5', color:'#06b6d4'},
+  {username:'NJ6', name:'NJ6', role:'User', avatar:'6', color:'#f59e0b'},
+  {username:'NJ7', name:'NJ7', role:'User', avatar:'7', color:'#ec4899'},
+  {username:'NJ8', name:'NJ8', role:'User', avatar:'8', color:'#14b8a6'},
+  {username:'NJ9', name:'NJ9', role:'User', avatar:'9', color:'#84cc16'},
+  {username:'NJ10', name:'NJ10', role:'User', avatar:'10', color:'#6366f1'},
+  {username:'NJ11', name:'NJ11', role:'User', avatar:'11', color:'#f43f5e'},
+  {username:'NJ12', name:'NJ12', role:'User', avatar:'12', color:'#0ea5e9'},
+  {username:'NJ13', name:'NJ13', role:'User', avatar:'13', color:'#d97706'},
+  {username:'NJ14', name:'NJ14', role:'User', avatar:'14', color:'#8b5cf6'},
+  {username:'NJ15', name:'NJ15', role:'User', avatar:'15', color:'#059669'},
 ];
 
 let _currentUser = null;
@@ -7637,28 +7646,8 @@ async function deleteUserFromSupabase(id, name){
 }
 
 async function importLocalUsersToSupabase(){
-  const s = initSupabase();
-  if(!s){ toast('Supabase Offline', 'err'); return; }
-  if(!confirm(`สมัคร ${LOCAL_USERS.length} users ผ่าน Supabase Auth (signUp)?\nแต่ละ user จะเป็น <username>${AUTH_EMAIL_DOMAIN} · password เดิม`)) return;
-  let ok = 0, skip = 0, err = 0;
-  for(const u of LOCAL_USERS){
-    try{
-      const email = u.username.toLowerCase() + AUTH_EMAIL_DOMAIN;
-      const { error } = await s.auth.signUp({
-        email: email,
-        password: u.password,
-        options: { data: { name: u.name, role: u.role, avatar: u.avatar, color: u.color } }
-      });
-      if(error){
-        if(String(error.message).toLowerCase().includes('already')) skip++;
-        else err++;
-      } else ok++;
-    } catch(e){ err++; }
-    // delay เล็กน้อยกัน rate limit
-    await new Promise(r=>setTimeout(r, 300));
-  }
-  toast(`สมัครสำเร็จ: ${ok} · ข้าม: ${skip} · ผิดพลาด: ${err}`, ok>0?'ok':'warn');
-  await reloadUsersFromSupabase();
+  /* local307: ยกเลิก — ไม่มีรหัสผ่านใน Frontend แล้ว (บัญชีเดิมตรวจที่ Server ผ่าน nj_shell_login) */
+  toast('ยกเลิกการ Import แล้ว — บัญชีเดิม (Jamrat / NJ1–NJ15) เข้าสู่ระบบผ่าน Server โดยตรง', 'warn');
 }
 
 function resetMemberForm(){
@@ -7746,7 +7735,7 @@ function closeMembersModal(){
  * รองรับการกรอกเป็น Username หรือ Email
  *   - กรอก "Jamrat" → ระบบเติม @nj.co อัตโนมัติ → jamrat@nj.co
  *   - กรอก "jamrat@nj.co" → ใช้ตรง ๆ
- * ถ้า Supabase offline → fallback เฉพาะ Jamrat (emergency) */
+ * ไม่มี Supabase Auth / รหัสไม่ตรง → บัญชีเดิมตรวจที่ Server ด้วย RPC nj_shell_login (local307 — ไม่มีรหัสผ่านใน Frontend) */
 const AUTH_EMAIL_DOMAIN = '@nj.co';  // domain auto-append สำหรับ username ที่ไม่มี @
 
 async function doLogin(){
@@ -7800,37 +7789,38 @@ async function doLogin(){
     }
   }
 
-  /* 2) Fallback — ตรวจ LOCAL_USERS เมื่อ Supabase ไม่ reachable หรือ user ไม่อยู่ใน Supabase */
-  if(!match && !supabaseReachable){
-    const localUser = LOCAL_USERS.find(x =>
-      x.username.toLowerCase() === uRaw.toLowerCase() && x.password === p
-    );
-    if(localUser){
-      match = { ...localUser, _local: true };
-    }
-  }
-
-  /* 2b) Supabase reachable แต่ user ยังไม่ได้ import → fallback local */
-  if(!match && supabaseReachable){
-    const localUser = LOCAL_USERS.find(x =>
-      x.username.toLowerCase() === uRaw.toLowerCase() && x.password === p
-    );
-    if(localUser){
-      match = { ...localUser, _localFallback: true };
-    }
+  /* 2) local307: บัญชีเดิม (Jamrat / NJ1–NJ15) — ตรวจรหัสผ่านที่ Server (RPC nj_shell_login · bcrypt · พักบัญชีเมื่อผิดเกิน 5 ครั้ง)
+   *    แทนการเทียบรหัสผ่านกับ LOCAL_USERS ในเบราว์เซอร์ · ได้ Session Token ที่ใช้กับ AI ของ THE SHELL ทันที (ไม่ต้อง Login AI ซ้ำ) */
+  let srvSession = null, srvMsg = '';
+  if(!match && s && typeof s.rpc === 'function'){
+    try{
+      const { data, error } = await s.rpc('nj_shell_login', { p_username: uRaw, p_password: p });
+      if(!error){
+        supabaseReachable = true;
+        if(data && data.success){
+          const prof = LOCAL_USERS.find(x => x.username.toLowerCase() === String(data.username || '').toLowerCase()) || {};
+          const uname = prof.username || data.username;
+          match = { username: uname, name: prof.name || uname, role: data.role || 'User', avatar: prof.avatar || String(uname || '?')[0].toUpperCase(), color: prof.color || '#6b7280', _server: true };
+          srvSession = data;
+        } else if(data && data.locked){ srvMsg = data.msg; }
+      }
+    } catch(e){ console.warn('server login error:', e); }
   }
 
   if(match){
     _currentUser = match;
-    try{ if(typeof shellAiLogin === 'function') shellAiLogin(uRaw, p); } catch(e){}   // THE SHELL AI Session (ไม่รอ · ไม่เปลี่ยนผล Login)
+    try{ if(srvSession){ if(typeof shellAiSetSession === 'function') shellAiSetSession(srvSession); }
+         else if(typeof shellAiUseSupabaseAuth === 'function') shellAiUseSupabaseAuth(match.username); } catch(e){}   // THE SHELL AI ใช้ Session เดียวกับ Login
     if(err) err.style.display = 'none';
     enterApp();
     if(match._emergency){
       setTimeout(()=>toast('⚠ Emergency Access — Supabase offline (Jamrat only)', 'warn'), 600);
     }
   } else {
-    if(!supabaseReachable){
-      show('❌ Supabase Offline — เข้าระบบไม่ได้ (Super Admin ฉุกเฉิน: Jamrat)');
+    if(srvMsg){
+      show('❌ ' + srvMsg);
+    } else if(!supabaseReachable){
+      show('❌ เชื่อมต่อ Server ไม่ได้ — เข้าระบบไม่ได้ กรุณาลองใหม่');
     } else {
       show('❌ Email/Username หรือ Password ไม่ถูกต้อง');
     }
@@ -9129,25 +9119,32 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
 </script>
 <script>
 /* ═══════════════════════════════════════════════════════════════════════════
- * THE SHELL — AI อ่าน INVOICE PDF (หลายไฟล์) → ตรวจสอบ → ยืนยัน → MAPPING (local305)
- * Edge Function: nj-invoice-ai-shell (Background Job + Polling · Cache กลาง 3 วัน)
- * Session: RPC nj_shell_login / nj_shell_logout (RUN-01) — Token เก็บในหน่วยความจำเท่านั้น
- * PDF = Master ของ Invoice / Date / Description / Amount / Currency · INV.xlsx = โครงสร้าง Mapping
- * ไม่มี PDF → doExportSHELL ทำงานแบบเดิมทุกประการ
+ * THE SHELL — ONE-CLICK AI EXPORT (local306)
+ * อัปโหลด INV.xlsx + INVOICE PDF หลายไฟล์ → กด ⬇ EXPORT EXCEL ครั้งเดียว
+ *   → Cache/AI อ่าน PDF (nj-invoice-ai-shell · Background Job + Polling) → ตรวจอัตโนมัติ → MAPPING → ดาวน์โหลดอัตโนมัติ
+ * ผ่านครบ = ดาวน์โหลดทันที (ไม่มีปุ่มตรวจสอบ / ติ๊กยืนยัน / ยืนยันก่อน MAPPING)
+ * ไม่ผ่าน = หยุดเฉพาะ Export · แสดงเฉพาะรายการที่มีปัญหา · แก้แล้วกด EXPORT อีกครั้ง (ใช้ผล AI เดิม ไม่เรียก API ซ้ำ)
+ * PDF = แหล่งข้อมูลเดียวของ Invoice / Date / Description / Amount / Currency / Qty. ใบขน — ไม่มีค่าจำลอง (100 / วันที่ Export / Excel)
+ * ไม่มี OCR/QCR หรือระบบอ่านข้อความ PDF เก่า: pdf.js ใช้นับจำนวนหน้าเท่านั้น
+ * Session (local307): Login หน้าเว็บ = nj_shell_login ที่ Server (ไม่มีรหัสผ่านใน Frontend) → ใช้ Token เดียวกันกับ AI ทันที (ไม่ต้อง Login AI ซ้ำ)
+ *   ผู้ใช้ Supabase Auth → ใช้ JWT ของ Login เดิม · ทุก EXPORT ตรวจ Session/สิทธิ์ที่ Server ก่อน · Token เก็บในหน่วยความจำเท่านั้น
+ * MAPPING (local307): 1 รายการ PDF ↔ 1 แถว Excel เท่านั้น — จับคู่ซ้ำ / กำกวม = หยุด Export
  * ═══════════════════════════════════════════════════════════════════════════ */
 (function(){
   'use strict';
   const FN_URL = SUPA_URL + '/functions/v1/nj-invoice-ai-shell';
-  const JOBS_KEY = 'shell_ai_jobs_v1';
+  const JOBS_KEY = 'shell_ai_jobs_v1', UNIT_KEY = 'shell_ai_qty_unit';
   const MAX_BYTES = 8 * 1024 * 1024;
+  const BTN_LABEL = '⬇ EXPORT EXCEL';
   const ST = { WAIT:'รอการตรวจสอบ', PREP:'กำลังเตรียมไฟล์', AI:'กำลังอ่านด้วย AI', OK:'อ่านสำเร็จ', REVIEW:'รอตรวจสอบข้อมูล',
                MISMATCH:'ข้อมูลไม่ตรงกัน', FAIL:'อ่านไม่สำเร็จ', READY:'พร้อม MAPPING' };
   const S = window.shellAi = {
-    session:null, user:null, sessState:'none', sessMsg:'',
-    files:[], busy:false, orphans:{},      // orphans: ผลงานที่ส่งไว้ก่อน Refresh (key = sha)
+    session:null, user:null, sessState:'none', sessMsg:'', authMode:'', authPromise:null,
+    files:[], orphans:{},                  // orphans: ผลงานที่ส่งไว้ก่อน Refresh (key = sha)
     inv:{},                                // แก้ไข/จับคู่ระดับ Invoice: key → {invoiceNo, date, excelGroup}
-    item:{},                               // แก้ไข/จับคู่/ยืนยันระดับรายการ: key → {desc, amount, excelKey, qtySel, qtyCustom, confirmed}
-    confirmed:null                         // snapshot ที่ยืนยันแล้ว (ใช้ตอน Export)
+    item:{},                               // แก้ไข/จับคู่ระดับรายการ: key → {desc, amount, excelKey, qtySel}
+    exporting:false, phase:'', blockers:null, problemsOnly:true, lastOk:false,
+    qtyUnit:(() => { try{ return localStorage.getItem(UNIT_KEY) || ''; } catch(e){ return ''; } })()
   };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const num = v => { if(v == null || v === '') return null; const n = parseFloat(String(v).replace(/,/g,'')); return isFinite(n) ? n : null; };
@@ -9156,37 +9153,61 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   const decs = v => { const m = String(v == null ? '' : v).match(/\.(\d+)/); return m ? m[1].length : 0; };
   const U = s => String(s == null ? '' : s).trim().toUpperCase();
   const normTxt = s => U(s).replace(/\s+/g,' ');
+  const eqQ = (a, b) => a != null && b != null && Math.abs(a - b) < 0.0005;
   const invCmp = (a, b) => { const A = String(a||''), B = String(b||''); if(/^\d+$/.test(A) && /^\d+$/.test(B)) return A.length - B.length || (A < B ? -1 : A > B ? 1 : 0); return A.localeCompare(B); };
   const dmy = iso => { const m = String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? `${m[3]}/${m[2]}/${m[1]}` : (iso || ''); };
   const toast_ = (m, t) => { try{ toast(m, t); } catch(e){} };
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  /* ── ปุ่ม EXPORT EXCEL (สถานะ) ───────────────────────────── */
+  function setPhase(t){ S.phase = t || ''; const b = document.getElementById('u-btn-shell'); if(b) b.textContent = S.phase ? '⏳ ' + S.phase : BTN_LABEL; }
+  window.shellAiExportBegin = function(){ if(S.exporting) return false; S.exporting = true; S.lastOk = false; return true; };
+  window.shellAiExportBusy = function(){ return S.exporting; };
+  window.shellAiExportDone = function(ok){
+    S.exporting = false;
+    if(ok){ S.lastOk = true; S.files.forEach(f => { if(f.result) f.status = ST.READY; }); setPhase('ดาวน์โหลดสำเร็จ'); const b = document.getElementById('u-btn-shell'); if(b) b.textContent = '✓ ดาวน์โหลดสำเร็จ';
+      setTimeout(() => { if(!S.exporting) setPhase(''); }, 4000); }
+    else setPhase('');
+    render();
+  };
 
   /* ── Session ─────────────────────────────────────────── */
-  window.shellAiLogin = async function(username, password){
-    S.session = null; S.user = null; S.sessState = 'pending'; S.sessMsg = '';
-    try{
-      const sb = initSupabase(); if(!sb) throw new Error('offline');
-      const { data, error } = await sb.rpc('nj_shell_login', { p_username: username, p_password: password });
-      if(error){ S.sessState = 'off'; S.sessMsg = 'ระบบ Session ของ THE SHELL ยังไม่พร้อม (ยังไม่ได้รัน RUN-01)'; }
-      else if(data && data.success){ S.session = data.session; S.user = { username:data.username, role:data.role, can:data.can_shell !== false }; S.sessState = 'ok';
-        if(!S.user.can){ S.sessState = 'denied'; S.sessMsg = 'ผู้ใช้ไม่มีสิทธิ์ใช้งาน THE SHELL'; } }
-      else { S.sessState = 'fail'; S.sessMsg = 'บัญชีนี้ยังไม่มีสิทธิ์ใช้ AI ของ THE SHELL (ติดต่อ Super Admin)'; }
-    } catch(e){ S.sessState = 'off'; S.sessMsg = 'เชื่อมต่อระบบ Session ไม่ได้'; }
-    render();
-    if(S.sessState === 'ok') resumeOrphans();
+  // Login หน้าเว็บสำเร็จด้วย nj_shell_login (Server) → ใช้ Token นี้กับ AI ทันที (ไม่เรียก Login ซ้ำ · ไม่มี Race)
+  window.shellAiSetSession = function(d){
+    S.authMode = 'token'; S.session = d.session; S.user = { username:d.username, role:d.role, can:d.can_shell !== false };
+    S.sessState = S.user.can ? 'ok' : 'denied'; S.sessMsg = S.user.can ? '' : 'ผู้ใช้ไม่มีสิทธิ์ใช้งาน THE SHELL';
+    S.authPromise = null; render(); if(S.sessState === 'ok') resumeOrphans();
+  };
+  // Login หน้าเว็บสำเร็จด้วย Supabase Auth → ใช้ JWT เดิม · ตรวจสิทธิ์ THE SHELL ที่ Server (probe ไม่เรียก AI)
+  window.shellAiUseSupabaseAuth = function(username){
+    S.authMode = 'jwt'; S.session = null; S.user = { username, role:null, can:null }; S.sessState = 'pending'; S.sessMsg = ''; render();
+    S.authPromise = (async () => { const { status, j } = await api({ action:'probe' });
+      if(status === 200 && j && j.success){ S.user.can = true; S.sessState = 'ok'; resumeOrphans(); }
+      else if(S.sessState === 'pending'){ S.sessState = status === 403 ? 'denied' : 'fail'; S.sessMsg = (j && j.msg) || 'ผู้ใช้ไม่มีสิทธิ์ใช้งาน THE SHELL'; }
+      S.authPromise = null; render(); })();
+    return S.authPromise;
   };
   window.shellAiLogout = function(){
-    const t = S.session; S.session = null; S.user = null; S.sessState = 'none';
+    const t = S.authMode === 'token' ? S.session : null; S.session = null; S.user = null; S.sessState = 'none'; S.authMode = ''; S.authPromise = null;
     if(t){ try{ const sb = initSupabase(); if(sb) sb.rpc('nj_shell_logout', { p_session: t }).then(()=>{}, ()=>{}); } catch(e){} }
   };
   window.shellAiReset = function(){
+    if(S.exporting){ toast_('กำลังประมวลผล EXPORT — รอให้เสร็จก่อน', 'warn'); return; }
     S.files.forEach(f => { if(f.url) try{ URL.revokeObjectURL(f.url); } catch(e){} });
-    S.files = []; S.inv = {}; S.item = {}; S.confirmed = null; S.busy = false; render();
+    S.files = []; S.inv = {}; S.item = {}; S.blockers = null; S.lastOk = false; S.problemsOnly = true; render();
   };
 
   /* ── API ─────────────────────────────────────────────── */
+  async function credential(){
+    if(S.authMode === 'token') return S.session ? { session:S.session } : null;
+    if(S.authMode === 'jwt'){ try{ const sb = initSupabase(); const { data } = await sb.auth.getSession(); const t = data && data.session && data.session.access_token; return t ? { access_token:t } : null; } catch(e){ return null; } }
+    return null;
+  }
   async function api(body){
     let res, j = null;
-    try{ res = await fetch(FN_URL, { method:'POST', headers:{ 'Content-Type':'application/json', apikey:SUPA_ANON_KEY, Authorization:'Bearer ' + SUPA_ANON_KEY }, body:JSON.stringify({ session:S.session, ...body }) }); }
+    const cred = await credential();
+    if(!cred){ S.sessState = 'expired'; S.sessMsg = 'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่'; return { status:401, j:{ success:false, error:'unauthorized', msg:S.sessMsg } }; }
+    try{ res = await fetch(FN_URL, { method:'POST', headers:{ 'Content-Type':'application/json', apikey:SUPA_ANON_KEY, Authorization:'Bearer ' + SUPA_ANON_KEY }, body:JSON.stringify({ ...cred, ...body }) }); }
     catch(e){ return { status:0, j:{ success:false, error:'network', msg:'ไม่สามารถเชื่อมต่อระบบ AI ได้' } }; }
     try{ j = await res.json(); } catch(e){ j = { success:false, error:'bad_response', msg:'ไม่สามารถเชื่อมต่อระบบ AI ได้' }; }
     if(res.status === 401){ S.sessState = 'expired'; S.sessMsg = 'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่'; S.session = null; }
@@ -9198,45 +9219,43 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   function jobRemember(sha, jobId, name){ const o = jobsGet(); o[sha] = { job_id:jobId, name, at:Date.now() }; jobsSet(o); }
   function jobForget(sha){ const o = jobsGet(); delete o[sha]; jobsSet(o); }
 
-  /* ── File intake ─────────────────────────────────────── */
+  /* ── รับไฟล์ PDF (ตรวจชนิด / ความสมบูรณ์ / ซ้ำ · นับหน้า — ไม่อ่านข้อความ) ── */
   async function sha256(buf){ const d = await crypto.subtle.digest('SHA-256', buf); return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2,'0')).join(''); }
-  async function inspectPdf(buf){
-    const out = { pages:0, text:false, inv:'' };
+  async function pageCount(buf){
     const doc = await pdfjsLib.getDocument({ data:new Uint8Array(buf.slice(0)) }).promise;
-    out.pages = doc.numPages; let txt = '';
-    for(let p = 1; p <= doc.numPages; p++){ const tc = await (await doc.getPage(p)).getTextContent(); txt += tc.items.map(i => i.str).join(' ') + '\n'; }
-    out.text = txt.replace(/\s+/g,'').length > 30;
-    const m = txt.match(/(?:pro-?\s*forma\s+)?invoice\s*(?:number|no\.?|#)\s*[:.#]?\s*([A-Z0-9][A-Z0-9\-\/]{5,})/i);
-    if(m) out.inv = m[1];
-    try{ doc.destroy(); } catch(e){}
-    return out;
+    const n = doc.numPages; try{ doc.destroy(); } catch(e){} return n;
   }
+  const prepping = new Set();
   async function addFiles(list){
+    if(S.exporting){ toast_('กำลังประมวลผล EXPORT — เพิ่มไฟล์หลังจากเสร็จ', 'warn'); return; }
     const arr = [...(list || [])];
-    for(const file of arr){
-      if(!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf'){ toast_(`❌ ${file.name}: รับเฉพาะไฟล์ PDF`, 'err'); continue; }
-      const f = { id:'f' + Date.now().toString(36) + Math.random().toString(36).slice(2,7), file, name:file.name, size:file.size, sha:'', pages:0, text:null, invGuess:'', status:ST.PREP, msg:'', jobId:null, result:null, cached:false, usage:null, url:null };
-      S.files.push(f); render();
-      try{
-        if(file.size > MAX_BYTES) throw new Error('ไฟล์ใหญ่เกิน 8 MB');
-        const buf = await file.arrayBuffer();
-        const head = new Uint8Array(buf.slice(0, 4)); if(!(head[0]===0x25 && head[1]===0x50 && head[2]===0x44 && head[3]===0x46)) throw new Error('เนื้อไฟล์ไม่ใช่ PDF');
-        f.sha = await sha256(buf);
-        const dup = S.files.find(x => x !== f && x.sha === f.sha);
-        if(dup){ S.files = S.files.filter(x => x !== f); toast_(`⚠ พบไฟล์ซ้ำ: ${file.name} = ${dup.name} (SHA-256 เดียวกัน) — ไม่เพิ่มซ้ำ`, 'warn'); render(); continue; }
-        let info; try{ info = await inspectPdf(buf); } catch(e){ throw new Error('ไฟล์ PDF เสียหาย หรือเปิดไม่ได้'); }
-        if(!info.pages) throw new Error('PDF ไม่มีหน้า');
-        Object.assign(f, { pages:info.pages, text:info.text, invGuess:info.inv, status:ST.WAIT });
-        if(S.orphans[f.sha]){ applyResult(f, S.orphans[f.sha]); delete S.orphans[f.sha]; }
-      } catch(e){ f.status = ST.FAIL; f.msg = (e && e.message) || 'อ่านไฟล์ไม่ได้'; }
-      S.confirmed = null; render();
-    }
+    const job = (async () => {
+      for(const file of arr){
+        if(!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf'){ toast_(`❌ ${file.name}: รับเฉพาะไฟล์ PDF`, 'err'); continue; }
+        const f = { id:'f' + Date.now().toString(36) + Math.random().toString(36).slice(2,7), file, name:file.name, size:file.size, sha:'', pages:0, status:ST.PREP, msg:'กำลังเตรียมไฟล์ PDF', jobId:null, result:null, cached:false, usage:null, url:null, bad:false };
+        S.files.push(f); render();
+        try{
+          if(file.size > MAX_BYTES) throw new Error('ไฟล์ใหญ่เกิน 8 MB');
+          const buf = await file.arrayBuffer();
+          const head = new Uint8Array(buf.slice(0, 4)); if(!(head[0]===0x25 && head[1]===0x50 && head[2]===0x44 && head[3]===0x46)) throw new Error('เนื้อไฟล์ไม่ใช่ PDF');
+          f.sha = await sha256(buf);
+          const dup = S.files.find(x => x !== f && x.sha === f.sha);
+          if(dup){ S.files = S.files.filter(x => x !== f); toast_(`⚠ พบไฟล์ซ้ำ: ${file.name} = ${dup.name} (SHA-256 เดียวกัน) — ไม่เพิ่มซ้ำ`, 'warn'); render(); continue; }
+          let n; try{ n = await pageCount(buf); } catch(e){ throw new Error('ไฟล์ PDF เสียหาย หรือเปิดไม่ได้'); }
+          if(!n) throw new Error('PDF ไม่มีหน้า');
+          Object.assign(f, { pages:n, status:ST.WAIT, msg:'' });
+          if(S.orphans[f.sha]){ applyResult(f, S.orphans[f.sha]); delete S.orphans[f.sha]; }
+        } catch(e){ f.status = ST.FAIL; f.bad = true; f.msg = (e && e.message) || 'อ่านไฟล์ไม่ได้'; }
+        S.blockers = null; S.lastOk = false; render();
+      }
+    })();
+    prepping.add(job); try{ await job; } finally { prepping.delete(job); }
   }
   function removeFile(id){
+    if(S.exporting){ toast_('กำลังประมวลผล EXPORT — รอให้เสร็จก่อนลบ', 'warn'); return; }
     const f = S.files.find(x => x.id === id); if(!f) return;
-    if(S.busy && f.status === ST.AI){ toast_('ไฟล์นี้กำลังอ่านด้วย AI — รอให้เสร็จก่อนลบ', 'warn'); return; }
     if(f.url) try{ URL.revokeObjectURL(f.url); } catch(e){}
-    S.files = S.files.filter(x => x !== f); S.confirmed = null; render();
+    S.files = S.files.filter(x => x !== f); S.blockers = null; S.lastOk = false; render();
   }
   function viewPdf(id, page){
     const f = S.files.find(x => x.id === id); if(!f) return;
@@ -9244,9 +9263,8 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     window.open(f.url + (page ? '#page=' + page : ''), '_blank', 'noopener');
   }
 
-  /* ── ตรวจสอบ (ส่ง AI) ────────────────────────────────── */
+  /* ── อ่านด้วย AI (Cache ก่อนเสมอ ที่ Server) ───────────────── */
   function b64Of(file){ return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = () => rej(new Error('อ่านไฟล์ไม่ได้')); r.readAsDataURL(file); }); }
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
   function applyResult(f, j){
     f.result = j.result; f.cached = !!j.cached; f.usage = j.usage || null; f.jobId = j.job_id || f.jobId;
     f.status = ST.OK; f.msg = j.cached ? 'พบไฟล์ซ้ำ ใช้ข้อมูลเดิมจาก Cache' : 'อ่านข้อมูลสำเร็จ';
@@ -9255,14 +9273,14 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     const t0 = Date.now();
     while(Date.now() - t0 < 9 * 60_000){
       await sleep(Math.max(1500, wait || 2500));
-      const { j } = await api({ action:'job_status', job_id:jobId });
+      const { j } = await api({ action:'job_status', job_id:jobId });            // Polling อ่านสถานะอย่างเดียว
       if(j && j.pending){ wait = j.poll_after_ms; continue; }
       if(j && j.success){ applyResult(f, j); jobForget(f.sha); return; }
       f.status = ST.FAIL; f.msg = (j && j.msg) || 'อ่าน PDF ไม่สำเร็จ'; if(j && j.error !== 'network') jobForget(f.sha); return;
     }
-    f.status = ST.FAIL; f.msg = 'รอผลนานเกินกำหนด กรุณากดลองใหม่';
+    f.status = ST.FAIL; f.msg = 'รอผลนานเกินกำหนด — กด EXPORT EXCEL อีกครั้ง';
   }
-  async function runOne(f){
+  async function readOne(f){
     f.status = ST.PREP; f.msg = 'กำลังตรวจสอบเอกสาร'; render();
     let b64; try{ b64 = await b64Of(f.file); } catch(e){ f.status = ST.FAIL; f.msg = e.message; return; }
     f.status = ST.AI; f.msg = 'กำลังอ่านข้อมูลด้วย AI'; render();
@@ -9270,20 +9288,6 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     if(status === 200 && j && j.success){ applyResult(f, j); return; }
     if(status === 202 && j && j.job_id){ f.jobId = j.job_id; jobRemember(f.sha, j.job_id, f.name); render(); await pollJob(f, j.job_id, j.poll_after_ms); return; }
     f.status = ST.FAIL; f.msg = (j && j.msg) || 'ไม่สามารถเชื่อมต่อระบบ AI ได้';
-  }
-  async function runCheck(onlyIds){
-    if(S.busy) return;
-    if(S.sessState !== 'ok' || !S.session){ toast_(S.sessMsg || 'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่', 'err'); render(); return; }
-    const targets = S.files.filter(f => f.sha && (onlyIds ? onlyIds.includes(f.id) : (f.status === ST.WAIT || f.status === ST.FAIL)));
-    if(!targets.length){ toast_('ไม่มีไฟล์ที่รอการตรวจสอบ', 'warn'); return; }
-    S.busy = true; S.confirmed = null; render();
-    try{
-      const queue = [...targets];
-      const worker = async () => { while(queue.length){ const f = queue.shift(); try{ await runOne(f); } catch(e){ f.status = ST.FAIL; f.msg = 'อ่าน PDF ไม่สำเร็จ'; } render(); } };
-      await Promise.all([worker(), worker()]);
-    } finally { S.busy = false; render(); }
-    const bad = S.files.filter(f => f.status === ST.FAIL).length;
-    toast_(bad ? `อ่านไม่สำเร็จ ${bad} ไฟล์ — กด "ลองใหม่" เฉพาะไฟล์นั้นได้` : 'อ่านข้อมูลสำเร็จ — กรุณาตรวจสอบก่อน Export', bad ? 'warn' : 'ok');
   }
   async function resumeOrphans(){
     const o = jobsGet(); const shas = Object.keys(o); if(!shas.length) return;
@@ -9299,18 +9303,18 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   function excelGroups(){
     const files = (slotData.shell && slotData.shell.INVOICE_XLSX) || [];
     const groups = new Map();
-    files.forEach((xf, fi) => (xf.rows || []).forEach((r, ri) => {
+    files.forEach((xf, fi) => (xf.rows || []).forEach(r => {
       const g = String(r.delivery == null ? '' : r.delivery).trim(); if(!g) return;
       if(!groups.has(g)) groups.set(g, []);
-      groups.get(g).push({ key:`${fi}:${r.srcRow}`, row:r, fi, label:`แถว ${r.srcRow}` });
+      groups.get(g).push({ key:`${fi}:${r.srcRow}`, row:r, fi });
     }));
     return groups;
   }
+  function qtyFor(it, uom){ const u = U(uom); if(!u) return null; if(U(it.uom1) === u) return num(it.qty1); if(U(it.uom2) === u) return num(it.qty2); return null; }
   function build(){
     const invs = [];
     S.files.forEach(f => { if(!f.result || !Array.isArray(f.result.invoices)) return;
       f.result.invoices.forEach((iv, ii) => invs.push({ f, iv, key:`${f.sha.slice(0,16)}#${ii}` })); });
-    // Invoice ซ้ำข้ามไฟล์
     const seen = {}; invs.forEach(x => { const n = String(x.iv.invoice_no || ''); if(n) seen[n] = (seen[n] || 0) + 1; });
     const groups = excelGroups(); const usedGroup = {};
     const model = invs.map(x => {
@@ -9318,87 +9322,97 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       const invoiceNo = o.invoiceNo != null ? o.invoiceNo : String(x.iv.invoice_no || '');
       const date = o.date != null ? o.date : String(x.iv.date || '');
       const currency = String(x.iv.currency || '');
-      // จับคู่ Excel: ผู้ใช้เลือกเอง > เลข Invoice = G (Delivery) > เลขอ้างอิงที่พิมพ์ใน PDF = G
+      // PDF Invoice ↔ Excel G (Delivery): ผู้ใช้เลือก > เลข Invoice ตรง G > เลขอ้างอิงที่พิมพ์ใน PDF ตรง G (ไม่สมมติว่าเป็นเลขเดียวกันเสมอ)
       let group = null, why = '';
       if(o.excelGroup && groups.has(o.excelGroup)){ group = o.excelGroup; why = 'ผู้ใช้เลือก'; }
-      else if(o.excelGroup === '__none__'){ group = null; why = 'ผู้ใช้เลือก: ไม่จับคู่'; }
-      else { const cands = [invoiceNo, ...(x.iv.delivery_refs || [])].map(s => String(s||'').trim()).filter(s => s && groups.has(s));
-        const uniq = [...new Set(cands)];
+      else if(o.excelGroup === '__none__'){ why = 'ผู้ใช้เลือก: ไม่จับคู่'; }
+      else { const uniq = [...new Set([invoiceNo, ...(x.iv.delivery_refs || [])].map(s => String(s||'').trim()).filter(s => s && groups.has(s)))];
         if(uniq.length === 1){ group = uniq[0]; why = uniq[0] === invoiceNo ? 'เลข Invoice = Excel G (Delivery)' : 'เลขอ้างอิงใน PDF = Excel G (Delivery)'; }
-        else if(uniq.length > 1) why = 'พบหลายกลุ่มใน Excel — กรุณาเลือก'; else why = groups.size ? 'ไม่พบเลขนี้ใน Excel คอลัมน์ G — กรุณาเลือกเอง' : 'ยังไม่ได้อัปโหลด INV.xlsx'; }
+        else if(uniq.length > 1) why = 'พบหลายกลุ่มใน Excel — กรุณาเลือก'; else why = groups.size ? 'ไม่พบเลข Invoice / เลขอ้างอิงนี้ใน Excel คอลัมน์ G — กรุณาเลือกเอง' : 'ยังไม่ได้อัปโหลด INV.xlsx'; }
       if(group) usedGroup[group] = (usedGroup[group] || 0) + 1;
       const excelRows = group ? groups.get(group) : [];
       const items = (x.iv.items || []).map((it, k) => {
         const key = `${x.key}/${k}`; const e = S.item[key] || (S.item[key] = {});
-        const desc = e.desc != null ? e.desc : String(it.desc || '');
-        const amount = e.amount != null ? e.amount : num(it.amount);
-        return { key, seq:k + 1, it, desc, amount, e };
+        return { key, seq:k + 1, it, e, desc:e.desc != null ? e.desc : String(it.desc || ''), amount:e.amount != null ? e.amount : num(it.amount) };
       });
-      // จับคู่รายการ ↔ แถว Excel: ผู้ใช้เลือก > ข้อมูลประกอบ (Material = Product Code · Qty+หน่วย · Description) > ลำดับ
-      //   สินค้าชื่อซ้ำ: คะแนนเท่ากัน → ใช้ลำดับรายการ (แถว Excel ที่มาก่อน) · ไม่ใช้ Description อย่างเดียวตัดสินเมื่อมีหลายแถวตรงกัน
+      // PDF Item ↔ Excel Row: ผู้ใช้เลือก > ข้อมูลประกอบ (Material = Product Code · Qty+หน่วย · Description) > ลำดับ (จำนวนเท่ากันเท่านั้น)
       const taken = new Set(items.filter(i => i.e.excelKey && i.e.excelKey !== '__none__').map(i => i.e.excelKey));
       const score = (it, desc, r) => { let sc = 0; const xr = r.row;
         if(it.product_code && xr.material != null && U(String(xr.material)) === U(it.product_code)) sc += 4;
-        const pq = qtyFor(it, xr.su); if(pq != null && num(xr.qty) != null && Math.abs(pq - num(xr.qty)) < 0.0005) sc += 2;
+        if(eqQ(qtyFor(it, xr.su), num(xr.qty))) sc += 2;
         if(normTxt(xr.desc) === normTxt(desc)) sc += 1; return sc; };
       items.forEach(i => { if(i.e.excelKey === '__none__') i.ex = null; else if(i.e.excelKey) i.ex = excelRows.find(r => r.key === i.e.excelKey) || null; });
+      const sameRef = (a, b) => U(String(a.row.material == null ? '' : a.row.material)) === U(String(b.row.material == null ? '' : b.row.material)) && eqQ(num(a.row.qty), num(b.row.qty)) && U(a.row.su) === U(b.row.su) && normTxt(a.row.desc) === normTxt(b.row.desc);
       items.forEach((i, k) => {
+        i.how = i.e.excelKey ? 'ผู้ใช้เลือก' : '';
         if(i.e.excelKey) return;
-        const free = excelRows.filter(r => !taken.has(r.key));
-        let best = null, bs = 0; free.forEach(r => { const sc = score(i.it, i.desc, r); if(sc > bs){ bs = sc; best = r; } });
-        if(!best && excelRows.length === items.length && !taken.has(excelRows[k].key)) best = excelRows[k];   // ไม่มีข้อมูลประกอบ → ลำดับ (จำนวนเท่ากันเท่านั้น)
+        const free = excelRows.filter(r => !taken.has(r.key)); let bs = 0, tops = [];
+        free.forEach(r => { const sc = score(i.it, i.desc, r); if(sc > bs){ bs = sc; tops = [r]; } else if(sc === bs && sc > 0) tops.push(r); });
+        let best = null;
+        if(tops.length === 1){ best = tops[0]; i.how = 'ข้อมูลอ้างอิงตรง'; }
+        else if(tops.length > 1){
+          // คะแนนเท่ากันหลายแถว: ใช้ลำดับรายการได้เฉพาะเมื่อทุกแถวมี Material / Qty / หน่วย / Description เหมือนกันทุกข้อ — ไม่เช่นนั้น = กำกวม
+          if(tops.every(r => sameRef(r, tops[0]))){ best = tops[0]; i.how = 'ลำดับรายการ (แถว Excel ข้อมูลอ้างอิงเหมือนกัน)'; }
+          else i.ambiguous = tops.map(r => r.row.srcRow);
+        }
+        else if(excelRows.length === items.length && !taken.has(excelRows[k].key)){ best = excelRows[k]; i.how = 'ลำดับรายการ (ไม่มีข้อมูลอ้างอิงตรง)'; }
         i.ex = best || null; if(best) taken.add(best.key);
       });
-      return { x, key:x.key, f:x.f, iv:x.iv, invoiceNo, date, currency, group, why, dupInvoice:(seen[String(x.iv.invoice_no||'')] || 0) > 1, items, excelRows };
+      return { key:x.key, f:x.f, iv:x.iv, invoiceNo, date, currency, group, why, dupInvoice:(seen[String(x.iv.invoice_no||'')] || 0) > 1, items, excelRows };
     }).sort((a, b) => invCmp(a.invoiceNo, b.invoiceNo));
     Object.keys(usedGroup).forEach(g => { if(usedGroup[g] > 1) model.filter(m => m.group === g).forEach(m => { m.groupClash = true; }); });
-    // ตรวจรายการ
+    // ตรวจสองทิศทาง: แถว Excel หนึ่งแถวถูกอ้างโดยรายการ PDF ได้ไม่เกิน 1 รายการ (ทุก Invoice)
+    const refs = new Map();
+    model.forEach(m => m.items.forEach(i => { if(i.ex){ if(!refs.has(i.ex.key)) refs.set(i.ex.key, []); refs.get(i.ex.key).push({ m, i }); } }));
+    refs.forEach(list => { if(list.length > 1) list.forEach(x => { x.i.dupWith = list.filter(y => y !== x).map(y => `Invoice ${y.m.invoiceNo || '?'} รายการที่ ${y.i.seq}`); }); });
     model.forEach(m => m.items.forEach(i => checkItem(m, i)));
     model.forEach(m => checkInvoice(m));
     return { model, groups };
   }
-  function qtyFor(it, uom){ const u = U(uom); if(!u) return null; if(U(it.uom1) === u) return num(it.qty1); if(U(it.uom2) === u) return num(it.qty2); return null; }
+  // ตรวจรายการ (ทุกข้อเป็นเงื่อนไขบังคับ — ยกเว้นผลต่างจากการปัดเศษราคาที่พิมพ์ ซึ่งแสดงเป็นข้อมูล)
   function checkItem(m, i){
-    const it = i.it, errs = [], warns = [];
-    const miss = [['desc','Description', i.desc], ['amount','Amount', i.amount], ['qty1','Quantity', it.qty1], ['uom1','หน่วยนับ', it.uom1]].filter(z => z[2] == null || z[2] === '');
-    miss.forEach(z => errs.push(`ไม่สามารถอ่าน ${z[1]} รายการที่ ${i.seq} หน้า ${it.pg || '?'}${it.note ? ' (' + it.note + ')' : ''}`));
-    // Amount = Quantity(ตามหน่วยราคา) / Price Basis × Price
+    const it = i.it, errs = [], info = [], at = `รายการที่ ${i.seq} หน้า ${it.pg || '?'}`;
+    [['Description', i.desc], ['Amount', i.amount], ['Quantity', it.qty1], ['หน่วยนับ', it.uom1]].filter(z => z[1] == null || z[1] === '')
+      .forEach(z => errs.push(`ไม่สามารถอ่าน ${z[0]} ${at}${it.note ? ' (' + it.note + ')' : ''}`));
+    // Item Amount = Quantity(หน่วยตามฐานราคา) ÷ Price Basis × Price
     i.calc = null;
     const price = num(it.price), per = num(it.price_per) || 1, q = qtyFor(it, it.price_uom || it.uom1);
-    if(price != null && q != null && i.amount != null){
+    if(price == null) errs.push(`ไม่สามารถอ่าน Price ${at}`);
+    else if(q == null) errs.push(`ตรวจ Amount ไม่ได้: หน่วยฐานราคา (${U(it.price_uom) || '—'}) ไม่มีใน Quantity ของรายการ`);
+    else if(i.amount != null){
       const exp = q / per * price, diff = r2(i.amount - exp), tol = q / per * 0.5 * Math.pow(10, -decs(it.price)) + 0.005;
-      i.calc = { exp, diff, tol, basis:`${fmt(q,3)} ${U(it.price_uom||it.uom1)} ÷ ${per} × ${it.price}` };
-      if(Math.abs(i.amount - exp) > tol) errs.push(`Amount ไม่ตรง Qty × Price (${i.calc.basis} = ${fmt(exp)}; ต่าง ${fmt(diff)})`);
-      else if(Math.abs(diff) >= 0.01) warns.push(`ผลต่าง ${fmt(diff)} จากความละเอียดราคาที่พิมพ์ (${it.price})`);
-    } else if(price != null && i.amount != null){ warns.push('ตรวจ Qty × Price ไม่ได้: หน่วยราคาไม่ตรงกับหน่วยจำนวน'); }
+      i.calc = { exp, diff };
+      if(Math.abs(i.amount - exp) > tol) errs.push(`Amount ไม่ตรง Qty × Price (${fmt(q,3)} ${U(it.price_uom||it.uom1)} ÷ ${per} × ${it.price} = ${fmt(exp)}; ต่าง ${fmt(diff)})`);
+      else if(Math.abs(diff) >= 0.01) info.push(`ผลต่าง ${fmt(diff)} จากความละเอียดราคาที่พิมพ์ (${it.price}) — อยู่ในเกณฑ์`);
+    }
     if(it.price_ccy && m.currency && U(it.price_ccy) !== U(m.currency)) errs.push(`สกุลเงินราคา (${it.price_ccy}) ไม่ตรงกับ Invoice (${m.currency})`);
     // จับคู่ Excel
     if(!m.group) errs.push('ไม่สามารถจับคู่รายการกับ Excel ได้ (Invoice ยังไม่จับคู่)');
-    else if(!i.ex) errs.push('ไม่สามารถจับคู่รายการกับ Excel ได้ — กรุณาเลือกแถว');
+    else if(i.ambiguous) errs.push(`จับคู่กำกวม: แถว Excel ${i.ambiguous.join(', ')} ตรงเท่ากันแต่ข้อมูลต่างกัน — เลือกแถว Excel`);
+    else if(!i.ex) errs.push('ไม่สามารถจับคู่รายการกับ Excel ได้ — เลือกแถว Excel');
     else {
-      const xr = i.ex.row, xq = num(xr.qty), xs = U(xr.su), pq = qtyFor(it, xs);
-      if(pq == null) warns.push(`หน่วยนับไม่ตรงกับข้อมูลใบขน (Excel ${xs || '—'} / PDF ${U(it.uom1)}${it.uom2 ? ', ' + U(it.uom2) : ''})`);
-      else if(xq != null && Math.abs(pq - xq) > 0.0005) errs.push(`Quantity ไม่ตรง Excel (PDF ${fmt(pq,3)} ${xs} / Excel ${fmt(xq,3)} ${xs})`);
-      const codeOk = it.product_code && xr.material != null && U(String(xr.material)) === U(it.product_code);
-      const descOk = normTxt(xr.desc) === normTxt(i.desc);
-      if(!codeOk && !descOk) warns.push('Description / Material ไม่ตรงกับ Excel — กรุณาตรวจสอบการจับคู่');
+      const xr = i.ex.row, xs = U(xr.su), pq = qtyFor(it, xs), at = `(แถว Excel ${xr.srcRow})`;
+      if(i.dupWith && i.dupWith.length) errs.push(`จับคู่ซ้ำ: แถว Excel ${xr.srcRow} ถูกใช้กับ ${i.dupWith.join(', ')} ด้วย — แต่ละแถวใช้ได้ 1 รายการ`);
+      if(pq == null) errs.push(`หน่วยนับไม่ตรงกับข้อมูลใบขน ${at} (Excel ${xs || '—'} / PDF ${U(it.uom1)}${it.uom2 ? ', ' + U(it.uom2) : ''})`);
+      else if(!eqQ(pq, num(xr.qty))) errs.push(`Quantity ไม่ตรง Excel ${at} (PDF ${fmt(pq,3)} ${xs} / Excel ${fmt(num(xr.qty),3)} ${xs})`);
+      const codeOk = !!it.product_code && xr.material != null && U(String(xr.material)) === U(it.product_code);
+      if(!codeOk && normTxt(xr.desc) !== normTxt(i.desc)) errs.push(`Description / Material ไม่ตรงกับแถว Excel ${xr.srcRow} — ตรวจการจับคู่`);
     }
-    // Qty. ใบขน: ค่าเดิมจาก Excel (O) จนกว่าผู้ใช้เลือก — ไม่แปลงหน่วยเอง
-    const sel = i.e.qtySel || 'excel';
+    // Qty. ใบขน: ใช้ค่า PDF ที่ยืนยันหน่วยแล้วเท่านั้น (ไม่แปลงหน่วย · ไม่ใช้ Excel O แทน)
+    //   ผู้ใช้เลือกในรายการ > หน่วยที่ตั้งไว้ > ค่า PDF ที่เท่ากับ Excel O (ยืนยันความหมายจากโครงสร้างใบขนเดิม)
     i.qtyOptions = [];
-    if(i.ex) i.qtyOptions.push({ v:'excel', label:`Excel O (Vol) ${fmt(num(i.ex.row.vol),3)}`, val:num(i.ex.row.vol) });
-    if(num(it.qty1) != null) i.qtyOptions.push({ v:'q1', label:`PDF ${fmt(num(it.qty1),3)} ${U(it.uom1)}`, val:num(it.qty1) });
-    if(num(it.qty2) != null) i.qtyOptions.push({ v:'q2', label:`PDF ${fmt(num(it.qty2),3)} ${U(it.uom2)}`, val:num(it.qty2) });
-    i.qtyOptions.push({ v:'custom', label:'กรอกเอง', val:num(i.e.qtyCustom) });
-    const opt = i.qtyOptions.find(o => o.v === sel) || i.qtyOptions[0];
-    i.qtySel = opt ? opt.v : 'custom'; i.qtyVal = opt ? opt.val : null;
-    if(i.qtyVal == null) errs.push('ยังไม่มีค่า Qty. ใบขน');
-    if(!i.e.qtySel) warns.push('Qty. ใบขน: รอตรวจหน่วย (ใช้ค่าเดิมจาก Excel)');
-    i.errs = errs; i.warns = warns;
-    i.state = errs.length ? 'bad' : (warns.length ? 'warn' : 'ok');
+    if(num(it.qty1) != null && it.uom1) i.qtyOptions.push({ v:'q1', u:U(it.uom1), val:num(it.qty1), label:`PDF ${fmt(num(it.qty1),3)} ${U(it.uom1)}` });
+    if(num(it.qty2) != null && it.uom2) i.qtyOptions.push({ v:'q2', u:U(it.uom2), val:num(it.qty2), label:`PDF ${fmt(num(it.qty2),3)} ${U(it.uom2)}` });
+    let opt = null, how = '';
+    if(i.e.qtySel){ opt = i.qtyOptions.find(o => o.v === i.e.qtySel) || null; how = 'เลือกในรายการ'; }
+    if(!opt && S.qtyUnit){ opt = i.qtyOptions.find(o => o.u === S.qtyUnit) || null; how = `หน่วยที่ตั้งไว้ ${S.qtyUnit}`; }
+    if(!opt && i.ex){ const ov = num(i.ex.row.vol); const hit = i.qtyOptions.filter(o => eqQ(o.val, ov)); if(hit.length === 1){ opt = hit[0]; how = 'ตรงกับ Excel O'; } }
+    i.qtySel = opt ? opt.v : ''; i.qtyVal = opt ? opt.val : null; i.qtyHow = how; i.qtyUnit = opt ? opt.u : '';
+    if(!opt) errs.push(`Qty. ใบขน: ยืนยันหน่วยไม่ได้ (PDF ${i.qtyOptions.map(o => o.label.replace('PDF ','')).join(' / ') || '—'}${i.ex ? ` · Excel O ${fmt(num(i.ex.row.vol),3)}` : ''}) — เลือกหน่วย Qty. ใบขน`);
+    i.errs = errs; i.info = info; i.state = errs.length ? 'bad' : 'ok';
   }
   function checkInvoice(m){
-    const errs = [], warns = [];
+    const errs = [];
     if(!m.invoiceNo) errs.push('ไม่พบเลข Invoice');
     if(!/^\d{4}-\d{2}-\d{2}$/.test(m.date)) errs.push('ไม่พบ Invoice Date');
     if(!m.currency) errs.push('ไม่พบสกุลเงิน');
@@ -9407,74 +9421,100 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     if(!m.items.length) errs.push('ข้อมูลรายการไม่ครบ กรุณาตรวจสอบ');
     const sum = m.items.reduce((s, i) => s + (i.amount || 0), 0), tot = num(m.iv.total_amount);
     m.sum = r2(sum); m.total = tot;
-    if(tot != null && Math.abs(r2(sum) - tot) > 0.005) errs.push(`ยอดรวมไม่ตรงกับ Invoice (รวมรายการ ${fmt(sum)} / TOTAL ${fmt(tot)}; ต่าง ${fmt(r2(sum - tot))})`);
-    if(tot == null) warns.push('ไม่พบ TOTAL ใน PDF — ตรวจยอดรวมไม่ได้');
-    // เทียบ Excel (เฉพาะหน่วยที่เทียบกันได้)
+    if(tot == null) errs.push('ไม่พบ TOTAL Amount ใน PDF — ตรวจยอดรวมไม่ได้');
+    else if(Math.abs(r2(sum) - tot) > 0.005) errs.push(`ยอดรวมไม่ตรงกับ Invoice (รวมรายการ ${fmt(sum)} / TOTAL ${fmt(tot)}; ต่าง ${fmt(r2(sum - tot))})`);
+    // TOTAL QTY / PKG / NW / GW — เฉพาะที่มีข้อมูลจริงและหน่วยเทียบกันได้
     m.cmp = [];
     if(m.group){
-      if(m.excelRows.length !== m.items.length) warns.push(`จำนวนรายการ PDF ${m.items.length} / Excel ${m.excelRows.length}`);
       const unmatchedEx = m.excelRows.filter(r => !m.items.some(i => i.ex && i.ex.key === r.key));
-      if(unmatchedEx.length) errs.push(`แถว Excel ที่ยังไม่จับคู่: ${unmatchedEx.map(r => r.row.srcRow).join(', ')}`);
+      if(unmatchedEx.length) errs.push(`แถว Excel ที่ไม่มีรายการ PDF: ${unmatchedEx.map(r => r.row.srcRow).join(', ')}`);
       const sumBy = (rows, f) => rows.reduce((s, r) => s + (num(f(r)) || 0), 0);
       const wU = U(m.iv.weight_uom || 'KG');
-      if(num(m.iv.nw) != null && wU === 'KG'){ const ex = sumBy(m.excelRows, r => r.row.nw); m.cmp.push(['TOTAL NW (KG)', num(m.iv.nw), ex]); }
-      if(num(m.iv.gw) != null && wU === 'KG'){ const ex = sumBy(m.excelRows, r => r.row.gw); m.cmp.push(['TOTAL GW (KG)', num(m.iv.gw), ex]); }
-      if(num(m.iv.total_pkg) != null && m.iv.pkg_unit){ const pu = U(m.iv.pkg_unit); const ex = sumBy(m.excelRows.filter(r => U(r.row.su) === pu), r => r.row.qty); m.cmp.push([`TOTAL PACKAGE (${pu})`, num(m.iv.total_pkg), ex]); }
+      if(num(m.iv.nw) != null && wU === 'KG') m.cmp.push(['TOTAL NW (KG)', num(m.iv.nw), sumBy(m.excelRows, r => r.row.nw)]);
+      if(num(m.iv.gw) != null && wU === 'KG') m.cmp.push(['TOTAL GW (KG)', num(m.iv.gw), sumBy(m.excelRows, r => r.row.gw)]);
+      if(num(m.iv.total_pkg) != null && m.iv.pkg_unit){ const pu = U(m.iv.pkg_unit), rows = m.excelRows.filter(r => U(r.row.su) === pu); if(rows.length) m.cmp.push([`TOTAL PACKAGE (${pu})`, num(m.iv.total_pkg), sumBy(rows, r => r.row.qty)]); }
       const units = {}; m.items.forEach(i => [[i.it.qty1, i.it.uom1], [i.it.qty2, i.it.uom2]].forEach(([q, u]) => { if(num(q) != null && u) units[U(u)] = (units[U(u)] || 0) + num(q); }));
       Object.keys(units).forEach(u => { const rows = m.excelRows.filter(r => U(r.row.su) === u); if(rows.length) m.cmp.push([`TOTAL QTY (${u})`, units[u], sumBy(rows, r => r.row.qty)]); });
-      m.cmp.forEach(c => { if(Math.abs(c[1] - c[2]) > 0.0005) warns.push(`${c[0]} ไม่ตรง: PDF ${fmt(c[1],3)} / Excel ${fmt(c[2],3)} (ต่าง ${fmt(c[1]-c[2],3)})`); });
+      m.cmp.forEach(c => { if(Math.abs(c[1] - c[2]) > 0.0015) errs.push(`${c[0]} ไม่ตรง: PDF ${fmt(c[1],3)} / Excel ${fmt(c[2],3)} (ต่าง ${fmt(c[1]-c[2],3)})`); });
     }
-    m.errs = errs; m.warns = warns;
+    m.errs = errs;
+  }
+  // รายการที่ต้องแก้ (ภาษาไทย · ระบุไฟล์ / Invoice / หน้า / รายการ)
+  function collectBlockers(built, allRows){
+    const out = [];
+    S.files.forEach(f => { if(!f.result) out.push(`ไฟล์ ${f.name}: ${f.status === ST.FAIL ? (f.msg || 'อ่านไม่สำเร็จ') : 'ยังไม่ได้อ่านด้วย AI'}`); });
+    built.model.forEach(m => {
+      m.errs.forEach(e => out.push(`ไฟล์ ${m.f.name} · Invoice ${m.invoiceNo || '?'}: ${e}`));
+      m.items.forEach(i => i.errs.forEach(e => out.push(`ไฟล์ ${m.f.name} · Invoice ${m.invoiceNo || '?'} · รายการที่ ${i.seq} หน้า ${i.it.pg || '?'}: ${e}`)));
+    });
+    const used = new Set(built.model.filter(m => m.group).map(m => m.group));
+    const extra = [...built.groups.keys()].filter(g => !used.has(g));
+    if(extra.length) out.push(`Excel Delivery (G) ที่ไม่มี INVOICE PDF: ${extra.slice(0,15).join(', ')}${extra.length > 15 ? '…' : ''}`);
+    if(allRows){ const mapped = new Set(); built.model.forEach(m => m.items.forEach(i => { if(i.ex) mapped.add(i.ex.row); }));
+      const miss = allRows.filter(r => !mapped.has(r)); if(miss.length && !extra.length) out.push(`แถว Excel ${miss.length} แถวไม่มีรายการ PDF (แถว ${miss.slice(0,10).map(r => r.srcRow).join(', ')}${miss.length > 10 ? '…' : ''})`); }
+    return out;
   }
   function summary(model){
-    const s = { pdf:S.files.length, inv:model.length, items:0, pass:0, review:0, fail:S.files.filter(f => f.status === ST.FAIL).length, amt:{}, qty:{}, nw:{}, gw:{}, unreadable:0 };
-    model.forEach(m => { const c = m.currency || '?';
-      if(num(m.iv.nw) != null) s.nw[U(m.iv.weight_uom || 'KG')] = (s.nw[U(m.iv.weight_uom || 'KG')] || 0) + num(m.iv.nw);
-      if(num(m.iv.gw) != null) s.gw[U(m.iv.weight_uom || 'KG')] = (s.gw[U(m.iv.weight_uom || 'KG')] || 0) + num(m.iv.gw);
+    const s = { pdf:S.files.length, inv:model.length, items:0, pass:0, bad:0, fail:S.files.filter(f => f.status === ST.FAIL).length, amt:{}, qty:{}, nw:{}, gw:{} };
+    model.forEach(m => { const c = m.currency || '?', wu = U(m.iv.weight_uom || 'KG');
+      if(num(m.iv.nw) != null) s.nw[wu] = (s.nw[wu] || 0) + num(m.iv.nw);
+      if(num(m.iv.gw) != null) s.gw[wu] = (s.gw[wu] || 0) + num(m.iv.gw);
       m.items.forEach(i => { s.items++; if(i.amount != null) s.amt[c] = (s.amt[c] || 0) + i.amount;
         [[i.it.qty1, i.it.uom1], [i.it.qty2, i.it.uom2]].forEach(([q, u]) => { if(num(q) != null && u) s.qty[U(u)] = (s.qty[U(u)] || 0) + num(q); });
-        const bad = i.errs.length || m.errs.length; if(bad) s.review++; else s.pass++;
-        if(i.errs.some(e => e.startsWith('ไม่สามารถอ่าน'))) s.unreadable++; }); });
+        if(i.errs.length || m.errs.length) s.bad++; else s.pass++; }); });
     return s;
   }
 
-  /* ── Export plan (เรียกจาก doExportSHELL) ───────────────── */
-  window.shellAiExportPlan = function(allRows){
-    if(!S.files.length) return { active:false };
-    if(S.busy) return { active:true, ok:false, msg:'AI กำลังอ่าน PDF — รอให้เสร็จก่อน Export' };
-    if(!S.confirmed) return { active:true, ok:false, msg:'กรุณาตรวจสอบก่อน Export — กด "ยืนยันข้อมูลก่อน MAPPING" ก่อน (หรือลบ PDF ทั้งหมดเพื่อใช้ระบบเดิม)' };
-    const { model } = build();
-    const sig = JSON.stringify(snapshot(model));
-    if(sig !== S.confirmed) { S.confirmed = null; render(); return { active:true, ok:false, msg:'ข้อมูลเปลี่ยนหลังยืนยัน — กรุณายืนยันข้อมูลก่อน MAPPING อีกครั้ง' }; }
-    const groups = excelGroups(), byKey = new Map(); groups.forEach(arr => arr.forEach(x => byKey.set(x.row, x.key)));
+  /* ── ONE-CLICK: เรียกจาก doExportSHELL (ครั้งเดียว: Cache/AI → ตรวจ → MAPPING → แผนการเขียน Excel) ── */
+  const filesSig = () => S.files.map(f => f.id + ':' + f.sha).join('|');
+  window.shellAiExport = async function(allRows){
+    const xlsxRef = slotData.shell && slotData.shell.INVOICE_XLSX;
+    if(prepping.size){ setPhase('กำลังเตรียมไฟล์ PDF...'); await Promise.all([...prepping]); }
+    if(!S.files.length) return { ok:false, msg:'ไม่มี INVOICE PDF — ไม่มีเอกสารต้นทางสำหรับ AI (อัปโหลด PDF แล้วกด ⬇ EXPORT EXCEL)' };
+    const badFiles = S.files.filter(f => f.bad);
+    if(badFiles.length) return { ok:false, msg:`ไฟล์ PDF ใช้ไม่ได้: ${badFiles.map(f => `${f.name} (${f.msg})`).join(', ')} — ลบไฟล์นั้นก่อน` };
+    const sig0 = filesSig();
+    // 0) Session / สิทธิ์ THE SHELL — ตรวจที่ Server ทุกครั้งก่อนอ่าน PDF และ Export (probe ไม่เรียก AI)
+    if(S.authPromise){ setPhase('กำลังตรวจสอบสิทธิ์...'); await S.authPromise; }
+    if(S.sessState !== 'ok') return { ok:false, msg:S.sessMsg || 'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่' };
+    { const { status, j } = await api({ action:'probe' });
+      if(!(status === 200 && j && j.success)){ render(); return { ok:false, msg:(j && j.msg) || 'ไม่สามารถเชื่อมต่อระบบ AI ได้' }; } }
+    // 1) AI: เฉพาะไฟล์ที่ยังไม่มีผล (ไฟล์ที่ล้มเหลว = Retry เฉพาะไฟล์นั้น) · Server ตรวจ Cache ก่อนทุกครั้ง
+    const todo = S.files.filter(f => !f.result);
+    if(todo.length){
+      setPhase('กำลังอ่าน PDF ด้วย AI...'); render();
+      const queue = [...todo];
+      const worker = async () => { while(queue.length){ const f = queue.shift(); try{ await readOne(f); } catch(e){ f.status = ST.FAIL; f.msg = 'อ่าน PDF ไม่สำเร็จ'; } render(); } };
+      await Promise.all([worker(), worker()]);
+    }
+    if(filesSig() !== sig0 || (slotData.shell && slotData.shell.INVOICE_XLSX) !== xlsxRef) return { ok:false, msg:'ไฟล์เปลี่ยนระหว่างประมวลผล — กด ⬇ EXPORT EXCEL อีกครั้ง (ใช้ผล AI เดิม)' };
+    const failed = S.files.filter(f => !f.result);
+    if(failed.length){ S.blockers = collectBlockers(build(), allRows); S.problemsOnly = true; render();
+      return { ok:false, msg:`อ่านไม่สำเร็จ ${failed.length} ไฟล์: ${failed.map(f => f.name).join(', ')} — กด ⬇ EXPORT EXCEL อีกครั้งเพื่ออ่านเฉพาะไฟล์ที่ล้มเหลว` }; }
+    // 2) ตรวจยอด  3) จับคู่ MAPPING
+    setPhase('กำลังตรวจสอบยอด...'); await sleep(0);
+    const built = build();
+    setPhase('กำลังจับคู่ MAPPING...'); await sleep(0);
+    const blockers = collectBlockers(built, allRows);
+    if(blockers.length){ S.blockers = blockers; S.problemsOnly = true; render();
+      return { ok:false, msg:`ข้อมูลไม่ตรง ${blockers.length} จุด — หยุด Export · แก้ไขตามรายการ แล้วกด ⬇ EXPORT EXCEL อีกครั้ง (ใช้ผล AI เดิม)` }; }
+    // 4) แผนการเขียน Excel: ทุกแถว Excel ต้องมีรายการ PDF ที่ผ่านการตรวจ
     const map = new Map(), order = new Map(); let ord = 0;
-    model.forEach(m => m.items.forEach(i => { if(!i.ex) return; const xr = i.ex.row;
+    let dupRow = null;
+    built.model.forEach(m => m.items.forEach(i => { const xr = i.ex.row; if(map.has(xr)) dupRow = xr;
       const invCell = (typeof xr.delivery === 'number' && /^[1-9]\d{0,14}$/.test(m.invoiceNo)) ? Number(m.invoiceNo) : m.invoiceNo;
       const [y, mo, d] = m.date.split('-').map(Number);
       map.set(xr, { invoice:invCell, date:new Date(y, mo - 1, d), desc:i.desc, qtyBK:i.qtyVal, amount:i.amount, currency:m.currency });
       order.set(xr, ord++); }));
-    const missing = allRows.filter(r => !map.has(r));
-    if(missing.length) return { active:true, ok:false, msg:`มีแถว Excel ${missing.length} แถวที่ไม่มีข้อมูล PDF ยืนยัน (แถว ${missing.slice(0,10).map(r => r.srcRow).join(', ')}${missing.length > 10 ? '…' : ''}) — ไม่สามารถจับคู่รายการกับ Excel ได้` };
-    return { active:true, ok:true, map, order };
+    if(dupRow) return { ok:false, msg:`แถว Excel ${dupRow.srcRow} ถูกจับคู่ซ้ำ — หยุด Export` };
+    if(ord !== allRows.length || allRows.some(r => !map.has(r))) return { ok:false, msg:'จำนวนรายการ PDF กับแถว Excel ไม่ตรงกัน — หยุด Export' };
+    S.blockers = null; setPhase('กำลังสร้าง Excel...'); render();
+    return { ok:true, map, order };
   };
-  function snapshot(model){
-    return model.map(m => [m.key, m.invoiceNo, m.date, m.currency, m.group, m.items.map(i => [i.key, i.desc, i.amount, i.ex && i.ex.key, i.qtyVal, !!i.e.confirmed])]);
-  }
-  function confirmAll(){
-    const { model } = build();
-    const blockers = [];
-    model.forEach(m => { m.errs.forEach(e => blockers.push(`Invoice ${m.invoiceNo || '?'}: ${e}`)); m.items.forEach(i => { if(i.errs.length) blockers.push(`Invoice ${m.invoiceNo || '?'} รายการที่ ${i.seq} หน้า ${i.it.pg || '?'}: ${i.errs[0]}`); if(!i.e.confirmed) blockers.push(`Invoice ${m.invoiceNo || '?'} รายการที่ ${i.seq}: ยังไม่ได้ยืนยัน`); }); });
-    if(S.files.some(f => f.status !== ST.OK && f.status !== ST.READY && f.status !== ST.REVIEW && f.status !== ST.MISMATCH)) blockers.unshift('มีไฟล์ที่ยังอ่านไม่สำเร็จ / ยังไม่ได้ตรวจสอบ');
-    const groups = excelGroups(), used = new Set(model.filter(m => m.group).map(m => m.group));
-    const extra = [...groups.keys()].filter(g => !used.has(g)); if(extra.length) blockers.push(`Excel Delivery ที่ไม่มี PDF: ${extra.slice(0,10).join(', ')}`);
-    if(!model.length) blockers.push('ยังไม่มีข้อมูลที่อ่านจาก PDF');
-    if(blockers.length){ S.confirmed = null; S.blockers = blockers; render(); toast_(`ยังยืนยันไม่ได้ ${blockers.length} จุด — ดูรายการด้านล่าง`, 'err'); return; }
-    S.blockers = null; S.confirmed = JSON.stringify(snapshot(model)); render(); toast_('✓ ยืนยันข้อมูลแล้ว — พร้อม MAPPING / Export', 'ok');
-  }
 
   /* ── UI ──────────────────────────────────────────────── */
   function panel(){ return document.getElementById('shell-ai-panel'); }
-  window.shellAiMount = function(key){ const p = panel(); if(!p) return; p.style.display = key === 'shell' ? '' : 'none'; if(key === 'shell') render(); };
+  window.shellAiMount = function(key){ const p = panel(); if(!p) return; p.style.display = key === 'shell' ? '' : 'none'; if(key === 'shell'){ if(!S.exporting) setPhase(S.phase); render(); } };
   function sessBox(){
     const m = { ok:['ok', `เชื่อมต่อ AI แล้ว · ${esc(S.user && S.user.username)}`], pending:['wait','กำลังตรวจสอบสิทธิ์…'], none:['bad','ยังไม่ได้เข้าสู่ระบบ'],
       off:['bad', esc(S.sessMsg)], fail:['bad', esc(S.sessMsg)], denied:['bad', esc(S.sessMsg)], expired:['bad', esc(S.sessMsg) + ' <button type="button" class="btn btn-ghost sai-mini" data-act="relogin">เข้าสู่ระบบใหม่</button>'] }[S.sessState] || ['bad',''];
@@ -9482,126 +9522,122 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   }
   function render(){
     const p = panel(); if(!p || p.style.display === 'none') return;
-    const filesDone = S.files.some(f => f.result);
-    let built = null; if(filesDone) built = build();
-    if(built){ // อัปเดตสถานะไฟล์หลังอ่าน
-      S.files.forEach(f => { if(!f.result) return;
-        const ms = built.model.filter(m => m.f === f);
-        const bad = ms.some(m => m.errs.some(e => /ยอดรวมไม่ตรง|ไม่ตรง Qty|Quantity ไม่ตรง/.test(e)) || m.items.some(i => i.errs.some(e => /ไม่ตรง/.test(e))));
-        const need = ms.some(m => m.errs.length || m.items.some(i => i.errs.length || !i.e.confirmed));
-        f.status = S.confirmed ? ST.READY : bad ? ST.MISMATCH : need ? ST.REVIEW : ST.OK; });
-    }
-    const canRun = S.sessState === 'ok' && !S.busy && S.files.some(f => f.status === ST.WAIT || f.status === ST.FAIL);
+    const built = S.files.some(f => f.result) ? build() : null;
+    if(built && !S.exporting) S.files.forEach(f => { if(!f.result || f.status === ST.READY && S.lastOk) return;
+      const ms = built.model.filter(m => m.f === f);
+      const unread = ms.some(m => m.items.some(i => i.errs.some(e => e.startsWith('ไม่สามารถอ่าน'))));
+      const bad = ms.some(m => m.errs.length || m.items.some(i => i.errs.length));
+      f.status = unread ? ST.REVIEW : bad ? ST.MISMATCH : ST.OK; });
+    const lock = S.exporting ? 'disabled' : '';
     const rows = S.files.map((f, i) => {
       const cls = f.status === ST.FAIL || f.status === ST.MISMATCH ? 'bad' : f.status === ST.READY || f.status === ST.OK ? 'ok' : f.status === ST.AI || f.status === ST.PREP ? 'wait' : 'warn';
-      const invs = f.result ? f.result.invoices.map(iv => esc(iv.invoice_no || '?')).join(', ') : esc(f.invGuess || '—');
-      return `<tr><td>${i + 1}</td><td class="sai-fn" title="${esc(f.name)}">${esc(f.name)}</td><td>${f.pages || '—'}${f.text === false ? ' <span class="sai-tag">สแกน</span>' : ''}</td>
-        <td>${invs}</td><td><span class="sai-pill sai-${cls}">${esc(f.status)}</span>${f.msg ? `<div class="sai-msg">${esc(f.msg)}</div>` : ''}${f.cached ? '<div class="sai-msg">Cache (ไม่เรียก AI ซ้ำ)</div>' : ''}</td>
+      const invs = f.result ? f.result.invoices.map(iv => esc(iv.invoice_no || '?')).join(', ') : '—';
+      return `<tr><td>${i + 1}</td><td class="sai-fn" title="${esc(f.name)}">${esc(f.name)}</td><td>${f.pages || '—'}</td><td>${invs}</td>
+        <td><span class="sai-pill sai-${cls}">${esc(f.status)}</span>${f.msg ? `<div class="sai-msg">${esc(f.msg)}</div>` : ''}</td>
         <td class="sai-mono" title="${esc(f.sha)}">${esc(f.sha.slice(0,12))}</td>
         <td class="sai-act"><button type="button" class="btn btn-ghost sai-mini" data-act="view" data-id="${f.id}">ดู PDF</button>
-          ${f.status === ST.FAIL && f.sha ? `<button type="button" class="btn btn-ghost sai-mini" data-act="retry" data-id="${f.id}" ${S.busy || S.sessState !== 'ok' ? 'disabled' : ''}>ลองใหม่</button>` : ''}
-          <button type="button" class="btn btn-ghost sai-mini" data-act="rm" data-id="${f.id}">ลบ</button></td></tr>`; }).join('');
+          <button type="button" class="btn btn-ghost sai-mini" data-act="rm" data-id="${f.id}" ${lock}>ลบ</button></td></tr>`; }).join('');
     const orphanN = Object.keys(S.orphans).length + Object.keys(jobsGet()).filter(s => !S.files.some(f => f.sha === s)).length;
     let html = `<h2>📄 INVOICE PDF — AI อ่านข้อมูล (หลายไฟล์) ${sessBox()}</h2>
-      <div class="sai-drop" id="sai-drop" tabindex="0">📎 ลากไฟล์ PDF มาวาง หรือ <u>กดเลือกไฟล์</u> (เพิ่มได้หลายรอบ · ไฟล์ละไม่เกิน 8 MB)
+      <div class="sai-drop${S.exporting ? ' sai-locked' : ''}" id="sai-drop" tabindex="0">📎 ลากไฟล์ PDF มาวาง หรือ <u>กดเลือกไฟล์</u> (เพิ่มได้หลายรอบ · ไฟล์ละไม่เกิน 8 MB) — แล้วกด <b>⬇ EXPORT EXCEL</b> ครั้งเดียว
         <input type="file" id="sai-input" accept=".pdf,application/pdf" multiple style="display:none"></div>
-      ${orphanN ? `<div class="sai-note">มีงานที่ส่งไว้ก่อน Refresh ${orphanN} งาน — เพิ่มไฟล์เดิมเพื่อดูผล (ไม่เรียก AI ซ้ำ)</div>` : ''}
-      ${S.files.length ? `<div class="sai-scroll"><table class="sai-tbl"><thead><tr><th>#</th><th>ไฟล์</th><th>หน้า</th><th>Invoice</th><th>สถานะ</th><th>SHA-256</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : ''}
-      <div class="sai-actions"><button type="button" class="btn btn-primary" data-act="run" ${canRun ? '' : 'disabled'}>${S.busy ? '⏳ กำลังอ่าน…' : '🔍 ตรวจสอบ'}</button>
-        ${S.files.length ? `<button type="button" class="btn btn-ghost" data-act="clear" ${S.busy ? 'disabled' : ''}>ล้าง PDF</button>` : ''}
-        <span class="sai-msg">${S.files.length ? 'มี PDF = Export ใช้ข้อมูล PDF ที่ยืนยันแล้ว' : 'ไม่มี PDF = Export แบบเดิมจาก INV.xlsx'}</span></div>`;
+      ${orphanN ? `<div class="sai-note">มีงานที่ส่งไว้ก่อน Refresh ${orphanN} งาน — เพิ่มไฟล์เดิมแล้วกด EXPORT (ไม่เรียก AI ซ้ำ)</div>` : ''}
+      ${S.files.length ? `<div class="sai-scroll"><table class="sai-tbl"><thead><tr><th>#</th><th>ไฟล์</th><th>หน้า</th><th>Invoice</th><th>สถานะ</th><th>SHA-256</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+        <div class="sai-actions"><button type="button" class="btn btn-ghost" data-act="clear" ${lock}>ล้าง PDF</button>${S.phase ? `<span class="sai-pill sai-wait">⏳ ${esc(S.phase)}</span>` : ''}</div>` : ''}`;
     if(built && built.model.length) html += previewHtml(built);
+    if(S.blockers && S.blockers.length) html += `<div class="sai-blk"><b>หยุด Export — ต้องแก้ไข ${S.blockers.length} จุด:</b>${S.blockers.slice(0,40).map(b => `<div>• ${esc(b)}</div>`).join('')}${S.blockers.length > 40 ? `<div>… อีก ${S.blockers.length - 40} รายการ</div>` : ''}<div class="sai-msg">แก้ไขแล้วกด ⬇ EXPORT EXCEL อีกครั้ง — ใช้ผล AI เดิม ไม่เรียก API ซ้ำ</div></div>`;
     p.innerHTML = html; bind(p);
   }
   function previewHtml({ model, groups }){
     const s = summary(model);
     const kv = o => Object.keys(o).length ? Object.keys(o).map(k => `${fmt(o[k], 3).replace(/\.000$/,'')} ${esc(k)}`).join(' · ') : '—';
     const amt = Object.keys(s.amt).length ? Object.keys(s.amt).map(k => `${esc(k)} ${fmt(s.amt[k])}`).join(' · ') : '—';
+    const units = [...new Set(model.flatMap(m => m.items.flatMap(i => i.qtyOptions.map(o => o.u))))].sort();
     const gOpts = sel => `<option value="">— เลือก Excel Delivery (G) —</option><option value="__none__" ${sel === '__none__' ? 'selected' : ''}>ไม่จับคู่</option>` + [...groups.keys()].map(g => `<option value="${esc(g)}" ${sel === g ? 'selected' : ''}>${esc(g)} (${groups.get(g).length} แถว)</option>`).join('');
+    const lock = S.exporting ? 'disabled' : '';
+    const hasBad = model.some(m => m.errs.length || m.items.some(i => i.errs.length));
+    const only = S.problemsOnly && hasBad;
     let body = '';
     model.forEach(m => {
-      const st = m.errs.length ? 'bad' : m.warns.length ? 'warn' : 'ok';
-      body += `<tr class="sai-inv"><td colspan="11">
-        <b>Invoice</b> <input class="sai-in sai-w10" data-inv="${esc(m.key)}" data-f="invoiceNo" value="${esc(m.invoiceNo)}">
-        <b>Date</b> <input type="date" class="sai-in" data-inv="${esc(m.key)}" data-f="date" value="${esc(m.date)}"> <span class="sai-msg">(${esc(m.iv.date_text || '')})</span>
+      const mBad = m.errs.length || m.items.some(i => i.errs.length);
+      if(only && !mBad) return;
+      body += `<tr class="sai-inv"><td colspan="10">
+        <b>Invoice</b> <input class="sai-in sai-w10" data-inv="${esc(m.key)}" data-f="invoiceNo" value="${esc(m.invoiceNo)}" ${lock}>
+        <b>Date</b> <input type="date" class="sai-in" data-inv="${esc(m.key)}" data-f="date" value="${esc(m.date)}" ${lock}> <span class="sai-msg">(${esc(m.iv.date_text || '')})</span>
         <b>${esc(m.currency)}</b> TOTAL ${fmt(m.total)} · รวมรายการ ${fmt(m.sum)}
-        · <b>Excel</b> <select class="sai-in" data-inv="${esc(m.key)}" data-f="excelGroup">${gOpts(S.inv[m.key].excelGroup || (m.group || ''))}</select> <span class="sai-msg">${esc(m.why)}</span>
+        · <b>Excel</b> <select class="sai-in" data-inv="${esc(m.key)}" data-f="excelGroup" ${lock}>${gOpts(S.inv[m.key].excelGroup || (m.group || ''))}</select> <span class="sai-msg">${esc(m.why)}</span>
         · <a href="javascript:void(0)" data-act="view" data-id="${m.f.id}">${esc(m.f.name)}</a>
         ${m.cmp.length ? `<div class="sai-msg">${m.cmp.map(c => `${esc(c[0])}: PDF ${fmt(c[1],3)} / Excel ${fmt(c[2],3)}`).join(' · ')}</div>` : ''}
-        ${[...m.errs.map(e => `<div class="sai-e">❌ ${esc(e)}</div>`), ...m.warns.map(e => `<div class="sai-w">⚠ ${esc(e)}</div>`)].join('')}
-        <span class="sai-pill sai-${st}">${st === 'ok' ? 'ผ่าน' : st === 'warn' ? 'ต้องตรวจสอบ' : 'ไม่ผ่าน'}</span></td></tr>`;
+        ${m.errs.map(e => `<div class="sai-e">❌ ${esc(e)}</div>`).join('')}
+        <span class="sai-pill sai-${mBad ? 'bad' : 'ok'}">${mBad ? 'ไม่ผ่าน' : 'ผ่าน'}</span></td></tr>`;
       m.items.forEach(i => {
-        const xo = `<option value="">— แถว Excel —</option><option value="__none__" ${i.e.excelKey === '__none__' ? 'selected' : ''}>ไม่จับคู่</option>` + m.excelRows.map(r => `<option value="${esc(r.key)}" ${i.ex && i.ex.key === r.key ? 'selected' : ''}>${esc(r.row.srcRow)}: ${esc(String(r.row.material || ''))} ${esc(String(r.row.desc || '').slice(0,30))} · ${fmt(num(r.row.qty),0)} ${esc(r.row.su)}</option>`).join('');
-        const qo = i.qtyOptions.map(o => `<option value="${o.v}" ${i.qtySel === o.v ? 'selected' : ''}>${esc(o.label)}</option>`).join('');
-        const st = i.state; const msgs = [...i.errs.map(e => `<div class="sai-e">❌ ${esc(e)}</div>`), ...i.warns.map(e => `<div class="sai-w">⚠ ${esc(e)}</div>`)].join('');
-        body += `<tr class="sai-${st}r"><td>${i.seq}</td><td class="sai-mono">${esc(m.invoiceNo)}</td><td>${esc(dmy(m.date))}</td>
+        if(only && !i.errs.length && !m.errs.length) return;
+        const xo = `<option value="">— อัตโนมัติ —</option><option value="__none__" ${i.e.excelKey === '__none__' ? 'selected' : ''}>ไม่จับคู่</option>` + m.excelRows.map(r => `<option value="${esc(r.key)}" ${i.ex && i.ex.key === r.key ? 'selected' : ''}>${esc(r.row.srcRow)}: ${esc(String(r.row.material || ''))} ${esc(String(r.row.desc || '').slice(0,30))} · ${fmt(num(r.row.qty),0)} ${esc(r.row.su)}</option>`).join('');
+        const qo = `<option value="">— อัตโนมัติ —</option>` + i.qtyOptions.map(o => `<option value="${o.v}" ${i.e.qtySel === o.v ? 'selected' : ''}>${esc(o.label)}</option>`).join('');
+        const msgs = [...i.errs.map(e => `<div class="sai-e">❌ ${esc(e)}</div>`), ...i.info.map(e => `<div class="sai-w">ℹ ${esc(e)}</div>`)].join('');
+        body += `<tr class="sai-${i.state}r"><td>${i.seq}</td><td class="sai-mono">${esc(m.invoiceNo)}</td><td>${esc(dmy(m.date))}</td>
           <td class="sai-mono">${esc(i.it.item_no || '')}<div class="sai-msg">${esc(i.it.product_code || '')}</div><div class="sai-msg"><a href="javascript:void(0)" data-act="view" data-id="${m.f.id}" data-pg="${i.it.pg || ''}">หน้า ${esc(i.it.pg || '?')}</a></div></td>
-          <td><textarea class="sai-in sai-desc" data-item="${esc(i.key)}" data-f="desc" rows="2">${esc(i.desc)}</textarea></td>
-          <td class="sai-num">${esc(i.it.qty1 || '')} ${esc(i.it.uom1 || '')}${i.it.qty2 ? `<div>${esc(i.it.qty2)} ${esc(i.it.uom2 || '')}</div>` : ''}</td>
-          <td class="sai-num">${esc(i.it.price || '')} ${esc(i.it.price_ccy || '')}${i.it.price_uom ? ` / ${esc(i.it.price_per || 1)} ${esc(i.it.price_uom)}` : ''}${i.calc ? `<div class="sai-msg">= ${fmt(i.calc.exp)}</div>` : ''}</td>
-          <td><input class="sai-in sai-num sai-w8" data-item="${esc(i.key)}" data-f="amount" value="${i.amount == null ? '' : esc(i.amount)}"></td>
-          <td><select class="sai-in" data-item="${esc(i.key)}" data-f="excelKey">${xo}</select></td>
-          <td><select class="sai-in" data-item="${esc(i.key)}" data-f="qtySel">${qo}</select>${i.qtySel === 'custom' ? `<input class="sai-in sai-num sai-w8" data-item="${esc(i.key)}" data-f="qtyCustom" value="${esc(i.e.qtyCustom || '')}">` : ''}</td>
-          <td><label class="sai-chk"><input type="checkbox" data-item="${esc(i.key)}" data-f="confirmed" ${i.e.confirmed ? 'checked' : ''} ${i.errs.length ? 'disabled' : ''}> ยืนยัน</label>
-            <div><span class="sai-pill sai-${st === 'ok' ? 'ok' : st === 'warn' ? 'warn' : 'bad'}">${st === 'ok' ? 'ผ่าน' : st === 'warn' ? 'ต้องตรวจสอบ' : 'ไม่ผ่าน'}</span></div></td></tr>
-          ${msgs ? `<tr class="sai-${st}r sai-msgr"><td></td><td colspan="10">${msgs}</td></tr>` : ''}`;
+          <td><textarea class="sai-in sai-desc" data-item="${esc(i.key)}" data-f="desc" rows="2" ${lock}>${esc(i.desc)}</textarea></td>
+          <td class="sai-num">${esc(i.it.qty1 || '')} ${esc(i.it.uom1 || '')}${i.it.qty2 ? `<div>${esc(i.it.qty2)} ${esc(i.it.uom2 || '')}</div>` : ''}<div class="sai-msg">${esc(i.it.price || '')} ${esc(i.it.price_ccy || '')}${i.it.price_uom ? ` / ${esc(i.it.price_per || 1)} ${esc(i.it.price_uom)}` : ''}</div></td>
+          <td><input class="sai-in sai-num sai-w8" data-item="${esc(i.key)}" data-f="amount" value="${i.amount == null ? '' : esc(i.amount)}" ${lock}>${i.calc ? `<div class="sai-msg">คำนวณ ${fmt(i.calc.exp)}</div>` : ''}</td>
+          <td><select class="sai-in" data-item="${esc(i.key)}" data-f="excelKey" ${lock}>${xo}</select>${i.ex ? `<div class="sai-msg">แถว ${esc(i.ex.row.srcRow)} · ${esc(i.how)}</div>` : ''}</td>
+          <td><select class="sai-in" data-item="${esc(i.key)}" data-f="qtySel" ${lock}>${qo}</select><div class="sai-msg">${i.qtyVal != null ? `= ${fmt(i.qtyVal,3)} ${esc(i.qtyUnit)} (${esc(i.qtyHow)})` : ''}</div></td>
+          <td><span class="sai-pill sai-${i.state === 'ok' ? 'ok' : 'bad'}">${i.state === 'ok' ? 'ผ่าน' : 'ไม่ผ่าน'}</span></td></tr>
+          ${msgs ? `<tr class="sai-${i.state}r sai-msgr"><td></td><td colspan="9">${msgs}</td></tr>` : ''}`;
       });
     });
-    const blk = S.blockers && S.blockers.length ? `<div class="sai-blk"><b>ยังยืนยันไม่ได้:</b>${S.blockers.slice(0,30).map(b => `<div>• ${esc(b)}</div>`).join('')}${S.blockers.length > 30 ? `<div>… อีก ${S.blockers.length - 30} รายการ</div>` : ''}</div>` : '';
     return `<div class="sai-sum">
         <div><span>PDF</span><b>${s.pdf}</b></div><div><span>Invoice</span><b>${s.inv}</b></div><div><span>รายการ</span><b>${s.items}</b></div>
-        <div><span>ผ่าน</span><b class="sai-okc">${s.pass}</b></div><div><span>ต้องตรวจสอบ</span><b class="sai-wc">${s.review}</b></div><div><span>อ่านไม่สำเร็จ</span><b class="sai-bc">${s.fail + s.unreadable}</b></div>
+        <div><span>ผ่าน</span><b class="sai-okc">${s.pass}</b></div><div><span>ผิดพลาด</span><b class="sai-bc">${s.bad}</b></div><div><span>อ่านไม่สำเร็จ (ไฟล์)</span><b class="sai-bc">${s.fail}</b></div>
         <div class="sai-wide"><span>TOTAL Amount</span><b>${amt}</b></div><div class="sai-wide"><span>TOTAL QTY</span><b>${kv(s.qty)}</b></div>
         <div class="sai-wide"><span>TOTAL NW / GW</span><b>${kv(s.nw)} / ${kv(s.gw)}</b></div></div>
-      <div class="sai-scroll sai-prev"><table class="sai-tbl"><thead><tr><th>#</th><th>Invoice</th><th>Date</th><th>Item / Code</th><th>Description</th><th>Quantity (PDF)</th><th>Price</th><th>Amount</th><th>แถว Excel</th><th>Qty. ใบขน</th><th>ตรวจสอบ</th></tr></thead><tbody>${body}</tbody></table></div>
-      ${blk}
-      <div class="sai-actions"><button type="button" class="btn btn-ghost" data-act="okall">✓ ยืนยันรายการที่ผ่านทั้งหมด</button>
-        <button type="button" class="btn btn-success" data-act="confirm">${S.confirmed ? '✓ ยืนยันแล้ว — พร้อม MAPPING' : 'ยืนยันข้อมูลก่อน MAPPING'}</button>
-        <span class="sai-msg">${S.confirmed ? 'กด ⬇ Download Shell ZIP เพื่อ Export' : 'ห้าม Export จนกว่าจะยืนยัน'}</span></div>`;
+      <div class="sai-actions"><label class="sai-msg">หน่วย Qty. ใบขน:
+          <select class="sai-in" data-act-unit="1" ${lock}><option value="">อัตโนมัติ (ค่า PDF ที่ตรงกับ Excel O)</option>${units.map(u => `<option value="${esc(u)}" ${S.qtyUnit === u ? 'selected' : ''}>ใช้ PDF หน่วย ${esc(u)}</option>`).join('')}</select></label>
+        ${hasBad ? `<button type="button" class="btn btn-ghost sai-mini" data-act="toggle">${only ? 'แสดงทุกรายการ' : 'แสดงเฉพาะที่มีปัญหา'}</button>` : ''}
+        <span class="sai-msg">${hasBad ? (only ? 'แสดงเฉพาะรายการที่ต้องแก้ไข' : 'แสดงทุกรายการ') : 'ข้อมูลผ่านทั้งหมด'}</span></div>
+      <div class="sai-scroll sai-prev"><table class="sai-tbl"><thead><tr><th>#</th><th>Invoice</th><th>Date</th><th>Item / Code</th><th>Description</th><th>Quantity / Price</th><th>Amount</th><th>แถว Excel</th><th>Qty. ใบขน</th><th>ผล</th></tr></thead><tbody>${body}</tbody></table></div>`;
   }
   function bind(p){
     const inp = p.querySelector('#sai-input'), drop = p.querySelector('#sai-drop');
-    if(drop){ drop.onclick = () => inp && inp.click(); drop.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); inp && inp.click(); } };
+    if(drop){ drop.onclick = () => { if(!S.exporting && inp) inp.click(); }; drop.onkeydown = e => { if((e.key === 'Enter' || e.key === ' ') && !S.exporting){ e.preventDefault(); inp && inp.click(); } };
       drop.ondragover = e => { e.preventDefault(); drop.classList.add('drag'); }; drop.ondragleave = () => drop.classList.remove('drag');
       drop.ondrop = e => { e.preventDefault(); drop.classList.remove('drag'); addFiles(e.dataTransfer.files); }; }
     if(inp) inp.onchange = () => { const fl = [...inp.files]; inp.value = ''; addFiles(fl); };
     p.querySelectorAll('[data-act]').forEach(b => b.onclick = e => { e.preventDefault(); const a = b.dataset.act, id = b.dataset.id;
-      if(a === 'run') runCheck(); else if(a === 'retry') runCheck([id]); else if(a === 'rm') removeFile(id); else if(a === 'view') viewPdf(id, b.dataset.pg);
-      else if(a === 'clear'){ if(confirm('ล้าง PDF ทั้งหมดของ THE SHELL? (Export จะกลับไปใช้ INV.xlsx แบบเดิม)')) shellAiReset(); }
-      else if(a === 'confirm') confirmAll(); else if(a === 'relogin'){ try{ doLogout(); } catch(e){} }
-      else if(a === 'okall'){ const { model } = build(); model.forEach(m => { if(!m.errs.length) m.items.forEach(i => { if(!i.errs.length) S.item[i.key].confirmed = true; }); }); S.confirmed = null; render(); } });
-    p.querySelectorAll('[data-inv]').forEach(el => el.onchange = () => { const o = S.inv[el.dataset.inv] || (S.inv[el.dataset.inv] = {}); o[el.dataset.f] = el.value;
-      if(el.dataset.f === 'excelGroup') Object.keys(S.item).forEach(k => { if(k.startsWith(el.dataset.inv + '/')) { delete S.item[k].excelKey; S.item[k].confirmed = false; } });
-      Object.keys(S.item).forEach(k => { if(k.startsWith(el.dataset.inv + '/')) S.item[k].confirmed = false; });
-      S.confirmed = null; S.blockers = null; render(); });
-    p.querySelectorAll('[data-item]').forEach(el => el.onchange = () => { const e = S.item[el.dataset.item] || (S.item[el.dataset.item] = {}); const f = el.dataset.f;
-      if(f === 'confirmed') e.confirmed = el.checked;
-      else { e[f] = f === 'amount' ? num(el.value) : el.value; e.confirmed = false; }
-      S.confirmed = null; S.blockers = null; render(); });
+      if(a === 'rm') removeFile(id); else if(a === 'view') viewPdf(id, b.dataset.pg);
+      else if(a === 'clear'){ if(confirm('ล้าง INVOICE PDF ทั้งหมดของ THE SHELL?')) shellAiReset(); }
+      else if(a === 'toggle'){ S.problemsOnly = !S.problemsOnly; render(); }
+      else if(a === 'relogin'){ try{ doLogout(); } catch(e){} } });
+    const unit = p.querySelector('[data-act-unit]');
+    if(unit) unit.onchange = () => { if(S.exporting) return; S.qtyUnit = unit.value; try{ localStorage.setItem(UNIT_KEY, S.qtyUnit); } catch(e){} S.blockers = null; S.lastOk = false; render(); };
+    p.querySelectorAll('[data-inv]').forEach(el => el.onchange = () => { if(S.exporting) return; const o = S.inv[el.dataset.inv] || (S.inv[el.dataset.inv] = {}); o[el.dataset.f] = el.value;
+      if(el.dataset.f === 'excelGroup') Object.keys(S.item).forEach(k => { if(k.startsWith(el.dataset.inv + '/')) delete S.item[k].excelKey; });
+      S.blockers = null; S.lastOk = false; render(); });
+    p.querySelectorAll('[data-item]').forEach(el => el.onchange = () => { if(S.exporting) return; const e = S.item[el.dataset.item] || (S.item[el.dataset.item] = {}); const f = el.dataset.f;
+      e[f] = f === 'amount' ? num(el.value) : el.value; S.blockers = null; S.lastOk = false; render(); });
   }
 
   /* ── CSS (เฉพาะแผงนี้ · รองรับมือถือ) ─────────────────── */
   const css = document.createElement('style');
   css.textContent = `#shell-ai-panel h2{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
   .sai-drop{border:2px dashed var(--border2);border-radius:8px;padding:12px;text-align:center;cursor:pointer;background:var(--surface2);font-size:13px;color:var(--text2)}
-  .sai-drop.drag,.sai-drop:hover{border-color:var(--amber)}
-  .sai-scroll{overflow:auto;max-width:100%;margin-top:10px;-webkit-overflow-scrolling:touch}.sai-prev{max-height:70vh}.sai-prev .sai-tbl{min-width:1180px}
-  .sai-prev select.sai-in{max-width:230px}.sai-prev td:last-child{min-width:120px}.sai-prev td:nth-child(10) select.sai-in{max-width:190px}
+  .sai-drop.drag,.sai-drop:hover{border-color:var(--amber)}.sai-drop.sai-locked{opacity:.55;cursor:not-allowed}
+  .sai-scroll{overflow:auto;max-width:100%;margin-top:10px;-webkit-overflow-scrolling:touch}.sai-prev{max-height:70vh}.sai-prev .sai-tbl{min-width:1100px}
+  .sai-prev select.sai-in{max-width:230px}.sai-prev td:nth-child(9) select.sai-in{max-width:190px}
   .sai-msgr td{border-bottom:1px solid var(--border2);padding-top:0}.sai-tbl tr:has(+ .sai-msgr) td{border-bottom:none}
   .sai-tbl{border-collapse:collapse;width:100%;font-size:12px}.sai-tbl th,.sai-tbl td{border-bottom:1px solid var(--border2);padding:6px 8px;vertical-align:top;text-align:left}
   .sai-tbl thead th{position:sticky;top:0;background:var(--surface2);z-index:1;white-space:nowrap}
-  .sai-inv td{background:rgba(245,158,11,.07)}.sai-badr td{background:rgba(239,68,68,.05)}.sai-warnr td{background:rgba(245,158,11,.04)}
+  .sai-inv td{background:rgba(245,158,11,.07)}.sai-badr td{background:rgba(239,68,68,.05)}
   .sai-fn{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sai-mono{font-family:'IBM Plex Mono',monospace}.sai-num{text-align:right;white-space:nowrap}
   .sai-pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700}.sai-ok{background:rgba(16,185,129,.15);color:#10b981}
   .sai-warn{background:rgba(245,158,11,.15);color:#f59e0b}.sai-bad{background:rgba(239,68,68,.15);color:#ef4444}.sai-wait{background:rgba(59,130,246,.15);color:#3b82f6}
   .sai-msg{font-size:11px;color:var(--text3)}.sai-e{font-size:11px;color:#ef4444}.sai-w{font-size:11px;color:#f59e0b}.sai-note{margin-top:8px;font-size:12px;color:#3b82f6}
-  .sai-tag{font-size:10px;padding:1px 6px;border-radius:6px;background:rgba(100,116,139,.2)}
   .sai-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}.sai-mini{padding:3px 9px;font-size:11px}.sai-act{white-space:nowrap}
   .sai-in{background:var(--bg);color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:3px 6px;font-size:12px;max-width:100%}
-  .sai-desc{min-width:220px;width:100%;resize:vertical;font-family:inherit}.sai-w8{width:8em}.sai-w10{width:10em}.sai-chk{white-space:nowrap;font-size:12px}
+  .sai-desc{min-width:220px;width:100%;resize:vertical;font-family:inherit}.sai-w8{width:8em}.sai-w10{width:10em}
   .sai-sum{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:12px}.sai-sum>div{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:8px}
-  .sai-sum span{display:block;font-size:11px;color:var(--text3)}.sai-sum b{font-size:15px}.sai-sum .sai-wide{grid-column:span 2}.sai-okc{color:#10b981}.sai-wc{color:#f59e0b}.sai-bc{color:#ef4444}
-  .sai-blk{margin-top:10px;padding:10px;border:1px solid rgba(239,68,68,.4);border-radius:8px;font-size:12px;color:#ef4444;max-height:220px;overflow:auto}
+  .sai-sum span{display:block;font-size:11px;color:var(--text3)}.sai-sum b{font-size:15px}.sai-sum .sai-wide{grid-column:span 2}.sai-okc{color:#10b981}.sai-bc{color:#ef4444}
+  .sai-blk{margin-top:10px;padding:10px;border:1px solid rgba(239,68,68,.4);border-radius:8px;font-size:12px;color:#ef4444;max-height:260px;overflow:auto}
   @media (max-width:900px){.sai-sum{grid-template-columns:repeat(3,minmax(0,1fr))}.sai-sum .sai-wide{grid-column:span 3}.sai-tbl{font-size:11px}.sai-desc{min-width:160px}}
   @media (max-width:520px){.sai-sum{grid-template-columns:repeat(2,minmax(0,1fr))}.sai-sum .sai-wide{grid-column:span 2}.sai-actions .btn{flex:1 1 auto}}`;
   document.head.appendChild(css);
