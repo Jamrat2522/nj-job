@@ -65,7 +65,7 @@ function fmtDateTimeEx(s){ if(!s) return '—'; const d=new Date(s); if(isNaN(d)
 function _vpMobile(){ return window.innerWidth<=860; }
 function uname(){ const u=S.user||{}; return u.full_name||u.username||''; }
 function _exRole(){ return String((S.user&&S.user.role)||'').toUpperCase().trim(); }
-function canEditExpense(){ return !!S.user && _exRole()!=='MESSENGER'; }
+function canEditExpense(){ return !!S.user && _exRole()!=='MESSENGER' && !(typeof _admRo354==='function'&&_admRo354())/* local354: ADMIN ดูอย่างเดียว */; }
 function canDeleteExpense(){ const r=_exRole(); return r==='SUPER_ADMIN'||r==='ADMIN'; }
 function _exTok(){ return (typeof _msTok==='function') ? _msTok() : null; }
 async function _rpc(fn, args){
