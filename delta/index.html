@@ -5012,6 +5012,12 @@ function readShellInvoiceXlsx(file){
         const ref = ws['!ref'] || 'A1';
         const maxRow = Math.min(XLSX.utils.decode_range(ref).e.r + 1, 2000);
 
+        // local310: คอลัมน์ Total Vol.(L) — ค้นจากชื่อ Header (ไม่สนช่องว่าง / ขึ้นบรรทัดใหม่ / ตัวพิมพ์) ใน 5 แถวแรก · ไม่พบ = ใช้คอลัมน์ O ตามโครงสร้างเดิม
+        let volCol = 15;
+        { const maxCol = Math.min(XLSX.utils.decode_range(ref).e.c + 1, 60); let found = 0;
+          for(let hr = 1; hr <= Math.min(5, maxRow) && !found; hr++) for(let c = 1; c <= maxCol; c++){
+            if(/^totalvol\.?\(l\)$/.test(txt(cell(hr, c)).replace(/\s+/g,'').toLowerCase())){ found = c; break; } }
+          if(found) volCol = found; }
         const rows = [];
         for(let r = 2; r <= maxRow; r++){
           const plant = txt(cell(r, 6));          // F
@@ -5027,7 +5033,7 @@ function readShellInvoiceXlsx(file){
           const su       = txt(cell(r, 12));      // L SU (CAR / PAIL / ...)
           const nw       = toNum(cell(r, 13));    // M
           const gw       = toNum(cell(r, 14));    // N
-          const vol      = toNum(cell(r, 15));    // O
+          const vol      = toNum(cell(r, volCol)); // Total Vol.(L) — local310: หาคอลัมน์จากชื่อ Header (ปกติ = O)
           const mark     = txt(cell(r, 18)).replace(/\r\n/g,'\n').replace(/\r/g,'\n');  // R — normalize CRLF → LF
           const hs       = cell(r, 19);           // S (keep numeric)
 
@@ -9130,7 +9136,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
 </script>
 <script>
 /* ═══════════════════════════════════════════════════════════════════════════
- * THE SHELL — ONE-CLICK AI EXPORT (local309)
+ * THE SHELL — ONE-CLICK AI EXPORT (local310)
  * อัปโหลด INV.xlsx + INVOICE PDF หลายไฟล์ → กด ⬇ EXPORT EXCEL ครั้งเดียว
  *   → Cache/AI อ่าน PDF (nj-invoice-ai-shell · Background Job + Polling) → ตรวจอัตโนมัติ → MAPPING → ดาวน์โหลดอัตโนมัติ
  * ไม่มีปุ่มตรวจสอบ / ติ๊กยืนยัน / ยืนยันก่อน MAPPING — กดครั้งเดียวได้ไฟล์
@@ -9143,12 +9149,13 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
  * MAPPING (local307): 1 รายการ PDF ↔ 1 แถว Excel เท่านั้น — จับคู่ซ้ำ / กำกวม = หยุด Export
  * local308: กรอบ PDF อยู่แถวเดียวกับ Invoice / Brand Map (#sai-zone) · สถานะ AI มาจากการตรวจที่ Server (probe) เท่านั้น
  *   จับคู่ตามเอกสารจริง: Invoice ↔ Excel G ด้วย Delivery Number ใน PDF · Product Code = Material · น้ำหนักสุทธิ KG = Excel M
- *   Qty. ใบขน: PDF ไม่มีปริมาตร (ลิตร) → ผู้ใช้เลือกที่มา 1 ครั้ง (จำไว้) — ไม่เดา / ไม่แปลงหน่วย
+ * local310: Qty. ใบขน = INV.xlsx → Total Vol.(L) (คอลัมน์ O) ของแถว Excel ที่จับคู่และตรวจแล้ว โดยอัตโนมัติ 100% — หน่วย L · ไม่มีการเลือกที่มา
+ *   ไม่ใช้ Quantity / น้ำหนัก / จำนวนหีบห่อจาก PDF · ไม่คำนวณ ไม่แปลงหน่วย · ช่องว่าง = แจ้งเฉพาะรายการนั้น (ไม่ใส่ 0) · ไม่อ่านค่าที่มาที่เคยเลือกไว้ในเครื่อง (ค่าเก่าใน Browser ไม่มีผล)
  * ═══════════════════════════════════════════════════════════════════════════ */
 (function(){
   'use strict';
   const FN_URL = SUPA_URL + '/functions/v1/nj-invoice-ai-shell';
-  const JOBS_KEY = 'shell_ai_jobs_v1', UNIT_KEY = 'shell_ai_qty_unit';
+  const JOBS_KEY = 'shell_ai_jobs_v1';
   const MAX_BYTES = 8 * 1024 * 1024;
   const BTN_LABEL = '⬇ EXPORT EXCEL';
   const ST = { WAIT:'รอการตรวจสอบ', PREP:'กำลังเตรียมไฟล์', AI:'กำลังอ่านด้วย AI', OK:'อ่านสำเร็จ', REVIEW:'รอตรวจสอบข้อมูล',
@@ -9157,9 +9164,8 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     session:null, user:null, sessState:'none', sessMsg:'', authMode:'', authPromise:null, showDetail:false, mounted:false,
     files:[], orphans:{},                  // orphans: ผลงานที่ส่งไว้ก่อน Refresh (key = sha)
     inv:{},                                // แก้ไข/จับคู่ระดับ Invoice: key → {invoiceNo, date, excelGroup}
-    item:{},                               // แก้ไข/จับคู่ระดับรายการ: key → {desc, amount, excelKey, qtySel}
-    exporting:false, phase:'', report:null, pend:null, problemsOnly:true, lastOk:false,
-    qtyUnit:(() => { try{ return localStorage.getItem(UNIT_KEY) || ''; } catch(e){ return ''; } })()
+    item:{},                               // แก้ไข/จับคู่ระดับรายการ: key → {desc, amount, excelKey}
+    exporting:false, phase:'', report:null, pend:null, problemsOnly:true, lastOk:false
   };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const num = v => { if(v == null || v === '') return null; const n = parseFloat(String(v).replace(/,/g,'')); return isFinite(n) ? n : null; };
@@ -9465,18 +9471,10 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       if(pc && xm){ if(pc !== xm) errs.push(`Product Code ไม่ตรง Material ${at} (PDF ${it.product_code} / Excel ${xr.material})`); }
       else if(normTxt(xr.desc) !== normTxt(i.desc)) errs.push(`ไม่มี Product Code ให้ยืนยัน และ Description ไม่ตรงกับแถว Excel ${xr.srcRow} — ตรวจการจับคู่`);
     }
-    // Qty. ใบขน: ผู้ใช้เลือกที่มา 1 ครั้ง (S.qtyUnit) หรือเลือกรายรายการ — ไม่เดา · ไม่แปลงหน่วย
-    //   Master เดิม = Excel O (Total Vol.) ซึ่ง PDF ไม่มีพิมพ์ → ถ้ายังไม่เลือก = หยุด Export (ดู evaluate)
-    i.qtyOptions = [];
-    if(i.ex && num(i.ex.row.vol) != null) i.qtyOptions.push({ v:'excel', u:'EXCEL_O', val:num(i.ex.row.vol), unit:'Excel O', label:`Excel O (Total Vol.) ${fmt(num(i.ex.row.vol),3)}` });
-    const kq = kgOf(it); if(kq != null) i.qtyOptions.push({ v:'kg', u:'KG', val:kq, unit:'KG', label:`PDF น้ำหนักสุทธิ ${fmt(kq,3)} KG` });
-    if(num(it.qty1) != null && it.uom1) i.qtyOptions.push({ v:'q1', u:'PKG', val:num(it.qty1), unit:U(it.uom1), label:`PDF จำนวน ${fmt(num(it.qty1),3)} ${U(it.uom1)}` });
-    let opt = null, how = '';
-    if(i.e.qtySel){ opt = i.qtyOptions.find(o => o.v === i.e.qtySel) || null; how = 'เลือกในรายการ'; }
-    if(!opt && S.qtyUnit){ opt = i.qtyOptions.find(o => o.u === S.qtyUnit) || null; how = 'ตามที่ตั้งไว้'; }
-    i.qtySel = opt ? opt.v : ''; i.qtyVal = opt ? opt.val : null; i.qtyHow = how; i.qtyUnit = opt ? opt.unit : '';
-    i.qtyPending = !opt;
-    if(!opt && S.qtyUnit) errs.push('Qty. ใบขน: ไม่มีค่าตามที่มาที่ตั้งไว้สำหรับรายการนี้ — เลือกในรายการ');
+    // Qty. ใบขน (local310): INV.xlsx → Total Vol.(L) ของแถว Excel ที่จับคู่กับรายการนี้เท่านั้น — ไม่มีการเลือก · ไม่ใช้ค่าจาก PDF / แถวอื่น / ยอดรวม · ไม่มีค่า = แจ้งเฉพาะรายการนี้
+    const vol = i.ex ? num(i.ex.row.vol) : null;
+    i.qtyVal = vol != null && vol > 0 ? vol : null; i.qtyUnit = 'L';
+    if(i.ex && i.qtyVal == null) errs.push(`ไม่พบ Total Vol.(L) — กรุณาตรวจสอบ Excel แถวที่ ${i.ex.row.srcRow}`);
     i.errs = errs; i.info = info; i.state = errs.length ? 'bad' : 'ok';
   }
   function checkInvoice(m){
@@ -9510,11 +9508,10 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   // local309: ตัดสินระดับ Invoice — ผ่านครบทุกข้อ = ส่งออก · ไม่ผ่าน = ข้าม (พร้อมสาเหตุ ระบุไฟล์ / Invoice / หน้า / รายการ)
   //   ข้ามได้ 4 แบบ: inv = Invoice ใน PDF ไม่ผ่าน · file = ไฟล์ที่อ่านไม่สำเร็จ · excel = Excel Delivery (G) ที่ไม่มี INVOICE PDF · rows = แถว Excel ไม่มีเลข Delivery
   function evaluate(built, allRows){
-    const pass = [], skipped = []; const needUnit = !S.qtyUnit;
+    const pass = [], skipped = [];
     built.model.forEach(m => {
       const why = m.errs.slice();
       m.items.forEach(i => i.errs.forEach(e => why.push(`รายการที่ ${i.seq} หน้า ${i.it.pg || '?'}: ${e}`)));
-      if(needUnit && m.items.some(i => i.qtyPending)) why.push('ยังไม่ได้เลือกที่มาของ Qty. ใบขน');
       if(!why.length && m.items.some(i => !i.ex || i.qtyVal == null || i.amount == null)) why.push('ข้อมูลรายการไม่ครบ กรุณาตรวจสอบ');
       if(why.length) skipped.push({ t:'inv', no:m.invoiceNo || '?', file:m.f.name, why }); else pass.push(m);
     });
@@ -9523,7 +9520,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     [...built.groups.keys()].filter(g => !used.has(g)).forEach(g => skipped.push({ t:'excel', no:g, why:[`ไม่มี INVOICE PDF ที่อ่านสำเร็จสำหรับ Delivery นี้ (${built.groups.get(g).length} แถว Excel)`] }));
     const noG = (allRows || []).filter(r => !String(r.delivery == null ? '' : r.delivery).trim());
     if(noG.length) skipped.push({ t:'rows', no:String(noG.length), why:[`แถว Excel ไม่มีเลข Delivery (G): แถว ${noG.slice(0,10).map(r => r.srcRow).join(', ')}${noG.length > 10 ? '…' : ''}`] });
-    return { pass, skipped, needUnit:needUnit && built.model.some(m => m.items.some(i => i.qtyPending)) };
+    return { pass, skipped };
   }
   const skipInvN = sk => sk.filter(x => x.t === 'inv' || x.t === 'excel').length;
   const skipFileN = sk => sk.filter(x => x.t === 'file').length;
@@ -9570,7 +9567,6 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     const nSkip = skipInvN(ev.skipped), nFile = skipFileN(ev.skipped);
     if(!ev.pass.length){
       S.report = { kind:'none', exported:[], skipped:ev.skipped }; S.problemsOnly = true; render();
-      if(ev.needUnit) return { ok:false, msg:'ยังไม่ได้เลือกที่มาของ Qty. ใบขน — INVOICE PDF ไม่มีปริมาตร (ลิตร) แบบ Excel คอลัมน์ O: เลือก 1 ครั้งที่ช่อง "Qty. ใบขน ใช้ค่าจาก" (ระบบจำไว้ใช้ครั้งต่อไป) แล้วกด ⬇ EXPORT EXCEL' };
       return { ok:false, msg:`ไม่ Export — ไม่มี Invoice ที่ผ่านการตรวจ (ไม่ผ่าน ${nSkip} Invoice${nFile ? ` · อ่านไม่สำเร็จ ${nFile} ไฟล์` : ''}) · ดูสาเหตุในสรุปด้านล่าง` };
     }
     // 4) แผนการเขียน Excel: เฉพาะแถว Excel ของ Invoice ที่ผ่าน — แถวอื่นไม่ถูกเขียน (ไม่มีข้อมูลบางส่วน / ค่าจำลอง)
@@ -9700,7 +9696,6 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       m.items.forEach(i => {
         if(only && !i.errs.length && !m.errs.length) return;
         const xo = `<option value="">— อัตโนมัติ —</option><option value="__none__" ${i.e.excelKey === '__none__' ? 'selected' : ''}>ไม่จับคู่</option>` + m.excelRows.map(r => `<option value="${esc(r.key)}" ${i.ex && i.ex.key === r.key ? 'selected' : ''}>${esc(r.row.srcRow)}: ${esc(String(r.row.material || ''))} ${esc(String(r.row.desc || '').slice(0,30))} · ${fmt(num(r.row.qty),0)} ${esc(r.row.su)}</option>`).join('');
-        const qo = `<option value="">— อัตโนมัติ —</option>` + i.qtyOptions.map(o => `<option value="${o.v}" ${i.e.qtySel === o.v ? 'selected' : ''}>${esc(o.label)}</option>`).join('');
         const msgs = [...i.errs.map(e => `<div class="sai-e">❌ ${esc(e)}</div>`), ...i.info.map(e => `<div class="sai-w">ℹ ${esc(e)}</div>`)].join('');
         body += `<tr class="sai-${i.state}r"><td>${i.seq}</td><td class="sai-mono">${esc(m.invoiceNo)}</td><td>${esc(dmy(m.date))}</td>
           <td class="sai-mono">${esc(i.it.item_no || '')}<div class="sai-msg">${esc(i.it.product_code || '')}</div><div class="sai-msg"><a href="javascript:void(0)" data-act="view" data-id="${m.f.id}" data-pg="${i.it.pg || ''}">หน้า ${esc(i.it.pg || '?')}</a></div></td>
@@ -9708,7 +9703,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
           <td class="sai-num">${esc(i.it.qty1 || '')} ${esc(i.it.uom1 || '')}${i.it.qty2 ? `<div>${esc(i.it.qty2)} ${esc(i.it.uom2 || '')}</div>` : ''}<div class="sai-msg">${esc(i.it.price || '')} ${esc(i.it.price_ccy || '')}${i.it.price_uom ? ` / ${esc(i.it.price_per || 1)} ${esc(i.it.price_uom)}` : ''}</div></td>
           <td><input class="sai-in sai-num sai-w8" data-item="${esc(i.key)}" data-f="amount" value="${i.amount == null ? '' : esc(i.amount)}" ${lock}>${i.calc ? `<div class="sai-msg">คำนวณ ${fmt(i.calc.exp)}</div>` : ''}</td>
           <td><select class="sai-in" data-item="${esc(i.key)}" data-f="excelKey" ${lock}>${xo}</select>${i.ex ? `<div class="sai-msg">แถว ${esc(i.ex.row.srcRow)} · ${esc(i.how)}</div>` : ''}</td>
-          <td><select class="sai-in" data-item="${esc(i.key)}" data-f="qtySel" ${lock}>${qo}</select><div class="sai-msg">${i.qtyVal != null ? `= ${fmt(i.qtyVal,3)} ${esc(i.qtyUnit)} (${esc(i.qtyHow)})` : 'ยังไม่ได้เลือกที่มา'}</div></td>
+          <td class="sai-num" data-qty="${i.qtyVal == null ? '' : i.qtyVal}">${i.qtyVal != null ? `${fmt(i.qtyVal,3)} L<div class="sai-msg">INV.xlsx แถว ${esc(i.ex.row.srcRow)} · Total Vol.(L)</div>` : '<span class="sai-e">ไม่พบ Total Vol.(L)</span>'}</td>
           <td><span class="sai-pill sai-${i.state === 'ok' ? 'ok' : 'bad'}">${i.state === 'ok' ? 'ผ่าน' : 'ไม่ผ่าน'}</span></td></tr>
           ${msgs ? `<tr class="sai-${i.state}r sai-msgr"><td></td><td colspan="9">${msgs}</td></tr>` : ''}`;
       });
@@ -9718,11 +9713,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
         <div><span>ผ่าน</span><b class="sai-okc">${s.pass}</b></div><div><span>ผิดพลาด</span><b class="sai-bc">${s.bad}</b></div><div><span>อ่านไม่สำเร็จ (ไฟล์)</span><b class="sai-bc">${s.fail}</b></div>
         <div class="sai-wide"><span>TOTAL Amount</span><b>${amt}</b></div><div class="sai-wide"><span>TOTAL QTY</span><b>${kv(s.qty)}</b></div>
         <div class="sai-wide"><span>TOTAL NW / GW</span><b>${kv(s.nw)} / ${kv(s.gw)}</b></div></div>
-      <div class="sai-actions"><label class="sai-msg${S.qtyUnit ? '' : ' sai-need'}">Qty. ใบขน ใช้ค่าจาก:
-          <select class="sai-in" data-act-unit="1" ${lock}><option value="">— เลือก (จำเป็น 1 ครั้ง) —</option>
-            <option value="EXCEL_O" ${S.qtyUnit === 'EXCEL_O' ? 'selected' : ''}>Excel คอลัมน์ O — Total Vol. (ค่าเดิมของ Master)</option>
-            <option value="KG" ${S.qtyUnit === 'KG' ? 'selected' : ''}>PDF — น้ำหนักสุทธิ (KG)</option>
-            <option value="PKG" ${S.qtyUnit === 'PKG' ? 'selected' : ''}>PDF — จำนวนหีบห่อ (Quantity)</option></select></label>
+      <div class="sai-actions"><span class="sai-msg" id="sai-qtysrc">Qty. ใบขน: ดึงจาก INV.xlsx → Total Vol.(L) อัตโนมัติ</span>
         ${hasBad ? `<button type="button" class="btn btn-ghost sai-mini" data-act="toggle">${only ? 'แสดงทุกรายการ' : 'แสดงเฉพาะที่มีปัญหา'}</button>` : ''}
         <span class="sai-msg">${hasBad ? (only ? 'แสดงเฉพาะรายการที่ต้องแก้ไข' : 'แสดงทุกรายการ') : 'ข้อมูลผ่านทั้งหมด'}</span></div>
       <div class="sai-scroll sai-prev"><table class="sai-tbl"><thead><tr><th>#</th><th>Invoice</th><th>Date</th><th>Item / Code</th><th>Description</th><th>Quantity / Price</th><th>Amount</th><th>แถว Excel</th><th>Qty. ใบขน</th><th>ผล</th></tr></thead><tbody>${body}</tbody></table></div>`;
@@ -9743,8 +9734,6 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     else if(a === 'relogin'){ try{ doLogout(); } catch(e){} } }
   function bind(p){
     p.querySelectorAll('[data-act]').forEach(b => b.onclick = e => { e.preventDefault(); act(b); });
-    const unit = p.querySelector('[data-act-unit]');
-    if(unit) unit.onchange = () => { if(S.exporting) return; S.qtyUnit = unit.value; try{ localStorage.setItem(UNIT_KEY, S.qtyUnit); } catch(e){} S.report = null; S.lastOk = false; render(); };
     p.querySelectorAll('[data-inv]').forEach(el => el.onchange = () => { if(S.exporting) return; const o = S.inv[el.dataset.inv] || (S.inv[el.dataset.inv] = {}); o[el.dataset.f] = el.value;
       if(el.dataset.f === 'excelGroup') Object.keys(S.item).forEach(k => { if(k.startsWith(el.dataset.inv + '/')) delete S.item[k].excelKey; });
       S.report = null; S.lastOk = false; render(); });
@@ -9763,7 +9752,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   .sai-pillbtn{border:none;cursor:pointer;font-family:inherit}.sai-need{color:#f59e0b !important;font-weight:700}.sai-invs{max-width:260px;word-break:break-word}
   @media (max-width:900px){#u-delta-uploads.shell-compact{grid-template-columns:1fr !important}}
   .sai-scroll{overflow:auto;max-width:100%;margin-top:10px;-webkit-overflow-scrolling:touch}.sai-prev{max-height:70vh}.sai-prev .sai-tbl{min-width:1100px}
-  .sai-prev select.sai-in{max-width:230px}.sai-prev td:nth-child(9) select.sai-in{max-width:190px}
+  .sai-prev select.sai-in{max-width:230px}
   .sai-msgr td{border-bottom:1px solid var(--border2);padding-top:0}.sai-tbl tr:has(+ .sai-msgr) td{border-bottom:none}
   .sai-tbl{border-collapse:collapse;width:100%;font-size:12px}.sai-tbl th,.sai-tbl td{border-bottom:1px solid var(--border2);padding:6px 8px;vertical-align:top;text-align:left}
   .sai-tbl thead th{position:sticky;top:0;background:var(--surface2);z-index:1;white-space:nowrap}
