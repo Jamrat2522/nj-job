@@ -821,6 +821,11 @@ body.legacy-active .content-area { display: none !important; }
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
       <span class="label">TYPE P</span>
     </a>
+    <div class="sb-section">📄 PDF → Excel (AI)</div><!-- ★ [local111] กลุ่มใหม่ · ไม่เปลี่ยนเมนูเดิม -->
+    <a class="sb-item" data-nav="eleai_pdf" onclick="switchCustomer('eleai_pdf')"><!-- ★ [local111] โหมด ELE TYPE 0 (PDF → Excel AI) · View #eleai-view · แยกจาก TYPE 0 เดิม -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h8M8 17h8"/></svg>
+      <span class="label">ELE TYPE 0</span>
+    </a>
     <div class="sb-section" data-role="admin-only">📦 Master</div><!-- ★ [local076] กลุ่ม MASTER (สิทธิ์เดิม: SUPER_ADMIN) -->
     <a class="sb-item" data-role="admin-only" onclick="openPermitMaster()"><!-- ★ [local071] MASTER พิกัดติดใบอนุญาต (กลาง) · ★ [local076] ย้ายจาก ADMIN -->
       <span style="width:16px;text-align:center;flex-shrink:0;font-size:14px;line-height:1">📋</span>
@@ -1285,6 +1290,92 @@ body.legacy-active .content-area { display: none !important; }
   </div>
   <div class="doa-panel" id="chkd-result" style="display:none"></div>
 </div><!-- /chkd-view -->
+<!-- ═══ ★ [local111] โหมด ELE TYPE 0 (PDF → Excel AI) — View แยก #eleai-view · Handler eleai* · ไม่ใช้ State/Logic ของ TYPE 0 / TYPE IEAT / TYPE 1 / TYPE D / TYPE P เดิม ═══ -->
+<div class="doa-view" id="eleai-view">
+  <style>
+    #eleai-view .el-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+    #eleai-view .el-head h2{margin:0}
+    #eleai-view .el-ready{font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:12px;background:#f1f5f9;color:#475569;max-width:100%;overflow-wrap:anywhere}
+    #eleai-view .el-head h2{overflow-wrap:anywhere;min-width:0}
+    #eleai-view{min-width:0}
+    #eleai-view .el-ready.ok{background:#dcfce7;color:#166534} #eleai-view .el-ready.bad{background:#fee2e2;color:#b91c1c}
+    #eleai-view .el-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:8px}
+    #eleai-view .el-card{border:2px dashed #cbd5e1;border-radius:10px;padding:10px;background:#fff;display:flex;flex-direction:column;gap:6px;min-width:0}
+    #eleai-view .el-card.c1{border-color:#93c5fd;background:#f8fbff} #eleai-view .el-card.c2{border-color:#fdba74;background:#fffaf5} #eleai-view .el-card.c3{border-color:#86efac;background:#f7fef9;border-style:solid}
+    #eleai-view .el-card h3{margin:0;font-size:12.5px;font-weight:800;color:#1e293b}
+    #eleai-view .el-card .el-sub{font-size:11px;color:var(--text3);line-height:1.4}
+    #eleai-view .el-pick{display:flex;flex-wrap:wrap;gap:6px}
+    #eleai-view .el-pick .btn{padding:7px 12px;font-size:12px}
+    #eleai-view .el-list{list-style:none;margin:0;padding:0;font-size:11.5px;max-height:150px;overflow:auto}
+    #eleai-view .el-list li{display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px dashed #e2e8f0;min-width:0}
+    #eleai-view .el-list li span.n{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+    #eleai-view .el-list li span.m{flex:0 0 auto;color:var(--text3);white-space:nowrap}
+    #eleai-view .el-list li button{flex:0 0 auto;border:none;background:#fee2e2;color:#b91c1c;border-radius:5px;font-size:11px;padding:1px 6px;cursor:pointer}
+    #eleai-view .el-list li.err span.m{color:#b91c1c;font-weight:700}
+    #eleai-view .el-act{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
+    #eleai-view #eleai-btn-export{font-size:15px;padding:12px 26px;min-height:46px}
+    #eleai-view #eleai-btn-force{background:#b45309;color:#fff;border:none}
+    #eleai-view .el-prog{font-size:12px;font-weight:700;color:#1d4ed8;line-height:1.5;min-height:18px}
+    #eleai-view .el-bar{height:8px;border-radius:6px;background:#e2e8f0;overflow:hidden;margin-top:4px;max-width:520px}
+    #eleai-view .el-bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#10b981,#059669);transition:width .25s}
+    #eleai-view .el-tot{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+    #eleai-view .el-tot>div{border:1px solid var(--border);border-radius:9px;padding:7px 10px;background:#fff}
+    #eleai-view .el-tot>div span{display:block;font-size:10.5px;font-weight:700;color:var(--text3)}
+    #eleai-view .el-tot>div b{display:block;font-size:16px;font-family:'IBM Plex Mono',monospace;color:#0f172a;word-break:break-all}
+    #eleai-view .el-tot>div small{display:block;font-size:10.5px;color:var(--text3)}
+    #eleai-view .el-tot>div.g b{color:#047857} #eleai-view .el-tot>div.r b{color:#b91c1c}
+    #eleai-view .el-iss{font-size:12px;max-height:260px;overflow:auto;border:1px solid var(--border);border-radius:8px}
+    #eleai-view .el-iss table,#eleai-view .el-tbl table{border-collapse:collapse;width:100%}
+    #eleai-view .el-iss td,#eleai-view .el-iss th{padding:3px 7px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+    #eleai-view .el-iss th{background:var(--surface2);position:sticky;top:0;font-size:11px}
+    #eleai-view .el-iss tr.hard td{background:#fef2f2;color:#991b1b} #eleai-view .el-iss tr.soft td{background:#fff7ed;color:#9a3412} #eleai-view .el-iss tr.warn td{background:#fefce8;color:#854d0e} #eleai-view .el-iss tr.info td{color:#475569}
+    #eleai-view .el-tbl{max-height:480px;overflow:auto;border:1px solid var(--border);border-radius:8px;-webkit-overflow-scrolling:touch}
+    #eleai-view .el-tbl th,#eleai-view .el-tbl td{padding:3px 7px;border-bottom:1px solid var(--border);border-right:1px solid #eef2f7;font-size:11.5px;white-space:nowrap}
+    #eleai-view .el-tbl th{background:#e8f0fe;position:sticky;top:0;z-index:1;font-size:11px}
+    #eleai-view .el-tbl td.n{text-align:right;font-family:'IBM Plex Mono',monospace}
+    #eleai-view .el-tbl td.x{background:#fef2f2;color:#b91c1c;font-weight:700}
+    #eleai-view .el-tbl td.w{background:#fefce8}
+    #eleai-view .el-sec:empty{display:none}
+    @media (max-width:1000px){ #eleai-view .el-grid{grid-template-columns:1fr} }
+    @media (max-width:640px){ #eleai-view #eleai-btn-export{width:100%;justify-content:center} #eleai-view .el-tot{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  </style>
+  <div class="doa-panel">
+    <div class="el-head">
+      <h2>📄 ELE TYPE 0 — INVOICE PDF + PACKING LIST → EXCEL (AI)</h2>
+      <span class="el-ready" id="eleai-ready">ระบบ AI: ยังไม่ตรวจ</span>
+    </div>
+    <div class="el-grid">
+      <div class="el-card c1">
+        <h3>① UPLOAD INVOICE PDF</h3>
+        <div class="el-sub">PDF หลายไฟล์ · รองรับ PDF สแกน (ไม่มี Text) · AI อ่านทุกหน้า ทุกรายการ</div>
+        <div class="el-pick"><button class="btn" type="button" id="eleai-btn-pdf">📂 เลือก Invoice PDF</button><input type="file" id="eleai-pdf" accept=".pdf,application/pdf" multiple hidden/></div>
+        <ul class="el-list" id="eleai-pdf-list"></ul>
+      </div>
+      <div class="el-card c2">
+        <h3>② UPLOAD PACKING LIST (PL)</h3>
+        <div class="el-sub">XLS / XLSX หลายไฟล์ · Net Weight จาก PL จริง · จับคู่ Part Number + Order No. + Quantity</div>
+        <div class="el-pick"><button class="btn" type="button" id="eleai-btn-pl">📂 เลือก Packing List</button><input type="file" id="eleai-pl" accept=".xls,.xlsx" multiple hidden/></div>
+        <ul class="el-list" id="eleai-pl-list"></ul>
+      </div>
+      <div class="el-card c3">
+        <h3>③ MASTER พิกัด ELE</h3>
+        <div class="el-sub">ใช้ MASTER เดิมในระบบ (อ่านล่าสุดจาก Supabase ทุกครั้งที่กด EXPORT · ไม่ต้องอัปโหลด · ไม่แก้ไข MASTER)</div>
+        <div class="el-sub" style="font-weight:700;color:#166534" id="eleai-master-st">เชื่อมต่ออัตโนมัติเมื่อกด EXPORT EXCEL</div>
+        <div class="el-sub">TH Description = Part Description (TH) · Tariff Code = HS code based on part description · ไม่พบ = เว้นว่าง + แจ้ง “ไม่พบ MASTER”</div>
+      </div>
+    </div>
+    <div class="el-act">
+      <button class="btn btn-success" type="button" id="eleai-btn-export">📥 EXPORT EXCEL</button>
+      <button class="btn" type="button" id="eleai-btn-force" style="display:none">⚠️ ส่งออกทั้งที่มีรายการต้องตรวจ</button>
+      <button class="btn" type="button" id="eleai-btn-clear">🧹 ล้างข้อมูล</button>
+    </div>
+    <div class="el-prog" id="eleai-prog"></div>
+    <div class="el-bar" id="eleai-bar" style="display:none"><i></i></div>
+  </div>
+  <div class="doa-panel el-sec" id="eleai-total"></div>
+  <div class="doa-panel el-sec" id="eleai-issues"></div>
+  <div class="doa-panel el-sec" id="eleai-preview"></div>
+</div><!-- /eleai-view -->
 <!-- ★ [local087] TYPE P = CLONE ของ ตรวจELE TYPE 0 (id chkp-* · Logic แยก Handler chkp*) -->
 <div class="doa-view" id="chkp-view">
   <div class="doa-panel">
@@ -1711,6 +1802,19 @@ function switchCustomer(key){
     document.getElementById('topbar-title').textContent='TYPE P';
     const badge=document.getElementById('topbar-badge');
     badge.textContent='TYPE P'; badge.className='company-badge sch_pdf';
+    return;
+  }
+  /* ★ [local111] โหมด ELE TYPE 0 — PDF → Excel (AI) (#eleai-view · Handler eleai* · ไม่แตะ State ของ TYPE 0 เดิม) */
+  if(key === 'eleai_pdf'){
+    document.querySelectorAll('.sb-item[data-nav]').forEach(el=>{ el.classList.toggle('active', el.dataset.nav===key); });
+    document.body.classList.remove('legacy-active'); document.body.classList.add('doa-active');
+    document.querySelectorAll('.doa-view').forEach(el=>{ if(el.id!=='eleai-view') el.classList.remove('active'); });
+    { const lv=document.getElementById('legacy-view'); if(lv) lv.classList.remove('active'); }
+    { const v=document.getElementById('eleai-view'); if(v) v.classList.add('active'); }
+    document.getElementById('topbar-title').textContent='ELE TYPE 0';
+    const badge=document.getElementById('topbar-badge');
+    badge.textContent='ELE TYPE 0'; badge.className='company-badge sch_pdf';
+    if(typeof window.eleaiOnShow==='function') window.eleaiOnShow();
     return;
   }
   // ── ตรวจใบขน (โหมดแยกอิสระ · ไม่ใช้ Logic ของโหมดอื่น) ──
@@ -8353,6 +8457,513 @@ body.mpage-on #app-main .main>:not(.topbar):not(#pm-overlay):not(#em-overlay){di
   for(const k in PG){ const f=window[PG[k].close]; if(typeof f==='function') window[PG[k].close]=function(){ const r=f.apply(this,arguments); restore(); return r; }; }
   const sw=window.switchCustomer;   /* กดเมนูอื่น → ปิดหน้า MASTER ก่อน แล้วทำงานเดิม */
   if(typeof sw==='function') window.switchCustomer=function(){ if(isOn()){ for(const k in PG) if($(k) && $(k).classList.contains('show')) window[PG[k].close](); } return sw.apply(this,arguments); };
+})();
+</script>
+<script id="eleai-core">
+/* ★ [local111] ELE TYPE 0 (PDF → Excel AI) — CORE (ฟังก์ชันล้วน · ไม่แตะ DOM / Network · ทดสอบแยกได้)
+   · ไม่ใช้ร่วมกับ TYPE 0 / TYPE IEAT / TYPE 1 / TYPE D / TYPE P เดิม · ไม่เขียน MASTER
+   · PDF = ต้นฉบับ (อ่านด้วย AI) · PL = Net Weight · MASTER พิกัด ELE = TH Description / Tariff Code */
+window.ELEAI_CORE = (function(){
+  'use strict';
+  const T = v => String(v == null ? '' : v).replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
+  /* Part Number: ปรับเฉพาะช่องว่าง + ตัวพิมพ์ (ไม่ตัด 0 นำหน้า · ไม่เปลี่ยนความหมาย) */
+  const codeKey = v => T(v).toUpperCase().replace(/\s+/g, '');
+  /* Order No.: ตัวเลขล้วน (ตัด 0 นำหน้า) */
+  const ordKey = v => { const d = String(v == null ? '' : v).replace(/\D/g, '').replace(/^0+/, ''); return d; };
+  const enKey = v => T(v).toUpperCase();
+  const rnd = (x, d) => { const p = Math.pow(10, d); return Math.round((x + (x >= 0 ? 1e-9 : -1e-9)) * p) / p; };
+  /* ตัวเลขจาก AI / Excel: รองรับ 51.09 · 51,09 · 1.045,21 · 1,045.21 */
+  function num(v){
+    if (v == null) return null;
+    if (typeof v === 'number') return isFinite(v) ? v : null;
+    const s = String(v).replace(/[\s ]/g, '');
+    if (s === '') return null;
+    if (/^-?\d+(\.\d+)?$/.test(s)) return +s;
+    if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) return +s.replace(/\./g, '').replace(',', '.');
+    if (/^-?\d+,\d+$/.test(s)) return +s.replace(',', '.');
+    if (/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) return +s.replace(/,/g, '');
+    return null;
+  }
+  /* รหัสสินค้าที่เชื่อถือไม่ได้ (Scientific Notation / ทศนิยม) */
+  const badCode = c => !c || /e[+-]?\d/i.test(c) || /^\d+\.\d+$/.test(c) || !/^[0-9A-Z][0-9A-Z\-\/.]*$/.test(c);
+  /* วันที่ AI (YYYY-MM-DD) → DD/MM/YYYY ตาม GOLDEN MAPPING */
+  function dmy(iso){ const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(T(iso)); if (!m) return ''; const p = n => String(+n).padStart(2, '0'); return p(m[3]) + '/' + p(m[2]) + '/' + m[1]; }
+  function isoFromText(t){ const m = /^(\d{4})[\/.\-](\d{1,2})[\/.\-](\d{1,2})$/.exec(T(t)); if (!m) return ''; const p = n => String(+n).padStart(2, '0'); return m[1] + '-' + p(m[2]) + '-' + p(m[3]); }
+  const invCmp = (a, b) => { const x = String(a), y = String(b); if (/^\d+$/.test(x) && /^\d+$/.test(y) && x.length !== y.length) return x.length - y.length; return x < y ? -1 : x > y ? 1 : 0; };
+
+  /* ── ชุดหน้า PDF (Chunk): หน้าเจ้าของ K หน้า + หน้าถัดไป 1 หน้าเป็นบริบท (อ่านรหัสบรรทัดที่ 2 ของรายการที่ข้ามหน้า) ── */
+  function makeChunks(nPages, K){
+    K = K || 4; const out = [];
+    for (let s = 1; s <= nPages; s += K){ const e = Math.min(s + K - 1, nPages); const ctx = e < nPages ? e + 1 : 0;
+      const idx = []; for (let p = s; p <= e; p++) idx.push(p); if (ctx) idx.push(ctx);
+      out.push({ from: s, to: e, owned: e - s + 1, pages: idx.length, idx }); }
+    return out;
+  }
+
+  /* ── รวมผล AI ของทุก Chunk ใน PDF 1 ไฟล์ → หน้า / Invoice / รายการ (เลขหน้าจริงของไฟล์) ── */
+  function mergeFile(file, nPages, parts){   /* parts: [{ chunk, result }] เรียงตาม chunk.from */
+    const issues = [], pages = new Array(nPages + 1).fill(null), invs = new Map(), items = [];
+    const add = (lvl, msg, x) => issues.push(Object.assign({ lvl, file, msg }, x || {}));
+    parts.forEach(({ chunk, result }) => {
+      const r = result || {};
+      (r.pages || []).forEach(p => { if (!p || !Number.isInteger(p.pg) || p.pg < 1 || p.pg > chunk.owned) return; const g = chunk.from + p.pg - 1;
+        pages[g] = { pg: g, type: p.page_type || 'other', printed: T(p.printed_page_no), inv: T(p.invoice_no) }; });
+      (r.invoices || []).forEach(iv => {
+        const no = T(iv.invoice_no);
+        const cur = invs.get(no) || { inv: no, file, date: '', dateText: '', currency: '', totalValue: null, packing: null, total: null, totalSeen: 0 };
+        const iso = /^\d{4}-\d{2}-\d{2}$/.test(T(iv.date)) ? T(iv.date) : isoFromText(iv.date_text);
+        if (iso){ if (cur.date && cur.date !== iso) add('soft', 'วันที่ Invoice ไม่ตรงกันระหว่างหน้า (' + cur.date + ' / ' + iso + ')', { inv: no }); if (!cur.date) cur.date = iso; }
+        if (T(iv.date_text) && !cur.dateText) cur.dateText = T(iv.date_text);
+        if (T(iv.currency) && !cur.currency) cur.currency = T(iv.currency).toUpperCase();
+        const tv = num(iv.total_value);
+        if (tv != null){ if (cur.totalValue != null && rnd(cur.totalValue, 2) !== rnd(tv, 2)) add('hard', 'TOTAL VALUE อ่านได้ 2 ค่าไม่ตรงกัน (' + cur.totalValue + ' / ' + tv + ')', { inv: no }); cur.totalValue = tv; cur.totalSeen++; }
+        if (num(iv.packing_expenses) != null) cur.packing = num(iv.packing_expenses);
+        if (num(iv.total) != null) cur.total = num(iv.total);
+        invs.set(no, cur);
+        (iv.items || []).forEach(it => {
+          if (!it || !Number.isInteger(it.pg) || it.pg < 1 || it.pg > chunk.owned) return;   /* รายการบนหน้าบริบท = ของ Chunk ถัดไป */
+          items.push({ file, inv: no, pg: chunk.from + it.pg - 1, row: Number.isInteger(it.row) ? it.row : 0,
+            codeLeft: codeKey(it.code_left), code: codeKey(it.code_below), codeBelowPg: Number.isInteger(it.code_below_page) && it.code_below_page > 0 ? chunk.from + it.code_below_page - 1 : 0,
+            desc: T(it.desc), coo: T(it.coo).toUpperCase(), qtyRaw: T(it.qty), qty: num(it.qty), price: num(it.unit_price), amt: num(it.amount),
+            ord: ordKey(it.our_order_no), yord: T(it.your_order_no), note: T(it.note) });
+        });
+      });
+    });
+    for (let p = 1; p <= nPages; p++) if (!pages[p]) add('hard', 'AI ไม่ได้รายงานหน้า ' + p + ' — ไม่สามารถยืนยันว่าอ่านครบทุกหน้า');
+    items.sort((a, b) => (a.pg - b.pg) || (a.row - b.row));
+    /* รายการที่ไม่มี OUR ORDER NO (Header อยู่หน้าก่อน Chunk) → ใช้ Order ของรายการก่อนหน้าใน Invoice เดียวกัน (ตามลำดับหน้าจริง) */
+    let lastOrd = '', lastInv = '';
+    items.forEach(x => { if (x.inv !== lastInv){ lastOrd = ''; lastInv = x.inv; } if (!x.ord && lastOrd){ x.ord = lastOrd; x.ordFrom = 'prev'; } if (x.ord) lastOrd = x.ord; });
+    const invPages = pages.filter(p => p && p.type === 'invoice').length;
+    return { file, nPages, pages: pages.slice(1), invPages, invoices: [...invs.values()], items, issues };
+  }
+
+  /* ── ตรวจรายการ + ยอดรวมต่อ Invoice (หลังรวมทุกไฟล์) ── */
+  function validate(files){
+    const issues = [], items = [], invMap = new Map();
+    files.forEach(f => { issues.push.apply(issues, f.issues);
+      f.invoices.forEach(iv => { if (!iv.inv){ issues.push({ lvl: 'hard', file: f.file, msg: 'มีรายการที่อ่านเลข Invoice ไม่ได้' }); return; }
+        if (invMap.has(iv.inv) && invMap.get(iv.inv).file !== f.file) issues.push({ lvl: 'hard', file: f.file, inv: iv.inv, msg: 'Invoice ' + iv.inv + ' พบในหลายไฟล์ (' + invMap.get(iv.inv).file + ') — ตรวจไฟล์ซ้ำ' });
+        else invMap.set(iv.inv, iv); });
+      f.items.forEach(x => items.push(x)); });
+    if (!items.length) issues.push({ lvl: 'hard', msg: 'ไม่พบรายการสินค้าใน Invoice PDF' });
+    items.forEach(x => {
+      const at = { file: x.file, inv: x.inv, pg: x.pg, code: x.code || x.codeLeft };
+      const soft = m => issues.push(Object.assign({ lvl: 'soft', msg: m }, at));
+      if (!x.code) soft('อ่าน Product Code (รหัสบรรทัดที่ 2) ไม่ได้');
+      else if (badCode(x.code)) soft('Product Code รูปแบบไม่ถูกต้อง (' + x.code + ')');
+      if (!x.codeLeft) soft('อ่านรหัสช่อง Codice (Description (Eng)2) ไม่ได้');
+      if (x.qty == null || !(x.qty > 0) || !Number.isInteger(x.qty)) soft('อ่าน Quantity ไม่ได้/ไม่ถูกต้อง (' + (x.qtyRaw || 'ว่าง') + ')');
+      if (x.amt == null) soft('อ่าน Amount ไม่ได้');
+      if (!x.desc) soft('อ่าน Description ไม่ได้');
+      if (!/^[A-Z]{2}$/.test(x.coo)) soft('อ่าน COO ไม่ได้ (' + (x.coo || 'ว่าง') + ')');
+      if (x.qty != null && x.amt != null && x.price != null && Math.abs(x.qty * x.price - x.amt) > 0.005 * x.qty + 0.011) soft('Qty × Unit price (' + x.qty + ' × ' + x.price + ') ไม่เท่ากับ Amount ' + x.amt + ' — ตรวจตัวเลขที่อ่าน');
+      if (x.note) issues.push(Object.assign({ lvl: 'info', msg: 'AI หมายเหตุ: ' + x.note }, at));
+    });
+    invMap.forEach(iv => {
+      const its = items.filter(x => x.inv === iv.inv), sum = rnd(its.reduce((s, x) => s + (x.amt || 0), 0), 2);
+      iv.items = its.length; iv.sumAmt = sum;
+      if (!iv.date) issues.push({ lvl: 'soft', file: iv.file, inv: iv.inv, msg: 'อ่าน Invoice Date ไม่ได้' });
+      if (!iv.currency) issues.push({ lvl: 'soft', file: iv.file, inv: iv.inv, msg: 'อ่านสกุลเงินไม่ได้' });
+      if (iv.totalValue == null) issues.push({ lvl: 'soft', file: iv.file, inv: iv.inv, msg: 'ไม่พบ TOTAL VALUE — ตรวจความครบของรายการด้วยยอดรวมไม่ได้' });
+      else if (rnd(iv.totalValue, 2) !== sum) issues.push({ lvl: 'hard', file: iv.file, inv: iv.inv, msg: 'ยอด Amount รวมทุกรายการ ' + sum.toFixed(2) + ' ≠ TOTAL VALUE ' + iv.totalValue.toFixed(2) + ' (ต่าง ' + rnd(sum - iv.totalValue, 2).toFixed(2) + ') — อาจมีรายการตกหล่น/อ่านผิด' });
+    });
+    return { issues, items, invoices: [...invMap.values()].sort((a, b) => invCmp(a.inv, b.inv)) };
+  }
+
+  /* ── PACKING LIST: หา Header ตามชื่อจริง (ไม่ยึดตำแหน่ง) ── */
+  const PLH = { pn: ['part number', 'part no', 'part no.'], cpn: ['customer part', 'customer part number'], desc: ['description'], qty: ['quantity', 'qty'], pack: ['pack no.', 'pack no'],
+    unit: ['unit'], nw: ['net weight'], gw: ['gross weight'], ord: ['order no.', 'order no', 'order number'], cust: ['customer'] };
+  function parsePL(aoa, file){
+    const hn = v => T(v).toLowerCase();
+    let hi = -1, map = null;
+    for (let i = 0; i < Math.min(aoa.length, 40); i++){ const h = (aoa[i] || []).map(hn); const m = {}; for (const k in PLH){ m[k] = h.findIndex(c => PLH[k].indexOf(c) >= 0); }
+      if (m.pn >= 0 && m.qty >= 0 && m.nw >= 0){ hi = i; map = m; break; } }
+    if (!map) return { file, ok: false, error: 'ไม่พบหัวตาราง Part number / Quantity / Net weight', rows: [] };
+    const cell = (r, k) => (map[k] >= 0 ? r[map[k]] : '');
+    const sv = v => (typeof v === 'number' && Number.isInteger(v)) ? String(v) : T(v);
+    const rows = [], bad = [], totals = [];
+    for (let i = hi + 1; i < aoa.length; i++){ const r = aoa[i] || []; if (r.every(v => T(v) === '')) continue;
+      const pn = codeKey(sv(cell(r, 'pn'))), qty = num(cell(r, 'qty')), nw = num(cell(r, 'nw'));
+      if (!pn){ if (qty != null || nw != null) totals.push({ line: i + 1, qty, nw }); continue; }
+      const x = { file, line: i + 1, pn, cpn: codeKey(sv(cell(r, 'cpn'))), desc: T(cell(r, 'desc')), qty, nw, gw: num(cell(r, 'gw')), unit: num(cell(r, 'unit')),
+        ord: ordKey(sv(cell(r, 'ord'))), cust: T(cell(r, 'cust')), pack: T(cell(r, 'pack')) };
+      if (qty == null || !(qty > 0) || nw == null || nw < 0) bad.push(x); else rows.push(x); }
+    const sq = rnd(rows.reduce((s, x) => s + x.qty, 0), 6), sn = rnd(rows.reduce((s, x) => s + x.nw, 0), 6);
+    const tot = totals.length ? totals[totals.length - 1] : null;
+    return { file, ok: true, rows, bad, hasOrd: map.ord >= 0, hasCpn: map.cpn >= 0, sumQty: sq, sumNw: sn,
+      total: tot, totalOk: tot ? (tot.qty == null || rnd(tot.qty, 6) === sq) && (tot.nw == null || Math.abs(tot.nw - sn) < 1e-6) : null };
+  }
+
+  /* ── จับคู่ PL ↔ Invoice: Part Number + Order No. + Quantity (แยกตามรายการจริง · ห้ามแจกจ่ายน้ำหนักโดยเดา)
+     · 1 รายการ Invoice อาจ = หลายแถว PL ที่ Part/Order เดียวกัน (แยกกล่อง) เมื่อผลรวม Qty ตรงพอดี
+     · ถ้ามีหลายวิธีจับคู่ที่ให้ Net Weight ต่างกัน → กำกวม (ไม่ใส่ Net WT) ── */
+  function solveGroup(its, rows){
+    const n = its.length, m = rows.length; let best = -1, sols = [], steps = 0, cut = false; const asg = new Array(n).fill(null);
+    function subsets(avail, target){ const out = [];
+      (function rec(st, sum, pick){ if (out.length > 64) return; if (pick.length && Math.abs(sum - target) < 1e-9){ out.push(pick.slice()); return; } if (pick.length >= 4) return;
+        for (let i = st; i < avail.length; i++){ const q = rows[avail[i]].qty; if (sum + q > target + 1e-9) continue; pick.push(avail[i]); rec(i + 1, sum + q, pick); pick.pop(); } })(0, 0, []);
+      return out.sort((a, b) => a.length - b.length); }
+    (function dfs(i, avail, matched, used){
+      if (++steps > 40000){ cut = true; return; }
+      if (i === n){ const sc = matched * 1000 + used; if (sc > best){ best = sc; sols = [asg.slice()]; } else if (sc === best && sols.length < 256) sols.push(asg.slice()); return; }
+      if ((matched + n - i) * 1000 + m < best) return;
+      if (its[i].qty > 0) for (const s of subsets(avail, its[i].qty)){ asg[i] = s; dfs(i + 1, avail.filter(x => s.indexOf(x) < 0), matched + 1, used + s.length); asg[i] = null; }
+      dfs(i + 1, avail, matched, used);
+    })(0, rows.map((_, k) => k), 0, 0);
+    return { sols, cut };
+  }
+  function matchPL(items, plFiles){
+    const pl = []; plFiles.forEach(f => (f.rows || []).forEach(r => pl.push(r)));
+    const hasOrd = plFiles.length > 0 && plFiles.every(f => f.hasOrd);
+    const used = new Set();
+    const stage = (kI, kR, how) => {
+      const gI = new Map(), gR = new Map();
+      items.forEach(it => { if (it.pl || it.plAmb) return; const k = kI(it); if (!k) return; if (!gI.has(k)) gI.set(k, []); gI.get(k).push(it); });
+      pl.forEach(r => { if (used.has(r)) return; const k = kR(r); if (!k) return; if (!gR.has(k)) gR.set(k, []); gR.get(k).push(r); });
+      gI.forEach((its, k) => { const rs = gR.get(k); if (!rs || !rs.length) return;
+        const { sols, cut } = solveGroup(its, rs);
+        its.forEach((it, i) => {
+          const vals = new Set(sols.map(s => s[i] ? rnd(s[i].reduce((a, j) => a + rs[j].nw, 0), 6) : 'X'));
+          if (sols.length && !vals.has('X') && vals.size === 1 && !cut){ const pick = sols[0][i].map(j => rs[j]); it.pl = { rows: pick, nw: [...vals][0], qty: rnd(pick.reduce((a, r) => a + r.qty, 0), 6), how }; pick.forEach(r => used.add(r)); }
+          else if (sols.length && (vals.size > 1 || (vals.has('X') && vals.size > 1) || cut)){ it.plAmb = true; it.plHow = how; }
+        });
+      });
+    };
+    const K = (c, o) => c ? c + '|' + o : '';
+    stage(it => it.ord ? K(it.code, it.ord) : '', r => r.ord ? K(r.cpn, r.ord) : '', 'Customer Part + Order No. + Qty');
+    stage(it => it.ord ? K(it.codeLeft, it.ord) : '', r => r.ord ? K(r.pn, r.ord) : '', 'Part number (Codice) + Order No. + Qty');
+    /* ไม่มี Order No. (ทั้งใน Invoice หรือ PL ไม่มีคอลัมน์ Order) → จับด้วย Part Number + Qty และแจ้งเตือน */
+    stage(it => (!it.ord || !hasOrd) ? it.code : '', r => (!r.ord || !hasOrd) ? r.cpn : '', 'Customer Part + Qty (ไม่มี Order No.)');
+    stage(it => (!it.ord || !hasOrd) ? it.codeLeft : '', r => (!r.ord || !hasOrd) ? r.pn : '', 'Part number + Qty (ไม่มี Order No.)');
+    items.forEach(it => {
+      if (it.pl){ it.nw = it.pl.nw; it.plSt = /ไม่มี Order/.test(it.pl.how) ? 'noord' : 'ok'; return; }
+      it.nw = null;
+      const rel = pl.filter(r => (it.code && (r.cpn === it.code || r.pn === it.code)) || (it.codeLeft && r.pn === it.codeLeft));
+      const relO = rel.filter(r => !it.ord || r.ord === it.ord);
+      if (it.plAmb){ it.plSt = 'amb'; it.plMsg = 'PL มีหลายแถวที่จับคู่ได้หลายแบบและ Net Weight ต่างกัน — ไม่ใส่น้ำหนัก (ห้ามเดา)'; }
+      else if (relO.length){ it.plSt = 'qty'; it.plMsg = 'Qty Invoice ' + it.qty + ' ไม่ตรงกับ PL (' + relO.map(r => r.qty + (used.has(r) ? '*' : '')).join(' + ') + ')' + (relO.some(r => used.has(r)) ? ' · * = ใช้กับรายการอื่นแล้ว' : ''); }
+      else if (rel.length){ it.plSt = 'ord'; it.plMsg = 'พบ Part ใน PL แต่ Order No. ไม่ตรง (Invoice ' + (it.ord || '-') + ' · PL ' + [...new Set(rel.map(r => r.ord || '-'))].join(', ') + ')'; }
+      else { it.plSt = 'none'; it.plMsg = 'ไม่พบ Part Number นี้ใน Packing List'; }
+    });
+    const unused = pl.filter(r => !used.has(r));
+    return { unused, plRows: pl.length };
+  }
+
+  /* ── MASTER พิกัด ELE: Part Number + ELUX Part Description (EN) เป็น Key หลัก ──
+     1) PN + EN ตรง 1 แถว → ใช้   2) PN พบแถวเดียว → ใช้ (ระบุว่าจับด้วย Part Number)
+     3) PN หลายแถว แต่ TH/HS เหมือนกันทั้งหมด → ใช้   4) หลายแถวขัดแย้ง → แจ้งเตือน ไม่เลือกเอง   5) ไม่พบ → ว่าง + ไม่พบ MASTER */
+  function pickMaster(it, rows){
+    rows = rows || [];
+    if (!rows.length) return { st: 'none', th: '', hs: '', msg: 'ไม่พบ MASTER' };
+    const cands = new Set([enKey(it.desc)].concat((it.pl ? it.pl.rows : []).map(r => enKey(r.desc))).filter(Boolean));
+    const exact = rows.filter(m => cands.has(enKey(m.desc_en)) || (enKey(m.desc_en) && enKey(it.desc).endsWith(' ' + enKey(m.desc_en))));
+    let use = null, how = '';
+    if (exact.length === 1){ use = exact[0]; how = 'Part Number + EN'; }
+    else if (rows.length === 1){ use = rows[0]; how = 'Part Number'; }
+    else { const pool = exact.length > 1 ? exact : rows; const sig = new Set(pool.map(m => T(m.desc_th) + '\u0001' + T(m.hs_code)));
+      if (sig.size === 1){ use = pool[0]; how = 'Part Number (หลายรายการ ข้อมูลตรงกัน)'; }
+      else return { st: 'conflict', th: '', hs: '', msg: 'MASTER มี ' + pool.length + ' รายการที่ TH/HS ขัดแย้งกัน — ไม่เลือกเอง', n: pool.length }; }
+    const th = T(use.desc_th), hs = T(use.hs_code);
+    if (!th || !hs) return { st: 'partial', th, hs, how, msg: 'ไม่พบ MASTER (' + (!th ? 'คำแปล' : '') + (!th && !hs ? ' / ' : '') + (!hs ? 'พิกัด' : '') + ' ว่างใน MASTER)' };
+    return { st: 'ok', th, hs, how };
+  }
+
+  /* ── 19 คอลัมน์ตาม GOLDEN MAPPING (ห้ามเพิ่ม/ลบ/สลับ/เปลี่ยนชื่อ) ── */
+  const HEAD = ['No.', 'INVOICE Number', 'INVOICE DATE', 'Product Code', 'Qty1', 'Qty2', 'Amt.', 'Net WT', 'G.W. WT', 'ใบขนอ้างอิง', 'รายการที่', 'Description (Eng)', 'Description (Eng)2', 'COO', 'TH Description', 'Tariff Code', 'Stat', 'Privilege', 'Seq'];
+  function buildRows(items, invoices){
+    const ivm = new Map(invoices.map(v => [v.inv, v]));
+    const fileOrd = new Map(); items.forEach(x => { if (!fileOrd.has(x.file)) fileOrd.set(x.file, fileOrd.size); });
+    const s = items.slice().sort((a, b) => invCmp(a.inv, b.inv) || (fileOrd.get(a.file) - fileOrd.get(b.file)) || (a.pg - b.pg) || (a.row - b.row));
+    return s.map((x, i) => { const iv = ivm.get(x.inv) || {}; const m = x.master || {};
+      return [i + 1, x.inv, dmy(iv.date), x.code, x.qty, x.qty, x.amt, x.nw == null ? null : x.nw, null, null, null, x.desc, x.codeLeft, x.coo, m.th || '', m.hs || '', null, null, null]; });
+  }
+  function totals(files, v, rows, plFiles, matchInfo){
+    const cur = {}; v.items.forEach(x => { const c = (v.invoices.find(i => i.inv === x.inv) || {}).currency || '?'; cur[c] = rnd((cur[c] || 0) + (x.amt || 0), 2); });
+    const ms = k => v.items.filter(x => x.master && x.master.st === k).length;
+    const plBad = v.items.filter(x => x.plSt !== 'ok' && x.plSt !== 'noord').length;
+    return { invoices: v.invoices.length, pdfPages: files.reduce((s, f) => s + f.nPages, 0), invPages: files.reduce((s, f) => s + f.invPages, 0), items: rows.length,
+      qty: rnd(v.items.reduce((s, x) => s + (x.qty || 0), 0), 6), amt: cur, nw: rnd(v.items.reduce((s, x) => s + (x.nw || 0), 0), 6),
+      plQty: rnd(plFiles.reduce((s, f) => s + (f.sumQty || 0), 0), 6), plNw: rnd(plFiles.reduce((s, f) => s + (f.sumNw || 0), 0), 6),
+      mOk: ms('ok'), mNone: ms('none') + ms('partial'), mConf: ms('conflict'), plBad, plUnused: matchInfo ? matchInfo.unused.length : 0 };
+  }
+  return { T, codeKey, ordKey, num, rnd, dmy, badCode, invCmp, makeChunks, mergeFile, validate, parsePL, solveGroup, matchPL, pickMaster, buildRows, totals, HEAD };
+})();
+</script>
+<script id="eleai-ui">
+/* ★ [local111] ELE TYPE 0 (PDF → Excel AI) — UI / Network
+   · AI ผ่าน Supabase Edge Function nj-invoice-ai-ele เท่านั้น — ใช้ ANTHROPIC_API_KEY / nj_ai_jobs / Cache 3 วัน ชุดเดิมของ nj-invoice-ai (ไม่สร้าง Key ใหม่ · ไม่เรียก API จาก Browser) · ยืนยันตัวตนด้วย Session Token ของ checkdecl
+   · ไม่ใช้ nj-invoice-ai ตรง เพราะตรวจเฉพาะ Session ของ EDCAPL + Prompt ของ KDC (ห้ามแก้ เพื่อไม่กระทบ KDC / PDF→Excel)
+   · แบ่ง PDF เป็นชุดหน้า (4 หน้า + หน้าบริบท 1 หน้า) → อ่านพร้อมกัน 3 ชุด · ผลเดิมใช้ซ้ำ (ไม่เรียก AI ซ้ำสำหรับไฟล์ที่อ่านสำเร็จแล้ว)
+   · MASTER พิกัด ELE: อ่านอย่างเดียวผ่าน RPC เดิม calc_ele_master_lookup (+ calc_ele_master_page สำหรับ Part Number) · ไม่เพิ่ม SQL · ไม่เขียน MASTER
+   · กด EXPORT ครั้งเดียว: อ่าน PDF → PL → MASTER → ตรวจยอด → ดาวน์โหลด XLSX 19 คอลัมน์ทันที (มีข้อผิดพลาดสำคัญ = ไม่ส่งออก) */
+(function(){
+  'use strict';
+  const C = window.ELEAI_CORE; if (!C) return;
+  const $ = id => document.getElementById(id);
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = (v, d) => (v == null || v === '') ? '' : Number(v).toLocaleString('en-US', { minimumFractionDigits: d == null ? 0 : d, maximumFractionDigits: d == null ? 6 : d });
+  const auth = () => { try { return typeof window.calcAuthGet === 'function' ? window.calcAuthGet() : null; } catch (_) { return null; } };
+  const sb = () => { try { return (typeof sbClient !== 'undefined' && sbClient) ? sbClient : null; } catch (_) { return null; } };
+  const FN_NAME = 'nj-invoice-ai-ele';
+  const fnUrl = () => SUPABASE_URL + '/functions/v1/' + FN_NAME;
+  const CHUNK_K = 4, POOL = 3, MAX_CHUNK = 8 * 1024 * 1024, POLL_MAX_MS = 9 * 60 * 1000;
+  const PDFLIB_SRC = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+  let PDFLIB_P = null;
+  function pdfLib(){
+    if (window.PDFLib && window.PDFLib.PDFDocument) return Promise.resolve(window.PDFLib);
+    if (!PDFLIB_P) PDFLIB_P = new Promise((ok, ng) => { const s = document.createElement('script'); s.src = PDFLIB_SRC; s.async = true;
+      s.onload = () => window.PDFLib ? ok(window.PDFLib) : (PDFLIB_P = null, ng(new Error('pdf-lib')));
+      s.onerror = () => { PDFLIB_P = null; ng(new Error('โหลดตัวอ่าน PDF ไม่ได้ (pdf-lib)')); }; document.head.appendChild(s); });
+    return PDFLIB_P;
+  }
+  async function sha(buf){ const d = await crypto.subtle.digest('SHA-256', buf); return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join(''); }
+  function b64(u8){ let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
+
+  const S = { pdfs: [], pls: [], busy: false, memo: new Map(), last: null, probed: false };
+  const prog = (m, c) => { const e = $('eleai-prog'); if (e){ e.textContent = m || ''; e.style.color = c || ''; } };
+  const bar = p => { const b = $('eleai-bar'); if (!b) return; if (p == null){ b.style.display = 'none'; return; } b.style.display = ''; b.firstElementChild.style.width = Math.max(0, Math.min(100, p)) + '%'; };
+  function invalidate(){ S.last = null; ['eleai-total', 'eleai-issues', 'eleai-preview'].forEach(id => { const e = $(id); if (e) e.innerHTML = ''; }); const f = $('eleai-btn-force'); if (f) f.style.display = 'none'; prog(''); bar(null); }
+
+  /* ── รายการไฟล์ ── */
+  function renderLists(){
+    const li = (x, i, kind, meta) => '<li class="' + (x.err ? 'err' : '') + '"><span class="n" title="' + esc(x.name) + '">' + (kind === 'pdf' ? '📄 ' : '📗 ') + esc(x.name) + '</span><span class="m">' + esc(meta) + '</span><button type="button" data-k="' + kind + '" data-i="' + i + '" title="นำออก">✕</button></li>';
+    $('eleai-pdf-list').innerHTML = S.pdfs.map((x, i) => li(x, i, 'pdf', x.err ? x.err : (x.nPages + ' หน้า · ' + (x.size / 1048576).toFixed(2) + ' MB'))).join('');
+    $('eleai-pl-list').innerHTML = S.pls.map((x, i) => li(x, i, 'pl', x.err ? x.err : (x.p.rows.length + ' แถว · Qty ' + fmt(x.p.sumQty) + ' · NW ' + fmt(x.p.sumNw, 3)))).join('');
+  }
+  async function addPdfs(list){
+    if (S.busy) return; invalidate();
+    for (const f of list){
+      const x = { name: f.name, size: f.size, nPages: 0, err: '' };
+      if (!/\.pdf$/i.test(f.name)){ x.err = 'ไม่ใช่ไฟล์ .pdf'; S.pdfs.push(x); continue; }
+      try { prog('กำลังเปิด ' + f.name + ' …'); const buf = await f.arrayBuffer(); x.hash = await sha(buf);
+        if (S.pdfs.some(p => p.hash === x.hash)){ prog('⚠️ ' + f.name + ' ซ้ำกับไฟล์ที่เลือกแล้ว — ไม่เพิ่มซ้ำ', '#b45309'); continue; }
+        const u = new Uint8Array(buf); if (!(u[0] === 0x25 && u[1] === 0x50 && u[2] === 0x44 && u[3] === 0x46)) throw new Error('เนื้อไฟล์ไม่ใช่ PDF');
+        const L = await pdfLib(); x.doc = await L.PDFDocument.load(u, { ignoreEncryption: true, updateMetadata: false }); x.nPages = x.doc.getPageCount(); x.bytes = u;
+        if (!x.nPages) throw new Error('ไม่มีหน้า'); prog(''); }
+      catch (e){ x.err = 'เปิดไม่ได้: ' + String(e && e.message || e); prog(''); }
+      S.pdfs.push(x);
+    }
+    renderLists();
+  }
+  async function addPls(list){
+    if (S.busy) return; invalidate();
+    for (const f of list){
+      const x = { name: f.name, err: '', p: { rows: [] } };
+      if (!/\.xlsx?$/i.test(f.name)){ x.err = 'รองรับเฉพาะ .xls / .xlsx'; S.pls.push(x); continue; }
+      try { const buf = await f.arrayBuffer(); x.hash = await sha(buf);
+        if (S.pls.some(p => p.hash === x.hash)){ prog('⚠️ ' + f.name + ' ซ้ำกับไฟล์ที่เลือกแล้ว — ไม่เพิ่มซ้ำ', '#b45309'); continue; }
+        const wb = XLSX.read(new Uint8Array(buf), { type: 'array' }); let best = null;
+        for (const n of wb.SheetNames){ const aoa = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: '' }); const p = C.parsePL(aoa, f.name + (wb.SheetNames.length > 1 ? ' [' + n + ']' : ''));
+          if (p.ok && (!best || p.rows.length > best.rows.length)) best = p; }
+        if (!best) throw new Error('ไม่พบหัวตาราง Part number / Quantity / Net weight'); if (!best.rows.length) throw new Error('ไม่มีแถวข้อมูล');
+        x.p = best; }
+      catch (e){ x.err = String(e && e.message || e); }
+      S.pls.push(x);
+    }
+    renderLists();
+  }
+
+  /* ── เรียก AI (Edge Function) ── */
+  async function post(body){
+    let r; try { r = await fetch(fnUrl(), { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY }, body: JSON.stringify(body) }); }
+    catch (_){ return { status: 0, j: { success: false, error: 'network', msg: 'เชื่อมต่อระบบ AI ไม่ได้ (เครือข่าย)' } }; }
+    let j = null; try { j = await r.json(); } catch (_){ j = null; }
+    if (!j || typeof j !== 'object' || (!('success' in j) && !r.ok)) j = { success: false, error: 'http_' + r.status, msg: r.status === 404 ? 'ยังไม่พบ Edge Function ' + FN_NAME + ' (ยังไม่ได้ Deploy)' : 'ระบบ AI ตอบผิดพลาด (' + r.status + ')' };
+    return { status: r.status, j };
+  }
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  async function readChunk(pdf, ch, tok){
+    const L = await pdfLib(); const d = await L.PDFDocument.create({ updateMetadata: false });
+    const ps = await d.copyPages(pdf.doc, ch.idx.map(p => p - 1)); ps.forEach(p => d.addPage(p));
+    const D0 = new Date(0); d.setCreationDate(D0); d.setModificationDate(D0); d.setProducer('checkdecl'); d.setCreator('checkdecl');
+    const bytes = await d.save({ useObjectStreams: false });
+    if (bytes.length > MAX_CHUNK) throw new Error(pdf.name + ' หน้า ' + ch.from + '–' + ch.to + ': ชุดหน้าใหญ่เกิน 8 MB');
+    const hash = await sha(bytes), mk = hash + '|' + ch.owned + '|' + ch.pages;
+    if (S.memo.has(mk)) return { result: S.memo.get(mk), cached: 'session' };
+    const base = { session: tok, owned: ch.owned, pages: ch.pages };
+    let { status, j } = await post(Object.assign({ name: pdf.name, mime: 'application/pdf', pdf: b64(bytes), idempotency_key: hash }, base));
+    const t0 = Date.now();
+    while (j && j.success && j.pending){
+      if (Date.now() - t0 > POLL_MAX_MS) throw new Error(pdf.name + ' หน้า ' + ch.from + '–' + ch.to + ': AI ใช้เวลานานเกินกำหนด กรุณากด EXPORT ใหม่');
+      await sleep(Math.max(1500, Math.min(10000, +j.poll_after_ms || 2500)));
+      ({ status, j } = await post(Object.assign({ action: 'job_status', job_id: j.job_id }, base)));
+    }
+    if (!j || !j.success || !j.result) throw new Error(pdf.name + ' หน้า ' + ch.from + '–' + ch.to + ': ' + ((j && j.msg) || 'อ่าน PDF ไม่สำเร็จ') + (status === 401 ? ' (Session หมดอายุ — เข้าสู่ระบบใหม่)' : ''));
+    S.memo.set(mk, j.result);
+    return { result: j.result, cached: j.cached ? 'server' : '' };
+  }
+  async function probe(){
+    const A = auth(), el = $('eleai-ready'); if (!el) return;
+    if (!A || !A.token){ el.textContent = 'ระบบ AI: ต้องเข้าสู่ระบบใหม่ (ไม่มี Session Token)'; el.className = 'el-ready bad'; return; }
+    el.textContent = 'ระบบ AI: กำลังตรวจ…'; el.className = 'el-ready';
+    const { j } = await post({ action: 'probe', session: A.token });
+    if (j && j.success && j.ready){ el.textContent = '✅ ระบบ AI พร้อม (' + (j.model || '') + ')'; el.className = 'el-ready ok'; S.probed = true; }
+    else { el.textContent = '⚠️ ระบบ AI ยังไม่พร้อม: ' + ((j && (j.msg || (j.success && !j.api_key ? 'ยังไม่ได้ตั้ง API Key ที่ Server' : (j.success && !j.jobs ? 'ตาราง nj_ai_jobs ไม่พร้อม' : '')))) || 'ไม่ทราบสาเหตุ'); el.className = 'el-ready bad'; }
+  }
+
+  /* ── MASTER พิกัด ELE (อ่านอย่างเดียว · ล่าสุดทุกครั้ง · RPC เดิมเท่านั้น ไม่เพิ่ม SQL) ──
+     1) calc_ele_master_lookup (Key หลัก Part Number + ELUX Part Description (EN)) — EN จาก PL Description / ข้อความ Description ใน Invoice
+     2) Part Number ที่ Key หลักไม่พบ → calc_ele_master_page (ค้น Part Number แล้วกรองให้ตรงตัว) เพื่อใช้กฎ "พบรายการเดียว / หลายรายการ / ขัดแย้ง" */
+  async function masterFetch(items, tok){
+    const c = sb(); if (!c) throw new Error('เชื่อมต่อฐานข้อมูลไม่ได้');
+    const J = d => { if (typeof d === 'string'){ try { return JSON.parse(d); } catch (_){ return null; } } return d; };
+    const fail = (r, j) => new Error('อ่าน MASTER ไม่ได้: ' + ((j && j.error) === 'forbidden' ? 'Session หมดอายุ / สิทธิ์ไม่เพียงพอ' : ((j && j.error) || (r && r.error && (r.error.code || r.error.message)) || 'fail')));
+    const exact = new Map(), all = new Map();
+    /* คู่ Key (Part Number, EN) ที่เป็นไปได้จากเอกสารจริง (ไม่สร้างคำใหม่) */
+    const pairs = new Map();
+    items.forEach(x => { if (!x.code) return; const ens = new Set();
+      (x.pl ? x.pl.rows : []).forEach(r => { if (r.desc) ens.add(C.T(r.desc)); });
+      const w = C.T(x.desc).split(' '); for (let i = 0; i < w.length; i++) ens.add(w.slice(i).join(' '));
+      ens.forEach(en => { if (en) pairs.set(x.code + '\u0001' + en, { pn: x.code, en }); }); });
+    const keys = [...pairs.values()];
+    for (let i = 0; i < keys.length; i += 2000){
+      const r = await c.rpc('calc_ele_master_lookup', { p_token: tok, p_keys: keys.slice(i, i + 2000) }); const j = r && !r.error ? J(r.data) : null;
+      if (!j || !j.success) throw fail(r, j);
+      (j.rows || []).forEach(m => { const k = C.codeKey(m.part_number); if (!exact.has(k)) exact.set(k, []); if (!exact.get(k).some(e => e.id === m.id)) exact.get(k).push(m); });
+      prog('กำลังอ่าน MASTER พิกัด ELE (Part Number + EN) … ' + Math.min(i + 2000, keys.length) + ' / ' + keys.length);
+    }
+    const rest = [...new Set(items.map(x => x.code).filter(k => k && !exact.has(k)))];
+    let done = 0; const q = rest.slice();
+    const work = async () => { while (q.length){ const k = q.shift();
+      const r = await c.rpc('calc_ele_master_page', { p_token: tok, p_q: k, p_limit: 5000, p_offset: 0 }); const j = r && !r.error ? J(r.data) : null;
+      if (!j || !j.success) throw fail(r, j);
+      all.set(k, (j.rows || []).filter(m => C.codeKey(m.part_number) === k));
+      done++; prog('กำลังอ่าน MASTER พิกัด ELE (Part Number) … ' + done + ' / ' + rest.length); } };
+    await Promise.all(Array.from({ length: Math.min(6, rest.length) }, work));
+    return { exact, all, nExact: exact.size, nPn: rest.length };
+  }
+
+  /* ── ส่งออก XLSX 19 คอลัมน์ (โครงสร้างตาม GOLDEN MAPPING: แถว //1..19 + แถวหัวตาราง) ── */
+  const TXT = new Set([1, 2, 3, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]);
+  async function writeXlsx(rows, invs){
+    const wb = new ExcelJS.Workbook(); wb.creator = 'checkdecl ELE TYPE 0'; const ws = wb.addWorksheet('Sheet1');
+    const r1 = ws.getRow(1), r2 = ws.getRow(2);
+    for (let k = 0; k < 19; k++){ r1.getCell(k + 1).value = k === 0 ? '//1' : k + 1; r2.getCell(k + 1).value = k === 0 ? '//' + C.HEAD[0] : C.HEAD[k]; }
+    rows.forEach((r, i) => { const R = ws.getRow(i + 3);
+      r.forEach((v, k) => { const c = R.getCell(k + 1); if (TXT.has(k)) c.numFmt = '@'; if (v == null || v === '') return;
+        if (TXT.has(k)) c.value = String(v); else { c.value = Number(v); if (k === 7) c.numFmt = '0.000'; } }); });
+    [6, 14, 12, 18, 8, 8, 10, 10, 9, 12, 9, 44, 18, 6, 40, 14, 7, 9, 6].forEach((w, k) => { ws.getColumn(k + 1).width = w; });
+    const buf = await wb.xlsx.writeBuffer();
+    const p = n => String(n).padStart(2, '0'), d = new Date(), nos = invs.map(v => v.inv);
+    const name = 'ELE TYPE 0_' + (nos.length ? (nos.length > 1 ? nos[0] + '-' + nos[nos.length - 1] : nos[0]) : 'INVOICE') + '_' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes()) + '.xlsx';
+    const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })), a = document.createElement('a');
+    a.href = url; a.download = name.replace(/[\\/:*?"<>|]/g, '_'); document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+    return name;
+  }
+
+  /* ── แสดงผล ── */
+  const LV = { hard: ['❌ ต้องแก้ (ไม่ส่งออก)', 0], soft: ['⚠️ ต้องตรวจ', 1], warn: ['🔶 แจ้งเตือน', 2], info: ['ℹ️ ข้อมูล', 3] };
+  function render(R){
+    const t = R.tot, amt = Object.keys(t.amt).map(c => fmt(t.amt[c], 2) + ' ' + esc(c)).join('<br>') || '0.00';
+    const box = (lbl, val, cls, sm) => '<div class="' + (cls || '') + '"><span>' + lbl + '</span><b>' + val + '</b>' + (sm ? '<small>' + sm + '</small>' : '') + '</div>';
+    $('eleai-total').innerHTML = '<h2>TOTAL (คำนวณจากข้อมูลทุกรายการ)</h2><div class="el-tot">' +
+      box('จำนวน Invoice', fmt(t.invoices)) + box('จำนวนหน้า PDF ทั้งหมด', fmt(t.pdfPages), '', 'หน้า Invoice ' + fmt(t.invPages)) + box('จำนวนรายการสินค้า', fmt(t.items)) +
+      box('Total Quantity', fmt(t.qty), '', 'PL ' + fmt(t.plQty)) + box('Total Amount', amt) + box('Total Net Weight', fmt(t.nw, 3), '', 'PL ทั้งไฟล์ ' + fmt(t.plNw, 3)) +
+      box('จับคู่ MASTER สำเร็จ', fmt(t.mOk), 'g') + box('ไม่พบ MASTER', fmt(t.mNone), t.mNone ? 'r' : '', t.mConf ? 'ขัดแย้ง ' + t.mConf : '') +
+      box('Invoice / PL ไม่ตรงกัน', fmt(t.plBad + t.plUnused), (t.plBad + t.plUnused) ? 'r' : 'g', 'รายการ ' + t.plBad + ' · แถว PL ไม่ถูกใช้ ' + t.plUnused) + '</div>';
+    const iss = R.issues.slice().sort((a, b) => LV[a.lvl][1] - LV[b.lvl][1]);
+    const cnt = k => iss.filter(x => x.lvl === k).length;
+    $('eleai-issues').innerHTML = iss.length ? '<h2>ผลตรวจ — ❌ ' + cnt('hard') + ' · ⚠️ ' + cnt('soft') + ' · 🔶 ' + cnt('warn') + ' · ℹ️ ' + cnt('info') + '</h2><div class="el-iss"><table><thead><tr><th>ระดับ</th><th>ไฟล์</th><th>Invoice</th><th>หน้า</th><th>รหัส</th><th>รายละเอียด</th></tr></thead><tbody>' +
+      iss.map(x => '<tr class="' + x.lvl + '"><td style="white-space:nowrap">' + LV[x.lvl][0] + '</td><td>' + esc(x.file || '') + '</td><td>' + esc(x.inv || '') + '</td><td>' + esc(x.pg || '') + '</td><td>' + esc(x.code || '') + '</td><td>' + esc(x.msg) + '</td></tr>').join('') + '</tbody></table></div>' : '<h2>ผลตรวจ — ✅ ไม่พบข้อผิดพลาด</h2>';
+    const LIM = 3000, rows = R.rows.slice(0, LIM);
+    const NUMC = new Set([0, 4, 5, 6, 7]);
+    $('eleai-preview').innerHTML = '<h2>ข้อมูลที่ส่งออก (19 คอลัมน์) — ' + fmt(R.rows.length) + ' รายการ' + (R.rows.length > LIM ? ' · แสดง ' + fmt(LIM) + ' แถวแรก (TOTAL คำนวณครบทุกรายการ)' : '') + '</h2><div class="el-tbl"><table><thead><tr>' +
+      C.HEAD.map(h => '<th>' + esc(h) + '</th>').join('') + '<th>MASTER</th><th>PL</th></tr></thead><tbody>' +
+      rows.map((r, i) => { const x = R.sorted[i];
+        return '<tr>' + r.map((v, k) => { let cls = NUMC.has(k) ? 'n' : ''; if ((k === 14 || k === 15) && x.master.st !== 'ok') cls += ' x'; if (k === 7 && v == null) cls += ' x';
+          const s = v == null ? '' : (k === 6 ? fmt(v, 2) : k === 7 ? fmt(v, 3) : (typeof v === 'number' ? String(v) : v)); return '<td class="' + cls + '">' + esc(s) + '</td>'; }).join('') +
+          '<td class="' + (x.master.st === 'ok' ? '' : 'x') + '">' + esc(x.master.st === 'ok' ? x.master.how : x.master.msg) + '</td><td class="' + (x.plSt === 'ok' ? '' : (x.plSt === 'noord' ? 'w' : 'x')) + '">' + esc(x.plSt === 'ok' || x.plSt === 'noord' ? (x.pl.how + ' (' + x.pl.rows.length + ' แถว)') : x.plMsg) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+  }
+
+  /* ── EXPORT EXCEL: ทำทุกขั้นในการกดครั้งเดียว ── */
+  async function run(){
+    if (S.busy) return;
+    const btn = $('eleai-btn-export'), force = $('eleai-btn-force');
+    const A = auth();
+    if (!A || !A.token){ prog('❌ ไม่มี Session Token — กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่', '#c00000'); return; }
+    const pdfs = S.pdfs.filter(x => !x.err), pls = S.pls.filter(x => !x.err);
+    if (!pdfs.length){ prog('❌ กรุณาเลือก Invoice PDF อย่างน้อย 1 ไฟล์', '#c00000'); return; }
+    if (!pls.length){ prog('❌ กรุณาเลือก Packing List อย่างน้อย 1 ไฟล์ (Net Weight ต้องมาจาก PL)', '#c00000'); return; }
+    if (S.pdfs.some(x => x.err) || S.pls.some(x => x.err)){ prog('❌ มีไฟล์ที่เปิดไม่ได้ — นำออกก่อน (✕)', '#c00000'); return; }
+    S.busy = true; btn.disabled = true; force.style.display = 'none'; $('eleai-btn-clear').disabled = true;
+    ['eleai-total', 'eleai-issues', 'eleai-preview'].forEach(id => { $(id).innerHTML = ''; });
+    try {
+      /* 1) อ่าน Invoice PDF ด้วย AI (ทุกหน้า) */
+      const jobs = []; pdfs.forEach(p => C.makeChunks(p.nPages, CHUNK_K).forEach(ch => jobs.push({ p, ch })));
+      const totPages = pdfs.reduce((s, p) => s + p.nPages, 0); let donePg = 0, doneCh = 0, failed = [], fromCache = 0;
+      prog('AI กำลังอ่าน Invoice PDF … 0 / ' + totPages + ' หน้า (' + jobs.length + ' ชุดหน้า)'); bar(2);
+      const q = jobs.slice();
+      const worker = async () => { while (q.length){ const jb = q.shift();
+        try { const r = await readChunk(jb.p, jb.ch, A.token); jb.result = r.result; if (r.cached) fromCache++; }
+        catch (e){ failed.push(String(e && e.message || e)); }
+        doneCh++; donePg += jb.ch.owned; prog('AI กำลังอ่าน Invoice PDF … ' + donePg + ' / ' + totPages + ' หน้า · ชุดหน้า ' + doneCh + ' / ' + jobs.length + (fromCache ? ' · ใช้ผลเดิม ' + fromCache : '')); bar(5 + 75 * doneCh / jobs.length); } };
+      await Promise.all(Array.from({ length: Math.min(POOL, jobs.length) }, worker));
+      if (failed.length){ const R = { issues: failed.map(m => ({ lvl: 'hard', msg: m })), rows: [], sorted: [] };
+        $('eleai-issues').innerHTML = ''; renderIssuesOnly(R.issues); prog('❌ อ่าน PDF ไม่สำเร็จ ' + failed.length + ' ชุดหน้า — ไม่ส่งออก (กด EXPORT ใหม่ได้ ชุดที่อ่านสำเร็จแล้วไม่เรียก AI ซ้ำ)', '#c00000'); bar(null); return; }
+      const files = pdfs.map(p => C.mergeFile(p.name, p.nPages, jobs.filter(j => j.p === p).map(j => ({ chunk: j.ch, result: j.result }))));
+      const v = C.validate(files);
+      /* 2) Packing List */
+      prog('กำลังจับคู่ Packing List …'); bar(84);
+      const plFiles = pls.map(x => x.p);
+      const issues = v.issues.slice();
+      plFiles.forEach(f => { (f.bad || []).forEach(r => issues.push({ lvl: 'warn', file: f.file, code: r.pn, msg: 'PL แถว ' + r.line + ': Quantity / Net weight ไม่ถูกต้อง — ไม่ใช้แถวนี้' }));
+        if (f.totalOk === false) issues.push({ lvl: 'warn', file: f.file, msg: 'ยอดรวมท้าย PL (Qty ' + f.total.qty + ' / NW ' + f.total.nw + ') ไม่เท่ากับผลรวมแถว (Qty ' + f.sumQty + ' / NW ' + f.sumNw + ')' });
+        if (!f.hasOrd) issues.push({ lvl: 'warn', file: f.file, msg: 'PL ไม่มีคอลัมน์ Order no. — จับคู่ด้วย Part Number + Quantity' }); });
+      const mi = C.matchPL(v.items, plFiles);
+      v.items.forEach(x => { if (x.plSt === 'noord') issues.push({ lvl: 'warn', file: x.file, inv: x.inv, pg: x.pg, code: x.code, msg: 'จับคู่ PL โดยไม่มี Order No. (' + x.pl.how + ')' });
+        else if (x.plSt !== 'ok') issues.push({ lvl: 'warn', file: x.file, inv: x.inv, pg: x.pg, code: x.code, msg: 'Net WT ว่าง — ' + x.plMsg }); });
+      mi.unused.forEach(r => issues.push({ lvl: 'warn', file: r.file, code: r.cpn || r.pn, msg: 'PL แถว ' + r.line + ' ไม่ตรงกับรายการใน Invoice (Part ' + r.pn + (r.cpn && r.cpn !== r.pn ? ' / ' + r.cpn : '') + ' · Qty ' + r.qty + ' · Order ' + (r.ord || '-') + ')' }));
+      /* 3) MASTER พิกัด ELE */
+      prog('กำลังอ่าน MASTER พิกัด ELE ล่าสุด …'); bar(88);
+      const M = await masterFetch(v.items, A.token);
+      $('eleai-master-st').textContent = '✅ อ่าน MASTER ล่าสุดแล้ว ' + new Date().toLocaleTimeString('th-TH') + ' · calc_ele_master_lookup ' + M.nExact + ' Part · ค้นด้วย Part Number ' + M.nPn + ' Part';
+      v.items.forEach(x => { x.master = x.code ? C.pickMaster(x, M.exact.get(x.code) || M.all.get(x.code)) : { st: 'none', th: '', hs: '', msg: 'ไม่มี Product Code' };
+        if (x.master.st !== 'ok') issues.push({ lvl: 'warn', file: x.file, inv: x.inv, pg: x.pg, code: x.code, msg: x.master.msg }); });
+      /* 4) ตรวจยอด + เรียง Invoice น้อย → มาก */
+      const rows = C.buildRows(v.items, v.invoices);
+      const ivm = new Map(v.invoices.map(i => [i.inv, i])); const fo = new Map(); v.items.forEach(x => { if (!fo.has(x.file)) fo.set(x.file, fo.size); });
+      const sorted = v.items.slice().sort((a, b) => C.invCmp(a.inv, b.inv) || (fo.get(a.file) - fo.get(b.file)) || (a.pg - b.pg) || (a.row - b.row));
+      const tot = C.totals(files, v, rows, plFiles, mi);
+      v.invoices.forEach(iv => { if (iv.totalValue != null) issues.push({ lvl: 'info', file: iv.file, inv: iv.inv, msg: 'Invoice ' + iv.inv + ': ' + iv.items + ' รายการ · Amount รวม ' + fmt(iv.sumAmt, 2) + ' = TOTAL VALUE ' + fmt(iv.totalValue, 2) + ' ' + (iv.currency || '') + (iv.packing != null ? ' (ไม่รวม PACKING EXPENSES ' + fmt(iv.packing, 2) + ')' : '') }); });
+      if (fromCache) issues.push({ lvl: 'info', msg: 'ใช้ผลอ่าน AI เดิม ' + fromCache + ' ชุดหน้า (ไม่เรียก AI ซ้ำ)' });
+      const R = { issues, rows, sorted, tot, invoices: v.invoices.map(i => ivm.get(i.inv)) };
+      S.last = R; render(R); bar(96);
+      const hard = issues.filter(x => x.lvl === 'hard').length, soft = issues.filter(x => x.lvl === 'soft').length;
+      if (hard){ prog('❌ พบข้อผิดพลาดสำคัญ ' + hard + ' รายการ — ไม่ส่งออก Excel (ดูผลตรวจด้านล่าง)', '#c00000'); bar(null); return; }
+      if (soft){ prog('⚠️ มีรายการที่ AI อ่านไม่ชัด/ต้องตรวจ ' + soft + ' รายการ — ยังไม่ส่งออก · ตรวจแล้วกด “ส่งออกทั้งที่มีรายการต้องตรวจ”', '#b45309'); force.style.display = ''; bar(null); return; }
+      /* 5) ดาวน์โหลดทันที */
+      const name = await writeXlsx(rows, R.invoices); bar(100);
+      const w = issues.filter(x => x.lvl === 'warn').length;
+      prog('✅ ส่งออกแล้ว: ' + name + ' · ' + rows.length + ' รายการ' + (w ? ' · 🔶 แจ้งเตือน ' + w + ' รายการ (ดูผลตรวจ)' : ''), w ? '#b45309' : '#0b7a2a');
+    } catch (e){ prog('❌ ' + String(e && e.message || e), '#c00000'); bar(null); }
+    finally { S.busy = false; btn.disabled = false; $('eleai-btn-clear').disabled = false; }
+  }
+  function renderIssuesOnly(iss){ $('eleai-issues').innerHTML = '<h2>ผลตรวจ</h2><div class="el-iss"><table><tbody>' + iss.map(x => '<tr class="' + x.lvl + '"><td style="white-space:nowrap">' + LV[x.lvl][0] + '</td><td>' + esc(x.msg) + '</td></tr>').join('') + '</tbody></table></div>'; }
+  async function forceExport(){
+    if (S.busy || !S.last) return; const R = S.last; if (R.issues.some(x => x.lvl === 'hard')) return;
+    S.busy = true; const f = $('eleai-btn-force'); f.disabled = true;
+    try { const name = await writeXlsx(R.rows, R.invoices); prog('✅ ส่งออกแล้ว (มีรายการต้องตรวจ ' + R.issues.filter(x => x.lvl === 'soft').length + ' รายการ): ' + name, '#b45309'); f.style.display = 'none'; }
+    catch (e){ prog('❌ ส่งออกไม่สำเร็จ: ' + String(e && e.message || e), '#c00000'); }
+    finally { S.busy = false; f.disabled = false; }
+  }
+  function clearAll(){ if (S.busy) return; S.pdfs = []; S.pls = []; invalidate(); renderLists(); $('eleai-pdf').value = ''; $('eleai-pl').value = ''; }
+
+  /* ── ผูก Event ── */
+  function bind(){
+    if (!$('eleai-view')) return;
+    $('eleai-btn-pdf').addEventListener('click', () => { if (!S.busy) $('eleai-pdf').click(); });
+    $('eleai-btn-pl').addEventListener('click', () => { if (!S.busy) $('eleai-pl').click(); });
+    $('eleai-pdf').addEventListener('change', e => { const l = [...(e.target.files || [])]; e.target.value = ''; addPdfs(l); });
+    $('eleai-pl').addEventListener('change', e => { const l = [...(e.target.files || [])]; e.target.value = ''; addPls(l); });
+    ['eleai-pdf-list', 'eleai-pl-list'].forEach(id => $(id).addEventListener('click', e => { const b = e.target.closest('button[data-k]'); if (!b || S.busy) return;
+      (b.dataset.k === 'pdf' ? S.pdfs : S.pls).splice(+b.dataset.i, 1); invalidate(); renderLists(); }));
+    $('eleai-btn-export').addEventListener('click', run);
+    $('eleai-btn-force').addEventListener('click', forceExport);
+    $('eleai-btn-clear').addEventListener('click', clearAll);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind); else bind();
+  window.eleaiOnShow = function(){ if (!S.probed && !S.busy) probe(); };
 })();
 </script>
 </body>
