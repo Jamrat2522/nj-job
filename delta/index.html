@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<!-- Build Metadata (local313): เลข Version ของ Build นี้ — กำหนดที่บรรทัดนี้ที่เดียว ใช้ทั้งเว็บไซต์ (ป้ายมุมขวาบนอ่านจากที่นี่) -->
-<meta name="nj-build" content="local313">
+<!-- Build Metadata (local314): เลข Version ของ Build นี้ — กำหนดที่บรรทัดนี้ที่เดียว ใช้ทั้งเว็บไซต์ (ป้ายมุมขวาบนอ่านจากที่นี่) -->
+<meta name="nj-build" content="local314">
 <title>Mapping Export Hi-Tech HTML</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -5442,16 +5442,18 @@ async function _doExportGROHERun(){
   const SUM_COLS = [6, 9, 13];          // G Qty · J Amount · N NET WEIGHT (ไม่รวม Unit price ที่เป็นอัตรา · ไม่รวม ITEMS / Invoice / Product / Tariff ที่เป็นรหัส)
   const aoa = [HEADERS];
   _ai.rows.forEach((x, idx) => {
-    const m = x.m, i = x.i, it = i.it, ms = i.ms, nw = i.nw || {};
+    // local314: ไม่พบข้อมูลประกอบ = เว้นว่างช่องนั้น (ไม่เดา ไม่ใส่ค่าแทน) — PDF ยังเป็น MASTER หลักของทุกช่องที่มาจาก PDF
+    const m = x.m, i = x.i, it = i.it, ms = i.ms || {}, nw = i.nw || {};
     const invNo = /^\d{1,15}$/.test(m.invoiceNo) ? Number(m.invoiceNo) : m.invoiceNo;
-    const [yy, mm, dd] = m.date.split('-').map(Number);
+    const dOK = /^\d{4}-\d{2}-\d{2}$/.test(m.date);
+    const [yy, mm, dd] = dOK ? m.date.split('-').map(Number) : [null, null, null];
     const prod = /^\d{1,15}$/.test(_groheTxt(it.product)) ? Number(it.product) : _groheTxt(it.product);
     aoa.push([
       invNo,                                   // A INVOICE NO. — PDF
-      new Date(yy, mm - 1, dd),                // B INVOICE DATE — PDF
+      dOK ? new Date(yy, mm - 1, dd) : '',     // B INVOICE DATE — PDF (ไม่พบ = เว้นว่าง)
       idx + 1,                                 // C ITEMS — ลำดับที่ส่งออก
       prod,                                    // D PRODUCT — PDF (เลขล้วน = ตัวเลข · มีตัวอักษร = ข้อความ)
-      ms.en, ms.th,                            // E/F EN DESC. · TH DESC. — MASTER
+      ms.en || '', ms.th || '',                // E/F EN DESC. · TH DESC. — MASTER (ไม่พบ = เว้นว่าง)
       i.qty,                                   // G Qty — PDF
       'C62',                                   // H หน่วย — FIX
       i.unitPrice,                             // I Unit price = Amount ÷ Qty
@@ -5460,11 +5462,11 @@ async function _doExportGROHERun(){
       '', '',                                  // L/M หีบห่อ — ไม่มีข้อมูล
       _groheNum(nw.nw),                        // N NET WEIGHT — XLSX คอลัมน์ Z
       '',                                      // O GROSS WEIGHT — ไม่มีข้อมูล
-      nw.delivery ? nw.delivery + ' Address' : '',  // P Shipping mark — Delivery จาก XLSX
+      nw.delivery ? nw.delivery + ' Address' : '',  // P MARK (Shipping mark) — Delivery จาก XLSX (ไม่พบ = เว้นว่าง)
       nw.country || '',                        // Q Purchase Country — XLSX
       _groheTxt(it.coo),                       // R COO — PDF
-      yy,                                      // S Product Year — ปีของ Invoice Date
-      ms.tariff, ms.stat, ms.brand, ms.boi, ms.lic, ms.lic2, ms.org, ms.issued, ms.preview,   // T–AB MASTER
+      dOK ? yy : '',                           // S Product Year — ปีของ Invoice Date
+      ms.tariff || '', ms.stat || '', ms.brand || '', ms.boi || '', ms.lic || '', ms.lic2 || '', ms.org || '', ms.issued || '', ms.preview || '',   // T–AB MASTER (ไม่พบ = เว้นว่าง)
       ms.lic2b || '', ms.org2 || '', ms.issued2 || '', ms.preview2 || '',                      // AC–AF MASTER (ถ้ามีในไฟล์ Master)
     ]);
   });
@@ -5481,7 +5483,7 @@ async function _doExportGROHERun(){
   a.href = url; a.download = CUSTOMERS.grohe.exportName;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  if(_ai.partial){ toast(`⚠ ${_ai.msg} · ${CUSTOMERS.grohe.exportName} (${aoa.length - 1} รายการ) — ดูรายการที่ข้ามในสรุปบนหน้าจอ`, 'warn'); return 'partial'; }
+  if(_ai.partial || _ai.warned){ toast(`${_ai.msg} · ${CUSTOMERS.grohe.exportName} (${aoa.length - 1} รายการ)${_ai.partial ? ' — ดูรายการที่ข้ามในสรุปบนหน้าจอ' : ''}`, 'warn'); return 'partial'; }
   toast(`✓ Export: ${CUSTOMERS.grohe.exportName} (${_ai.exported.length} Invoice · ${aoa.length - 1} รายการ)`, 'ok');
   return true;
 }
@@ -10075,12 +10077,13 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
 </script>
 <script>
 /* ═══════════════════════════════════════════════════════════════════════════
- * GROHE SIAM — ONE-CLICK AI EXPORT (local313)
+ * GROHE SIAM — ONE-CLICK AI EXPORT (local314)
  * อัปโหลด INVOICE PDF (AI) + XLSX (N.W. เท่านั้น) + MASTER → กด ⬇ EXPORT EXCEL ครั้งเดียว
  *   → Cache/AI อ่าน PDF (nj-invoice-ai-grohe · Background Job + Polling) → ตรวจ → หา N.W. → MASTER MAPPING
  *   → เรียง Invoice น้อย→มาก → TOTAL → ดาวน์โหลด
- * PDF = แหล่งข้อมูลเดียวของ Invoice No. / Date / Product / Description / Qty / Unit Price / Amount / COO
- * XLSX = ใช้หา Net weight (คอลัมน์ Z) + หน่วย (AA) + Delivery (Shipping mark) เท่านั้น — ไม่ทับข้อมูลจาก PDF
+ * PDF = MASTER หลัก: Invoice No. / Document no. / Date / Product / Description / Qty / Unit Price / Amount / COO — XLSX ห้ามทับ
+ * XLSX = ใช้ 2 อย่างเท่านั้น: Net weight → N.W. · Delivery → MARK (จับกลุ่มด้วย Billing Document = Document no. ของ PDF)
+ * local314: คำเตือนไม่บล็อก EXPORT — จับคู่ไม่ได้ / ไม่พบ N.W. / MARK / MASTER = เว้นว่างช่องนั้นแล้ว EXPORT ต่อได้ (ไม่เดา ไม่สร้างข้อมูล)
  * MASTER = EN DESC. / TH DESC. / TARIFF CODE / stat / brandName / BOI (จับคู่ด้วย PRODUCT)
  * ไฟล์ใหญ่เกิน 8 MB: แบ่งเป็นช่วงหน้าอัตโนมัติ (pdf-lib) แล้วรวมผลตาม Invoice — ไม่ตัดรายการทิ้ง
  * แยกจาก THE SHELL ทุกส่วน: Edge Function / Prompt / prompt_ver / Cache ของตัวเอง
@@ -10335,63 +10338,76 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       items:(x.iv.items || []).map((it, k) => ({ seq:k + 1, it })) }))
       .sort((a, b) => invCmp(a.invoiceNo, b.invoiceNo));          // เรียง Invoice น้อย→มาก ก่อนตรวจ/ส่งออก
     const { rows, byDoc } = nwGroups(), M = masterIndex();
-    const docs = [...byDoc.keys()].sort(invCmp);
+    const docs = [...byDoc.keys()];
     const used = new Set();
-    // จับคู่ Invoice ↔ กลุ่ม N.W.: ใช้เลขอ้างอิงที่ PDF พิมพ์ไว้ก่อน · ถ้าไม่มี ใช้กลุ่มที่จำนวนรายการตรงกันและสินค้า/จำนวนตรงกันทุกบรรทัดเท่านั้น
-    model.forEach((m, mi) => {
-      const refs = [...new Set([...(m.iv.delivery_refs || []), ...m.items.map(i => i.it.delivery_ref)].map(s => String(s || '').trim()).filter(Boolean))];
-      let g = null, why = '';
-      const byRef = docs.filter(k => !used.has(k) && (refs.includes(k) || byDoc.get(k).some(r => refs.includes(String(r.delivery || '').trim()))));
-      if(byRef.length === 1){ g = byRef[0]; why = 'เลขอ้างอิงใน PDF ตรงกับ XLSX'; }
+    // จับกลุ่ม N.W.: XLSX Billing Document = Document no. ของ PDF (เลขอ้างอิงสำหรับจับคู่เท่านั้น — ไม่นำไปทับเลข Invoice)
+    model.forEach(m => {
+      const docNo = String(m.iv.document_no || '').trim();
+      const refs = [...new Set([docNo, ...(m.iv.delivery_refs || []), ...m.items.map(i => i.it.delivery_ref)].map(s => String(s || '').trim()).filter(Boolean))];
+      let g = null, why = '', warn = '';
+      const hit = refs.find(r => byDoc.has(r));
+      if(hit){ g = hit; why = `Document no. ${esc(hit)} = Billing Document ใน XLSX`; }
       else {
+        // ไม่มีเลขตรง → ใช้กลุ่มที่สินค้าและจำนวนตรงกันทุกบรรทัดเท่านั้น (หลักฐานครบ) · ไม่เช่นนั้นเว้นว่างพร้อมคำเตือน
         const fit = docs.filter(k => !used.has(k) && byDoc.get(k).length === m.items.length &&
           m.items.every((i, k2) => key8(byDoc.get(k)[k2].material) === key8(i.it.product) && eq(num(byDoc.get(k)[k2].qty), num(i.it.qty))));
-        if(fit.length === 1){ g = fit[0]; why = 'สินค้า + จำนวน ตรงกันทุกบรรทัด'; }
-        else if(fit.length > 1){ g = fit[mi] !== undefined && fit.includes(docs[mi]) ? docs[mi] : fit[0]; why = 'สินค้า + จำนวน ตรงกันทุกบรรทัด'; }
-        else why = rows.length ? 'ไม่พบกลุ่มใน XLSX ที่สินค้าและจำนวนตรงกับ Invoice นี้' : 'ยังไม่ได้อัปโหลด XLSX (N.W.)';
+        if(fit.length === 1){ g = fit[0]; why = 'สินค้า + จำนวน ตรงกันทุกบรรทัด (PDF ไม่มี Document no.)'; }
+        else warn = rows.length ? `ไม่พบ Billing Document ใน XLSX ที่ตรงกับ Document no.${docNo ? ' ' + docNo : ' (PDF ไม่ได้พิมพ์ไว้)'} — N.W. / MARK เว้นว่าง` : 'ยังไม่ได้อัปโหลด XLSX (N.W.) — N.W. / MARK เว้นว่าง';
       }
       if(g) used.add(g);
-      m.nwDoc = g; m.nwWhy = why;
+      m.nwDoc = g; m.nwWhy = why; m.warns = warn ? [warn] : [];
       const pool = g ? byDoc.get(g).slice() : [];
       const taken = new Set();
       m.items.forEach(i => {
         const it = i.it;
-        i.errs = [];
-        ['product','qty','amount'].forEach(k => { if(it[k] == null || it[k] === '') i.errs.push(`ไม่สามารถอ่าน ${k === 'product' ? 'Product' : k === 'qty' ? 'Quantity' : 'Amount'} รายการที่ ${i.seq} หน้า ${it.pg || '?'}${it.note ? ' (' + it.note + ')' : ''}`); });
+        i.errs = []; i.warns = [];
+        // อ่านจาก PDF ไม่ได้ = ข้ามเฉพาะรายการนั้น (ไม่เดา) · อย่างอื่นเป็นคำเตือน
+        [['Product', it.product], ['Quantity', it.qty], ['Amount', it.amount]].forEach(([k, v]) => { if(v == null || v === '') i.errs.push(`ไม่สามารถอ่าน ${k} จาก PDF (รายการที่ ${i.seq} หน้า ${it.pg || '?'})${it.note ? ' — ' + it.note : ''}`); });
         i.qty = num(it.qty); i.amount = num(it.amount);
         i.unitPrice = (i.qty && i.amount != null && i.qty !== 0) ? i.amount / i.qty : null;
-        // N.W. — ต้องตรงทั้ง Material และ Quantity ของบรรทัดนั้น (ไม่ใช้ลำดับแถวเพียงอย่างเดียว)
-        const cand = pool.filter((r, k) => !taken.has(k) && key8(r.material) === key8(it.product) && eq(num(r.qty), i.qty));
-        if(!g) i.errs.push('ยังไม่ได้จับคู่กลุ่ม N.W. ของ Invoice นี้');
-        else if(!cand.length) i.errs.push(`ไม่พบ N.W. ใน XLSX สำหรับ Product ${it.product || '?'} จำนวน ${it.qty || '?'} (รายการที่ ${i.seq})`);
-        else { const r = cand[0]; taken.add(pool.indexOf(r)); i.nw = r;
-          if(num(r.nw) == null) i.errs.push(`N.W. ของ Product ${it.product} ใน XLSX ว่าง (แถว ${r.srcRow})`);
-          if(r.unit && U(r.unit) !== 'KG') i.errs.push(`หน่วยน้ำหนักใน XLSX ไม่ใช่ KG (${r.unit}) แถว ${r.srcRow}`); }
-        // MASTER — จับคู่ด้วย PRODUCT
+        // N.W. / MARK: ต้องเป็นแถวที่ Material ตรงกับ Product ของรายการนี้เท่านั้น — ไม่ใช้ค่าของรายการอื่น ไม่บวกรวม
+        i.nw = null;
+        if(g){
+          const free = pool.map((r, k) => ({ r, k })).filter(x => !taken.has(x.k) && key8(x.r.material) === key8(it.product));
+          const exact = free.filter(x => eq(num(x.r.qty), i.qty));
+          const pick = exact[0] || free[0] || null;
+          if(pick){ taken.add(pick.k); i.nw = pick.r;
+            if(!exact.length) i.warns.push(`จำนวนใน XLSX (${fmt(num(pick.r.qty),0)}) ไม่ตรงกับ PDF (${fmt(i.qty,0)}) แถว ${pick.r.srcRow} — ใช้ N.W. ของ Product เดียวกัน`);
+            if(num(pick.r.nw) == null) i.warns.push(`XLSX แถว ${pick.r.srcRow} ไม่มีค่า Net weight — N.W. เว้นว่าง`);
+            if(pick.r.unit && U(pick.r.unit) !== 'KG') i.warns.push(`หน่วยน้ำหนักใน XLSX ไม่ใช่ KG (${pick.r.unit}) แถว ${pick.r.srcRow}`);
+            if(!String(pick.r.delivery || '').trim()) i.warns.push(`XLSX แถว ${pick.r.srcRow} ไม่มี Delivery — MARK เว้นว่าง`); }
+          else i.warns.push(`ไม่พบ Product ${it.product || '?'} ใน Billing Document ${g} ของ XLSX — N.W. / MARK เว้นว่าง`);
+        }
+        // MASTER — ไม่พบ = เว้นว่างเฉพาะช่องที่มาจาก Master
         i.ms = M.get(key8(it.product)) || null;
-        if(!i.ms) i.errs.push(`ไม่พบ Product ${it.product || '?'} ใน MASTER (รายการที่ ${i.seq})`);
-        i.state = i.errs.length ? 'bad' : 'ok';
+        if(!i.ms) i.warns.push(`ไม่พบ Product ${it.product || '?'} ใน MASTER — ช่องที่มาจาก MASTER เว้นว่าง`);
+        i.state = i.errs.length ? 'bad' : (i.warns.length ? 'warn' : 'ok');
       });
       m.errs = [];
-      if(!m.invoiceNo) m.errs.push('ไม่พบเลข Invoice');
-      if(!/^\d{4}-\d{2}-\d{2}$/.test(m.date)) m.errs.push('ไม่พบ Invoice Date');
-      if(!m.currency) m.errs.push('ไม่พบสกุลเงิน');
+      if(!m.invoiceNo) m.errs.push('ไม่พบเลข Invoice ใน PDF');
       if(!m.items.length) m.errs.push('ไม่พบรายการสินค้าใน Invoice นี้');
-      const tot = num(m.iv.total_amount), sum = m.items.reduce((s, i) => s + (i.amount || 0), 0);
+      if(m.items.length && m.items.every(i => i.errs.length)) m.errs.push('อ่านรายการสินค้าจาก PDF ไม่ได้ทั้งใบ');
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(m.date)) m.warns.push('ไม่พบ Invoice Date ใน PDF — ช่องวันที่และปีสินค้าเว้นว่าง');
+      if(!m.currency) m.warns.push('ไม่พบสกุลเงินใน PDF — ช่อง Currency เว้นว่าง');
+      const tot = num(m.iv.total_amount), sum = m.items.filter(i => !i.errs.length).reduce((s, i) => s + (i.amount || 0), 0);
       m.sum = Math.round(sum * 100) / 100; m.total = tot;
-      if(tot != null && Math.abs(m.sum - tot) > 0.05) m.errs.push(`ยอดรวมไม่ตรงกับ Invoice (รวมรายการ ${fmt(sum)} / TOTAL ${fmt(tot)})`);
+      if(tot != null && Math.abs(m.sum - tot) > 0.05) m.warns.push(`ยอดรวมรายการ ${fmt(sum)} ไม่ตรงกับ TOTAL ใน PDF ${fmt(tot)} — ตรวจสอบ`);
     });
     return { model, nw:rows, master:M };
   }
   function evaluate(built){
-    const pass = [], skipped = [];
+    const pass = [], skipped = [], warned = [];
     built.model.forEach(m => {
-      const why = m.errs.slice();
-      m.items.forEach(i => i.errs.forEach(e => why.push(e)));
-      if(why.length) skipped.push({ t:'inv', no:m.invoiceNo || '?', file:m.f.name, why }); else pass.push(m);
+      const good = m.items.filter(i => !i.errs.length);
+      m.bad = m.items.filter(i => i.errs.length);
+      if(m.errs.length || !good.length){ skipped.push({ t:'inv', no:m.invoiceNo || '?', file:m.f.name, why:[...m.errs, ...m.items.flatMap(i => i.errs)] }); return; }
+      m.good = good;
+      pass.push(m);
+      const w = [...m.warns, ...good.flatMap(i => i.warns)];
+      if(w.length || m.bad.length) warned.push({ no:m.invoiceNo || '?', file:m.f.name, why:[...w, ...m.bad.flatMap(i => i.errs)] });
     });
     G.files.forEach(f => { if(!f.parts.length || !f.parts.every(p => p.result)) skipped.push({ t:'file', file:f.name, why:[f.status === ST.FAIL ? (f.msg || 'อ่านไม่สำเร็จ') : 'ยังไม่ได้อ่านด้วย AI'] }); });
-    return { pass, skipped };
+    return { pass, skipped, warned };
   }
   const skipInvN = sk => sk.filter(x => x.t === 'inv').length;
   const skipFileN = sk => sk.filter(x => x.t === 'file').length;
@@ -10429,14 +10445,16 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       G.report = { kind:'none', exported:[], skipped:ev.skipped }; render();
       return { ok:false, msg:`ไม่ Export — ไม่มี Invoice ที่ผ่านการตรวจ (ไม่ผ่าน ${nSkip} Invoice${nFile ? ` · อ่านไม่สำเร็จ ${nFile} ไฟล์` : ''}) · ดูสาเหตุในสรุปด้านล่าง` };
     }
+    const nWarn = ev.warned.length;
     const partial = ev.skipped.length > 0;
     const msg = partial ? `EXPORT สำเร็จบางส่วน — ส่งออก ${ev.pass.length} Invoice / ข้าม ${nSkip} Invoice${nFile ? ` · อ่านไม่สำเร็จ ${nFile} ไฟล์` : ''}`
-                        : `EXPORT สำเร็จ — ส่งออก ${ev.pass.length} Invoice ครบทุกรายการ`;
+              : nWarn ? `⚠ พบข้อมูลไม่ครบ — สามารถ EXPORT EXCEL ได้ โดยช่องที่ไม่พบข้อมูลจะเว้นว่าง (ส่งออก ${ev.pass.length} Invoice · มีคำเตือน ${nWarn} Invoice)`
+                      : `EXPORT สำเร็จ — ส่งออก ${ev.pass.length} Invoice ครบทุกรายการ`;
     const rows = [];
-    ev.pass.forEach(m => m.items.forEach(i => rows.push({ m, i })));
-    G.pend = { kind:partial ? 'partial' : 'full', msg, exported:ev.pass.map(m => m.invoiceNo), skipped:ev.skipped, rows:rows.length };
+    ev.pass.forEach(m => m.good.forEach(i => rows.push({ m, i })));     // ส่งออกทุกรายการที่อ่านจาก PDF ได้ (คำเตือนไม่บล็อก)
+    G.pend = { kind:partial ? 'partial' : (nWarn ? 'warn' : 'full'), msg, exported:ev.pass.map(m => m.invoiceNo), skipped:ev.skipped, warned:ev.warned, rows:rows.length };
     setPhase('กำลังสร้าง Excel...'); render();
-    return { ok:true, rows, partial, msg, exported:G.pend.exported, skipped:ev.skipped };
+    return { ok:true, rows, partial, warned:nWarn > 0, msg, exported:G.pend.exported, skipped:ev.skipped };
   };
 
   /* ── TOTAL (ใช้ตัวคำนวณชุดเดียวกับ THE SHELL · แสดงในกรอบของ GROHE) ── */
@@ -10461,17 +10479,22 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     }
     if(!built) return { k:'ok', invs:[], why:[] };
     const bad = built.model.filter(m => m.f === f && (m.errs.length || m.items.some(i => i.errs.length)));
-    if(!bad.length) return { k:'ok', invs:[], why:[] };
-    return { k:'review', invs:bad.map(m => m.invoiceNo || '?'), why:bad.map(m => { const all = [...m.errs, ...m.items.flatMap(i => i.errs)];
+    if(bad.length) return { k:'review', invs:bad.map(m => m.invoiceNo || '?'), why:bad.map(m => { const all = [...m.errs, ...m.items.flatMap(i => i.errs)];
       return `Invoice ${m.invoiceNo || '?'}: ${all[0]}${all.length > 1 ? ` (และอีก ${all.length - 1} จุด)` : ''}`; }) };
+    const wn = built.model.filter(m => m.f === f && ((m.warns || []).length || m.items.some(i => (i.warns || []).length)));
+    if(wn.length) return { k:'warn', invs:wn.map(m => m.invoiceNo || '?'), why:wn.map(m => { const all = [...(m.warns || []), ...m.items.flatMap(i => i.warns || [])];
+      return `Invoice ${m.invoiceNo || '?'}: ${all[0]}${all.length > 1 ? ` (และอีก ${all.length - 1} จุด)` : ''}`; }) };
+    return { k:'ok', invs:[], why:[] };
   }
   function counts(v){ const c = { n:v.length, ok:0, bad:0, work:0, wait:0 };
-    v.forEach(x => { if(x.k === 'ok') c.ok++; else if(x.k === 'fail' || x.k === 'review') c.bad++; else if(x.k === 'work') c.work++; else c.wait++; }); return c; }
-  function summaryLine(c){ return c.n && c.ok === c.n ? `สำเร็จ ${c.n}/${c.n} ไฟล์`
-    : `ทั้งหมด ${c.n} ไฟล์ | สำเร็จ ${c.ok} | ไม่สำเร็จ ${c.bad}${c.work ? ` | กำลังอ่าน ${c.work}` : ''}${c.wait ? ` | รออ่าน ${c.wait}` : ''}`; }
+    c.warn = 0;
+    v.forEach(x => { if(x.k === 'ok') c.ok++; else if(x.k === 'warn'){ c.ok++; c.warn++; } else if(x.k === 'fail' || x.k === 'review') c.bad++; else if(x.k === 'work') c.work++; else c.wait++; }); return c; }
+  function summaryLine(c){ const w = c.warn ? ` | มีคำเตือน ${c.warn}` : '';
+    return c.n && c.ok === c.n ? `สำเร็จ ${c.n}/${c.n} ไฟล์${w}`
+    : `ทั้งหมด ${c.n} ไฟล์ | สำเร็จ ${c.ok} | ไม่สำเร็จ ${c.bad}${w}${c.work ? ` | กำลังอ่าน ${c.work}` : ''}${c.wait ? ` | รออ่าน ${c.wait}` : ''}`; }
   function zoneHtml(views){
     const n = G.files.length, c = counts(views);
-    const chips = G.files.map((f, k) => { const v = views[k].k, cl = v === 'fail' || v === 'review' ? 'bad' : v === 'ok' ? 'ok' : v === 'work' ? 'wait' : 'warn';
+    const chips = G.files.map((f, k) => { const v = views[k].k, cl = v === 'fail' || v === 'review' ? 'bad' : v === 'ok' ? 'ok' : v === 'work' ? 'wait' : 'warn';   // warn = เหลือง (EXPORT ได้)
       return `<span class="sai-chip sai-${cl}" title="${esc(f.name)} — ${f.pages || '?'} หน้า">${esc(f.name)}${G.exporting ? '' : `<b data-act="rm" data-id="${f.id}" title="ลบไฟล์นี้">×</b>`}</span>`; }).join('');
     return `<div class="dico">📄</div><div class="dlabel">INVOICE PDF — AI อ่านข้อมูล (หลายไฟล์)</div><div class="dhint">ลากวาง / กดเลือก · รองรับ PDF หลายหน้า</div>
       <div class="sai-zrow">${sessBox()}<span class="sai-msg">${n ? esc(summaryLine(c)) : 'ยังไม่มีไฟล์ PDF'}</span></div>
@@ -10485,9 +10508,14 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       + (r.skipped.length > 40 ? `<div>… อีก ${r.skipped.length - 40} รายการ</div>` : '');
     if(r.kind === 'none') return `<div class="sai-blk" id="gai-report" data-kind="none"><b>ไม่ Export — ไม่มี Invoice ที่ผ่านการตรวจ</b>${sk}<div class="sai-msg">แก้ไขแล้วกด ⬇ EXPORT EXCEL อีกครั้ง — ใช้ผล AI เดิม · อ่านซ้ำเฉพาะไฟล์ที่ล้มเหลว</div></div>`;
     const ex = `<div class="sai-repl"><b>ส่งออกแล้ว ${r.exported.length} Invoice</b> (${r.rows} รายการ): ${esc(r.exported.join(', '))}</div>`;
+    const wl = (r.warned || []).slice(0, 30).map(x => `<div>• <b>Invoice ${esc(x.no)}</b> — ${esc(x.why.slice(0, 3).join(' · '))}${x.why.length > 3 ? ` (และอีก ${x.why.length - 3} จุด)` : ''}</div>`).join('')
+      + ((r.warned || []).length > 30 ? `<div>… อีก ${r.warned.length - 30} Invoice</div>` : '');
+    const warnBlk = (r.warned || []).length ? `<div class="sai-repl"><b>⚠ ช่องที่เว้นว่างเพราะไม่พบข้อมูล (${r.warned.length} Invoice)</b> — ส่งออกแล้ว ไม่ได้เดาค่า:</div>${wl}` : '';
     if(r.kind === 'full') return `<div class="sai-rep sai-repok" id="gai-report" data-kind="full"><b>✓ ${esc(r.msg)}</b>${ex}</div>`;
+    if(r.kind === 'warn') return `<div class="sai-rep sai-repwarn" id="gai-report" data-kind="warn"><b>${esc(r.msg)}</b>${ex}${warnBlk}</div>`;
     return `<div class="sai-rep sai-repwarn" id="gai-report" data-kind="partial"><b>⚠ ${esc(r.msg)}</b>${ex}
       <div class="sai-repl"><b>ไม่ได้ส่งออก ${skipInvN(r.skipped)} Invoice${skipFileN(r.skipped) ? ` · อ่านไม่สำเร็จ ${skipFileN(r.skipped)} ไฟล์` : ''}</b> (ไม่ถูกเขียนลง Excel):</div>${sk}
+      ${warnBlk}
       <div class="sai-msg">ไฟล์ Excel ที่ดาวน์โหลดมีเฉพาะ Invoice ที่ผ่านการตรวจ — แก้ไข / ตรวจใหม่ แล้วกด ⬇ EXPORT EXCEL อีกครั้ง (ใช้ผล AI เดิม)</div></div>`;
   }
   function render(){
@@ -10499,7 +10527,8 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     const p = panel(); if(!p) return;
     const lock = G.exporting ? 'disabled' : '';
     const rows = G.files.map((f, k) => { const v = views[k]; if(v.k === 'ok' || v.k === 'wait') return '';
-      const pill = v.k === 'work' ? '<span class="sai-pill sai-wait">⏳ กำลังทำงาน</span>' : v.k === 'fail' ? '<span class="sai-pill sai-bad">อ่านไม่สำเร็จ</span>' : '<span class="sai-pill sai-warn">ต้องตรวจสอบ</span>';
+      const pill = v.k === 'work' ? '<span class="sai-pill sai-wait">⏳ กำลังทำงาน</span>' : v.k === 'fail' ? '<span class="sai-pill sai-bad">อ่านไม่สำเร็จ</span>'
+        : v.k === 'warn' ? '<span class="sai-pill sai-warn">มีคำเตือน (EXPORT ได้)</span>' : '<span class="sai-pill sai-bad">ต้องตรวจสอบ</span>';
       const busy = v.k === 'work' || f.busy;
       return `<tr data-file="${f.id}" data-k="${v.k}"><td class="sai-fn" title="${esc(f.name)}">${esc(f.name)}</td><td class="sai-invs sai-mono">${v.invs.length ? esc(v.invs.join(', ')) : '—'}</td>
         <td>${pill}${v.why.slice(0, 4).map(w => `<div class="sai-msg">${esc(w)}</div>`).join('')}${v.why.length > 4 ? `<div class="sai-msg">… อีก ${v.why.length - 4} รายการ</div>` : ''}</td>
@@ -10521,20 +10550,21 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   function previewHtml({ model }){
     const items = model.reduce((a, m) => a + m.items.length, 0);
     const bad = model.reduce((a, m) => a + m.items.filter(i => i.errs.length).length, 0);
+    const wn = model.reduce((a, m) => a + m.items.filter(i => !i.errs.length && (i.warns || []).length).length, 0);
     const amt = {}; model.forEach(m => m.items.forEach(i => { if(i.amount != null) amt[m.currency || '?'] = (amt[m.currency || '?'] || 0) + i.amount; }));
     const pages = G.files.reduce((a, f) => a + (f.pages || 0), 0);
-    const show = model.filter(m => m.errs.length || m.items.some(i => i.errs.length));
+    const show = model.filter(m => m.errs.length || m.items.some(i => i.errs.length || (i.warns || []).length) || (m.warns || []).length);
     const body = show.map(m => `<tr class="sai-inv"><td colspan="8"><b>Invoice</b> ${esc(m.invoiceNo)} · <b>Date</b> ${esc(m.date)} · ${esc(m.currency)} TOTAL ${fmt(m.total)} · รวมรายการ ${fmt(m.sum)}
         · <b>N.W. กลุ่ม</b> ${esc(m.nwDoc || '—')} <span class="sai-msg">${esc(m.nwWhy || '')}</span>
         · <a href="javascript:void(0)" data-act="view" data-id="${m.f.id}">${esc(m.f.name)}</a>
-        ${m.errs.map(e => `<div class="sai-e">❌ ${esc(e)}</div>`).join('')}</td></tr>`
-      + m.items.filter(i => i.errs.length).map(i => `<tr class="sai-badr"><td>${i.seq}</td><td class="sai-mono">${esc(i.it.item_no || '')}</td><td class="sai-mono">${esc(i.it.product || '')}</td>
+        ${m.errs.map(e => `<div class="sai-e">❌ ${esc(e)}</div>`).join('')}${(m.warns || []).map(e => `<div class="sai-w">⚠ ${esc(e)}</div>`).join('')}</td></tr>`
+      + m.items.filter(i => i.errs.length || (i.warns || []).length).map(i => `<tr class="sai-${i.errs.length ? 'bad' : 'ok'}r"><td>${i.seq}</td><td class="sai-mono">${esc(i.it.item_no || '')}</td><td class="sai-mono">${esc(i.it.product || '')}</td>
         <td>${esc(String(i.it.desc || '').slice(0, 40))}</td><td class="sai-num">${esc(i.it.qty || '')}</td><td class="sai-num">${esc(i.it.amount || '')}</td>
         <td><a href="javascript:void(0)" data-act="view" data-id="${m.f.id}" data-pg="${i.it.pg || ''}">หน้า ${esc(i.it.pg || '?')}</a></td>
-        <td>${i.errs.map(e => `<div class="sai-e">❌ ${esc(e)}</div>`).join('')}</td></tr>`).join('')).join('');
+        <td>${i.errs.map(e => `<div class="sai-e">❌ ${esc(e)}</div>`).join('')}${(i.warns || []).map(e => `<div class="sai-w">⚠ ${esc(e)}</div>`).join('')}</td></tr>`).join('')).join('');
     return `<div class="sai-sum">
         <div><span>PDF</span><b>${G.files.length}</b></div><div><span>หน้า</span><b>${pages}</b></div><div><span>Invoice</span><b>${model.length}</b></div>
-        <div><span>รายการ</span><b>${items}</b></div><div><span>ผ่าน</span><b class="sai-okc">${items - bad}</b></div><div><span>ไม่ผ่าน</span><b class="sai-bc">${bad}</b></div>
+        <div><span>รายการ</span><b>${items}</b></div><div><span>ส่งออกได้</span><b class="sai-okc">${items - bad}</b></div><div><span>มีคำเตือน</span><b style="color:#f59e0b">${wn}</b></div><div><span>อ่านไม่ได้</span><b class="sai-bc">${bad}</b></div>
         <div class="sai-wide"><span>TOTAL Amount (PDF)</span><b>${Object.keys(amt).length ? Object.keys(amt).map(k => `${esc(k)} ${fmt(amt[k])}`).join(' · ') : '—'}</b></div></div>
       ${body ? `<div class="sai-sub">รายการที่ต้องแก้ไข</div><div class="sai-scroll sai-prev"><table class="sai-tbl"><thead><tr><th>#</th><th>Item</th><th>Product</th><th>Description</th><th>Qty</th><th>Amount</th><th>หน้า</th><th>สาเหตุ</th></tr></thead><tbody>${body}</tbody></table></div>` : ''}`;
   }
