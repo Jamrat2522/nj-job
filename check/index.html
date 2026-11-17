@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="nj-build" content="local122"><!-- ★ [local117] เลขรุ่นของไฟล์นี้ (ตรงกับ Deploy github local122.zip) — ป้ายมุมขวาบนอ่านจากไฟล์บนเว็บไซต์จริง -->
+<meta name="nj-build" content="local123"><!-- ★ [local117] เลขรุ่นของไฟล์นี้ (ตรงกับ Deploy github local123.zip) — ป้ายมุมขวาบนอ่านจากไฟล์บนเว็บไซต์จริง -->
 <meta name="viewport" content="width=1440,initial-scale=1.0,user-scalable=yes">
 <title>ตรวจใบขน — N.J. Logistics</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -1390,6 +1390,14 @@ body.legacy-active .content-area { display: none !important; }
     #eleai-view #eleai-result.el-act-only .el-more{margin-top:0}
     /* ★ [local121] ตารางรายงานข้อผิดพลาด INVOICE PDF เทียบ PL — เส้นกรอบทุกช่อง · Header ค้าง · Scroll ภายใน */
     #eleai-view .el-rep-btns .btn[hidden]{display:none!important}
+    /* ★ [local123] แถบ TOTAL / G.W. WT ก่อน EXPORT */
+    #eleai-view .el-totbar{margin-top:8px;border:1px solid #6b7280;border-radius:6px;background:#f8fafc;padding:5px 9px;font-size:12px;display:flex;flex-direction:column;gap:3px}
+    #eleai-view .el-totbar[hidden]{display:none}
+    #eleai-view .el-tb-line{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;min-width:0}
+    #eleai-view .el-tb-line>b{color:#1e3a8a;white-space:nowrap}
+    #eleai-view .el-tb-line span{white-space:nowrap} #eleai-view .el-tb-line span b{font-family:'IBM Plex Mono',monospace;color:#0f172a}
+    #eleai-view .el-tb-line span.f{white-space:normal;overflow-wrap:anywhere;color:#475569;font-size:11.5px}
+    #eleai-view .el-tb-line span.w{color:#b45309;font-weight:800;white-space:normal}
     #eleai-view .el-etb{margin-top:6px;max-height:min(46vh,420px);overflow:auto;border:1px solid #4b5563;border-radius:4px;background:#fff;-webkit-overflow-scrolling:touch}
     #eleai-view .el-etb table{border-collapse:separate;border-spacing:0;width:100%;font-size:12px}
     #eleai-view .el-etb th,#eleai-view .el-etb td{border-right:1px solid #6b7280;border-bottom:1px solid #6b7280;padding:3px 7px;text-align:left;vertical-align:top;white-space:normal;overflow-wrap:anywhere}
@@ -1493,6 +1501,8 @@ body.legacy-active .content-area { display: none !important; }
         <div class="el-sub">TH Description = Part Description (TH) · Tariff Code = HS code based on part description · ไม่พบ = เว้นว่าง + แจ้ง “ไม่พบข้อมูลใน MASTER ELE”</div>
       </div>
     </div>
+    <!-- ★ [local123] TOTAL 5 คอลัมน์ + G.W. WT ที่ ITEM แรก (ตรงกับ Sheet 1) — แสดงก่อน EXPORT -->
+    <div class="el-totbar" id="eleai-totbar" hidden aria-live="polite"></div>
     <!-- ★ [local119] รายงานตรวจสอบ INVOICE PDF เทียบ PACKING LIST (PL) — ค้างจนกดปิด / ล้างข้อมูล / ประมวลผลไฟล์ชุดใหม่ -->
     <div class="el-rep" id="eleai-plrep" hidden role="region" aria-live="polite">
       <div class="el-rep-hd"><h3 id="eleai-plrep-title">⚠️ รายงานตรวจสอบ INVOICE PDF เทียบ PACKING LIST (PL)</h3>
@@ -9114,7 +9124,17 @@ window.ELEAI_CORE = (function(){
   /* Description: Invoice พิมพ์ (อิตาลี 20 ตัว + อังกฤษ 20 ตัว) · PL พิมพ์อังกฤษ 30 ตัว → ตรงเมื่อท้ายคำอธิบาย Invoice = ต้นคำอธิบาย PL (≥ 12 ตัว หรือทั้งข้อความ PL) */
   function descOk(pdf, pl){ const a = dKey(pdf), b = dKey(pl); if (!a || !b) return false; if (a.includes(b)) return true;
     for (let k = Math.min(a.length, b.length); k >= Math.min(b.length, 12); k--) if (a.endsWith(b.slice(0, k))) return true; return false; }
-  function errReport(items, plFiles, mi){
+  /* ★ [local123] ยอดรวมจาก PL ต่อไฟล์: ใช้ยอดท้ายตาราง (TOTAL) เป็นหลัก · ไม่มี → รวมแถวรายละเอียด (ไม่บวกซ้ำทั้งสองแบบ)
+     Gross weight: PL ระบุเป็นรายกล่อง (บางแถวว่าง) → รวมเฉพาะแถวที่มีค่า · Net weight: ต้องมีครบทุกแถว */
+  function plTotal(plFiles, k){
+    const n3 = v => rnd(v, 3); let v = 0, any = false; const src = [], parts = [];
+    plFiles.forEach(f => { const t = f.total && f.total[k] != null ? f.total[k] : null, rs = (f.rows || []).map(r => r[k]).filter(n => n != null && n > 0);
+      if (t != null){ v += t; any = true; src.push(f.file + ' ยอดท้ายตาราง ' + n3(t)); parts.push({ file: f.file, v: n3(t), how: 'ยอดท้ายตาราง' }); }
+      else if (rs.length && (k === 'gw' || rs.length === (f.rows || []).length)){ const s2 = rs.reduce((a, b) => a + b, 0); v += s2; any = true; src.push(f.file + ' รวมแถว ' + n3(s2)); parts.push({ file: f.file, v: n3(s2), how: 'รวมแถว' }); }
+      else { src.push(f.file + ' ไม่มียอดรวม'); parts.push({ file: f.file, v: null, how: 'ไม่มีข้อมูล' }); } });
+    return { v: n3(v), any, src: src.join(' · '), parts };
+  }
+  function errReport(items, plFiles, mi, opt){
     const ord = exportOrder(items), seq = new Map(ord.map((x, i) => [x, i + 1])), raw = [];
     const uq = a => [...new Set(a.filter(v => v != null && v !== ''))];
     const loc = (x, rs) => 'ITEM ' + seq.get(x) + ': ' + x.file + ' หน้า ' + x.pg + (rs && rs.length ? ' · PL ' + uq(rs.map(r => r.file + ' แถว ' + r.line)).join(', ') : '');
@@ -9147,17 +9167,15 @@ window.ELEAI_CORE = (function(){
     });
     /* 5–6) Total Net WT / Total G.W. WT — MAPPING (ยึด PDF · น้ำหนักจาก PL ที่จับคู่ได้) เทียบยอดรวม PL ทั้งชุดงาน */
     const invs = uq(ord.map(x => x.inv)), scope = 'ขอบเขต: ทั้งชุดงาน (Invoice ' + invs.join(', ') + ' · PL ' + plFiles.length + ' ไฟล์ — PL ไม่มีเลข Invoice)';
-    const plT = k => { let v = 0, any = false, src = []; plFiles.forEach(f => { const t = f.total && f.total[k] != null ? f.total[k] : null;
-        const rs = (f.rows || []).map(r => r[k]).filter(n => n != null);
-        if (t != null){ v += t; any = true; src.push(f.file + ' ยอดท้ายตาราง ' + num3(t)); } else if (rs.length && rs.length === (f.rows || []).length){ const s2 = rs.reduce((a, b) => a + b, 0); v += s2; any = true; src.push(f.file + ' รวมแถว ' + num3(s2)); }
-        else src.push(f.file + ' ไม่มียอดรวม'); }); return { v: num3(v), any, src: src.join(' · ') }; };
+    const plT = k => plTotal(plFiles, k);
     const nwP = ord.filter(x => x.nw != null), nwSum = num3(nwP.reduce((a, x) => a + x.nw, 0)), plN = plT('nw');
     const extra = (mi && mi.unused || []).length;
     if (!plN.any || !nwP.length) add(null, 'Total Net WT', nwP.length ? nwSum : 'ไม่มีค่า', plN.any ? plN.v : 'ไม่มีค่า', ST_UNK, '', scope + ' · ' + plN.src);
     else if (Math.abs(nwSum - plN.v) > 0.0005) add(null, 'Total Net WT', nwSum, plN.v, ST_BAD, sgn(plN.v - nwSum), 'Net Weight รวมไม่ตรง · ' + scope + ' · MAPPING มี Net WT ' + nwP.length + '/' + ord.length + ' รายการ · ' + plN.src + (extra ? ' · แถว PL ที่ไม่ตรงกับ Invoice ' + extra + ' แถว' : ''));
-    const gwP = ord.filter(x => x.gw != null), plG = plT('gw');
-    if (!gwP.length || !plG.any) add(null, 'Total G.W. WT', gwP.length ? num3(gwP.reduce((a, x) => a + x.gw, 0)) : 'ว่าง (MAPPING ไม่มี G.W. WT รายสินค้า)', plG.any ? plG.v : 'ไม่มีค่า', ST_UNK, '', 'ตรวจสอบไม่ได้: MAPPING ไม่มี G.W. WT รายสินค้า · ' + scope + ' · ' + plG.src + ' · PL ระบุ Gross weight เป็นรายกล่อง/พาเลท ไม่เฉลี่ยน้ำหนักเอง');
-    else { const g = num3(gwP.reduce((a, x) => a + x.gw, 0)); if (Math.abs(g - plG.v) > 0.0005) add(null, 'Total G.W. WT', g, plG.v, ST_BAD, sgn(plG.v - g), 'Gross Weight รวมไม่ตรง · ' + scope + ' · ' + plG.src); }
+    /* ★ [local123] G.W. WT ใน MAPPING = ยอด Gross Weight รวมจาก PL ใส่ที่ ITEM แรกครั้งเดียว (opt.gw) */
+    const plG = plT('gw'), mg = opt && opt.gw != null ? num3(opt.gw) : null;
+    if (mg == null || !plG.any) add(null, 'Total G.W. WT', mg == null ? 'ว่าง' : mg, plG.any ? plG.v : 'ไม่พบข้อมูล G.W. WT ใน PL', ST_UNK, '', 'ตรวจสอบไม่ได้: ' + (plG.any ? 'MAPPING ไม่มี G.W. WT' : 'ไม่พบข้อมูล G.W. WT ใน PL') + ' · ' + scope + ' · ' + plG.src);
+    else if (Math.abs(mg - plG.v) > 0.0005) add(null, 'Total G.W. WT', mg, plG.v, ST_BAD, sgn(plG.v - mg), 'Gross Weight รวมไม่ตรง · ' + scope + ' · ' + plG.src);
     /* จัดกลุ่ม ITEM: Invoice + หัวข้อ + ค่า PDF + ค่า PL + สถานะ */
     const TOP = ['Product Code', 'Description (Eng)2', 'Qty1', 'Description (Eng)', 'Total Net WT', 'Total G.W. WT'];
     const ivo = new Map(invs.map((v, i) => [v, i])), grp = new Map(), rows = [];
@@ -9276,7 +9294,7 @@ window.ELEAI_CORE = (function(){
     const n = Object.keys(set).length;
     return { st: n ? 'fixed' : (unsure.length ? 'unsure' : 'confirmed'), set, notes, unsure };
   }
-  return { errReport, plReport, codeDiff, plCodes, exportOrder, descOut, hsKey, flagItem, applyRecheck, makeChunksRange, qpBad, T, codeKey, ordKey, num, rnd, dmy, badCode, invCmp, makeChunks, mergeFile, validate, parsePL, solveGroup, matchPL, pickMaster, buildRows, totals, HEAD };
+  return { plTotal, errReport, plReport, codeDiff, plCodes, exportOrder, descOut, hsKey, flagItem, applyRecheck, makeChunksRange, qpBad, T, codeKey, ordKey, num, rnd, dmy, badCode, invCmp, makeChunks, mergeFile, validate, parsePL, solveGroup, matchPL, pickMaster, buildRows, totals, HEAD };
 })();
 </script>
 <script id="eleai-ui">
@@ -9340,7 +9358,7 @@ window.ELEAI_CORE = (function(){
       $('eleai-' + k + '-err').textContent = e ? '❌ เปิดไม่ได้ ' + e + ' ไฟล์' : '';
       const b = $('eleai-' + k + '-all'); b.textContent = S.listOpen[k] ? '▲ ซ่อนรายการไฟล์' : '▼ ดูไฟล์ทั้งหมด (' + L.length + ')'; b.setAttribute('aria-expanded', S.listOpen[k] ? 'true' : 'false'); });
   }
-  function changed(){ S.last = null; S.allowOver = false; S.gen++; exportBtn(); $('eleai-result').innerHTML = ''; renderRep(null); renderLists(); schedule(); }
+  function changed(){ S.last = null; S.allowOver = false; S.gen++; exportBtn(); $('eleai-result').innerHTML = ''; renderRep(null); renderTot(null); renderLists(); schedule(); }
   async function addPdfs(list){
     let add = 0; const dup = [];
     for (const f of list){
@@ -9658,6 +9676,8 @@ window.ELEAI_CORE = (function(){
   const usd = v => '$' + (+v || 0).toFixed(4);
   function finish(R, AN){
     const rows = C.buildRows(AN.v.items, AN.v.invoices), tot = C.totals(AN.files, AN.v, rows, AN.plFiles, AN.mi);
+    /* ★ [local123] G.W. WT = ยอด Gross Weight รวมจาก PL (ยอดท้ายตารางเป็นหลัก) ใส่ที่ ITEM แรกของชุดงานครั้งเดียว — PL ไม่มีเลข Invoice จึงแยกตาม Invoice ไม่ได้ · ไม่กระจาย/ไม่เฉลี่ย */
+    const gw = C.plTotal(AN.plFiles, 'gw'); if (rows.length && gw.any) rows[0][8] = gw.v;
     const iss = issuesOf(AN);
     R.log.forEach(l => { if (l.err) iss.push({ type: 'A', lvl: 'warn', msg: 'Opus ตรวจซ้ำไม่สำเร็จ: ' + l.err });
       else if (l.page) iss.push({ type: 'A', lvl: l.ok ? 'fix' : 'hard', file: l.page.file, inv: l.page.inv, pg: l.page.from + (l.page.to > l.page.from ? '–' + l.page.to : ''), msg: l.ok ? 'Opus อ่านซ้ำทั้งหน้าแล้ว ยอดรวมตรง TOTAL VALUE — ใช้ผล Opus สำหรับหน้านี้' : 'Opus อ่านซ้ำทั้งหน้าแล้วยอดรวมยังไม่ตรง — ไม่เปลี่ยนข้อมูล' });
@@ -9672,8 +9692,9 @@ window.ELEAI_CORE = (function(){
     const manual = new Set(iss.filter(i => i.lvl === 'warn' || i.lvl === 'hard').map(i => (i.file || '') + '|' + (i.pg || '') + '|' + (i.code || '') + '|' + (i.inv || '')));
     const hsc = hsCount(AN.v.items), conn = iss.some(i => i.conn);
     /* ★ [local119] ตรวจ PDF เทียบ PL ทุกรายการ · ★ [local120] รวม MASTER / AI / น้ำหนัก เป็นรายงานค่าผิดชุดเดียว (หน้าจอ = Sheet 2) */
-    const prep = C.errReport(AN.v.items, AN.plFiles, AN.mi);   /* ★ [local121] ตรวจ 6 หัวข้อ PDF เทียบ PL (หน้าจอ = Sheet 2) */
-    S.last = { R, rows, invoices: AN.v.invoices, status, fresh: true, hsc, conn, rep: prep };
+    const prep = C.errReport(AN.v.items, AN.plFiles, AN.mi, { gw: rows.length && gw.any ? gw.v : null });   /* ★ [local121] ตรวจ 6 หัวข้อ PDF เทียบ PL (หน้าจอ = Sheet 2) */
+    S.last = { R, rows, invoices: AN.v.invoices, status, fresh: true, hsc, conn, rep: prep, gw };
+    renderTot(rows, gw);
     render(R, AN, tot, iss, status, manual.size);
     renderRep(prep, false);
     exportBtn();
@@ -9766,6 +9787,13 @@ window.ELEAI_CORE = (function(){
       r.forEach((v, k) => { const c = R.getCell(k + 1); if (TXT.has(k)) c.numFmt = '@'; if (v == null || v === '') return;
         if (TXT.has(k)) c.value = String(v); else { c.value = Number(v); if (k === 7) c.numFmt = '0.000'; } }); });
     [6, 14, 12, 18, 8, 8, 10, 10, 9, 12, 9, 44, 18, 6, 40, 14, 7, 9, 6].forEach((w, k) => { ws.getColumn(k + 1).width = w; });
+    /* ★ [local123] แถว TOTAL ท้ายตาราง (สูตร SUM · ไม่ใช่ ITEM · 19 คอลัมน์เดิม) */
+    if (rows.length){ const TR = ws.getRow(rows.length + 3), ln = { style: 'thin', color: { argb: 'FF404040' } }, bd = { top: ln, left: ln, bottom: ln, right: ln }, t = sum5(rows);
+      for (let k = 0; k < 19; k++){ const c = TR.getCell(k + 1); c.border = bd; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE7E6E6' } }; c.font = { bold: true }; }
+      TR.getCell(1).value = 'TOTAL';
+      t.forEach(x => { const c = TR.getCell(x.k + 1), col = String.fromCharCode(65 + x.k); if (x.v == null) return;   /* ไม่มีค่าต้นทาง (เช่น PL ไม่มี Gross weight) = เว้นว่าง ไม่ใส่ 0 */
+        c.value = { formula: 'SUM(' + col + '3:' + col + (rows.length + 2) + ')', result: x.v == null ? 0 : x.v };
+        c.alignment = { horizontal: 'right' }; if (x.k === 7) c.numFmt = '0.000'; }); }
     repSheet(wb, rep, invs);   /* ★ [local120] Sheet 2 — รายงานค่าผิด (ไม่แตะ Sheet 1) */
     const buf = await wb.xlsx.writeBuffer();
     const p = n => String(n).padStart(2, '0'), d = new Date(), nos = invs.map(v => v.inv);
@@ -9805,6 +9833,20 @@ window.ELEAI_CORE = (function(){
     prog((S.last.rep && S.last.rep.problems ? '⚠️ EXPORT สำเร็จ (มีข้อมูลผิด): ' : '✅ EXPORT สำเร็จ: ') + name + ' · ' + S.last.rows.length + ' รายการ' + note, S.last.status === 'WARNING' ? '#b45309' : '#0b7a2a');
   }
   /* ★ [local119] รายงานตรวจสอบ INVOICE PDF เทียบ PACKING LIST (PL) */
+  /* ★ [local123] ยอด TOTAL 5 คอลัมน์ (ชุดเดียวกับแถว TOTAL ใน Sheet 1) + G.W. WT ที่ ITEM แรก — แสดงก่อน EXPORT */
+  const TOTC = [[4, 'Qty1', 0], [5, 'Qty2', 0], [6, 'Amt.', 2], [7, 'Net WT', 3], [8, 'G.W. WT', 3]];
+  function sum5(rows){ return TOTC.map(([k, lbl, d]) => { const v = rows.map(r => r[k]).filter(x => x != null && x !== ''); return { k, lbl, d, n: v.length, v: v.length ? Math.round(v.reduce((a, b) => a + Number(b), 0) * 1e6) / 1e6 : null }; }); }
+  function renderTot(rows, gw){
+    const box = $('eleai-totbar'); if (!box) return;
+    if (!rows || !rows.length){ box.hidden = true; box.innerHTML = ''; return; }
+    const t = sum5(rows), nwMiss = rows.length - t[3].n, r0 = rows[0];
+    box.innerHTML = '<div class="el-tb-line"><b>TOTAL</b>' + t.map(c => '<span>' + c.lbl + ' <b>' + (c.v == null ? '—' : fmt(c.v, c.d)) + '</b></span>').join('')
+      + (nwMiss ? '<span class="w">⚠️ Net WT ไม่ครบ ' + fmt(nwMiss) + ' จาก ' + fmt(rows.length) + ' รายการ (ยอดยังไม่ยืนยัน)</span>' : '') + '</div>'
+      + '<div class="el-tb-line"><b>G.W. WT — ITEM แรก</b>' + (gw && gw.any
+        ? '<span>Invoice <b>' + esc(r0[1]) + '</b></span><span>ITEM <b>' + esc(r0[0]) + '</b></span><span>Total Gross Weight จาก PL <b>' + fmt(gw.v, 3) + '</b></span><span class="f">PL: ' + esc(gw.parts.map(p => p.file + (p.v == null ? ' (ไม่มีข้อมูล)' : ' = ' + fmt(p.v, 3) + ' (' + p.how + ')')).join(' + ')) + '</span>'
+        : '<span class="w">ไม่พบข้อมูล G.W. WT ใน PL</span>') + '</div>';
+    box.hidden = false;
+  }
   /* ★ [local121] ตารางรายงานข้อผิดพลาดบนหน้าจอ (ชุดเดียวกับ Sheet 2) · ITEM | หัวข้อผิด | INVOICE PDF | PACKING LIST | สถานะ · แยกตาม Invoice */
   function renderRep(rep, pending){
     const box = $('eleai-plrep'), ob = $('eleai-plrep-open'); if (!box) return;
@@ -9834,7 +9876,7 @@ window.ELEAI_CORE = (function(){
     try { await writeOut(); } catch (e){ prog('❌ ส่งออกไม่สำเร็จ: ' + String(e && e.message || e), '#c00000'); }
     finally { exporting = false; exportBtn(); }
   }
-  function clearAll(){ if (S.busy || exporting) return; S.pdfs = []; S.pls = []; S.last = null; S.wantExport = false; S.gen++; clearTimeout(S.timer); exportBtn(); $('eleai-result').innerHTML = ''; prog(''); bar(null); renderLists(); $('eleai-pdf').value = ''; $('eleai-pl').value = ''; dzMsg('pdf', ''); dzMsg('pl', ''); renderRep(null); }
+  function clearAll(){ if (S.busy || exporting) return; S.pdfs = []; S.pls = []; S.last = null; S.wantExport = false; S.gen++; clearTimeout(S.timer); exportBtn(); $('eleai-result').innerHTML = ''; prog(''); bar(null); renderLists(); $('eleai-pdf').value = ''; $('eleai-pl').value = ''; dzMsg('pdf', ''); dzMsg('pl', ''); renderRep(null); renderTot(null); }
 
   function bind(){
     if (!$('eleai-view')) return;
