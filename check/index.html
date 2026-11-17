@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="nj-build" content="local119"><!-- ★ [local117] เลขรุ่นของไฟล์นี้ (ตรงกับ Deploy github local119.zip) — ป้ายมุมขวาบนอ่านจากไฟล์บนเว็บไซต์จริง -->
+<meta name="nj-build" content="local120"><!-- ★ [local117] เลขรุ่นของไฟล์นี้ (ตรงกับ Deploy github local120.zip) — ป้ายมุมขวาบนอ่านจากไฟล์บนเว็บไซต์จริง -->
 <meta name="viewport" content="width=1440,initial-scale=1.0,user-scalable=yes">
 <title>ตรวจใบขน — N.J. Logistics</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -1303,6 +1303,8 @@ body.legacy-active .content-area { display: none !important; }
   <div class="doa-panel" id="chkd-result" style="display:none"></div>
 </div><!-- /chkd-view -->
 <!-- ═══ ★ [local112] โหมด ELE TYPE 0 (PDF → Excel AI) — View แยก #eleai-view · Handler eleai* · ไม่ใช้ State/Logic ของ TYPE 0 / TYPE IEAT / TYPE 1 / TYPE D / TYPE P เดิม
+     local120: COMPACT UI — ซ่อนข้อความอธิบายกรอบอัปโหลด / ตัวเลือก AI (ใช้ AUTO เสมอ) / Dashboard / ตารางรายงานทั้งหมด · กรอบอัปโหลดย่อเมื่อมีไฟล์ (ชื่อไฟล์แรก +จำนวน · ดูไฟล์ทั้งหมด)
+               · คำเตือน = ข้อความสรุป + ยืนยัน EXPORT · EXPORT = 2 Sheets (MAPPING + รายงานค่าผิด) · Scrollbar แนวตั้งในพื้นที่ ELE TYPE 0
      local119: กรอบรายงานตรวจสอบ INVOICE PDF เทียบ PL (ใต้กรอบอัปโหลด) · พบความต่าง = เปิดอัตโนมัติ + ต้องกด EXPORT EXCEL ต่อ ก่อนดาวน์โหลด
      local116: Drag & Drop ไฟล์ในกรอบ ① / ② (ใช้ addPdfs / addPls ชุดเดียวกับปุ่มเลือกไฟล์) · คลิกพื้นที่กรอบเพื่อเลือกไฟล์ · แสดงจำนวนไฟล์ + สถานะแนบ
      local114: ซ่อนกรอบ ③ MASTER พิกัด ELE (UI เท่านั้น — ระบบเชื่อม MASTER เบื้องหลังเหมือนเดิม) · กรอบอัปโหลด 2 กรอบ 50/50 · Mobile เรียงแนวตั้ง
@@ -1380,6 +1382,61 @@ body.legacy-active .content-area { display: none !important; }
     #eleai-view .el-rep .el-iss tr.nf td{background:#fef2f2;color:#991b1b} #eleai-view .el-rep .el-iss tr.amb td{background:#fff7ed;color:#9a3412} #eleai-view .el-rep .el-iss tr.extra td{background:#f5f3ff;color:#5b21b6}
     #eleai-view .el-rep-open{margin-top:8px;background:#fef3c7;border:1px solid #f59e0b;color:#92400e;font-weight:800;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit}
     #eleai-view .el-dz-msg{font-size:11.5px;font-weight:700;line-height:1.4;overflow-wrap:anywhere} #eleai-view .el-dz-msg:empty{display:none}
+    /* ★ [local120] COMPACT UI FINAL */
+    .main:has(> #eleai-view.active){height:100vh;height:100dvh;max-height:100dvh}
+    #eleai-view.active{min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+    #eleai-view .el-ai,#eleai-view .el-card .el-sub{display:none!important}
+    #eleai-view #eleai-result.el-hide{display:none} #eleai-view #eleai-result.el-hide.el-act-only{display:block;padding:8px 12px} #eleai-view #eleai-result.el-act-only>:not(.el-more){display:none}
+    #eleai-view #eleai-result.el-act-only .el-more{margin-top:0}
+    #eleai-view .el-rep-sum,#eleai-view #eleai-plrep-tb{display:none}
+    #eleai-view .el-rep-note{margin-top:2px}
+    #eleai-view .el-ai{margin-top:6px;gap:5px}
+    #eleai-view .el-ai label{padding:3px 9px;font-size:11.5px;border-width:1px;border-radius:7px}
+    #eleai-view .el-ai label small{display:none}
+    #eleai-view .el-ready{padding:2px 9px;font-size:11px}
+    #eleai-view .el-prog{min-height:0;margin-top:4px}
+    #eleai-view .el-grid{margin-top:6px;gap:8px}
+    #eleai-view .el-fs{display:none;align-items:center;gap:6px;min-width:0;font-size:11.5px;flex-wrap:wrap}
+    #eleai-view .el-fs .f{flex:1 1 160px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:800;color:#0f172a}
+    #eleai-view .el-fs .e{color:#b91c1c;font-weight:800;white-space:nowrap} #eleai-view .el-fs .e:empty{display:none}
+    #eleai-view .el-fs .btn{padding:3px 9px;font-size:11px}
+    #eleai-view .el-card.has{padding:6px 9px;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;row-gap:3px;align-items:center}
+    #eleai-view .el-card.has>*{grid-column:1/-1}
+    #eleai-view .el-card.has>.el-hd{grid-column:1;grid-row:1} #eleai-view .el-card.has>.el-pick{grid-column:2;grid-row:1}
+    #eleai-view .el-card.has .el-hd h3{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #eleai-view .el-card.has .el-sub,#eleai-view .el-card.has .el-dz-tip{display:none}
+    #eleai-view .el-card.has .el-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    #eleai-view .el-card.has .el-hd h3{flex:1 1 auto;min-width:0}
+    #eleai-view .el-card.has .el-pick .btn{padding:3px 9px;font-size:11px}
+    #eleai-view .el-card.has .el-fs{display:flex}
+    #eleai-view .el-card.has .el-list{display:none;max-height:180px}
+    #eleai-view .el-card.has.open .el-list{display:block}
+    #eleai-view .el-card.has .el-dz-msg{font-size:11px;line-height:1.3}
+    #eleai-view .el-rep{margin-top:8px;padding:6px 9px}
+    #eleai-view .el-rep-hd{gap:6px} #eleai-view .el-rep-hd h3{font-size:13px;flex:1 1 280px}
+    #eleai-view .el-rep-btns .btn{padding:4px 10px;font-size:12px}
+    #eleai-view .el-rep-sum{gap:4px;margin-top:4px}
+    #eleai-view .el-rep-sum span{padding:1px 7px;font-size:11px;line-height:1.5}
+    #eleai-view .el-rep-sum span b{font-size:12px}
+    #eleai-view .el-rep-note{font-size:11.5px;margin-top:4px}
+    #eleai-view .el-rep .el-rtb{margin-top:5px;max-height:none;overflow-x:auto;overflow-y:visible}
+    #eleai-view .el-rep .el-rtb.all{max-height:min(55vh,460px);overflow:auto}
+    #eleai-view .el-rep .el-rtb td,#eleai-view .el-rep .el-rtb th{padding:2px 6px;font-size:11.5px;white-space:nowrap}
+    #eleai-view .el-rep .el-rtb td.v,#eleai-view .el-rep .el-rtb td.n{max-width:230px;overflow:hidden;text-overflow:ellipsis}
+    #eleai-view .el-rep .el-rtb td.t{max-width:260px;overflow:hidden;text-overflow:ellipsis}
+    #eleai-view .el-rep .el-rtb th{z-index:1}
+    #eleai-view .el-rep .el-rtb tbody tr{cursor:pointer}
+    #eleai-view .el-rep .el-rtb tbody tr:hover td{filter:brightness(.96)}
+    #eleai-view .el-rep .el-rtb tbody tr.sel td{outline:2px solid #2563eb;outline-offset:-2px}
+    #eleai-view .el-rep .el-iss tr.warn td{background:#fef2f2;color:#991b1b} #eleai-view .el-rep .el-iss tr.chk td{background:#fff7ed;color:#9a3412}
+    #eleai-view .el-rep-more{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;font-size:11px;color:var(--text3)}
+    #eleai-view .el-rep-more .btn{padding:3px 10px;font-size:11.5px;font-weight:800}
+    #eleai-view .el-rep-det{margin-top:6px;border:1px solid #93c5fd;background:#fff;border-radius:8px;padding:6px 9px}
+    #eleai-view .el-rep-det[hidden]{display:none}
+    #eleai-view .el-rep-dh{display:flex;align-items:center;gap:8px;font-weight:800;font-size:12.5px} #eleai-view .el-rep-dh .btn{margin-left:auto;padding:1px 8px;font-size:11px}
+    #eleai-view .el-rep-dg{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:4px 10px;margin-top:4px}
+    #eleai-view .el-rep-dg div{min-width:0} #eleai-view .el-rep-dg span{display:block;font-size:10.5px;color:var(--text3);font-weight:700} #eleai-view .el-rep-dg b{display:block;font-size:12px;overflow-wrap:anywhere;white-space:pre-wrap}
+    @media (max-width:760px){ #eleai-view .el-rep .el-rtb td.v,#eleai-view .el-rep .el-rtb td.n,#eleai-view .el-rep .el-rtb td.t{max-width:160px} }
     @media (max-width:760px){ #eleai-view .el-grid{grid-template-columns:1fr} }
     @media (max-width:640px){ #eleai-view #eleai-btn-export{width:100%;justify-content:center} #eleai-view .el-tot{grid-template-columns:repeat(2,minmax(0,1fr))} #eleai-view .el-ai label{flex:1 1 100%} }
   </style>
@@ -1390,9 +1447,9 @@ body.legacy-active .content-area { display: none !important; }
     </div>
     <div class="el-ai" id="eleai-ai">
       <span>AI:</span>
-      <label class="on"><input type="radio" name="eleai-model" value="auto" checked/>AUTO <small>Sonnet + Opus ตรวจซ้ำเฉพาะจุด</small></label>
-      <label><input type="radio" name="eleai-model" value="sonnet"/>Sonnet 5.5 <small>เท่านั้น</small></label>
-      <label><input type="radio" name="eleai-model" value="opus"/>Opus 5.5 <small>เท่านั้น</small></label>
+      <label class="on" title="AUTO — Sonnet + Opus ตรวจซ้ำเฉพาะจุด"><input type="radio" name="eleai-model" value="auto" checked/>AUTO <small>Sonnet + Opus ตรวจซ้ำเฉพาะจุด</small></label>
+      <label title="Sonnet 5.5 เท่านั้น"><input type="radio" name="eleai-model" value="sonnet"/>Sonnet 5.5 <small>เท่านั้น</small></label>
+      <label title="Opus 5.5 เท่านั้น"><input type="radio" name="eleai-model" value="opus"/>Opus 5.5 <small>เท่านั้น</small></label>
       <span class="el-ready" id="eleai-ready">ระบบ AI: ยังไม่ตรวจ</span>
     </div>
     <div class="el-prog" id="eleai-prog"></div>
@@ -1400,17 +1457,19 @@ body.legacy-active .content-area { display: none !important; }
     <div class="el-grid">
       <div class="el-card c1 dz" id="eleai-dz-pdf" tabindex="0" title="คลิกเพื่อเลือกไฟล์ หรือ ลาก Invoice PDF มาวาง">
         <div class="el-dz-hint">⬇ วางไฟล์ที่นี่เพื่ออัปโหลด</div>
-        <h3>① UPLOAD INVOICE PDF<span class="el-cnt" id="eleai-pdf-cnt"></span></h3>
+        <div class="el-hd"><h3>① UPLOAD INVOICE PDF<span class="el-cnt" id="eleai-pdf-cnt"></span></h3></div>
         <div class="el-sub">PDF หลายไฟล์ · รองรับ PDF สแกน (ไม่มี Text) · AI อ่านทุกหน้า ทุกรายการ</div>
         <div class="el-pick"><button class="btn" type="button" id="eleai-btn-pdf">📂 เลือก Invoice PDF</button><input type="file" id="eleai-pdf" accept=".pdf,application/pdf" multiple hidden/><span class="el-dz-tip">หรือ ลากไฟล์ PDF มาวางในกรอบนี้</span></div>
+        <div class="el-fs" id="eleai-pdf-fs"><span class="f" id="eleai-pdf-first"></span><span class="e" id="eleai-pdf-err"></span><button class="btn" type="button" id="eleai-pdf-all" aria-expanded="false" aria-controls="eleai-pdf-list">▼ ดูไฟล์ทั้งหมด</button></div>
         <div class="el-dz-msg" id="eleai-pdf-msg" aria-live="polite"></div>
         <ul class="el-list" id="eleai-pdf-list"></ul>
       </div>
       <div class="el-card c2 dz" id="eleai-dz-pl" tabindex="0" title="คลิกเพื่อเลือกไฟล์ หรือ ลาก Packing List (XLS / XLSX) มาวาง">
         <div class="el-dz-hint">⬇ วางไฟล์ที่นี่เพื่ออัปโหลด</div>
-        <h3>② UPLOAD PACKING LIST (PL)<span class="el-cnt" id="eleai-pl-cnt"></span></h3>
+        <div class="el-hd"><h3>② UPLOAD PACKING LIST (PL)<span class="el-cnt" id="eleai-pl-cnt"></span></h3></div>
         <div class="el-sub">XLS / XLSX หลายไฟล์ · Net Weight จาก PL จริง · จับคู่ Part Number + Order No. + Quantity</div>
         <div class="el-pick"><button class="btn" type="button" id="eleai-btn-pl">📂 เลือก Packing List</button><input type="file" id="eleai-pl" accept=".xls,.xlsx" multiple hidden/><span class="el-dz-tip">หรือ ลากไฟล์ XLS / XLSX มาวางในกรอบนี้</span></div>
+        <div class="el-fs" id="eleai-pl-fs"><span class="f" id="eleai-pl-first"></span><span class="e" id="eleai-pl-err"></span><button class="btn" type="button" id="eleai-pl-all" aria-expanded="false" aria-controls="eleai-pl-list">▼ ดูไฟล์ทั้งหมด</button></div>
         <div class="el-dz-msg" id="eleai-pl-msg" aria-live="polite"></div>
         <ul class="el-list" id="eleai-pl-list"></ul>
       </div>
@@ -8838,7 +8897,7 @@ window.ELEAI_CORE = (function(){
       f.items.forEach(x => items.push(x)); });
     if (!items.length) issues.push({ lvl: 'hard', msg: 'ไม่พบรายการสินค้าใน Invoice PDF' });
     items.forEach(x => {
-      const at = { file: x.file, inv: x.inv, pg: x.pg, code: x.code || x.codeLeft };
+      const at = { file: x.file, inv: x.inv, pg: x.pg, code: x.code || x.codeLeft, it: x };   /* ★ [local120] อ้างอิงรายการ (ใช้ลำดับรายการใน Sheet รายงานค่าผิด) */
       const soft = m => issues.push(Object.assign({ lvl: 'soft', msg: m }, at));
       if (!x.code) soft('อ่าน Product Code (รหัสบรรทัดที่ 2) ไม่ได้');
       else if (badCode(x.code)) soft('Product Code รูปแบบไม่ถูกต้อง (' + x.code + ')');
@@ -9017,6 +9076,58 @@ window.ELEAI_CORE = (function(){
     (mi && mi.unused || []).filter(r => !relUsed.has(r)).forEach(r => { rows.push({ inv: '', no: '', file: r.file, pg: '', topic: 'รายการเกินใน PL', pdf: 'ไม่พบ', pl: r.pn + (r.cpn && r.cpn !== r.pn ? ' (Customer Part ' + r.cpn + ')' : '') + ' · Qty ' + r.qty + ' · Order ' + (r.ord || '-'), st: 'พบรายการเกินใน PL', note: r.file + ' แถว ' + r.line + ' · ไม่เพิ่มลง MAPPING' }); cnt.extra++; });
     return { rows, cnt, problems: cnt.diff + cnt.notfound + cnt.amb + cnt.extra };
   }
+  /* ★ [local120] รายงานค่าผิด (หน้าจอ + Sheet 2 ใช้ชุดเดียวกัน) — ตรวจทุกรายการจริง · ไม่แก้ข้อมูล EXPORT
+     sev: err = ผิด (แดง) · chk = ต้องตรวจสอบ (ส้ม) · src = แหล่งเปรียบเทียบจริง */
+  const SRC_PL = 'Invoice PDF ↔ Packing List', SRC_ME = 'Invoice ↔ MASTER พิกัด ELE', SRC_HS = 'HS Code ↔ MASTER HS CODE', SRC_AI = 'AI อ่าน Invoice PDF';
+  const PL_TOPIC = { 'Product Code|ไม่ตรง': 'Product Code ไม่ตรงกัน', 'Product Code|ไม่พบใน PL': 'Product Code ไม่พบใน PL', 'จับคู่ PL|AMBIGUOUS': 'Product Code ซ้ำและจับคู่ไม่ได้',
+    'Quantity|ไม่ตรง': 'Quantity ไม่ตรงกัน', 'Order No.|ไม่ตรง': 'Order No. ไม่ตรงกัน', 'Codice (Description (Eng)2)|ไม่ตรง': 'Codice (Description (Eng)2) ไม่ตรงกัน', 'รายการเกินใน PL|พบรายการเกินใน PL': 'รายการเกินใน PL' };
+  function errReport(items, plFiles, mi, aiIss){
+    const ord = exportOrder(items), seq = new Map(ord.map((x, i) => [x, i + 1])), pr = plReport(items, plFiles, mi), rows = [];
+    const add = (x, topic, pdf, pl, st, note, src, sev, extra) => rows.push(Object.assign({ inv: x ? x.inv : '', no: x ? seq.get(x) : '', code: x ? (x.code || x.codeLeft || '') : '', file: x ? x.file : '', pg: x ? x.pg : '',
+      topic, pdf: pdf == null || pdf === '' ? '-' : String(pdf), pl: pl == null || pl === '' ? '-' : String(pl), st, note: note || '', src, sev }, extra || {}));
+    /* 1) Invoice PDF ↔ PL (ผลเดิมของ plReport ทุกแถว) */
+    pr.rows.forEach(r => { const x = r.no ? ord[r.no - 1] : null;
+      add(x, PL_TOPIC[r.topic + '|' + r.st] || r.topic, r.pdf, r.pl, r.st, r.note, SRC_PL, r.st === 'AMBIGUOUS' || r.st === 'พบรายการเกินใน PL' ? 'chk' : 'err', x ? null : { inv: r.inv, file: r.file }); });
+    ord.forEach(x => {
+      /* 2) Net Weight: ไม่ได้จับคู่ PL แน่นอน → Net WT ว่าง */
+      if (!x.pl) add(x, 'Net Weight ไม่พบหรือจับคู่ไม่ได้', 'Net WT จาก PL (Qty ' + x.qty + ')', 'ว่าง — ' + (x.plSt === 'amb' ? 'AMBIGUOUS' : x.plSt === 'qty' ? 'Qty ไม่ตรง' : x.plSt === 'ord' ? 'Order No. ไม่ตรง' : 'ไม่พบใน PL'), 'ต้องตรวจสอบ', 'ไม่ใช้น้ำหนักของสินค้าอื่น · ไม่เฉลี่ยน้ำหนักเอง', SRC_PL, 'chk');
+      /* 3) MASTER พิกัด ELE */
+      const m = x.master || {};
+      if (m.st === 'none') add(x, 'Part Number ไม่พบ MASTER พิกัด ELE', x.code || '(ว่าง)', 'ไม่พบ', 'ไม่พบ MASTER', (m.msg || '') + ' · TH Description / HS Code ว่าง', SRC_ME, 'err');
+      else if (m.st === 'partial'){
+        if (!m.th) add(x, 'TH Description ไม่พบ MASTER', x.code, 'TH Description ว่างใน MASTER', 'ไม่พบ MASTER', m.how ? 'จับคู่ MASTER ด้วย ' + m.how : '', SRC_ME, 'err');
+        if (!m.hs) add(x, 'HS Code ไม่พบ MASTER', x.code, 'HS Code ว่างใน MASTER', 'ไม่พบ MASTER', m.how ? 'จับคู่ MASTER ด้วย ' + m.how : '', SRC_ME, 'err'); }
+      else if (m.st === 'conflict') add(x, 'MASTER มีค่าหลายชุดและไม่สามารถยืนยันชุดที่ถูกต้องได้', x.code, (m.n || '') + ' รายการใน MASTER พิกัด ELE', 'ต้องตรวจสอบ', m.msg, SRC_ME, 'chk');
+      /* 4) MASTER HS CODE → Stat / Privilege / Seq */
+      const h = x.hsm;
+      if (h && h.st !== 'ok'){
+        if (h.st === 'dup') add(x, 'MASTER มีค่าหลายชุดและไม่สามารถยืนยันชุดที่ถูกต้องได้', m.hs, h.key + ' · ' + (h.n || '') + ' รายการใน MASTER HS CODE', 'ต้องตรวจสอบ', h.msg, SRC_HS, 'chk');
+        else if (h.st === 'off') add(x, 'เชื่อมต่อ MASTER HS CODE ไม่สำเร็จ', m.hs, 'อ่านฐานข้อมูลไม่สำเร็จ', 'ไม่พบ', h.msg, SRC_HS, 'err');
+        else add(x, 'HS Code ไม่พบ MASTER HS CODE', m.hs, h.key ? h.key + ' — ไม่พบ' : 'รูปแบบไม่ถูกต้อง', 'ไม่พบ MASTER', h.msg, SRC_HS, 'err');
+        add(x, 'Stat / Privilege / Seq ไม่พบข้อมูล', 'Tariff Code ' + (h.key || m.hs || '-'), 'Stat / Privilege / Seq ว่าง', 'ไม่พบ', h.st === 'dup' ? 'MASTER HS CODE มีหลายชุด — ไม่เลือกเอง' : 'ไม่ใช้ข้อมูลเดา', SRC_HS, h.st === 'dup' ? 'chk' : 'err'); }
+    });
+    /* 5) AI อ่าน Invoice PDF ไม่ชัดเจน / ยอดรวมไม่ตรง (เฉพาะที่ยังเป็น WARNING / FAIL หลังตรวจซ้ำ) */
+    (aiIss || []).forEach(i => { const x = i.it && seq.has(i.it) ? i.it : null, mm = /\(([^()]*)\)\s*$/.exec(i.msg || '');
+      add(x, 'AI อ่านข้อมูล PDF ไม่ชัดเจน', mm ? mm[1] : (x ? (x.code || x.codeLeft || '-') : '-'), x ? 'ค่าที่ AI อ่านได้' : (i.inv ? 'Invoice ' + i.inv : '-'), i.lvl === 'hard' ? 'ไม่ตรง' : 'ต้องตรวจสอบ', i.msg, SRC_AI, i.lvl === 'hard' ? 'err' : 'chk', x ? null : { inv: i.inv || '', file: i.file || '', pg: i.pg || '' }); });
+    /* 6) ไฟล์ PL: แถวที่ใช้ไม่ได้ / ยอดรวมท้ายไฟล์ไม่ตรง */
+    plFiles.forEach(f => { (f.bad || []).forEach(r => add(null, 'แถว PL ข้อมูลไม่ถูกต้อง', '-', (r.pn || '-') + ' · Qty ' + (r.qty == null ? '-' : r.qty) + ' · NW ' + (r.nw == null ? '-' : r.nw), 'ต้องตรวจสอบ', f.file + ' แถว ' + r.line + ' — ไม่ใช้แถวนี้', 'Packing List', 'chk', { file: f.file }));
+      if (f.totalOk === false) add(null, 'ยอดรวมท้าย PL ไม่เท่ากับผลรวมแถว', '-', f.file, 'ต้องตรวจสอบ', '', 'Packing List', 'chk', { file: f.file }); });
+    /* 7) จำนวนรายการ PDF กับ PL */
+    const used = new Set(); items.forEach(x => (x.pl ? x.pl.rows : []).forEach(r => used.add(r)));
+    if (pr.cnt.notfound || pr.cnt.extra || pr.cnt.amb) add(null, 'จำนวนรายการ PDF กับ PL ไม่ตรงกัน', items.length + ' รายการ (PDF)', pr.cnt.plRows + ' แถว (PL) · จับคู่ได้ ' + used.size + ' แถว · เกิน ' + pr.cnt.extra + ' แถว', 'ต้องตรวจสอบ',
+      'ไม่พบใน PL ' + pr.cnt.notfound + ' รายการ · AMBIGUOUS ' + pr.cnt.amb + ' รายการ', SRC_PL, 'chk');
+    /* เรียงตาม Invoice และลำดับสินค้า (รายการระดับเอกสารไว้ท้าย Invoice นั้น / ท้ายตาราง) */
+    const ivo = new Map(); ord.forEach(x => { if (!ivo.has(x.inv)) ivo.set(x.inv, ivo.size); });
+    rows.forEach((r, i) => { r._i = i; });
+    rows.sort((a, b) => { const ia = ivo.has(a.inv) ? ivo.get(a.inv) : 1e9, ib = ivo.has(b.inv) ? ivo.get(b.inv) : 1e9;
+      return ia - ib || (a.no === '' ? 1e9 : a.no) - (b.no === '' ? 1e9 : b.no) || a._i - b._i; });
+    rows.forEach(r => { delete r._i; });
+    const itemsBad = new Set(), nf = new Set(), nm = new Set(), chk = new Set();
+    rows.forEach(r => { if (r.no === '') return; itemsBad.add(r.no); if (r.st === 'ไม่พบใน PL') nf.add(r.no); if (r.src === SRC_ME || r.src === SRC_HS) nm.add(r.no); if (r.sev === 'chk') chk.add(r.no); });
+    const cnt = Object.assign({}, pr.cnt, { items: items.length, pass: items.length - itemsBad.size, bad: itemsBad.size, topics: rows.length, nf: nf.size, nm: nm.size, chk: chk.size,
+      docRows: rows.filter(r => r.no === '').length });
+    return { rows, cnt, problems: rows.length, pl: pr };
+  }
   /* ★ [local118] ลำดับรายการใน EXPORT (ใช้ทั้ง buildRows และรายงาน) */
   function exportOrder(items){
     const fileOrd = new Map(); items.forEach(x => { if (!fileOrd.has(x.file)) fileOrd.set(x.file, fileOrd.size); });
@@ -9121,7 +9232,7 @@ window.ELEAI_CORE = (function(){
     const n = Object.keys(set).length;
     return { st: n ? 'fixed' : (unsure.length ? 'unsure' : 'confirmed'), set, notes, unsure };
   }
-  return { plReport, codeDiff, plCodes, exportOrder, descOut, hsKey, flagItem, applyRecheck, makeChunksRange, qpBad, T, codeKey, ordKey, num, rnd, dmy, badCode, invCmp, makeChunks, mergeFile, validate, parsePL, solveGroup, matchPL, pickMaster, buildRows, totals, HEAD };
+  return { errReport, plReport, codeDiff, plCodes, exportOrder, descOut, hsKey, flagItem, applyRecheck, makeChunksRange, qpBad, T, codeKey, ordKey, num, rnd, dmy, badCode, invCmp, makeChunks, mergeFile, validate, parsePL, solveGroup, matchPL, pickMaster, buildRows, totals, HEAD };
 })();
 </script>
 <script id="eleai-ui">
@@ -9158,7 +9269,7 @@ window.ELEAI_CORE = (function(){
   async function sha(buf){ const d = await crypto.subtle.digest('SHA-256', buf); return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join(''); }
   function b64(u8){ let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
 
-  const S = { pdfs: [], pls: [], sel: 'auto', busy: false, wantExport: false, again: false, memo: new Map(), last: null, probed: false, timer: null, gen: 0, allowOver: false };
+  const S = { pdfs: [], pls: [], sel: 'auto', busy: false, wantExport: false, again: false, memo: new Map(), last: null, probed: false, timer: null, gen: 0, allowOver: false, listOpen: { pdf: false, pl: false } };
   const prog = (m, c) => { const e = $('eleai-prog'); if (e){ e.textContent = m || ''; e.style.color = c || ''; } };
   const bar = p => { const b = $('eleai-bar'); if (!b) return; if (p == null){ b.style.display = 'none'; return; } b.style.display = ''; b.firstElementChild.style.width = Math.max(0, Math.min(100, p)) + '%'; };
   /* ★ [local114] ปุ่ม EXPORT: เปิดเมื่อแนบ Invoice PDF + PL ครบ (ไม่ต้องรอประมวลผล) · ปิดระหว่างส่งออก / รอส่งออก (กันกดซ้ำ) */
@@ -9175,6 +9286,15 @@ window.ELEAI_CORE = (function(){
     const pg = S.pdfs.reduce((a, x) => a + (x.err ? 0 : x.nPages), 0), rw = S.pls.reduce((a, x) => a + (x.err ? 0 : x.p.rows.length), 0);
     $('eleai-pdf-cnt').textContent = S.pdfs.length ? ' · ' + S.pdfs.length + ' ไฟล์' + (pg ? ' · ' + fmt(pg) + ' หน้า' : '') : '';
     $('eleai-pl-cnt').textContent = S.pls.length ? ' · ' + S.pls.length + ' ไฟล์' + (rw ? ' · ' + fmt(rw) + ' แถว' : '') : '';
+    /* ★ [local120] Compact: มีไฟล์แล้ว → แสดงชื่อไฟล์แรก +จำนวนที่เหลือ · ปุ่ม “ดูไฟล์ทั้งหมด” เพื่อขยายรายการ / ลบทีละไฟล์ */
+    [['pdf', S.pdfs], ['pl', S.pls]].forEach(([k, L]) => { const card = $('eleai-dz-' + k), fs = $('eleai-' + k + '-fs'); if (!card || !fs) return;
+      if (!L.length) S.listOpen[k] = false;
+      card.classList.toggle('has', L.length > 0); card.classList.toggle('open', !!S.listOpen[k]);
+      const e = L.filter(x => x.err).length;
+      $('eleai-' + k + '-first').textContent = L.length ? (k === 'pdf' ? '📄 ' : '📗 ') + L[0].name + (L.length > 1 ? ' +' + (L.length - 1) : '') : '';
+      $('eleai-' + k + '-first').title = L.map(x => x.name).join('\n');
+      $('eleai-' + k + '-err').textContent = e ? '❌ เปิดไม่ได้ ' + e + ' ไฟล์' : '';
+      const b = $('eleai-' + k + '-all'); b.textContent = S.listOpen[k] ? '▲ ซ่อนรายการไฟล์' : '▼ ดูไฟล์ทั้งหมด (' + L.length + ')'; b.setAttribute('aria-expanded', S.listOpen[k] ? 'true' : 'false'); });
   }
   function changed(){ S.last = null; S.allowOver = false; S.gen++; exportBtn(); $('eleai-result').innerHTML = ''; renderRep(null); renderLists(); schedule(); }
   async function addPdfs(list){
@@ -9235,7 +9355,7 @@ window.ELEAI_CORE = (function(){
     card.addEventListener('dragover', e => { if (!files(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; card.classList.add('dz-on'); });
     card.addEventListener('dragleave', e => { if (!files(e)) return; n = Math.max(0, n - 1); if (!n) card.classList.remove('dz-on'); });
     card.addEventListener('drop', e => { if (!files(e)) return; e.preventDefault(); e.stopPropagation(); n = 0; card.classList.remove('dz-on'); takeFiles(kind, [...(e.dataTransfer.files || [])]); });
-    card.addEventListener('click', e => { if (e.target.closest('button, input, label, a, .el-list')) return; $('eleai-' + kind).click(); });
+    card.addEventListener('click', e => { if (e.target.closest('button, input, label, a, .el-list, .el-fs')) return; $('eleai-' + kind).click(); });
     card.addEventListener('keydown', e => { if (e.target === card && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); $('eleai-' + kind).click(); } });
   }
   /* ประมวลผลหลังแนบไฟล์ (หน่วง 0.8 วิ เผื่อเลือกไฟล์ต่อ) · กำลังประมวลผลอยู่ = ทำรอบใหม่ต่อทันทีเมื่อเสร็จ */
@@ -9282,12 +9402,13 @@ window.ELEAI_CORE = (function(){
   async function pool(jobs, n, fn){ const q = jobs.slice(); const err = []; await Promise.all(Array.from({ length: Math.min(n, q.length) }, async () => { while (q.length){ const jb = q.shift(); try { await fn(jb); } catch (e){ err.push(String(e && e.message || e)); } } })); return err; }
   async function probe(){
     const A = auth(), el = $('eleai-ready'); if (!el) return;
-    if (!A || !A.token){ el.textContent = 'ระบบ AI: ต้องเข้าสู่ระบบใหม่ (ไม่มี Session Token)'; el.className = 'el-ready bad'; return; }
+    const bad = () => { if (!S.busy && !$('eleai-prog').textContent) prog('❌ ' + el.textContent.replace(/^⚠️\s*/, ''), '#c00000'); };   /* ★ [local120] ซ่อนแถวสถานะ AI → แจ้งข้อผิดพลาดจริงที่บรรทัดสถานะ */
+    if (!A || !A.token){ el.textContent = 'ระบบ AI: ต้องเข้าสู่ระบบใหม่ (ไม่มี Session Token)'; el.className = 'el-ready bad'; bad(); return; }
     el.textContent = 'ระบบ AI: กำลังตรวจ…'; el.className = 'el-ready';
     const { j } = await post({ action: 'probe', session: A.token });
     const ms = (j && j.models) || {}, st = m => ms[m] === 'ok' ? '✅' : ms[m] === 'missing' ? '❌' : '❔';
-    if (j && j.success && j.ready){ el.textContent = 'ระบบ AI พร้อม · Sonnet 5.5 ' + st(SONNET) + ' · Opus 5.5 ' + st(OPUS); el.className = 'el-ready ' + (ms[OPUS] === 'missing' ? 'bad' : 'ok'); S.probed = true; S.models = ms; }
-    else { el.textContent = '⚠️ ระบบ AI ยังไม่พร้อม: ' + ((j && (j.msg || (j.success && !j.api_key ? 'ยังไม่ได้ตั้ง API Key ที่ Server' : (j.success && !j.jobs ? 'ตาราง nj_ai_jobs ไม่พร้อม' : '')))) || 'ไม่ทราบสาเหตุ'); el.className = 'el-ready bad'; }
+    if (j && j.success && j.ready){ el.textContent = 'ระบบ AI พร้อม · Sonnet 5.5 ' + st(SONNET) + ' · Opus 5.5 ' + st(OPUS); el.className = 'el-ready ' + (ms[OPUS] === 'missing' ? 'bad' : 'ok'); S.probed = true; S.models = ms; if (ms[OPUS] === 'missing' || ms[SONNET] === 'missing') bad(); }
+    else { el.textContent = '⚠️ ระบบ AI ยังไม่พร้อม: ' + ((j && (j.msg || (j.success && !j.api_key ? 'ยังไม่ได้ตั้ง API Key ที่ Server' : (j.success && !j.jobs ? 'ตาราง nj_ai_jobs ไม่พร้อม' : '')))) || 'ไม่ทราบสาเหตุ'); el.className = 'el-ready bad'; bad(); }
   }
 
   /* ── MASTER พิกัด ELE (RPC เดิม · อ่านอย่างเดียว · Cache เฉพาะรอบประมวลผลนี้) ── */
@@ -9403,6 +9524,7 @@ window.ELEAI_CORE = (function(){
     if (S.pdfs.some(x => x.err) || S.pls.some(x => x.err)){ S.wantExport = false; exportBtn(); prog('❌ มีไฟล์ที่เปิดไม่ได้ — นำออกก่อน (✕)', '#c00000'); return; }
     if (!pdfs.length || !pls.length){ S.wantExport = false; exportBtn(); return; }
     S.busy = true; S.again = false; const gen = S.gen; exportBtn(); $('eleai-result').innerHTML = '';
+    S.sel = 'auto';   /* ★ [local120] ELE TYPE 0 ใช้ AI AUTO ทุกครั้ง (ซ่อนตัวเลือก AI · ไม่มีค่า Sonnet-only / Opus-only ค้าง) */
     const sel = S.sel, MAIN = sel === 'opus' ? OPUS : SONNET, tok = A0.token;
     const R = { gen, sel, MAIN, pdfs, pls, parts: new Map(), pageOv: new Map(), fixOv: new Map(), MC: { pairs: new Set(), exact: new Map(), all: new Map() },
       U: { by: {}, session: 0 }, flagged: 0, opusItems: 0, opusPages: 0, opusPageJobs: 0, fixed: 0, unsureItems: new Set(), log: [], pending: null };
@@ -9497,7 +9619,7 @@ window.ELEAI_CORE = (function(){
       else if (l.page) iss.push({ type: 'A', lvl: l.ok ? 'fix' : 'hard', file: l.page.file, inv: l.page.inv, pg: l.page.from + (l.page.to > l.page.from ? '–' + l.page.to : ''), msg: l.ok ? 'Opus อ่านซ้ำทั้งหน้าแล้ว ยอดรวมตรง TOTAL VALUE — ใช้ผล Opus สำหรับหน้านี้' : 'Opus อ่านซ้ำทั้งหน้าแล้วยอดรวมยังไม่ตรง — ไม่เปลี่ยนข้อมูล' });
       else { const at = { file: l.x.file, inv: l.x.inv, pg: l.x.pg, code: l.x.code || l.x.codeLeft };
         if (l.r.st === 'fixed') iss.push(Object.assign({ type: 'A', lvl: 'fix', msg: 'แก้โดย Opus: ' + Object.keys(l.r.set).map(k => { const o = l.x[k]; return k + ' ' + (o == null || o === '' ? '(ว่าง)' : o) + ' → ' + l.r.set[k]; }).join(' · ') + (l.r.notes.length ? ' · ' + l.r.notes.join(' · ') : '') }, at));
-        else if (l.r.st === 'unsure') iss.push(Object.assign({ type: 'A', lvl: 'warn', msg: 'ต้องตรวจสอบเอง: ' + l.f.why.join(' · ') + ' · ' + l.r.unsure.join(' · ') }, at));
+        else if (l.r.st === 'unsure') iss.push(Object.assign({ type: 'A', lvl: 'warn', it: l.x, msg: 'ต้องตรวจสอบเอง: ' + l.f.why.join(' · ') + ' · ' + l.r.unsure.join(' · ') }, at));
         else iss.push(Object.assign({ type: 'A', lvl: 'info', msg: 'Opus ยืนยันค่าเดิม (' + l.f.why.join(' · ') + ')' }, at)); } });
     if (R.pending) iss.push({ type: 'A', lvl: 'warn', msg: 'พบปัญหาที่ต้องให้ Opus อ่านซ้ำ ' + R.pending.need + ' หน้า เกินงบ 10% (' + R.pending.budget + ' หน้า) — ยังไม่ได้ตรวจซ้ำ กดปุ่มด้านบนหากต้องการให้ Opus ตรวจต่อ' });
     if (R.sel !== 'auto'){ const fl = AN.v.items.filter(x => C.flagItem(x).fields.length).length; R.flagged = fl; }
@@ -9505,18 +9627,26 @@ window.ELEAI_CORE = (function(){
     const status = hard ? 'FAIL' : (warn ? 'WARNING' : 'PASS');
     const manual = new Set(iss.filter(i => i.lvl === 'warn' || i.lvl === 'hard').map(i => (i.file || '') + '|' + (i.pg || '') + '|' + (i.code || '') + '|' + (i.inv || '')));
     const hsc = hsCount(AN.v.items), conn = iss.some(i => i.conn);
-    const prep = C.plReport(AN.v.items, AN.plFiles, AN.mi);   /* ★ [local119] ตรวจ PDF เทียบ PL ทุกรายการ */
+    /* ★ [local119] ตรวจ PDF เทียบ PL ทุกรายการ · ★ [local120] รวม MASTER / AI / น้ำหนัก เป็นรายงานค่าผิดชุดเดียว (หน้าจอ = Sheet 2) */
+    const aiIss = iss.filter(i => (i.lvl === 'warn' || i.lvl === 'hard') && !i.conn && (i.type === 'A' || (i.type === 'B' && /TOTAL VALUE|หลายไฟล์/.test(i.msg || ''))));
+    const prep = C.errReport(AN.v.items, AN.plFiles, AN.mi, aiIss);
+    prep.gw = (iss.find(i => /^G\.W\. WT/.test(i.msg || '')) || {}).msg || '';
     S.last = { R, rows, invoices: AN.v.invoices, status, fresh: true, hsc, conn, rep: prep };
     render(R, AN, tot, iss, status, manual.size);
-    renderRep(prep, true, false);
+    renderRep(null);
     exportBtn();
     bar(null);
-    prog(status === 'FAIL' ? (conn ? '❌ เชื่อมต่อ MASTER HS CODE ไม่สำเร็จ — ยังไม่ส่งออก (ไม่ใช่กรณีไม่พบ HS CODE) · กด 📥 EXPORT EXCEL เพื่ออ่าน MASTER ใหม่' : '❌ FAIL — มีรายการตกหล่น/ยอดรวมไม่ตรง ส่งออกไม่ได้ (ดูรายละเอียดด้านล่าง)') : (status === 'WARNING' ? '⚠️ ประมวลผลเสร็จ — มีคำเตือน ส่งออกได้ (กด 📥 EXPORT EXCEL)' : '✅ ประมวลผลเสร็จ — PASS กด 📥 EXPORT EXCEL'), status === 'FAIL' ? '#c00000' : (status === 'WARNING' ? '#b45309' : '#0b7a2a'));
+    /* ★ [local120] ซ่อน Dashboard / ตาราง → แสดงเฉพาะข้อความสถานะสั้น (FAIL แสดงสาเหตุจริง) */
+    const hardMsg = iss.filter(i => i.lvl === 'hard').slice(0, 3).map(i => (i.inv ? 'Invoice ' + i.inv + ': ' : '') + i.msg).join(' · ');
+    const nW = prep.cnt.topics;
+    prog(status === 'FAIL' ? (conn ? '❌ เชื่อมต่อ MASTER HS CODE ไม่สำเร็จ — ยังไม่ส่งออก (ไม่ใช่กรณีไม่พบ HS CODE) · กด 📥 EXPORT EXCEL เพื่ออ่าน MASTER ใหม่' : '❌ ประมวลผลล้มเหลว — ส่งออกไม่ได้: ' + hardMsg)
+      : (nW ? '⚠️ ประมวลผลเสร็จ — พบคำเตือน ' + fmt(nW) + ' หัวข้อ (' + fmt(prep.cnt.bad) + ' รายการสินค้า) · กด 📥 EXPORT EXCEL (รายละเอียดอยู่ใน Sheet “รายงานค่าผิด”)' : (status === 'WARNING' ? '⚠️ ประมวลผลเสร็จ — มีคำเตือน · กด 📥 EXPORT EXCEL' : '✅ ประมวลผลสำเร็จ — กด 📥 EXPORT EXCEL')),
+      status === 'FAIL' ? '#c00000' : (nW || status === 'WARNING' ? '#b45309' : '#0b7a2a'));
   }
   function hsCount(items){ const c = { ok: 0, none: 0, dup: 0, off: 0 }; items.forEach(x => { const h = x.hsm; if (!h) return; if (h.st === 'ok') c.ok++; else if (h.st === 'dup') c.dup++; else if (h.st === 'off') c.off++; else c.none++; }); return c; }
-  function renderFail(R, err){ bar(null); exportBtn();
+  function renderFail(R, err){ bar(null); exportBtn(); $('eleai-result').classList.add('el-hide'); $('eleai-result').classList.remove('el-act-only');
     $('eleai-result').innerHTML = '<h2>ELE TYPE 0 — AI RESULT <span class="el-st FAIL">FAIL</span></h2><div class="el-iss"><table><tbody>' + err.map(m => '<tr class="hard"><td>❌</td><td>' + esc(m) + '</td></tr>').join('') + '</tbody></table></div>';
-    prog('❌ อ่าน PDF ไม่สำเร็จ ' + err.length + ' ชุดหน้า — แนบไฟล์ใหม่หรือรอสักครู่แล้วเปลี่ยนตัวเลือก AI เพื่อประมวลผลใหม่ (ชุดที่อ่านสำเร็จแล้วไม่เรียก AI ซ้ำ)', '#c00000'); }
+    prog('❌ ประมวลผลล้มเหลว — อ่าน PDF ไม่สำเร็จ ' + err.length + ' ชุดหน้า (' + String(err[0] || '').slice(0, 160) + ') — แนบไฟล์ใหม่หรือรอสักครู่แล้วเปลี่ยนตัวเลือก AI เพื่อประมวลผลใหม่ (ชุดที่อ่านสำเร็จแล้วไม่เรียก AI ซ้ำ)', '#c00000'); }
   const LV = { hard: ['❌ FAIL', 0], warn: ['⚠️ WARNING', 1], fix: ['✅ แก้แล้ว', 2], info: ['ℹ️', 3] };
   const TY = { A: 'A อ่านผิด/ไม่ชัด', B: 'B ไม่ตรงกัน', C: 'C MASTER' };
   function render(R, AN, t, iss, status, manual){
@@ -9552,12 +9682,40 @@ window.ELEAI_CORE = (function(){
     if (hg.size) $('eleai-result').innerHTML += '<div class="el-iss"><table><thead><tr><th>HS Code (MASTER พิกัด ELE)</th><th>Tariff Code (MASTER HS CODE)</th><th>Stat</th><th>Privilege</th><th>Seq</th><th>Tariff rate duty</th><th>รายการ</th></tr></thead><tbody>' +
       [...hg.values()].sort((a, b) => a.hs < b.hs ? -1 : 1).map(g => { const h = g.h || {}, ok = h.st === 'ok';
         return '<tr class="' + (ok ? 'info' : 'warn') + '"><td>' + esc(g.hs) + '</td><td>' + esc(h.key || '-') + '</td><td>' + esc(ok ? h.stat : '') + '</td><td>' + esc(ok ? h.privilege : '') + '</td><td>' + esc(ok ? h.seq : '') + '</td><td>' + esc(ok ? (h.rate == null ? '' : h.rate) : (h.msg || 'ไม่พบ HS CODE ใน MASTER')) + '</td><td>' + g.n + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    $('eleai-result').classList.add('el-hide');   /* ★ [local120] ซ่อน Dashboard / ตาราง (ข้อมูลยังคำนวณครบ) · คงเฉพาะปุ่ม Opus ตรวจต่อเมื่อเกินงบ */
+    $('eleai-result').classList.toggle('el-act-only', !!R.pending);
     const ob = $('eleai-btn-over'); if (ob) ob.addEventListener('click', () => { if (S.busy) return; S.allowOver = true; process(); });
   }
 
   /* ── EXPORT EXCEL (ใช้ผลที่ประมวลผลแล้ว · ไม่เรียก AI) ── */
   const TXT = new Set([1, 2, 3, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]);
-  async function writeXlsx(rows, invs){
+  /* ★ [local120] Sheet 2 — รายงานค่าผิด: ชุดเดียวกับหน้าจอ · ค่าเป็นข้อความ (กันเลขศูนย์นำหน้าหาย) · แดง = ผิด · ส้ม = ต้องตรวจสอบ */
+  const REP_H = ['No.', 'Invoice No.', 'รายการที่', 'Product Code (PDF)', 'หัวข้อที่ผิด', 'ค่า PDF / ค่าที่ควรได้', 'ค่า PL / ค่าที่พบ', 'สถานะ', 'รายละเอียด', 'แหล่งเปรียบเทียบ'];
+  function repSheet(wb, rep, invs){
+    const ws = wb.addWorksheet('รายงานค่าผิด'), c = rep ? rep.cnt : null, rows = rep ? rep.rows : [], HR = 5;
+    const RED = 'FFC00000', ORG = 'FFC65911', thin = { style: 'thin', color: { argb: 'FFBFBFBF' } }, bd = { top: thin, left: thin, bottom: thin, right: thin };
+    const d = new Date(), p = n => String(n).padStart(2, '0');
+    ws.getCell(1, 1).value = 'รายงานค่าผิด — ELE TYPE 0 · Invoice ' + invs.map(v => v.inv).join(', ') + ' · ตรวจเมื่อ ' + p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    ws.getCell(1, 1).font = { bold: true, size: 13 };
+    const SUM = c ? [['รายการสินค้าจาก PDF', c.items], ['ตรวจผ่าน', c.pass], ['รายการที่มีข้อผิดพลาด', c.bad], ['หัวข้อที่ผิดทั้งหมด', c.topics], ['ไม่พบใน PL', c.nf], ['ไม่พบ MASTER', c.nm], ['ต้องตรวจสอบเพิ่มเติม', c.chk]] : [];
+    SUM.forEach(([k, v], i) => { const a = ws.getCell(2, i + 1), b = ws.getCell(3, i + 1); a.value = k; b.value = v;
+      a.font = { bold: true, size: 10 }; a.alignment = { wrapText: true, vertical: 'middle' }; a.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } }; a.border = bd; b.border = bd;
+      b.font = { bold: true, size: 12, color: { argb: i >= 2 && v ? (i === 6 ? ORG : RED) : 'FF000000' } }; b.alignment = { horizontal: 'center' }; });
+    ws.getCell(4, 1).value = c ? 'รายการที่มีข้อผิดพลาด = จำนวนรายการสินค้า (ไม่นับซ้ำ) · หัวข้อที่ผิดทั้งหมด = จำนวนแถวในตาราง (1 รายการอาจผิดหลายหัวข้อ)'
+      + ' · แถว PL ' + c.plRows + (c.noord ? ' · จับคู่ PL โดยไม่มี Order No. ' + c.noord + ' รายการ' : '') + (c.docRows ? ' · หัวข้อระดับเอกสาร/ไฟล์ ' + c.docRows : '') + (rep.gw ? ' · ' + rep.gw : '') : '';
+    ws.getCell(4, 1).font = { italic: true, size: 9, color: { argb: 'FF595959' } };
+    const h = ws.getRow(HR); REP_H.forEach((t, k) => { const x = h.getCell(k + 1); x.value = t; x.font = { bold: true, color: { argb: 'FFFFFFFF' } }; x.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F4E79' } }; x.border = bd; x.alignment = { vertical: 'middle', wrapText: true }; });
+    if (!rows.length){ ws.mergeCells(HR + 1, 1, HR + 1, REP_H.length); const x = ws.getCell(HR + 1, 1); x.value = 'ตรวจสอบแล้ว — ไม่พบข้อมูลผิดหรือไม่ตรงกัน'; x.font = { bold: true, size: 12, color: { argb: 'FF0B7A2A' } }; }
+    rows.forEach((r, i) => { const R = ws.getRow(HR + 1 + i), col = { argb: r.sev === 'chk' ? ORG : RED };
+      [i + 1, r.inv || '-', r.no === '' ? '-' : r.no, r.code || '-', r.topic, r.pdf, r.pl, r.st, r.note, r.src].forEach((v, k) => { const x = R.getCell(k + 1);
+        if (k === 0 || (k === 2 && typeof v === 'number')) x.value = v; else { x.numFmt = '@'; x.value = String(v); }
+        x.font = { color: col, bold: k === 4 || k === 7 }; x.border = bd; x.alignment = { vertical: 'top', wrapText: k === 8 }; }); });
+    ws.autoFilter = { from: { row: HR, column: 1 }, to: { row: HR + Math.max(rows.length, 1), column: REP_H.length } };
+    ws.views = [{ state: 'frozen', xSplit: 0, ySplit: HR, topLeftCell: 'A' + (HR + 1), activeCell: 'A' + (HR + 1) }];
+    [16, 14, 13, 18, 34, 28, 36, 18, 70, 28].forEach((w, k) => { ws.getColumn(k + 1).width = w; });
+    ws.getRow(2).height = 30;
+  }
+  async function writeXlsx(rows, invs, rep){
     const wb = new ExcelJS.Workbook(); wb.creator = 'checkdecl ELE TYPE 0'; const ws = wb.addWorksheet('Sheet1');
     const r1 = ws.getRow(1), r2 = ws.getRow(2);
     for (let k = 0; k < 19; k++){ r1.getCell(k + 1).value = k === 0 ? '//1' : k + 1; r2.getCell(k + 1).value = k === 0 ? '//' + C.HEAD[0] : C.HEAD[k]; }
@@ -9565,6 +9723,7 @@ window.ELEAI_CORE = (function(){
       r.forEach((v, k) => { const c = R.getCell(k + 1); if (TXT.has(k)) c.numFmt = '@'; if (v == null || v === '') return;
         if (TXT.has(k)) c.value = String(v); else { c.value = Number(v); if (k === 7) c.numFmt = '0.000'; } }); });
     [6, 14, 12, 18, 8, 8, 10, 10, 9, 12, 9, 44, 18, 6, 40, 14, 7, 9, 6].forEach((w, k) => { ws.getColumn(k + 1).width = w; });
+    repSheet(wb, rep, invs);   /* ★ [local120] Sheet 2 — รายงานค่าผิด (ไม่แตะ Sheet 1) */
     const buf = await wb.xlsx.writeBuffer();
     const p = n => String(n).padStart(2, '0'), d = new Date(), nos = invs.map(v => v.inv);
     const name = 'ELE TYPE 0_' + (nos.length ? (nos.length > 1 ? nos[0] + '-' + nos[nos.length - 1] : nos[0]) : 'INVOICE') + '_' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes()) + '.xlsx';
@@ -9592,39 +9751,30 @@ window.ELEAI_CORE = (function(){
       if (S.last.status === 'FAIL') return;   /* finish แจ้งเหตุแล้ว */
       /* ★ [local119] พบความต่าง PDF กับ PL → เปิดรายงาน และรอผู้ใช้กด “EXPORT EXCEL ต่อ” ก่อนดาวน์โหลด */
       if (S.last.rep && S.last.rep.problems && !S.last.repOk){ S.last.pending = true; renderRep(S.last.rep, true, true); bar(null);
-        prog('⚠️ พบความต่างระหว่าง Invoice PDF กับ PL ' + S.last.rep.rows.length + ' จุด — ยังไม่ดาวน์โหลด · ตรวจรายงานแล้วกด “📥 EXPORT EXCEL ต่อ” (ยึดค่าตาม PDF)', '#b45309'); return; }
+        prog('⚠️ พบข้อผิดพลาด ' + S.last.rep.cnt.topics + ' หัวข้อ (' + S.last.rep.cnt.bad + ' รายการสินค้า) — ยังไม่ดาวน์โหลด · ตรวจรายงานแล้วกด “📥 EXPORT EXCEL ต่อ” (ได้ Excel 2 Sheets: MAPPING + รายงานค่าผิด · ยึดค่าตาม PDF)', '#b45309'); return; }
       await writeOut(); }
     catch (e){ bar(null); prog('❌ ส่งออกไม่สำเร็จ: ' + String(e && e.message || e) + ' — ไม่ได้ใช้ข้อมูล MASTER เดิมแทน กด EXPORT EXCEL เพื่อลองใหม่', '#c00000'); }
     finally { exporting = false; exportBtn(); }
   }
   async function writeOut(){
-    const name = await writeXlsx(S.last.rows, S.last.invoices), h = S.last.hsc || {};
-    const note = (h.none ? ' · ไม่พบ HS CODE ใน MASTER ' + h.none + ' รายการ' : '') + (h.dup ? ' · พบ HS CODE หลายรายการ ต้องตรวจสอบ ' + h.dup + ' รายการ' : '') + (S.last.rep && S.last.rep.problems ? ' · PDF ≠ PL ' + S.last.rep.rows.length + ' จุด (ยึด PDF)' : '');
-    prog((S.last.status === 'WARNING' ? '⚠️ ส่งออกแล้ว (มีคำเตือน — ดูรายงาน / AI RESULT): ' : '✅ ส่งออกแล้ว: ') + name + ' · ' + S.last.rows.length + ' รายการ' + note, S.last.status === 'WARNING' ? '#b45309' : '#0b7a2a');
+    const name = await writeXlsx(S.last.rows, S.last.invoices, S.last.rep), h = S.last.hsc || {};
+    const note = (h.none ? ' · ไม่พบ HS CODE ใน MASTER ' + h.none + ' รายการ' : '') + (h.dup ? ' · พบ HS CODE หลายรายการ ต้องตรวจสอบ ' + h.dup + ' รายการ' : '') + (S.last.rep && S.last.rep.problems ? ' · รายงานค่าผิด ' + S.last.rep.cnt.topics + ' หัวข้อ (Sheet “รายงานค่าผิด”)' : ' · Sheet “รายงานค่าผิด”: ไม่พบข้อมูลผิด');
+    prog((S.last.status === 'WARNING' || (S.last.rep && S.last.rep.problems) ? '⚠️ EXPORT สำเร็จ (มีคำเตือน): ' : '✅ EXPORT สำเร็จ: ') + name + ' · ' + S.last.rows.length + ' รายการ' + note, S.last.status === 'WARNING' ? '#b45309' : '#0b7a2a');
   }
   /* ★ [local119] รายงานตรวจสอบ INVOICE PDF เทียบ PACKING LIST (PL) */
-  const REP_ST = { 'ไม่ตรง': 'warn', 'ไม่พบใน PL': 'nf', 'AMBIGUOUS': 'amb', 'พบรายการเกินใน PL': 'extra' };
+  /* ★ [local120] ไม่แสดงตารางรายงานบนหน้าจอ — แสดงเฉพาะแถบยืนยัน EXPORT เมื่อพบคำเตือน (รายละเอียดครบใน Sheet “รายงานค่าผิด”) */
   function renderRep(rep, open, pending){
     const box = $('eleai-plrep'), ob = $('eleai-plrep-open'); if (!box) return;
-    if (!rep){ box.hidden = true; ob.hidden = true; return; }
-    const c = rep.cnt, bad = rep.problems > 0, chip = (k, v, cls) => '<span class="' + (cls || '') + '">' + k + ': <b>' + fmt(v) + '</b></span>';
-    box.classList.toggle('ok', !bad);
-    $('eleai-plrep-title').textContent = (bad ? '⚠️' : '✅') + ' รายงานตรวจสอบ INVOICE PDF เทียบ PACKING LIST (PL)';
-    $('eleai-plrep-sum').innerHTML = chip('รายการทั้งหมด (PDF)', c.total) + chip('ตรงกัน', c.ok, 'good') + chip('ไม่ตรงกัน', c.diff, c.diff ? 'bad' : '') + chip('ไม่พบใน PL', c.notfound, c.notfound ? 'nf' : '')
-      + chip('จับคู่ไม่ได้แน่นอน (AMBIGUOUS)', c.amb, c.amb ? 'bad' : '') + chip('รายการเกินใน PL', c.extra, c.extra ? 'nf' : '') + chip('แถว PL', c.plRows) + (c.noord ? chip('จับคู่โดยไม่มี Order No.', c.noord) : '');
-    $('eleai-plrep-note').textContent = pending ? '⏸ ยังไม่ดาวน์โหลด — พบความต่าง ' + rep.rows.length + ' จุด · กด “📥 EXPORT EXCEL ต่อ” เพื่อดาวน์โหลดโดยยึด Invoice PDF (ไม่ใช้ค่า PL แทน)'
-      : bad ? 'EXPORT ยึด Invoice PDF เสมอ (Product Code / Quantity / Amount / Description / COO) · PL ใช้ตรวจสอบและให้ Net Weight เฉพาะรายการที่จับคู่ได้แน่นอน'
-      : 'Product Code และ Quantity ของ Invoice PDF ตรงกับ PL ทุกรายการ';
-    $('eleai-plrep-tb').innerHTML = bad ? '<div class="el-iss"><table><thead><tr><th>No.</th><th>Invoice No.</th><th>รายการที่</th><th>หัวข้อผิด</th><th>PDF</th><th>PL</th><th>สถานะ</th><th>หมายเหตุ</th></tr></thead><tbody>'
-      + rep.rows.map((r, i) => '<tr class="' + (REP_ST[r.st] || 'warn') + '"><td>' + (i + 1) + '</td><td>' + esc(r.inv || '-') + '</td><td>' + esc(r.no === '' ? '-' : r.no) + '</td><td style="white-space:nowrap">⚠️ ' + esc(r.topic) + '</td><td>' + esc(r.pdf) + '</td><td>' + esc(r.pl) + '</td><td style="white-space:nowrap">' + esc(r.st) + '</td><td>' + esc(r.note) + '</td></tr>').join('')
-      + '</tbody></table></div>' : '';
-    $('eleai-plrep-go').hidden = !pending;
-    $('eleai-plrep-cnt').textContent = fmt(rep.rows.length);
-    box.hidden = !open; ob.hidden = open || !bad;
+    if (ob) ob.hidden = true;
+    if (!rep || !pending){ box.hidden = true; return; }
+    const c = rep.cnt;
+    $('eleai-plrep-title').textContent = '⚠️ พบคำเตือน ' + fmt(c.topics) + ' หัวข้อ (' + fmt(c.bad) + ' รายการสินค้า' + (c.docRows ? ' · ระดับเอกสาร ' + fmt(c.docRows) : '') + ') — ยังไม่ดาวน์โหลด';
+    $('eleai-plrep-note').textContent = 'กด “📥 EXPORT EXCEL ต่อ” เพื่อดาวน์โหลด Excel 2 Sheets (MAPPING + รายงานค่าผิด) · ยึด Invoice PDF';
+    $('eleai-plrep-go').hidden = false; box.hidden = false;
   }
   async function exportConfirmed(){
     if (exporting || !S.last || !S.last.pending) return;
-    S.last.repOk = true; S.last.pending = false; renderRep(S.last.rep, true, false);
+    S.last.repOk = true; S.last.pending = false; renderRep(S.last.rep, false, false);
     exporting = true; exportBtn();
     try { await writeOut(); } catch (e){ prog('❌ ส่งออกไม่สำเร็จ: ' + String(e && e.message || e), '#c00000'); }
     finally { exporting = false; exportBtn(); }
@@ -9639,8 +9789,8 @@ window.ELEAI_CORE = (function(){
     $('eleai-pl').addEventListener('change', e => { const l = [...(e.target.files || [])]; e.target.value = ''; takeFiles('pl', l); });
     dropZone($('eleai-dz-pdf'), 'pdf'); dropZone($('eleai-dz-pl'), 'pl');
     $('eleai-plrep-go').addEventListener('click', exportConfirmed);
-    $('eleai-plrep-close').addEventListener('click', () => { if (S.last && S.last.rep) renderRep(S.last.rep, false, false); });
-    $('eleai-plrep-open').addEventListener('click', () => { if (S.last && S.last.rep) renderRep(S.last.rep, true, !!S.last.pending); });
+    ['pdf', 'pl'].forEach(k => $('eleai-' + k + '-all').addEventListener('click', e => { e.stopPropagation(); S.listOpen[k] = !S.listOpen[k]; renderLists(); }));
+    $('eleai-plrep-close').addEventListener('click', () => { if (!S.last || !S.last.pending) return; S.last.pending = false; renderRep(null); prog('ยกเลิก EXPORT — ยังไม่ดาวน์โหลด · กด 📥 EXPORT EXCEL เพื่อเริ่มใหม่', '#475569'); });
     /* กันเบราว์เซอร์เปิดไฟล์แทนการแนบ เมื่อปล่อยไฟล์นอกกรอบ ① / ② — เฉพาะตอนหน้า ELE TYPE 0 เปิดอยู่ */
     ['dragover', 'drop'].forEach(t => window.addEventListener(t, e => {
       const v = $('eleai-view'); if (!v || !v.classList.contains('active') || document.body.classList.contains('mpage-on')) return;
@@ -9656,7 +9806,7 @@ window.ELEAI_CORE = (function(){
     $('eleai-btn-clear').addEventListener('click', clearAll);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind); else bind();
-  window.eleaiOnShow = function(){ if (!S.probed && !S.busy) probe(); };
+  window.eleaiOnShow = function(){ S.sel = 'auto'; const r = document.querySelector('#eleai-ai input[value="auto"]'); if (r) r.checked = true; if (!S.probed && !S.busy) probe(); };
 })();
 </script>
 <script id="nj-deploy-ver">
