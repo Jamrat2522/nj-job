@@ -2474,19 +2474,6 @@ body.legacy-active .content-area { display: none !important; }
         <div class="tx-mhist" id="tx-mst-hist"></div>
       </div>
     </div>
-    <!-- ══ [452] กรอบ HS CODE MASTER ในหน้าเดียวกัน (ใช้ข้อมูล/ฟังก์ชันชุดเดียวกับโหมด HS CODE) ══ -->
-    <div class="tx-mbox" id="tx-hs-box" style="margin-bottom:6px">
-      <div class="tx-mhead">🗃️ HS CODE MASTER</div>
-      <div class="tx-msub">Tariff Code 8 หลัก → Stat · Traff Seq · Privilege · เลือกไฟล์แล้วอ่านและใช้ในรอบนี้ทันที<br>
-        กด SAVE HS CODE เมื่อต้องการเก็บเป็น ACTIVE ถาวรสำหรับทุกเครื่อง — ไม่เรียก AI และไม่มีค่า API</div>
-      <div class="tx-mpick" id="tx-hs-pick" onclick="txOpenInput(event,'hs')">คลิกเพื่อเลือกไฟล์ HS CODE (.xlsx)</div>
-      <div class="tx-mbtns">
-        <button class="btn" id="tx-hs-choose" onclick="txOpenInput(event,'hs')">📎 เลือกไฟล์ HS CODE</button>
-        <button class="btn btn-success" id="tx-hs-save" onclick="hsSave()" disabled>💾 SAVE HS CODE</button>
-        <button class="btn" id="tx-hs-cancel" onclick="hsCancel()" disabled>✕ ยกเลิกไฟล์ HS CODE</button>
-      </div>
-      <div class="tx-minfo" id="tx-hs-info">กำลังโหลดข้อมูล HS CODE …</div>
-    </div>
     <input type="file" id="tx-pdf-input" accept=".pdf" multiple style="display:none"/>
     <input type="file" id="tx-mst-input" accept=".xlsx,.xls" style="display:none"/>
     <!-- ══ แถบควบคุม Invoice เดียวเต็มความกว้าง (ห้ามมีปุ่มเหล่านี้ซ้ำที่อื่น) ══ -->
@@ -2501,7 +2488,7 @@ body.legacy-active .content-area { display: none !important; }
       <div class="tx-status" id="tx-status">รอไฟล์ INVOICE PDF</div>
       <div class="tx-status" id="tx-ai-bar" style="margin-left:0;width:100%;display:none"></div>
       <div class="tx-status" id="tx-mst-bar" style="margin-left:0;width:100%">MASTER: กำลังตรวจ…</div>
-      <div class="tx-status" id="tx-hs-bar" style="margin-left:0;width:100%">HS CODE: กำลังตรวจ…</div>
+      <div class="tx-status" id="tx-hs-bar" style="margin-left:0;width:100%">HS CODE: กำลังโหลด ACTIVE ล่าสุด…</div>
     </div>
     <div id="tx-result" style="display:none;margin-top:10px"></div>
   </div>
@@ -2904,6 +2891,9 @@ function switchCustomer(key){
     const tv = document.getElementById('tx-view'); if(tv) tv.classList.add('active');
     const tt = document.getElementById('topbar-title'); if(tt) tt.textContent = 'Texas DB12';
     const tb = document.getElementById('topbar-badge'); if(tb){ tb.textContent = 'TEXAS INSTRUMENTS → SCHENKER'; tb.className = 'topbar-badge'; }
+    /* ทุกครั้งที่เข้าโหมด ให้ดึง MASTER และ HS CODE ACTIVE ล่าสุดจาก Server อัตโนมัติ */
+    try{ txMstLoadActive(); }catch(_){}
+    try{ hsLoadActive(); }catch(_){}
     return;
   }
   // ── ซ่อน tx-view (Texas DB12) เสมอเมื่อสลับไปโหมดอื่น ──
@@ -11307,7 +11297,7 @@ const txState = { pdfs: [], stat: {}, ai: null, res: null, list: null, usage: nu
 /* ══════════════════════════════════════════════════════════════════════════
    [AI 16/11/2026] TEXAS DB12 — อ่าน INVOICE PDF ด้วย Claude ผ่าน Edge Function
    ★ ใช้ Edge Function แยกของโหมดนี้เท่านั้น (nj-invoice-ai-tx) — ไม่แตะของ KDC
-   ★ ไม่มี API Key ใด ๆ ฝั่งหน้าเว็บ · ยืนยันตัวตนด้วย Login เดิมของเว็บไซต์ (ไม่มี Session แยก)
+   ★ ไม่มี API Key ใด ๆ ฝั่งหน้าเว็บ · เชื่อมอัตโนมัติจาก Login เดิมของเว็บไซต์
    ★ Export ยังใช้ txBuildBook() / TX_TPL_B64 / TX_HDR_KEY เดิม 100%
    ══════════════════════════════════════════════════════════════════════════ */
 const TX_AI_FN    = 'nj-invoice-ai-tx';
@@ -11320,6 +11310,8 @@ const TX_AI_MAXMS = 7 * 60 * 1000;          // เพดานรอผลต่
    • บัญชี Local ของเว็บ  → ส่งชื่อผู้ใช้ที่ Login อยู่ (ไม่มีรหัสผ่าน / Token ใด ๆ ถูกเก็บ)
    • ไม่เรียก RPC Login/Session ของ TEXAS DB12 อีกต่อไป · ไม่มีเวลา Session แยก
    ══════════════════════════════════════════════════════════════════════════ */
+const TX_LOCAL_SESSION_KEY = 'TX_AI_SESSION_V2';
+let   _txLocalSession = null; // Token ฝั่ง Server สำหรับบัญชี Local; ออกอัตโนมัติพร้อม Login หลัก
 let   _txAiOk       = false;  // true = Edge Function ของ AI ตอบพร้อมใช้ (ใช้เฉพาะการอ่าน INVOICE PDF)
 let   _txAiDown     = false;  // true = ติดต่อ AI ไม่ได้ → MASTER / HS CODE ยังทำงานได้ตามปกติ
 let   _txAiChecking = false;  // true = กำลังตรวจความพร้อมของ AI
@@ -11353,7 +11345,34 @@ async function txSiteAuth(){
       jwt = (data && data.session && data.session.access_token) || '';
     }
   }catch(_){}
-  return { user: txSiteUser(), jwt: jwt };
+  if(!jwt){
+    try{
+      const saved = JSON.parse(localStorage.getItem(TX_LOCAL_SESSION_KEY) || 'null');
+      const current = txSiteUser();
+      if(saved && saved.token && saved.username === current && Number(saved.exp||0) > Date.now()+5000)
+        _txLocalSession = saved;
+    }catch(_){}
+  }
+  return { user: txSiteUser(), jwt: jwt, session: (_txLocalSession && _txLocalSession.token) || '' };
+}
+/* บัญชี Local: ใช้ Username/Password จากการ Login หลักครั้งเดียวเพื่อขอ Token ฝั่ง Server
+   ผู้ใช้ไม่ต้องกดเชื่อมต่อและระบบไม่เก็บ Password */
+async function txIssueLocalSession(username, password){
+  try{
+    const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/nj_tx_login', {
+      method:'POST', headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({p_username:String(username||'').toLowerCase(),p_password:String(password||'')})
+    });
+    const j = await r.json().catch(()=>null);
+    if(j && j.success && j.session){
+      _txLocalSession = {token:j.session,username:String(username||'').toLowerCase(),exp:Date.parse(j.expires_at||'')||Date.now()+11*60*60*1000};
+      try{ localStorage.setItem(TX_LOCAL_SESSION_KEY, JSON.stringify(_txLocalSession)); }catch(_){}
+      return true;
+    }
+  }catch(e){ try{ console.warn('[TX] เชื่อมบัญชี Local ไม่สำเร็จ',e); }catch(_){} }
+  _txLocalSession = null;
+  try{ localStorage.removeItem(TX_LOCAL_SESSION_KEY); }catch(_){}
+  return false;
 }
 /* เรียก RPC ของ MASTER / HS CODE — ตรวจเฉพาะ Login เดิมของเว็บไซต์ · ห้ามตรวจสถานะ AI ทุกกรณี */
 async function txDbRpc(fn, body){
@@ -11384,8 +11403,8 @@ async function txAiProbe(){
 /* เรียกหลัง Login / เปิดเว็บ / Refresh — ผู้ใช้ไม่ต้องกดปุ่มใดเลย
    ลำดับ: โหลด MASTER + HS CODE ACTIVE ก่อนเสมอ (ไม่รอ AI) → แล้วค่อยตรวจ AI แยกภายหลัง */
 async function txBoot(){
-  /* ล้าง Token ของรุ่นก่อนที่เลิกใช้แล้ว (ไม่แตะข้อมูลอื่นของผู้ใช้) */
-  try{ localStorage.removeItem('TX_AI_SESSION_V2'); localStorage.removeItem('TX_AI_SESSION_V1'); }catch(_){}
+  /* ล้างเฉพาะ Token รุ่น V1; V2 ใช้เชื่อมบัญชี Local อัตโนมัติ */
+  try{ localStorage.removeItem('TX_AI_SESSION_V1'); }catch(_){}
   try{ sessionStorage.removeItem('TX_AI_SESSION_V1'); }catch(_){}
   if(!txLoggedIn()){ try{ txCheckReady(); }catch(_){} return false; }
   try{ await txMstLoadActive(); }catch(_){}
@@ -11401,7 +11420,8 @@ async function txBoot(){
 /* ออกจากระบบ = ล้างสถานะของโหมดนี้ในหน่วยความจำ (ไม่มี Token ให้เพิกถอน) */
 function txSignOut(){
   _txAiOk = false; _txAiDown = false; _txAiChecking = false;
-  try{ localStorage.removeItem('TX_AI_SESSION_V2'); localStorage.removeItem('TX_AI_SESSION_V1'); }catch(_){}
+  _txLocalSession = null;
+  try{ localStorage.removeItem(TX_LOCAL_SESSION_KEY); localStorage.removeItem('TX_AI_SESSION_V1'); }catch(_){}
   try{ sessionStorage.removeItem('TX_AI_SESSION_V1'); }catch(_){}
   try{ txCheckReady(); }catch(_){}
 }
@@ -11413,12 +11433,12 @@ const txB64Of = async (file) => {
   return btoa(bin);
 };
 async function txAiPost(body){
-  /* [451] ยืนยันตัวตนด้วย Login เดิมของเว็บไซต์: JWT (บัญชี Supabase) หรือชื่อผู้ใช้ที่ Login อยู่ (บัญชี Local) */
+  /* ยืนยันตัวตนด้วย Login เดิม: JWT ของ Supabase Auth หรือ Server Token ที่ออกอัตโนมัติให้บัญชี Local */
   const a = await txSiteAuth();
   const r = await fetch(SUPABASE_URL + '/functions/v1/' + TX_AI_FN, {
     method:'POST',
     headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json' },
-    body: JSON.stringify(Object.assign({ user: a.user, access_token: a.jwt || undefined }, body))
+    body: JSON.stringify(Object.assign({ access_token:a.jwt||undefined, session:a.session||undefined }, body))
   });
   let j = null; try{ j = await r.json(); }catch(e){}
   if(!j) throw new Error('เซิร์ฟเวอร์ตอบข้อมูลไม่ถูกต้อง (HTTP ' + r.status + ')');
@@ -11559,7 +11579,7 @@ function txRenderResult(){
        (mstOK ? '✅ ' + esc(TX_MST_MSG_OK) + ' · ' + esc(HS_MSG_OK)
               : '⛔ ' + esc(M.miss ? TX_MST_MSG_NG(M.miss)
                           : M.blur ? TX_MST_MSG_BLUR
-                          : H.none ? (HS_MSG_NONE + ' — เลือกไฟล์ที่กรอบ HS CODE MASTER')
+                          : H.none ? (HS_MSG_NONE + ' — บันทึกครั้งเดียวที่เมนู HS CODE')
                                    : HS_MSG_ROW(H.missList[0]))) + '</div>';
   if(!mstOK){
     const warn = [];
@@ -11784,7 +11804,7 @@ async function txMatch(){
     const why = [];
     if(mst.blur) why.push(TX_MST_MSG_BLUR);
     if(mst.miss) why.push(TX_MST_MSG_NG(mst.miss) + ' [' + codes(mst.missList) + ']');
-    if(hs.none)  why.push(HS_MSG_NONE + ' — เลือกไฟล์ที่กรอบ HS CODE MASTER');
+    if(hs.none)  why.push(HS_MSG_NONE + ' — บันทึกครั้งเดียวที่เมนู HS CODE');
     if(hs.miss)  why.push('ไม่พบ Tariff Code ใน HS CODE MASTER ' + hs.missList.length + ' รหัส [' + codes(hs.missList) + ']');
     txSetStatus((mstOK ? '✓ ' + TX_MST_MSG_OK : '⚠ EXPORT ยังปิดอยู่: ' + why.join(' · ')) +
       ' · ' + list.length + ' Invoice · ' + rows + ' รายการ' +
@@ -11874,7 +11894,7 @@ function txHint(){
   if(!txLoggedIn())        return '⚠ ' + TX_NEED_LOGIN;   // [451] ยังไม่ได้ Login เว็บไซต์
   if(_txAiDown)            return '⚠ ' + TX_AI_NOT_READY; // [448] ข้อ 6 — AI ล่ม กระทบเฉพาะการอ่าน Invoice
   if(!txMstReady())        return '⚠ ' + TX_MST_MSG_NONE;  // [451] ไม่มีทั้งไฟล์ที่เลือกและ MASTER ACTIVE = Export ไม่ได้
-  if(!hsReady())           return '⚠ ' + HS_MSG_NONE + ' — เลือกไฟล์ที่กรอบ HS CODE MASTER';   // [452]
+  if(!hsReady())           return '⚠ ' + HS_MSG_NONE + ' — บันทึกครั้งเดียวที่เมนู HS CODE แล้วระบบจะใช้ ACTIVE ล่าสุดอัตโนมัติ';
   if(!txState.pdfs.length) return '✓ ' + TX_READY + ' — รอไฟล์ INVOICE PDF';
   return '✓ ' + TX_READY_PDF + ' · แนบแล้ว ' + txState.pdfs.length + ' ไฟล์ — AI กำลังเริ่มอ่านอัตโนมัติ';
 }
@@ -12963,7 +12983,7 @@ document.addEventListener('DOMContentLoaded', function(){
   if(mi) mi.addEventListener('change', e => txMstPick(e.target.files));
   const hi = document.getElementById('tx-hs-input');
   if(hi) hi.addEventListener('change', e => hsPick(e.target.files));
-  for(const hb of [document.getElementById('hs-box'), document.getElementById('tx-hs-box')]){
+  for(const hb of [document.getElementById('hs-box')]){
     if(!hb) continue;
     ['dragenter','dragover'].forEach(ev => hb.addEventListener(ev, e => {
       e.preventDefault(); e.stopPropagation(); hb.classList.add('drag'); }));
@@ -25831,6 +25851,8 @@ async function doLogin(){
       _isLocalUser = true;
       _currentUser = fakeSession.user;
       try{ localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(fakeSession.user)); }catch(_){}
+      /* เชื่อม AI อัตโนมัติด้วย Login ครั้งนี้ — ไม่เพิ่มปุ่มและไม่บังคับ Login แยก */
+      try{ if(typeof txIssueLocalSession === 'function') await txIssueLocalSession(ulocal, pass); }catch(_){}
       authMsg('เข้าสู่ระบบ (Local) ✓', 'ok');
       await onAuthSuccess(fakeSession);
       try{ if(typeof txBoot === 'function') txBoot(); }catch(_){}   // โหลด MASTER/HS + ตรวจ AI เบื้องหลัง
@@ -25875,7 +25897,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local452';
+const DEPLOY_VERSION = 'local453';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
