@@ -11299,8 +11299,9 @@ const TX_AI_FN    = 'nj-invoice-ai-tx';
 const TX_AI_MODEL = 'claude-sonnet-5-5';
 const TX_AI_MAXMS = 7 * 60 * 1000;          // เพดานรอผลต่อไฟล์
 let   _txSess        = null;   // { token, exp, username } — Memory + localStorage เท่านั้น
-let   _txSessReady   = false; // true = มี Token ที่ใช้ได้
-let   _txSessVerified= false; // true = ผ่าน session_check กับ Server แล้วในรอบเปิดหน้านี้
+let   _txSessReady   = false; // [448] true = มี Token TEXAS DB12 ที่ใช้ได้ (MASTER/HS CODE ใช้ค่านี้)
+let   _txSessVerified= false; // [448] true = AI พร้อม (ผ่าน session_check) — ใช้เฉพาะการอ่าน INVOICE PDF
+let   _txAiDown      = false; // [448] true = ติดต่อ AI ไม่ได้ แต่ Token ยังดี → MASTER/HS ต้องทำงานได้ตามปกติ
 let   _txSessChecking= false; // true = กำลังเชื่อมต่อ — ปิดปุ่มไว้ก่อน
 const TX_LS_KEY      = 'TX_AI_SESSION_V2';   // localStorage — ปิด/เปิด Browser ภายอายุ Session ยังใช้ได้
 const TX_SS_OLD      = 'TX_AI_SESSION_V1';   // รุ่นก่อน — ล้างทิ้งครั้งเดียวตอนโหลด
@@ -11309,11 +11310,20 @@ const TX_CONNECTING  = 'กำลังเชื่อมต่อ AI สำห�
 const TX_READY       = 'AI พร้อมใช้งาน';
 const TX_READY_PDF   = 'พร้อมตรวจสอบด้วย AI';
 const TX_EXPIRED     = 'Session หมดอายุ กรุณาเข้าสู่ระบบอีกครั้งเพื่อเชื่อมต่อ AI';
-const TX_LOGIN_NOAI  = 'เข้าสู่ระบบได้ แต่เชื่อมต่อ AI ไม่สำเร็จ กรุณาลองเข้าสู่ระบบใหม่';
+const TX_LOGIN_NOAI  = 'เข้าสู่ระบบ TEXAS DB12 ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+/* [448] ข้อความของ "ระบบที่ 1 — MASTER Mapping" และสถานะ AI — ห้ามปนกัน */
+const TX_SESS_EXPIRED = 'Session TEXAS DB12 หมดอายุ กรุณาเข้าสู่ระบบใหม่';
+const TX_AI_NOT_READY = 'AI ยังไม่พร้อม จึงยังไม่สามารถอ่าน Invoice PDF ได้';
+const TX_MST_FAIL = () => _txMstActive
+  ? ('บันทึก Version ใหม่ไม่สำเร็จ ระบบยังใช้ MASTER Version ' + _txMstActive.version + ' เดิม')
+  : 'บันทึก MASTER ไม่สำเร็จ ขณะนี้ยังไม่มี MASTER ACTIVE';
+const HS_FAIL = () => _hsActive
+  ? ('บันทึก Version ใหม่ไม่สำเร็จ ระบบยังใช้ HS CODE Version ' + _hsActive.version + ' เดิม')
+  : 'บันทึก HS CODE ไม่สำเร็จ ขณะนี้ยังไม่มี HS CODE ACTIVE';
 
 /* ข้อ 8 — ล้าง Session ทุกที่ (Logout · หมดอายุ · Username ไม่ตรง · 401) */
 function txClearSession(){
-  _txSess = null; _txSessReady = false; _txSessVerified = false; _txSessChecking = false;
+  _txSess = null; _txSessReady = false; _txSessVerified = false; _txSessChecking = false; _txAiDown = false;
   try{ localStorage.removeItem(TX_LS_KEY); }catch(_){}
   try{ sessionStorage.removeItem(TX_SS_OLD); }catch(_){}   // ล้างของรุ่นก่อนทิ้ง
   try{ txCheckReady(); }catch(_){}
@@ -11361,6 +11371,7 @@ function txRestoreSession(currentUsername){
       txClearSession(); return false;
     }
     _txSess = { token:token, exp:exp, username:username };
+    _txSessReady = true;         // [448] มี Token ที่ยังไม่หมดอายุ = MASTER/HS CODE ใช้งานได้ทันที
     return true;
   }catch(error){ txClearSession(); return false; }
 }
@@ -11372,28 +11383,43 @@ function txHasSession(){
   }
   return !!(_txSess && _txSess.token && _txSessReady);
 }
+/* [448] AI พร้อมหรือไม่ — ใช้เฉพาะการอ่าน INVOICE PDF · ห้ามนำไปกั้น MASTER หรือ HS CODE */
+function txAiReady(){ return txHasSession() && _txSessVerified && !_txAiDown; }
 /* ข้อ 9 — ถาม Server ว่า Session ใช้ได้จริงไหม
    ไม่รับ PDF · ไม่เรียก Claude · ไม่สร้างแถวใน nj_ai_jobs · ค่า API = 0 */
 async function txSessionCheck(){
   if(!(_txSess && _txSess.token)) return false;
   try{
     const j = await txAiPost({ session:_txSess.token, action:'session_check' });
-    if(j && j.success && j.authenticated){ _txSessReady = true; _txSessVerified = true; return true; }
-  }catch(e){ try{ console.warn('[TX] ตรวจ Session ไม่สำเร็จ', e); }catch(_){} }
-  txClearSession();
+    if(j && j.success && j.authenticated){
+      _txSessReady = true; _txSessVerified = true; _txAiDown = false; return true;
+    }
+    /* [448] Server ยืนยันว่า Token ใช้ไม่ได้จริง → ล้างทิ้ง (เฉพาะกรณีนี้เท่านั้น) */
+    if(j && (j.authenticated === false || j.error === 'unauthorized' || j.error === 'session_expired')){
+      txClearSession(); return false;
+    }
+  }catch(e){ try{ console.warn('[TX] ตรวจสถานะ AI ไม่สำเร็จ', e); }catch(_){} }
+  /* [448] ติดต่อ AI ไม่ได้ (Edge Function/เครือข่ายล่ม) → เก็บ Token ไว้
+     MASTER และ HS CODE ต้องเลือกไฟล์ · SAVE · Lookup ได้ตามปกติ */
+  _txSessVerified = false; _txAiDown = true;
   return false;
 }
 /* ข้อ 10 — Auto Connection ตอนเปิดเว็บ/Refresh — ผู้ใช้ไม่ต้องกดปุ่มใดเลย */
 async function txBootSession(username){
   if(!txRestoreSession(username)){ try{ txCheckReady(); }catch(_){} return false; }
-  _txSessReady = false; _txSessVerified = false; _txSessChecking = true;
+  /* [448] มี Token ที่ยังไม่หมดอายุแล้ว → ระบบที่ 1 (MASTER Mapping) พร้อมใช้งานทันที
+     ไม่รอและไม่ขึ้นกับสถานะ AI — โหลด MASTER/HS CODE ACTIVE ก่อนเสมอ */
+  _txSessReady = true; _txSessVerified = false; _txAiDown = false;
+  try{ await txMstLoadActive(); }catch(_){}
+  try{ await hsLoadActive(); }catch(_){}
+  _txSessChecking = true;
   try{ txCheckReady(); txSetStatus(TX_CONNECTING); }catch(_){}
-  const ok = await txSessionCheck();
-  if(ok){ try{ await txMstLoadActive(); }catch(_){}   // [441] โหลด MASTER ACTIVE ทันทีที่ AI พร้อม
-          try{ await hsLoadActive(); }catch(_){} }    // [446] โหลด HS CODE ACTIVE ด้วย
+  const ok = await txSessionCheck();          // ระบบที่ 2 (Invoice AI) เท่านั้น
   _txSessChecking = false;
   try{ txCheckReady(); txSetStatus(txHint(), ok ? 'ok' : 'err'); }catch(_){}
-  return ok;
+  /* [448] คืนค่าตามสถานะ "Session TEXAS DB12" ไม่ใช่สถานะ AI
+     → AI ล่มจะไม่ทำให้ระบบบังคับออกจากระบบอีกต่อไป (ข้อ 6) */
+  return txHasSession();
 }
 /* ข้อ 14 — เพิกถอน Token ที่ Server ก่อนออกจากระบบ (ล้มเหลวก็ยังต้องล้างฝั่ง Browser) */
 async function txLogoutServer(){
@@ -11655,9 +11681,11 @@ async function txRun(){
   _txRunning = true; if(bExp) bExp.disabled = true;
   txState.res = null; txState.list = null; txRenderResult();
   try{
-    if(!txHasSession()) throw new Error(TX_NO_SESS);
-    /* [438] ก่อนส่ง PDF ครั้งแรกของรอบนี้ — ถาม Server ว่า Session ยังใช้ได้จริง (ไม่เรียก Claude) */
-    if(!_txSessVerified && !(await txSessionCheck())) throw new Error(TX_NO_SESS);
+    if(!txHasSession()) throw new Error(TX_SESS_EXPIRED);
+    /* [438] ก่อนส่ง PDF ครั้งแรกของรอบนี้ — ถาม Server ว่า Session ยังใช้ได้จริง (ไม่เรียก Claude)
+       [448] ล้มเหลวเพราะ AI = แจ้งเฉพาะฝั่ง Invoice ไม่กระทบ MASTER/HS CODE */
+    if(!_txSessVerified && !(await txSessionCheck()))
+      throw new Error(txHasSession() ? TX_AI_NOT_READY : TX_SESS_EXPIRED);
     const map = new Map(), unclear = [];
     let cost = 0, inTok = 0, outTok = 0, reqs = 0, allCached = true, modelUsed = '';
     for(let i = 0; i < txState.pdfs.length; i++){
@@ -11784,20 +11812,39 @@ async function txMatch(){
   }
 }
 /* [447] ข้อ 1 — เริ่มให้ AI อ่านเองทันทีที่แนบ PDF · ถ้า Session ยังเชื่อมไม่เสร็จให้รอก่อน (ไม่เกิน 20 วินาที) */
-let _txAutoWait = 0;
-async function txAutoRun(){
+let _txAutoWait = 0, _txAiRetry = 0;
+const TX_AI_RETRY_MAX = 3, TX_AI_RETRY_MS = 20000;   // [448] ข้อ 6 — Retry จำกัดจำนวน ห้ามวนไม่สิ้นสุด
+async function txAutoRun(opt){
   if(_txRunning || !txState.pdfs.length) return;
+  if(!(opt && opt.retry)) _txAiRetry = 0;              // แนบไฟล์ใหม่ = เริ่มนับ Retry ใหม่
   const seq = ++_txAutoWait;
   for(let i = 0; i < 40; i++){
-    if(seq !== _txAutoWait) return;                       // มีการแนบไฟล์ชุดใหม่ซ้อนเข้ามา
+    if(seq !== _txAutoWait) return;                   // มีการแนบไฟล์ชุดใหม่ซ้อนเข้ามา
     if(!txState.pdfs.length) return;
-    if(txHasSession() && !_txSessChecking) break;
-    if(!_txSessChecking && !txHasSession() && i > 2){      // เชื่อม AI ไม่ได้จริง ๆ
-      txSetStatus('✗ ' + TX_NO_SESS, 'err'); return; }
+    if(!_txSessChecking) break;
     await new Promise(r => setTimeout(r, 500));
   }
   if(seq !== _txAutoWait || _txRunning || !txState.pdfs.length) return;
-  if(!txHasSession()){ txSetStatus('✗ ' + TX_NO_SESS, 'err'); return; }
+  if(!txHasSession()){ txSetStatus('✗ ' + TX_SESS_EXPIRED, 'err'); return; }
+  /* [448] ข้อ 6 — AI ยังไม่พร้อม: แจ้งที่กรอบ Invoice · ไม่ล้าง MASTER/HS · ไม่บังคับออกจากระบบ
+     ลองเชื่อม AI ใหม่ได้ไม่เกิน TX_AI_RETRY_MAX ครั้ง แล้วหยุด */
+  if(_txAiDown || !_txSessVerified){
+    const ok = await txSessionCheck();
+    try{ txCheckReady(); }catch(_){}
+    if(!ok){
+      if(!txHasSession()){ txSetStatus('✗ ' + TX_SESS_EXPIRED, 'err'); return; }
+      if(_txAiRetry < TX_AI_RETRY_MAX){
+        _txAiRetry++;
+        txSetStatus('⚠ ' + TX_AI_NOT_READY + ' · จะลองเชื่อมต่อใหม่อัตโนมัติ (' +
+                    _txAiRetry + '/' + TX_AI_RETRY_MAX + ')', 'err');
+        setTimeout(() => { if(txState.pdfs.length && !_txRunning) txAutoRun({ retry:true }); }, TX_AI_RETRY_MS);
+      } else {
+        txSetStatus('✗ ' + TX_AI_NOT_READY + ' · ลองครบ ' + TX_AI_RETRY_MAX +
+                    ' ครั้งแล้ว — MASTER และ HS CODE ยังใช้งานได้ตามปกติ', 'err');
+      }
+      return;
+    }
+  }
   await txRun();
 }
 /* ลองใหม่เฉพาะไฟล์ที่ล้มเหลว — ไม่กระทบไฟล์ที่อ่านสำเร็จแล้ว (ใช้ Cache เดิม) */
@@ -11829,7 +11876,8 @@ function txRenderLists(){
 }
 function txHint(){
   if(_txSessChecking)      return TX_CONNECTING;          // [439] กำลังเชื่อมต่อ AI — ปิดปุ่มไว้ก่อน
-  if(!txHasSession())      return '⚠ ' + TX_NO_SESS;      // ไม่มี Session = ปุ่มตรวจสอบถูกปิด
+  if(!txHasSession())      return '⚠ ' + TX_SESS_EXPIRED; // [448] Session TEXAS DB12 หมดอายุ
+  if(_txAiDown)            return '⚠ ' + TX_AI_NOT_READY; // [448] ข้อ 6 — AI ล่ม กระทบเฉพาะการอ่าน Invoice
   if(!_txMstActive)        return '⚠ ' + TX_MST_MSG_NONE;  // [441] ไม่มี MASTER ACTIVE = Export ไม่ได้
   if(!_hsActive)           return '⚠ ' + HS_MSG_NONE;      // [446] ไม่มี HS CODE ACTIVE = Export ไม่ได้
   if(!txState.pdfs.length) return '✓ ' + TX_READY + ' — รอไฟล์ INVOICE PDF';
@@ -11959,16 +12007,20 @@ const HS_MSG_OK  = 'พบข้อมูลใน HS CODE MASTER ครบท�
 
 /* ── เรียก RPC ของ MASTER (ส่ง Session ทุกครั้ง · Server เป็นผู้ตัดสินสิทธิ์) ── */
 async function txMstRpc(fn, body){
-  const tk = _txSess && _txSess.token;
-  if(!tk) throw new Error(TX_NO_SESS);
+  /* [448] ระบบที่ 1 — ตรวจเฉพาะ Session TEXAS DB12 · ห้ามตรวจสถานะ AI ทุกกรณี */
+  const tk = txHasSession() ? _txSess.token : '';
+  if(!tk) throw new Error(TX_SESS_EXPIRED);
   const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/' + fn, {
     method:'POST',
     headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json' },
     body: JSON.stringify(Object.assign({ p_session: tk }, body || {}))
   });
   let j = null; try{ j = await r.json(); }catch(e){}
-  if(!j) throw new Error('เซิร์ฟเวอร์ตอบข้อมูลไม่ถูกต้อง (HTTP ' + r.status + ')');
-  if(j.success === false) throw new Error(j.msg || 'ทำรายการ MASTER ไม่สำเร็จ');
+  if(!j) throw new Error('ไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้ (HTTP ' + r.status + ')');
+  if(j.success === false){
+    if(j.error === 'unauthorized') throw new Error(TX_SESS_EXPIRED);
+    throw new Error(j.msg || 'ไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้');
+  }
   return j;
 }
 /* ── โหลด MASTER ACTIVE + ประวัติ Version ── */
@@ -12045,10 +12097,12 @@ function txMstRender(){
     /* ข้อความล่าสุดจากการกระทำ (อ่าน/SAVE/คืนค่า) ต้องอยู่ต่อ ไม่ถูกสรุปสถานะเขียนทับ */
     if(_txMstMsg){ bar.textContent = 'MASTER: ' + _txMstMsg; bar.className = 'tx-status' + (_txMstMsgCls ? ' ' + _txMstMsgCls : ''); }
     else {
-      bar.textContent = 'MASTER: ' + (A ? ('Version ' + A.version + ' · ' + A.file_name + ' · ไม่ซ้ำ ' + A.codes_uniq + ' รหัส')
-                                        : 'ยังไม่มี Version ที่พร้อมใช้งาน') +
-        (txState.res && txState.res.mst ? (' · พบ ' + txState.res.mst.found + ' · ไม่พบ ' + txState.res.mst.miss) : '');
-      bar.className = 'tx-status';
+      /* [448] ข้อ 7 — มี ACTIVE = เขียว · ยังไม่มี = แดง */
+      bar.textContent = A
+        ? ('MASTER ACTIVE · Version ' + A.version + ' · ' + Number(A.codes_uniq).toLocaleString() + ' Product Code' +
+           (txState.res && txState.res.mst ? (' · พบ ' + txState.res.mst.found + ' · ไม่พบ ' + txState.res.mst.miss) : ''))
+        : ('MASTER: ' + TX_MST_MSG_NONE);
+      bar.className = 'tx-status' + (A ? ' ok' : ' err');
     }
   }
   const en = (id, on) => { const e = document.getElementById(id); if(e) e.disabled = !on; };
@@ -12205,16 +12259,20 @@ function normalizeHsTariffCode(v){
   return null;
 }
 async function hsRpc(fn, body){
-  const tk = _txSess && _txSess.token;
-  if(!tk) throw new Error(TX_NO_SESS);
+  /* [448] ระบบที่ 1 — ตรวจเฉพาะ Session TEXAS DB12 · ห้ามตรวจสถานะ AI ทุกกรณี */
+  const tk = txHasSession() ? _txSess.token : '';
+  if(!tk) throw new Error(TX_SESS_EXPIRED);
   const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/' + fn, {
     method:'POST',
     headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json' },
     body: JSON.stringify(Object.assign({ p_session: tk }, body || {}))
   });
   let j = null; try{ j = await r.json(); }catch(e){}
-  if(!j) throw new Error('เซิร์ฟเวอร์ตอบข้อมูลไม่ถูกต้อง (HTTP ' + r.status + ')');
-  if(j.success === false) throw new Error(j.msg || 'ทำรายการ HS CODE ไม่สำเร็จ');
+  if(!j) throw new Error('ไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้ (HTTP ' + r.status + ')');
+  if(j.success === false){
+    if(j.error === 'unauthorized') throw new Error(TX_SESS_EXPIRED);
+    throw new Error(j.msg || 'ไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้');
+  }
   return j;
 }
 async function hsLoadActive(){
@@ -12417,7 +12475,7 @@ async function hsSave(){
              Number(c.rows).toLocaleString() + ' รายการ', 'ok');
     hsInvalidate();
   }catch(e){
-    hsSetBar('บันทึกไม่สำเร็จ — ' + (e && e.message ? e.message : e) + ' · HS CODE เดิมยังใช้งานได้ตามปกติ', 'err');
+    hsSetBar(HS_FAIL() + ' — ' + (e && e.message ? e.message : e), 'err');
   }finally{ _hsBusy = false; hsRender(); }
 }
 async function hsRollback(ver){
@@ -12473,10 +12531,11 @@ async function txMstSave(){
     _txMstStagedFile = null; _txMstStaged = null;
     const el = document.getElementById('tx-mst-input'); if(el) el.value = '';
     await txMstLoadActive();
-    txMstSetBar('บันทึกสำเร็จ · Version ' + j.version + ' · ' + j.rows + ' รหัส — ทุกเครื่องจะเห็น Version นี้', 'ok');
+    txMstSetBar('MASTER ACTIVE · Version ' + j.version + ' · ' + Number(j.rows).toLocaleString() +
+                ' Product Code · บันทึกสำเร็จ ทุกเครื่องจะเห็น Version นี้', 'ok');
     txMstInvalidate();
   }catch(e){
-    txMstSetBar('บันทึกไม่สำเร็จ — ' + (e && e.message ? e.message : e) + ' · MASTER เดิมยังใช้งานได้ตามปกติ', 'err');
+    txMstSetBar(TX_MST_FAIL() + ' — ' + (e && e.message ? e.message : e), 'err');
   }finally{
     _txMstBusy = false; txMstRender();
   }
@@ -25717,7 +25776,7 @@ async function doLogin(){
       _isLocalUser = true;
       _currentUser = fakeSession.user;
       try{ localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(fakeSession.user)); }catch(_){}
-      authMsg('เข้าสู่ระบบ (Local) ✓ · ' + TX_READY, 'ok');
+      authMsg('เข้าสู่ระบบ (Local) ✓', 'ok');   // [448] ไม่อ้างสถานะ AI ตั้งแต่ยังไม่ได้ตรวจ
       try{ await txMstLoadActive(); }catch(_){}        // [441] โหลด MASTER ACTIVE ทันทีหลัง Login
       try{ await hsLoadActive(); }catch(_){}           // [446] โหลด HS CODE ACTIVE ทันทีหลัง Login
       await onAuthSuccess(fakeSession);
@@ -25768,7 +25827,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local447';
+const DEPLOY_VERSION = 'local448';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
