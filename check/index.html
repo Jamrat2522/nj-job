@@ -1295,6 +1295,7 @@ body.legacy-active .content-area { display: none !important; }
   <div class="doa-panel" id="chkd-result" style="display:none"></div>
 </div><!-- /chkd-view -->
 <!-- ═══ ★ [local112] โหมด ELE TYPE 0 (PDF → Excel AI) — View แยก #eleai-view · Handler eleai* · ไม่ใช้ State/Logic ของ TYPE 0 / TYPE IEAT / TYPE 1 / TYPE D / TYPE P เดิม
+     local116: Drag & Drop ไฟล์ในกรอบ ① / ② (ใช้ addPdfs / addPls ชุดเดียวกับปุ่มเลือกไฟล์) · คลิกพื้นที่กรอบเพื่อเลือกไฟล์ · แสดงจำนวนไฟล์ + สถานะแนบ
      local114: ซ่อนกรอบ ③ MASTER พิกัด ELE (UI เท่านั้น — ระบบเชื่อม MASTER เบื้องหลังเหมือนเดิม) · กรอบอัปโหลด 2 กรอบ 50/50 · Mobile เรียงแนวตั้ง
      local112: ตัวเลือก AI (AUTO / Sonnet 5.5 / Opus 5.5) · ประมวลผลหลังแนบไฟล์ · EXPORT EXCEL ปุ่มเดียวด้านบน · AI RESULT · ไม่มี Preview ด้านล่าง ═══ -->
 <div class="doa-view" id="eleai-view">
@@ -1344,6 +1345,17 @@ body.legacy-active .content-area { display: none !important; }
     #eleai-view .el-more .btn{background:#b45309;color:#fff;border:none;padding:8px 14px;font-size:12px}
     #eleai-view .el-sec:empty{display:none}
     #eleai-view .el-card[hidden]{display:none!important}
+    #eleai-view .el-card.dz{position:relative;cursor:pointer;transition:background .12s,border-color .12s,box-shadow .12s}
+    #eleai-view .el-card.dz:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+    #eleai-view .el-card.dz .el-list,#eleai-view .el-card.dz .el-pick .btn{cursor:auto} #eleai-view .el-card.dz .el-pick .btn{cursor:pointer}
+    #eleai-view .el-card.c1.dz-on{border-style:solid;border-color:#2563eb;background:#dbeafe;box-shadow:0 0 0 3px rgba(37,99,235,.18)}
+    #eleai-view .el-card.c2.dz-on{border-style:solid;border-color:#ea580c;background:#ffedd5;box-shadow:0 0 0 3px rgba(234,88,12,.18)}
+    #eleai-view .el-dz-hint{display:none;position:absolute;inset:0;align-items:center;justify-content:center;border-radius:8px;font-size:15px;font-weight:800;pointer-events:none;z-index:2}
+    #eleai-view .el-card.c1 .el-dz-hint{color:#1d4ed8;background:rgba(219,234,254,.97)} #eleai-view .el-card.c2 .el-dz-hint{color:#c2410c;background:rgba(255,237,213,.97)}
+    #eleai-view .el-card.dz-on .el-dz-hint{display:flex}
+    #eleai-view .el-dz-tip{align-self:center;font-size:11px;color:var(--text3)}
+    #eleai-view .el-cnt{font-weight:700;color:#475569}
+    #eleai-view .el-dz-msg{font-size:11.5px;font-weight:700;line-height:1.4;overflow-wrap:anywhere} #eleai-view .el-dz-msg:empty{display:none}
     @media (max-width:760px){ #eleai-view .el-grid{grid-template-columns:1fr} }
     @media (max-width:640px){ #eleai-view #eleai-btn-export{width:100%;justify-content:center} #eleai-view .el-tot{grid-template-columns:repeat(2,minmax(0,1fr))} #eleai-view .el-ai label{flex:1 1 100%} }
   </style>
@@ -1362,16 +1374,20 @@ body.legacy-active .content-area { display: none !important; }
     <div class="el-prog" id="eleai-prog"></div>
     <div class="el-bar" id="eleai-bar" style="display:none"><i></i></div>
     <div class="el-grid">
-      <div class="el-card c1">
-        <h3>① UPLOAD INVOICE PDF</h3>
+      <div class="el-card c1 dz" id="eleai-dz-pdf" tabindex="0" title="คลิกเพื่อเลือกไฟล์ หรือ ลาก Invoice PDF มาวาง">
+        <div class="el-dz-hint">⬇ วางไฟล์ที่นี่เพื่ออัปโหลด</div>
+        <h3>① UPLOAD INVOICE PDF<span class="el-cnt" id="eleai-pdf-cnt"></span></h3>
         <div class="el-sub">PDF หลายไฟล์ · รองรับ PDF สแกน (ไม่มี Text) · AI อ่านทุกหน้า ทุกรายการ</div>
-        <div class="el-pick"><button class="btn" type="button" id="eleai-btn-pdf">📂 เลือก Invoice PDF</button><input type="file" id="eleai-pdf" accept=".pdf,application/pdf" multiple hidden/></div>
+        <div class="el-pick"><button class="btn" type="button" id="eleai-btn-pdf">📂 เลือก Invoice PDF</button><input type="file" id="eleai-pdf" accept=".pdf,application/pdf" multiple hidden/><span class="el-dz-tip">หรือ ลากไฟล์ PDF มาวางในกรอบนี้</span></div>
+        <div class="el-dz-msg" id="eleai-pdf-msg" aria-live="polite"></div>
         <ul class="el-list" id="eleai-pdf-list"></ul>
       </div>
-      <div class="el-card c2">
-        <h3>② UPLOAD PACKING LIST (PL)</h3>
+      <div class="el-card c2 dz" id="eleai-dz-pl" tabindex="0" title="คลิกเพื่อเลือกไฟล์ หรือ ลาก Packing List (XLS / XLSX) มาวาง">
+        <div class="el-dz-hint">⬇ วางไฟล์ที่นี่เพื่ออัปโหลด</div>
+        <h3>② UPLOAD PACKING LIST (PL)<span class="el-cnt" id="eleai-pl-cnt"></span></h3>
         <div class="el-sub">XLS / XLSX หลายไฟล์ · Net Weight จาก PL จริง · จับคู่ Part Number + Order No. + Quantity</div>
-        <div class="el-pick"><button class="btn" type="button" id="eleai-btn-pl">📂 เลือก Packing List</button><input type="file" id="eleai-pl" accept=".xls,.xlsx" multiple hidden/></div>
+        <div class="el-pick"><button class="btn" type="button" id="eleai-btn-pl">📂 เลือก Packing List</button><input type="file" id="eleai-pl" accept=".xls,.xlsx" multiple hidden/><span class="el-dz-tip">หรือ ลากไฟล์ XLS / XLSX มาวางในกรอบนี้</span></div>
+        <div class="el-dz-msg" id="eleai-pl-msg" aria-live="polite"></div>
         <ul class="el-list" id="eleai-pl-list"></ul>
       </div>
       <div class="el-card c3" hidden aria-hidden="true"><!-- ★ [local114] ซ่อนเฉพาะ UI · MASTER พิกัด ELE + MASTER HS CODE เชื่อมอัตโนมัติทุกครั้งที่ประมวลผล / EXPORT -->
@@ -9074,37 +9090,72 @@ window.ELEAI_CORE = (function(){
     const li = (x, i, kind, meta) => '<li class="' + (x.err ? 'err' : '') + '"><span class="n" title="' + esc(x.name) + '">' + (kind === 'pdf' ? '📄 ' : '📗 ') + esc(x.name) + '</span><span class="m">' + esc(meta) + '</span><button type="button" data-k="' + kind + '" data-i="' + i + '" title="นำออก">✕</button></li>';
     $('eleai-pdf-list').innerHTML = S.pdfs.map((x, i) => li(x, i, 'pdf', x.err ? x.err : (x.nPages + ' หน้า · ' + (x.size / 1048576).toFixed(2) + ' MB'))).join('');
     $('eleai-pl-list').innerHTML = S.pls.map((x, i) => li(x, i, 'pl', x.err ? x.err : (x.p.rows.length + ' แถว · Qty ' + fmt(x.p.sumQty) + ' · NW ' + fmt(x.p.sumNw, 3)))).join('');
+    /* ★ [local116] จำนวนไฟล์ที่แนบ */
+    const pg = S.pdfs.reduce((a, x) => a + (x.err ? 0 : x.nPages), 0), rw = S.pls.reduce((a, x) => a + (x.err ? 0 : x.p.rows.length), 0);
+    $('eleai-pdf-cnt').textContent = S.pdfs.length ? ' · ' + S.pdfs.length + ' ไฟล์' + (pg ? ' · ' + fmt(pg) + ' หน้า' : '') : '';
+    $('eleai-pl-cnt').textContent = S.pls.length ? ' · ' + S.pls.length + ' ไฟล์' + (rw ? ' · ' + fmt(rw) + ' แถว' : '') : '';
   }
   function changed(){ S.last = null; S.allowOver = false; S.gen++; exportBtn(); $('eleai-result').innerHTML = ''; renderLists(); schedule(); }
   async function addPdfs(list){
+    let add = 0; const dup = [];
     for (const f of list){
       const x = { name: f.name, size: f.size, nPages: 0, err: '' };
       if (!/\.pdf$/i.test(f.name)){ x.err = 'ไม่ใช่ไฟล์ .pdf'; S.pdfs.push(x); continue; }
       try { const buf = await f.arrayBuffer(); x.hash = await sha(buf);
-        if (S.pdfs.some(p => p.hash === x.hash)){ prog('⚠️ ' + f.name + ' ซ้ำกับไฟล์ที่เลือกแล้ว — ไม่เพิ่มซ้ำ', '#b45309'); continue; }
+        if (S.pdfs.some(p => p.hash === x.hash)){ dup.push(f.name); continue; }
         const u = new Uint8Array(buf); if (!(u[0] === 0x25 && u[1] === 0x50 && u[2] === 0x44 && u[3] === 0x46)) throw new Error('เนื้อไฟล์ไม่ใช่ PDF');
         const L = await pdfLib(); x.doc = await L.PDFDocument.load(u, { ignoreEncryption: true, updateMetadata: false }); x.nPages = x.doc.getPageCount();
         if (!x.nPages) throw new Error('ไม่มีหน้า'); }
       catch (e){ x.err = 'เปิดไม่ได้: ' + String(e && e.message || e); }
-      S.pdfs.push(x);
+      S.pdfs.push(x); add++;
     }
-    changed();
+    if (add) changed();
+    return addMsg(add, dup);
   }
+  /* ★ [local116] สรุปผลการแนบ (ใช้ทั้งปุ่มเลือกไฟล์และลากวาง) */
+  function addMsg(add, dup){
+    return [add ? '✅ แนบสำเร็จ ' + add + ' ไฟล์' : '', dup.length ? '⚠️ ไฟล์ซ้ำกับที่แนบแล้ว — ไม่เพิ่มซ้ำ: ' + dup.join(', ') : ''].filter(Boolean).join(' · '); }
   async function addPls(list){
+    let add = 0; const dup = [];
     for (const f of list){
       const x = { name: f.name, err: '', p: { rows: [] } };
       if (!/\.xlsx?$/i.test(f.name)){ x.err = 'รองรับเฉพาะ .xls / .xlsx'; S.pls.push(x); continue; }
       try { const buf = await f.arrayBuffer(); x.hash = await sha(buf);
-        if (S.pls.some(p => p.hash === x.hash)){ prog('⚠️ ' + f.name + ' ซ้ำกับไฟล์ที่เลือกแล้ว — ไม่เพิ่มซ้ำ', '#b45309'); continue; }
+        if (S.pls.some(p => p.hash === x.hash)){ dup.push(f.name); continue; }
         const wb = XLSX.read(new Uint8Array(buf), { type: 'array' }); let best = null;
         for (const n of wb.SheetNames){ const aoa = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: '' }); const p = C.parsePL(aoa, f.name + (wb.SheetNames.length > 1 ? ' [' + n + ']' : ''));
           if (p.ok && (!best || p.rows.length > best.rows.length)) best = p; }
         if (!best) throw new Error('ไม่พบหัวตาราง Part number / Quantity / Net weight'); if (!best.rows.length) throw new Error('ไม่มีแถวข้อมูล');
         best.sheets = wb.SheetNames.length; x.p = best; }
       catch (e){ x.err = String(e && e.message || e); }
-      S.pls.push(x);
+      S.pls.push(x); add++;
     }
-    changed();
+    if (add) changed();
+    return addMsg(add, dup);
+  }
+  /* ★ [local116] Drag & Drop + ปุ่มเลือกไฟล์ ใช้ทางเดียวกัน: คัดชนิดไฟล์ → addPdfs / addPls (ทีละชุดตามลำดับ) → รายการไฟล์เดียวกับที่ส่งให้ AI / EXPORT */
+  let addQ = Promise.resolve();
+  const dzMsg = (k, t, c) => { const m = $('eleai-' + k + '-msg'); if (m){ m.textContent = t || ''; m.style.color = c || ''; } };
+  const isPdf = f => /\.pdf$/i.test(f.name), isXls = f => /\.xlsx?$/i.test(f.name);
+  function takeFiles(kind, list){
+    const ok = list.filter(kind === 'pdf' ? isPdf : isXls), bad = list.filter(f => !ok.includes(f));
+    const warn = bad.length ? '⚠️ ไฟล์ผิดประเภท ' + bad.length + ' ไฟล์ (' + bad.slice(0, 3).map(f => f.name).join(', ') + (bad.length > 3 ? ' …' : '') + ') — '
+      + (kind === 'pdf' ? 'กรอบนี้รับเฉพาะ Invoice PDF (.pdf)' + (bad.some(isXls) ? ' · ไฟล์ Excel ให้วางในกรอบ ② Packing List' : '')
+                        : 'กรอบนี้รับเฉพาะ Packing List (.xls / .xlsx)' + (bad.some(isPdf) ? ' · ไฟล์ PDF ให้วางในกรอบ ① Invoice PDF' : '')) + ' · ไม่ได้แนบ' : '';
+    if (!ok.length){ if (warn) dzMsg(kind, warn, '#b91c1c'); return addQ; }
+    dzMsg(kind, '⏳ กำลังอ่านไฟล์ ' + ok.length + ' ไฟล์ …', '#1d4ed8');
+    const run = async () => { let r = ''; try { r = await (kind === 'pdf' ? addPdfs : addPls)(ok); } catch (e){ r = '❌ แนบไม่สำเร็จ: ' + String(e && e.message || e); }
+      dzMsg(kind, [r, warn].filter(Boolean).join(' · '), warn || /⚠️|❌/.test(r) ? '#b45309' : '#15803d'); };
+    return (addQ = addQ.then(run, run));
+  }
+  function dropZone(card, kind){
+    let n = 0; const files = e => !!(e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files'));
+    card.addEventListener('dragenter', e => { if (!files(e)) return; e.preventDefault(); n++; card.classList.add('dz-on'); });
+    card.addEventListener('dragover', e => { if (!files(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; card.classList.add('dz-on'); });
+    card.addEventListener('dragleave', e => { if (!files(e)) return; n = Math.max(0, n - 1); if (!n) card.classList.remove('dz-on'); });
+    card.addEventListener('drop', e => { if (!files(e)) return; e.preventDefault(); e.stopPropagation(); n = 0; card.classList.remove('dz-on'); takeFiles(kind, [...(e.dataTransfer.files || [])]); });
+    card.addEventListener('click', e => { if (e.target.closest('button, input, label, a, .el-list')) return; $('eleai-' + kind).click(); });
+    card.addEventListener('keydown', e => { if (e.target === card && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); $('eleai-' + kind).click(); } });
   }
   /* ประมวลผลหลังแนบไฟล์ (หน่วง 0.8 วิ เผื่อเลือกไฟล์ต่อ) · กำลังประมวลผลอยู่ = ทำรอบใหม่ต่อทันทีเมื่อเสร็จ */
   function schedule(){ clearTimeout(S.timer);
@@ -9462,14 +9513,22 @@ window.ELEAI_CORE = (function(){
     catch (e){ bar(null); prog('❌ ส่งออกไม่สำเร็จ: ' + String(e && e.message || e) + ' — ไม่ได้ใช้ข้อมูล MASTER เดิมแทน กด EXPORT EXCEL เพื่อลองใหม่', '#c00000'); }
     finally { exporting = false; exportBtn(); }
   }
-  function clearAll(){ if (S.busy || exporting) return; S.pdfs = []; S.pls = []; S.last = null; S.wantExport = false; S.gen++; clearTimeout(S.timer); exportBtn(); $('eleai-result').innerHTML = ''; prog(''); bar(null); renderLists(); $('eleai-pdf').value = ''; $('eleai-pl').value = ''; }
+  function clearAll(){ if (S.busy || exporting) return; S.pdfs = []; S.pls = []; S.last = null; S.wantExport = false; S.gen++; clearTimeout(S.timer); exportBtn(); $('eleai-result').innerHTML = ''; prog(''); bar(null); renderLists(); $('eleai-pdf').value = ''; $('eleai-pl').value = ''; dzMsg('pdf', ''); dzMsg('pl', ''); }
 
   function bind(){
     if (!$('eleai-view')) return;
     $('eleai-btn-pdf').addEventListener('click', () => $('eleai-pdf').click());
     $('eleai-btn-pl').addEventListener('click', () => $('eleai-pl').click());
-    $('eleai-pdf').addEventListener('change', e => { const l = [...(e.target.files || [])]; e.target.value = ''; addPdfs(l); });
-    $('eleai-pl').addEventListener('change', e => { const l = [...(e.target.files || [])]; e.target.value = ''; addPls(l); });
+    $('eleai-pdf').addEventListener('change', e => { const l = [...(e.target.files || [])]; e.target.value = ''; takeFiles('pdf', l); });
+    $('eleai-pl').addEventListener('change', e => { const l = [...(e.target.files || [])]; e.target.value = ''; takeFiles('pl', l); });
+    dropZone($('eleai-dz-pdf'), 'pdf'); dropZone($('eleai-dz-pl'), 'pl');
+    /* กันเบราว์เซอร์เปิดไฟล์แทนการแนบ เมื่อปล่อยไฟล์นอกกรอบ ① / ② — เฉพาะตอนหน้า ELE TYPE 0 เปิดอยู่ */
+    ['dragover', 'drop'].forEach(t => window.addEventListener(t, e => {
+      const v = $('eleai-view'); if (!v || !v.classList.contains('active') || document.body.classList.contains('mpage-on')) return;
+      if (!(e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files'))) return;
+      if (e.target && e.target.closest && e.target.closest('#eleai-dz-pdf, #eleai-dz-pl')) return;
+      e.preventDefault(); if (t === 'dragover') e.dataTransfer.dropEffect = 'none';
+      else dzMsg('pdf', '⚠️ วางไฟล์ในกรอบ ① Invoice PDF หรือ ② Packing List เท่านั้น — ไม่ได้แนบ', '#b45309'); }));
     ['eleai-pdf-list', 'eleai-pl-list'].forEach(id => $(id).addEventListener('click', e => { const b = e.target.closest('button[data-k]'); if (!b) return;
       (b.dataset.k === 'pdf' ? S.pdfs : S.pls).splice(+b.dataset.i, 1); changed(); }));
     document.querySelectorAll('#eleai-ai input[name="eleai-model"]').forEach(r => r.addEventListener('change', () => { if (!r.checked) return; S.sel = r.value;
