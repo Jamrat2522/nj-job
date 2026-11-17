@@ -11756,19 +11756,45 @@ function txMapDesc(v){
    ★ ตรวจสิทธิ์ที่ Server ทุกครั้งด้วย p_token (RPC nj_tx_master_*) — ซ่อนปุ่มอย่างเดียวไม่พอ
    ★ การค้นหา MASTER ไม่เรียก Claude API แม้แต่ครั้งเดียว
    ══════════════════════════════════════════════════════════════════════════ */
-/* หัวข้อคอลัมน์ที่รับได้ในไฟล์ MASTER (Normalize = ตัดช่องว่าง/ขึ้นบรรทัด + ตัวพิมพ์เล็ก) */
+/* ── [444] Canonical Header Mapping (สเปกข้อ 5) ──
+   เทียบจากชื่อที่ Normalize แล้วเท่านั้น · รับทั้งแบบมีช่องว่างและแบบไม่มีช่องว่าง */
 const TX_MST_COL = {
-  code:   ['productcode/localcmpartnumber', 'productcode', 'localcmpartnumber'],
-  eng:    ['eng.desc1/productdescriptionsinenglish', 'eng.desc1', 'productdescriptionsinenglish'],
-  thai:   ['thai.desc3/goodsdescriptionsinlocalland', 'thai.desc3', 'goodsdescriptionsinlocalland'],
-  tariff: ['tariffclas/cmhscode', 'tariffclas', 'cmhscode'],
-  stat:   ['stat'], tseq: ['traffseq'], priv: ['privilege']
+  code:   ['productcode/local cm part number', 'product code', 'local cm part number',
+           'productcode', 'productcode/localcmpartnumber', 'localcmpartnumber'],
+  eng:    ['eng.desc1/product descriptions in english', 'eng desc1', 'eng.desc1',
+           'product descriptions in english', 'eng.desc1/productdescriptionsinenglish'],
+  thai:   ['thai.desc3/goods descriptions in local land', 'thai desc3', 'thai.desc3',
+           'goods descriptions in local land', 'descriptions thai 3',
+           'thai.desc3/goodsdescriptionsinlocalland'],
+  tariff: ['tariff clas/cm hs code', 'tariff class/cm hs code', 'cm hs code', 'tariff code',
+           'tariff clas', 'tariffclas/cmhscode'],
+  stat:   ['stat', 'statistical code'],
+  tseq:   ['traff seq', 'tariff seq', 'tariff sequence', 'traffseq'],
+  priv:   ['privilege', 'privilege code']
 };
+/* คอลัมน์บังคับ (สเปกข้อ 6) — Stat/Traff Seq/Privilege เป็นตัวเลือก ดูหมายเหตุใน txMstRead() */
+const TX_MST_REQ = ['code', 'thai', 'tariff'];
+const TX_MST_OPT = ['eng', 'stat', 'tseq', 'priv'];
+const TX_MST_LBL = { code:'productcode/Local CM Part Number', eng:'ENG.desc1 (English)',
+  thai:'THAI.desc3 (DESCRIPTIONS THAI 3)', tariff:'tariff clas/CM HS Code',
+  stat:'Stat', tseq:'Traff Seq', priv:'Privilege' };
+/* ค่าคงที่เดิมของ TEXAS DB12 — ใช้เมื่อไฟล์ MASTER ไม่มีคอลัมน์นั้น (ตรงกับ TX_FIX ที่ระบบใช้มาตลอด) */
+const TX_MST_DEF = { stat:'000', tseq:'65004', priv:'000' };
+
 /* Normalize Product Code: ตัดช่องว่างทุกชนิด + ไม่แยกพิมพ์เล็กใหญ่ · ห้ามตัด - / . */
 function txMstNorm(v){
   return String(v == null ? '' : v).replace(/[\s ​‌‍﻿]+/g, '').toUpperCase();
 }
-const txMstHdr = v => String(v == null ? '' : v).replace(/[\s ​﻿]+/g, '').toLowerCase();
+/* [444] normalizeTxMasterHeader — สเปกข้อ 4
+   \r \n \t NBSP → ช่องว่าง · ยุบช่องว่างซ้ำเหลือ 1 · ตัดหน้า-หลัง · พิมพ์เล็ก · เก็บ / . - ไว้ */
+function normalizeTxMasterHeader(v){
+  return String(v == null ? '' : v)
+    .replace(/[\r\n\t ​‌‍﻿]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+const txMstHdr = normalizeTxMasterHeader;
 
 let _txMstActive  = null;    // ข้อมูล MASTER Version ที่ ACTIVE อยู่ (จาก Server)
 let _txMstCanMng  = true;    // [443] หน้าเว็บไม่จำกัดสิทธิ์ — Server เป็นผู้ตัดสินทุกคำขอ
@@ -11782,7 +11808,7 @@ const TX_MST_MSG_OK   = 'ตรวจสอบสำเร็จ: พบข้�
 const TX_MST_MSG_NG   = n => 'พบ Product Code ที่ไม่มีใน MASTER จำนวน ' + n + ' รายการ กรุณาตรวจสอบก่อน EXPORT EXCEL';
 const TX_MST_MSG_ROW  = c => 'ไม่พบ Product Code [' + c + '] ใน MASTER — ระบบไม่เติม DESCRIPTIONS THAI 3, Tariff Code, Stat, Traff Seq และ Privilege';
 const TX_MST_MSG_BLUR = 'AI อ่าน Product Code ไม่ชัด กรุณาตรวจสอบจากเอกสารต้นฉบับ';
-const TX_MST_MSG_NONE = 'ยังไม่มี MASTER TEXAS DB12 ที่พร้อมใช้งาน กรุณาให้ SUPER_ADMIN อัปโหลดและบันทึก MASTER';
+const TX_MST_MSG_NONE = 'ยังไม่มี MASTER TEXAS DB12 ที่พร้อมใช้งาน กรุณาแนบไฟล์ อ่านและบันทึก MASTER';
 
 /* ── เรียก RPC ของ MASTER (ส่ง Session ทุกครั้ง · Server เป็นผู้ตัดสินสิทธิ์) ── */
 async function txMstRpc(fn, body){
@@ -11865,14 +11891,35 @@ function txMstRender(){
       h += '<div><span class="tx-mbadge" style="background:#fee2e2;color:#b91c1c">ยังไม่มี MASTER ACTIVE</span></div>' +
            '<div style="color:#b91c1c">' + esc(TX_MST_MSG_NONE) + '</div>';
     }
-    if(St) h += '<div style="margin-top:4px;padding-top:4px;border-top:1px dashed var(--line,#cbd5e1)">' +
-      '<span class="tx-mbadge" style="background:#fef3c7;color:#b45309">ไฟล์ใหม่ที่ยังไม่ SAVE</span> ' +
-      '<b>' + esc(St.name) + '</b><div>ชีท: ' + esc(St.sheet) + ' · แถว: <b>' + St.stats.rows_total + '</b>' +
-      ' · ไม่ซ้ำ: <b>' + St.stats.codes_uniq + '</b> · ซ้ำ: <b>' + St.stats.codes_dup + '</b>' +
-      ' · ข้อผิดพลาด: <b style="color:' + (St.stats.errors ? '#b91c1c' : 'inherit') + '">' + St.stats.errors + '</b></div>' +
-      (St.errList.length ? '<div style="color:#b91c1c">' + St.errList.slice(0,5).map(esc).join('<br>') +
-        (St.errList.length > 5 ? '<br>… รวม ' + St.errList.length + ' รายการ' : '') + '</div>' : '') +
-      '<div style="color:var(--text3);font-size:10px">SHA-256 ' + esc(String(St.sha).slice(0,16)) + '…</div></div>';
+    if(St){
+      const T = St.stats;
+      h += '<div style="margin-top:4px;padding-top:4px;border-top:1px dashed var(--line,#cbd5e1)">' +
+        '<span class="tx-mbadge" style="background:#fef3c7;color:#b45309">ไฟล์ใหม่ที่ยังไม่ SAVE</span> <b>' + esc(St.name) + '</b>' +
+        '<div>ชีทที่อ่าน: <b>' + esc(St.sheet) + '</b></div>' +
+        '<div>แถว: <b>' + T.rows_total.toLocaleString() + '</b> · ไม่ซ้ำ: <b>' + T.codes_uniq.toLocaleString() + '</b>' +
+        ' · ซ้ำ: <b>' + T.codes_dup + '</b> · รหัสว่าง: <b>' + T.blank + '</b>' +
+        ' · Mapping ขัดแย้ง: <b style="color:' + (T.conflict ? '#b91c1c' : 'inherit') + '">' + T.conflict + '</b>' +
+        ' · ข้อผิดพลาด: <b style="color:' + (T.errors ? '#b91c1c' : 'inherit') + '">' + T.errors + '</b></div>' +
+        '<div style="color:var(--text3);font-size:10px">SHA-256 ' + esc(String(St.sha)) + '</div>';
+      if(St.notes && St.notes.length)
+        h += '<div style="color:#b45309;font-size:10.5px">⚠ ' + St.notes.map(esc).join('<br>⚠ ') + '</div>';
+      if(St.errList.length)
+        h += '<div style="color:#b91c1c;font-size:10.5px">' + St.errList.slice(0,8).map(esc).join('<br>') +
+             (St.errList.length > 8 ? '<br>… รวม ' + St.errList.length + ' รายการ' : '') + '</div>';
+      /* Preview 20 แถวแรก พร้อมเลขแถวต้นฉบับ (สเปกข้อ 9) */
+      if(St.preview && St.preview.length){
+        h += '<div style="margin-top:5px;max-height:190px;overflow:auto">' +
+          '<table class="doa-tbl" style="font-size:10px;width:100%"><thead><tr>' +
+          ['แถว','Product Code','English Description','DESCRIPTIONS THAI 3','Tariff Code','Stat','Traff Seq','Privilege']
+            .map(x => '<th>' + esc(x) + '</th>').join('') + '</tr></thead><tbody>' +
+          St.preview.map(p => '<tr><td>' + p.row + '</td>' +
+            [p.rec[1], p.rec[2], p.rec[3], p.rec[4], p.rec[5], p.rec[6], p.rec[7]]
+              .map(v => '<td>' + esc(v) + '</td>').join('') + '</tr>').join('') +
+          '</tbody></table><div style="color:var(--text3);font-size:10px">แสดง ' + St.preview.length +
+          ' แถวแรกจาก ' + T.codes_uniq.toLocaleString() + ' รหัส</div></div>';
+      }
+      h += '</div>';
+    }
     info.innerHTML = h;
   }
   if(bar){
@@ -11887,7 +11934,7 @@ function txMstRender(){
   }
   const en = (id, on) => { const e = document.getElementById(id); if(e) e.disabled = !on; };
   en('tx-mst-read',   !!_txMstStagedFile && !_txMstBusy);
-  en('tx-mst-save',   !!(_txMstStaged && _txMstStaged.rows.length) && !_txMstBusy);
+  en('tx-mst-save',   !!(_txMstStaged && _txMstStaged.rows.length && !_txMstStaged.stats.conflict) && !_txMstBusy);
   en('tx-mst-cancel', (!!_txMstStagedFile || !!_txMstStaged) && !_txMstBusy);
 }
 /* ── เลือกไฟล์ MASTER — ห้ามกระทบ PDF และห้ามกระทบ MASTER ACTIVE ── */
@@ -11927,47 +11974,82 @@ async function txMstRead(){
   try{
     const buf = await _txMstStagedFile.arrayBuffer();
     const wb  = XLSX.read(new Uint8Array(buf), { type:'array' });
-    let sheet = null, hdrRow = null, map = null;
+
+    /* [444] สเปกข้อ 3 — ตรวจทุก Sheet · หาแถว Header ใน 20 แถวแรก
+       เลือก Sheet/แถวที่พบคอลัมน์บังคับครบมากที่สุด · ห้ามฟิกชื่อ Sheet */
+    let best = null; const seenSheets = [];
     for(const nm of wb.SheetNames){
       const aoa = XLSX.utils.sheet_to_json(wb.Sheets[nm], { header:1, defval:null, raw:false });
-      if(!aoa.length) continue;
-      const hdr = (aoa[0] || []).map(txMstHdr);
-      const m = {};
-      for(const k in TX_MST_COL){
-        for(const want of TX_MST_COL[k]){ const i = hdr.indexOf(want); if(i >= 0){ m[k] = i; break; } }
+      if(!aoa.length) { seenSheets.push({ nm, hdr: [] }); continue; }
+      let bestHere = null;
+      for(let hr = 0; hr < Math.min(20, aoa.length); hr++){
+        const hdr = (aoa[hr] || []).map(txMstHdr);
+        const m = {};
+        for(const k in TX_MST_COL){
+          for(const want of TX_MST_COL[k]){
+            const idx = hdr.indexOf(want);
+            if(idx >= 0){ m[k] = idx; break; }
+          }
+        }
+        const hit = TX_MST_REQ.filter(k => m[k] !== undefined).length;
+        if(!bestHere || hit > bestHere.hit) bestHere = { nm, aoa, hr, m, hit };
       }
-      if(m.code !== undefined && m.tariff !== undefined && m.stat !== undefined){ sheet = nm; hdrRow = aoa; map = m; break; }
+      seenSheets.push({ nm, hdr: (aoa[bestHere ? bestHere.hr : 0] || []).map(txMstHdr).filter(Boolean) });
+      if(bestHere && (!best || bestHere.hit > best.hit)) best = bestHere;
     }
-    if(!sheet) throw new Error('ไม่พบหัวคอลัมน์ "productcode/Local CM Part Number" และ "tariff clas/CM HS Code" ในไฟล์นี้');
+    if(!best || best.hit < TX_MST_REQ.length){
+      const miss = best ? TX_MST_REQ.filter(k => best.m[k] === undefined).map(k => '"' + TX_MST_LBL[k] + '"') : TX_MST_REQ.map(k => '"' + TX_MST_LBL[k] + '"');
+      throw new Error('ไม่พบคอลัมน์บังคับ ' + miss.join(' และ ') + ' ในไฟล์นี้\n' +
+        seenSheets.map(x => '• ชีท "' + x.nm + '" → ' + (x.hdr.length ? x.hdr.slice(0, 20).join(' | ') : '(ว่าง)')).join('\n'));
+    }
 
-    const get = (r, k) => (map[k] === undefined ? '' : String(r[map[k]] == null ? '' : r[map[k]]).trim());
-    const seen = new Map(), rows = [], errList = [];
-    let total = 0, dup = 0;
-    for(let i = 1; i < hdrRow.length; i++){
-      const r = hdrRow[i] || [];
-      if(r.every(v => v == null || String(v).trim() === '')) continue;
+    const { nm: sheet, aoa: rowsAoa, hr, m: map } = best;
+    const notes = [];
+    for(const k of TX_MST_OPT) if(map[k] === undefined)
+      notes.push('ไฟล์นี้ไม่มีคอลัมน์ "' + TX_MST_LBL[k] + '"' +
+        (TX_MST_DEF[k] !== undefined ? ' — ใช้ค่าคงที่เดิมของ TEXAS DB12 คือ "' + TX_MST_DEF[k] + '"' : ''));
+
+    const get = (r, k) => (map[k] === undefined ? (TX_MST_DEF[k] !== undefined ? TX_MST_DEF[k] : '')
+                                                : String(r[map[k]] == null ? '' : r[map[k]]).trim());
+    const seen = new Map(), rows = [], errList = [], preview = [];
+    let total = 0, dup = 0, blank = 0, conflict = 0;
+    for(let i = hr + 1; i < rowsAoa.length; i++){
+      const r = rowsAoa[i] || [];
+      if(r.every(v => v == null || String(v).trim() === '')) continue;   // ข้ามเฉพาะแถวว่างทุกช่อง
       total++;
+      const excelRow = i + 1;
       const raw = get(r, 'code'), key = txMstNorm(raw);
+      /* เก็บเป็นข้อความทั้งหมด · รักษาเลขศูนย์นำหน้า · ห้ามเติม 0 หน้า Tariff Code */
       const rec = [key, raw, get(r,'eng'), get(r,'thai'), get(r,'tariff'), get(r,'stat'), get(r,'tseq'), get(r,'priv')];
-      if(!key){ errList.push('แถว ' + (i+1) + ': ไม่มี Product Code'); continue; }
-      if(!/^\d{8}$/.test(rec[4])) errList.push('แถว ' + (i+1) + ' [' + raw + ']: Tariff Code ต้องเป็นตัวเลข 8 หลัก (พบ "' + rec[4] + '")');
-      if(!/^\d{3}$/.test(rec[5])) errList.push('แถว ' + (i+1) + ' [' + raw + ']: Stat ต้องเป็นตัวเลข 3 หลัก (พบ "' + rec[5] + '")');
-      if(seen.has(key)){
+      if(!key){ blank++; errList.push('แถว ' + excelRow + ': ไม่มี Product Code'); continue; }
+      if(!/^\d{8}$/.test(rec[4])) errList.push('แถว ' + excelRow + ' [' + raw + ']: Tariff Code ต้องเป็นตัวเลข 8 หลัก (พบ "' + rec[4] + '")');
+      if(!/^\d{3}$/.test(rec[5])) errList.push('แถว ' + excelRow + ' [' + raw + ']: Stat ต้องเป็นตัวเลข 3 หลัก (พบ "' + rec[5] + '")');
+      if(!/^\d{3}$/.test(rec[7])) errList.push('แถว ' + excelRow + ' [' + raw + ']: Privilege ต้องเป็นตัวเลข 3 หลัก (พบ "' + rec[7] + '")');
+      const prev = seen.get(key);
+      if(prev){
         dup++;
-        const a = seen.get(key);
-        if(a.slice(2).join('\u0001') !== rec.slice(2).join('\u0001'))
-          errList.push('แถว ' + (i+1) + ' [' + raw + ']: Product Code ซ้ำแต่ข้อมูลไม่ตรงกับแถวก่อนหน้า');
+        /* สเปกข้อ 8 — ซ้ำแต่ Mapping ต่างกัน = ห้าม SAVE และต้องบอกรหัสกับเลขแถวที่ขัดแย้ง */
+        if(prev.rec.slice(2).join('\u0001') !== rec.slice(2).join('\u0001')){
+          conflict++;
+          errList.push('แถว ' + excelRow + ' [' + raw + ']: Product Code ซ้ำกับแถว ' + prev.row + ' แต่ข้อมูล Mapping ไม่ตรงกัน');
+        }
         continue;
       }
-      seen.set(key, rec); rows.push(rec);
+      seen.set(key, { rec, row: excelRow });
+      rows.push(rec);
+      if(preview.length < 20) preview.push({ row: excelRow, rec });
     }
     const sha = await txMstSha(buf);
-    _txMstStaged = { name:_txMstStagedFile.name, sheet, sha, b64: txMstB64(buf), rows, errList,
-      stats: { rows_total: total, codes_uniq: rows.length, codes_dup: dup, errors: errList.length,
+    _txMstStaged = { name:_txMstStagedFile.name, sheet, sha, b64: txMstB64(buf), rows, errList, preview, notes,
+      stats: { rows_total: total, codes_uniq: rows.length, codes_dup: dup, blank: blank,
+               conflict: conflict, errors: errList.length,
                saved_by_name: (_txSess && _txSess.username) || '' } };
-    txMstSetBar('อ่านไฟล์เสร็จ · ' + total + ' แถว · ไม่ซ้ำ ' + rows.length + ' · ซ้ำ ' + dup +
-                ' · ข้อผิดพลาด ' + errList.length + (errList.length ? ' — ตรวจก่อน SAVE' : ' — พร้อม SAVE'),
-                errList.length ? 'err' : 'ok');
+    const okSave = (conflict === 0 && rows.length > 0);
+    txMstSetBar(okSave
+      ? ('อ่านไฟล์ MASTER สำเร็จ: ' + total.toLocaleString() + ' แถว · Product Code ไม่ซ้ำ ' +
+         rows.length.toLocaleString() + ' · ซ้ำ ' + dup + ' ค่า · พร้อมบันทึก')
+      : ('อ่านไฟล์ได้ แต่พบ Mapping ขัดแย้ง ' + conflict + ' รายการ — แก้ไฟล์ก่อนจึงจะบันทึกได้'),
+      okSave ? 'ok' : 'err');
   }catch(e){
     _txMstStaged = null;
     txMstSetBar('อ่านไฟล์ไม่สำเร็จ — ' + (e && e.message ? e.message : e), 'err');
@@ -25257,7 +25339,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local443';
+const DEPLOY_VERSION = 'local444';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
