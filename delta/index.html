@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <!-- Build Metadata (local316): เลข Version ของ Build นี้ — กำหนดที่บรรทัดนี้ที่เดียว ใช้ทั้งเว็บไซต์ (ป้ายมุมขวาบนอ่านจากที่นี่) -->
-<meta name="nj-build" content="local317">
+<meta name="nj-build" content="local318">
 <title>Mapping Export Hi-Tech HTML</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -5462,6 +5462,9 @@ async function doExportGROHE(){
 async function _doExportGROHERun(){
   const _ai = await groheAiExport();
   if(!_ai.ok){ toast(_ai.msg, 'err'); return false; }
+  // local318: ชุดค่า "ใบอนุญาต/2" ของ GROHE SIAM — ใช้เฉพาะรายการที่ผลตรวจระบุไว้เท่านั้น (ไม่เติมทุกแถว)
+  const _licSet = (_ai.lic && _ai.lic.exempt) ? _ai.lic.exempt : null;
+  const _EX = (typeof groheAiExempt === 'function') ? groheAiExempt() : null;
   const HEADERS = [
     "INVOICE NO./คีย์ มือแมนนวน จาก INVOICE PDF",
     "INVOICE DATE",
@@ -5501,6 +5504,7 @@ async function _doExportGROHERun(){
   _ai.rows.forEach((x, idx) => {
     // local314: ไม่พบข้อมูลประกอบ = เว้นว่างช่องนั้น (ไม่เดา ไม่ใส่ค่าแทน) — PDF ยังเป็น MASTER หลักของทุกช่องที่มาจาก PDF
     const m = x.m, i = x.i, it = i.it, ms = i.ms || {}, nw = i.nw || {};
+    const _x = !!(_licSet && _EX && _licSet.has((m.invoiceNo || '') + '#' + i.seq));   // local318
     const invNo = /^\d{1,15}$/.test(m.invoiceNo) ? Number(m.invoiceNo) : m.invoiceNo;
     const dOK = /^\d{4}-\d{2}-\d{2}$/.test(m.date);
     const [yy, mm, dd] = dOK ? m.date.split('-').map(Number) : [null, null, null];
@@ -5524,7 +5528,10 @@ async function _doExportGROHERun(){
       _groheTxt(it.coo),                       // R COO — PDF
       dOK ? yy : '',                           // S Product Year — ปีของ Invoice Date
       ms.tariff || '', ms.stat || '', ms.brand || '', ms.boi || '', ms.lic || '', ms.lic2 || '', ms.org || '', ms.issued || '', ms.preview || '',   // T–AB MASTER (ไม่พบ = เว้นว่าง)
-      ms.lic2b || '', ms.org2 || '', ms.issued2 || '', ms.preview2 || '',                      // AC–AF MASTER (ถ้ามีในไฟล์ Master)
+      // AC–AF เลขที่ใบอนุญาต/2 · หน่วยงาน/2 · วันที่ ออก/ 2 · พีวิวโชว์/2
+      //   MASTER มีค่า = ใช้ค่าจาก MASTER · ไม่มี = เติมชุดที่กำหนด เฉพาะรายการที่ติดเงื่อนไขใบอนุญาตส่งออกของหน่วยงานที่กำหนด · นอกนั้นเว้นว่าง
+      //   เก็บเป็นข้อความทุกช่อง (ไม่ตัดเลข 0 นำหน้าของ 0994000159561 และ 01)
+      ms.lic2b || (_x ? _EX.lic : ''), ms.org2 || (_x ? _EX.org : ''), ms.issued2 || (_x ? _EX.issued : ''), ms.preview2 || (_x ? _EX.preview : ''),
     ]);
   });
   const ws = XLSX.utils.aoa_to_sheet(aoa, {cellDates:true});
@@ -5535,16 +5542,18 @@ async function _doExportGROHERun(){
   // local317: ชีตแยก "รายการติดใบอนุญาต" — ไม่เปลี่ยนคอลัมน์/รูปแบบของชีต MAPPING เดิม และไม่นับรวมใน TOTAL
   const _lic = _ai.lic || (typeof groheAiLicense === 'function' ? groheAiLicense() : null);
   if(_lic && _lic.rows && _lic.rows.length){
-    const LIC_HEADERS = ['INVOICE','No.','Product Code','Description','HS CODE','STAT','หน่วยงาน','MODE','สถานะ','หมายเหตุ'];
+    const LIC_HEADERS = ['INVOICE','No.','Product Code','Description','HS CODE','STAT','หน่วยงาน','MODE','สถานะ','หมายเหตุ',
+                         'เลขที่ใบอนุญาต/2','หน่วยงาน/2','วันที่ ออก/ 2','พีวิวโชว์/2'];
     const laoa = [LIC_HEADERS];
     _lic.rows.forEach(r => laoa.push([
       /^\d{1,15}$/.test(String(r.invoice)) ? Number(r.invoice) : String(r.invoice || ''),
       String(r.item_no || ''), String(r.product || ''), String(r.desc || ''),   // รหัสเป็นข้อความ — รักษาเลข 0 นำหน้า
       String(r.hs || ''), String(r.stat || ''), String(r.agency || ''), String(r.mode || ''),
       String(r.status || ''), String(r.note || ''),
+      String(r.lic2 || ''), String(r.org2 || ''), String(r.issued2 || ''), String(r.preview2 || ''),   // ข้อความล้วน (ตรงกับ Preview)
     ]));
     const lws = XLSX.utils.aoa_to_sheet(laoa);
-    lws['!cols'] = [{wch:14},{wch:7},{wch:14},{wch:38},{wch:12},{wch:7},{wch:34},{wch:15},{wch:24},{wch:46}];
+    lws['!cols'] = [{wch:14},{wch:7},{wch:14},{wch:38},{wch:12},{wch:7},{wch:34},{wch:15},{wch:24},{wch:46},{wch:16},{wch:16},{wch:12},{wch:10}];
     XLSX.utils.book_append_sheet(wb, lws, 'รายการติดใบอนุญาต');
   }
   // TOTAL จากข้อมูลที่เขียนลงไฟล์จริง → แสดงเหนือปุ่ม EXPORT ก่อนดาวน์โหลด
@@ -10592,6 +10601,12 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
    *   • หนึ่งพิกัดหลายหน่วยงาน = แสดงครบทุกหน่วยงาน (นับสินค้าครั้งเดียว)
    *   • อ่านไม่ได้ / ข้อมูลไม่ครบ = "ตรวจสอบไม่ได้" (ไม่สรุปว่าไม่ติดใบอนุญาต)
    *   • เป็นการแจ้งเตือนเท่านั้น — ไม่บล็อก EXPORT และไม่แก้ข้อมูล PDF / Mapping เดิม */
+  /* ชุดค่า "ใบอนุญาต/2" ที่กำหนดไว้สำหรับ GROHE SIAM (local318)
+   *  ใช้กับรายการที่ตรวจพบเงื่อนไขใบอนุญาต "ส่งออก" ของหน่วยงานนี้เท่านั้น — รายการอื่นเว้นว่าง (ไม่เติมอัตโนมัติจากชื่อหน่วยงานอย่างเดียว)
+   *  ยืนยันกับไฟล์ตัวอย่างจริง MAPPING GROHE -INVOICE.xls: 47 แถวที่เติม = 47 รายการที่ติดเงื่อนไขนี้พอดี (84818059/000 46 แถว · 84818099/090 1 แถว) */
+  const EXEMPT = { agency:'กรมการค้าต่างประเทศ', lic:'EXEMPT99', org:'0994000159561', issued:'2017-11-13', preview:'01' };
+  window.groheAiExempt = function(){ return { agency:EXEMPT.agency, lic:EXEMPT.lic, org:EXEMPT.org, issued:EXEMPT.issued, preview:EXEMPT.preview }; };
+
   function taxNote(r){
     const n = [];
     const tx = String(r.tax_no == null ? '' : r.tax_no).trim();
@@ -10602,7 +10617,8 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     return n.join(' · ');
   }
   async function licenseCheck(pass){
-    const out = { rows:[], invoices:[], items:0, agencies:[], unknown:0, checked:0, error:'', ran:false };
+    const out = { rows:[], invoices:[], items:0, agencies:[], unknown:0, checked:0, error:'', ran:false,
+                  exempt:new Set(), exemptN:0 };   // local318: รายการที่ได้รับชุดค่าใบอนุญาต/2
     const PM = window.permitMaster;
     const list = [];
     (pass || []).forEach(m => (m.good || []).forEach(i => list.push({ m, i })));   // pass เรียง Invoice ASC มาแล้ว · i.seq = ลำดับใน PDF
@@ -10624,7 +10640,8 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       const it = x.i.it, ms = x.i.ms || {};
       const base = { invoice:x.m.invoiceNo || '', seq:x.i.seq, item_no:String(it.item_no == null ? '' : it.item_no) || String(x.i.seq),
                      product:String(it.product == null ? '' : it.product), desc:String(it.desc == null ? '' : it.desc),
-                     hs:String(ms.tariff == null ? '' : ms.tariff), stat:String(ms.stat == null ? '' : ms.stat) };
+                     hs:String(ms.tariff == null ? '' : ms.tariff), stat:String(ms.stat == null ? '' : ms.stat),
+                     lic2:'', org2:'', issued2:'', preview2:'' };
       if(out.error){
         out.rows.push(Object.assign({}, base, { agency:'', mode:'', status:'ตรวจสอบไม่ได้', note:out.error }));
         out.unknown++; unkInv.add(base.invoice); return;
@@ -10638,8 +10655,14 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       }
       const hit = (res.map.get(x.tk + '|' + x.sk) || []).filter(r => PM.isExportMole(r.mole));
       if(!hit.length) return;                                   // ไม่พบเงื่อนไขส่งออก = ไม่แสดง (ไม่ฟ้องใบอนุญาตนำเข้า)
+      let gotEx = false;
       hit.forEach(r => { ags.add(r.agency);
-        out.rows.push(Object.assign({}, base, { agency:r.agency, mode:PM.modeLabel(r.mole), status:'พบเงื่อนไขใบอนุญาตส่งออก', note:taxNote(r) })); });
+        // local318: เติมชุดค่าใบอนุญาต/2 เฉพาะหน่วยงานที่กำหนดไว้เท่านั้น · หน่วยงานอื่นเว้นว่าง
+        const ex = r.agency === EXEMPT.agency;
+        if(ex) gotEx = true;
+        out.rows.push(Object.assign({}, base, { agency:r.agency, mode:PM.modeLabel(r.mole), status:'พบเงื่อนไขใบอนุญาตส่งออก', note:taxNote(r),
+          lic2:ex ? EXEMPT.lic : '', org2:ex ? EXEMPT.org : '', issued2:ex ? EXEMPT.issued : '', preview2:ex ? EXEMPT.preview : '' })); });
+      if(gotEx){ out.exempt.add(base.invoice + '#' + base.seq); out.exemptN++; }
       invs.add(base.invoice); out.items++;                      // 1 สินค้า = นับครั้งเดียว แม้พบหลายหน่วยงาน
     });
     out.invoices = [...invs]; out.agencies = [...ags]; out.unknownInvoices = [...unkInv];
@@ -10780,17 +10803,22 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       return `<div class="sai-rep sai-repok" id="gai-lic" data-lic="none"><b>✓ ตรวจ MASTER พิกัดใบอนุญาตแล้ว — ไม่พบเงื่อนไขใบอนุญาตส่งออก</b>
         <div class="sai-msg">ตรวจ ${L.checked} รายการ ด้วย HS CODE + STAT จาก MASTER GROHE · MASTER ใบอนุญาตใช้แจ้งเตือนความเกี่ยวข้องเท่านั้น ไม่ใช่หลักฐานยืนยันตามกฎหมายทุกกรณี</div></div>`;
     const tbl = rs => `<div class="sai-scroll"><table class="sai-tbl" id="gai-lic-tbl"><thead><tr><th>INVOICE</th><th>No.</th><th>Product Code</th><th>Description</th>
-        <th>HS CODE</th><th>STAT</th><th>หน่วยงาน</th><th>MODE</th><th>สถานะ</th><th>หมายเหตุ</th></tr></thead><tbody>
+        <th>HS CODE</th><th>STAT</th><th>หน่วยงาน</th><th>MODE</th><th>สถานะ</th><th>หมายเหตุ</th>
+        <th>เลขที่ใบอนุญาต/2</th><th>หน่วยงาน/2</th><th>วันที่ ออก/ 2</th><th>พีวิวโชว์/2</th></tr></thead><tbody>
       ${rs.map(r => `<tr data-st="${r.status === 'ตรวจสอบไม่ได้' ? 'unknown' : 'hit'}"><td class="sai-mono">${esc(r.invoice)}</td><td class="sai-mono">${esc(r.item_no)}</td>
         <td class="sai-mono">${esc(r.product)}</td><td>${esc(String(r.desc).slice(0, 60))}</td><td class="sai-mono">${esc(r.hs)}</td><td class="sai-mono">${esc(r.stat)}</td>
         <td>${esc(r.agency)}</td><td class="sai-mono">${esc(r.mode)}</td>
         <td>${r.status === 'ตรวจสอบไม่ได้' ? '<span class="sai-pill sai-bad">ตรวจสอบไม่ได้</span>' : '<span class="sai-pill sai-warn">พบเงื่อนไขใบอนุญาตส่งออก</span>'}</td>
-        <td class="sai-msg">${esc(r.note)}</td></tr>`).join('')}</tbody></table></div>`;
+        <td class="sai-msg">${esc(r.note)}</td>
+        <td class="sai-mono gai-x1">${esc(r.lic2)}</td><td class="sai-mono gai-x2">${esc(r.org2)}</td><td class="sai-mono gai-x3">${esc(r.issued2)}</td><td class="sai-mono gai-x4">${esc(r.preview2)}</td></tr>`).join('')}</tbody></table></div>`;
     const head = hits.length
       ? `<b>⚠ รายการติดใบอนุญาต — เรียงตาม INVOICE (${L.invoices.length} Invoice · ${L.items} รายการ)</b>
          <div class="sai-repl">Invoice ที่เกี่ยวข้อง: ${esc(L.invoices.join(', '))}</div>
          <div class="sai-repl">หน่วยงานที่พบ: ${esc(L.agencies.join(' · '))}</div>
-         <div class="sai-w">กรุณาตรวจสอบเอกสารใบอนุญาตส่งออกของรายการเหล่านี้ก่อนยื่นใบขน — EXPORT EXCEL ยังทำได้ตามปกติ</div>`
+         <div class="sai-w">กรุณาตรวจสอบเอกสารใบอนุญาตส่งออกของรายการเหล่านี้ก่อนยื่นใบขน — EXPORT EXCEL ยังทำได้ตามปกติ</div>
+         ${L.exemptN ? `<div class="sai-repl" id="gai-exempt">เติมใบอนุญาต/2 ให้ ${L.exemptN} รายการ (เฉพาะที่ติดเงื่อนไขของ ${esc(EXEMPT.agency)}):
+           <b>เลขที่ใบอนุญาต/2</b> ${esc(EXEMPT.lic)} · <b>หน่วยงาน/2</b> ${esc(EXEMPT.org)} · <b>วันที่ ออก/ 2</b> ${esc(EXEMPT.issued)} · <b>พีวิวโชว์/2</b> ${esc(EXEMPT.preview)}
+           <span class="sai-msg">— ค่าเหล่านี้ถูกเขียนลงคอลัมน์ AC–AF ของชีต MAPPING ตรงตามตารางด้านล่างทุกช่อง</span></div>` : ''}`
       : `<b>ตรวจ MASTER พิกัดใบอนุญาตแล้ว — ไม่พบเงื่อนไขใบอนุญาตส่งออกจากรายการที่ตรวจได้</b>`;
     const unkBlk = unk.length
       ? `<div class="sai-repl"><b>ตรวจสอบไม่ได้ ${unk.length} รายการ</b> — ไม่สรุปว่าไม่ติดใบอนุญาต:</div>${tbl(unk.slice(0, 50))}
