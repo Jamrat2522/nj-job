@@ -8872,11 +8872,16 @@ window.ELEAI_CORE = (function(){
       });
     };
     const K = (c, o) => c ? c + '|' + o : '';
-    stage(it => it.ord ? K(it.code, it.ord) : '', r => r.ord ? K(r.cpn, r.ord) : '', 'Customer Part + Order No. + Qty');
+    /* ★ [local115] ลำดับจับคู่: รหัสทั้ง 2 ช่องตรง → Codice (ช่องซ้าย อ่านได้ชัดกว่า) → Customer Part
+       (เดิม Customer Part ก่อน Codice: ถ้า AI อ่านรหัสบรรทัดล่างเป็นของรายการถัดไป อาจไปแย่งแถว PL ของรายการอื่น) */
+    const K2 = (a, b, o) => a && b ? a + '|' + b + '|' + o : '';
+    stage(it => it.ord ? K2(it.code, it.codeLeft, it.ord) : '', r => r.ord ? K2(r.cpn, r.pn, r.ord) : '', 'Customer Part + Part number + Order No. + Qty');
     stage(it => it.ord ? K(it.codeLeft, it.ord) : '', r => r.ord ? K(r.pn, r.ord) : '', 'Part number (Codice) + Order No. + Qty');
+    stage(it => it.ord ? K(it.code, it.ord) : '', r => r.ord ? K(r.cpn, r.ord) : '', 'Customer Part + Order No. + Qty');
     /* ไม่มี Order No. (ทั้งใน Invoice หรือ PL ไม่มีคอลัมน์ Order) → จับด้วย Part Number + Qty และแจ้งเตือน */
-    stage(it => (!it.ord || !hasOrd) ? it.code : '', r => (!r.ord || !hasOrd) ? r.cpn : '', 'Customer Part + Qty (ไม่มี Order No.)');
+    stage(it => (!it.ord || !hasOrd) ? K2(it.code, it.codeLeft, '') : '', r => (!r.ord || !hasOrd) ? K2(r.cpn, r.pn, '') : '', 'Customer Part + Part number + Qty (ไม่มี Order No.)');
     stage(it => (!it.ord || !hasOrd) ? it.codeLeft : '', r => (!r.ord || !hasOrd) ? r.pn : '', 'Part number + Qty (ไม่มี Order No.)');
+    stage(it => (!it.ord || !hasOrd) ? it.code : '', r => (!r.ord || !hasOrd) ? r.cpn : '', 'Customer Part + Qty (ไม่มี Order No.)');
     items.forEach(it => {
       if (it.pl){ it.nw = it.pl.nw; it.plSt = /ไม่มี Order/.test(it.pl.how) ? 'noord' : 'ok'; return; }
       it.nw = null;
@@ -8889,6 +8894,46 @@ window.ELEAI_CORE = (function(){
     });
     const unused = pl.filter(r => !used.has(r));
     return { unused, plRows: pl.length };
+  }
+
+  /* ★ [local115] ตรวจ Product Code (รหัสบรรทัดล่างใน PDF) กับแถว PL ที่จับคู่ได้ (ด้วย Codice + Order + Qty)
+     · Product Code อยู่ใน {Part number, Customer Part} ของแถว PL นั้น → ใช้ค่าจาก PDF ตามเดิม
+     · ว่าง / เป็นรหัสของรายการอื่นใน Invoice เดียวกัน (AI อ่านเลื่อนแถว) / ไม่อยู่ในแถว PL (เช่น รหัสเดิมที่ถูกแทนที่) — เมื่อ Codice ตรง PL Part number และ PL มี Customer Part ค่าเดียว
+       → ใช้ Customer Part จาก PL (เอกสารต้นฉบับ) พร้อมแจ้งในผลตรวจ · กรณีอื่นที่ยืนยันไม่ได้ → คงค่า PDF + แจ้งเตือน (ไม่เดา)
+     · ไม่ใช้กับรายการที่จับคู่ PL ไม่ได้ */
+  function plCodes(items){
+    const own = new Map();
+    items.forEach(x => { const m = own.get(x.inv) || new Map(); [x.code, x.codeLeft].forEach(c => { if (!c) return; if (!m.has(c)) m.set(c, new Set()); m.get(c).add(x.id); }); own.set(x.inv, m); });
+    items.forEach(x => {
+      x.codeAI = x.code; x.codeFix = null; x.codeIss = null;
+      if (!x.pl || !x.pl.rows.length) return;
+      const pns = new Set(x.pl.rows.map(r => r.pn).filter(Boolean)), cpns = new Set(x.pl.rows.map(r => r.cpn).filter(Boolean)), P = new Set([...pns, ...cpns]);
+      const plTxt = 'PL: Part number ' + [...pns].join('/') + ' · Customer Part ' + ([...cpns].join('/') || '-');
+      if (x.codeLeft && !P.has(x.codeLeft)) x.codeIss = { lvl: 'warn', msg: 'Codice ' + x.codeLeft + ' ไม่ตรงแถว PL ที่จับคู่ (' + plTxt + ')' };
+      if (x.code && P.has(x.code)) return;
+      const ids = x.code ? ((own.get(x.inv) || new Map()).get(x.code) || new Set()) : new Set();
+      const foreign = !!x.code && [...ids].some(id => id !== x.id);
+      const cand = cpns.size === 1 ? [...cpns][0] : '';
+      if (cand && x.codeLeft && pns.has(x.codeLeft)){
+        const why = !x.code ? 'empty' : (foreign ? 'foreign' : 'notpl');
+        x.codeFix = { from: x.code, to: cand, why,
+          msg: why === 'foreign' ? 'Product Code ที่ AI อ่าน (' + x.code + ') เป็นรหัสของรายการอื่น — ใช้ Customer Part จาก PL ' + cand + ' (Codice ' + x.codeLeft + ' + Order + Qty ตรง PL)'
+             : why === 'empty' ? 'อ่าน Product Code ใน PDF ไม่ได้ — ใช้ Customer Part จาก PL ' + cand + ' (Codice ' + x.codeLeft + ' + Order + Qty ตรง PL) · ตรวจกับ PDF'
+             : 'รหัสบรรทัดล่างที่อ่านจาก PDF (' + x.code + ') ไม่อยู่ในแถว PL ที่จับคู่ — ใช้ Customer Part จาก PL ' + cand + ' (Codice ' + x.codeLeft + ' + Order + Qty ตรง PL) · ตรวจกับ PDF' };
+        x.code = cand; return; }
+      x.codeIss = { lvl: 'warn', msg: (x.code ? 'Product Code ' + x.code + ' (ตาม PDF) ไม่ตรงแถว PL ที่จับคู่' : 'อ่าน Product Code ไม่ได้ และยืนยันจาก PL ไม่ได้') + ' (' + plTxt + ') — ' + (x.code ? 'ใช้ค่าตาม PDF ' : 'เว้นว่าง ') + 'ตรวจสอบ' };
+    });
+  }
+
+  /* ★ [local115] Description (Eng) สำหรับ EXPORT: รูปแบบตาม Mapping ต้นฉบับ (ASCII · ไม่มีช่องว่างหลัง ,) — ไม่แปล/ไม่เขียนใหม่
+     · ตัดช่องว่างหลังเครื่องหมาย , (AI มักเติมเองจากฟอนต์ความกว้างคงที่)  · ตัวอักษรมีเครื่องหมายเสียง → ตัวอักษรฐาน (é→e)
+     · สัญลักษณ์นอก ASCII (φ µ ° ฯลฯ) → ช่องว่าง  · ช่องว่างซ้อน → 1 ช่อง */
+  function descOut(v){
+    let s = T(v).replace(/[‘’‚′]/g, "'").replace(/[“”„″]/g, '"').replace(/[‐-―]/g, '-');
+    s = s.replace(/,\s+/g, ',');
+    s = s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+    s = s.replace(/[^\x20-\x7E]/g, ' ');
+    return s.replace(/\s+/g, ' ').trim();
   }
 
   /* ── MASTER พิกัด ELE: Part Number + ELUX Part Description (EN) เป็น Key หลัก ──
@@ -8922,7 +8967,7 @@ window.ELEAI_CORE = (function(){
     const s = items.slice().sort((a, b) => invCmp(a.inv, b.inv) || (fileOrd.get(a.file) - fileOrd.get(b.file)) || (a.pg - b.pg) || (a.row - b.row));
     return s.map((x, i) => { const iv = ivm.get(x.inv) || {}; const m = x.master || {};
       const h = x.hsm && x.hsm.st === 'ok' ? x.hsm : {};   /* ★ [local113] Stat / Privilege / Seq จาก MASTER HS CODE (Tariff Code คงค่าจาก MASTER พิกัด ELE) */
-      return [i + 1, x.inv, dmy(iv.date), x.code, x.qty, x.qty, x.amt, x.nw == null ? null : x.nw, null, null, null, x.desc, x.codeLeft, x.coo, m.th || '', m.hs || '', h.stat || null, h.privilege || null, h.seq == null || h.seq === '' ? null : String(h.seq)]; });
+      return [i + 1, x.inv, dmy(iv.date), x.code, x.qty, x.qty, x.amt, x.nw == null ? null : x.nw, null, null, null, descOut(x.desc), x.codeLeft, x.coo, m.th || '', m.hs || '', h.stat || null, h.privilege || null, h.seq == null || h.seq === '' ? null : String(h.seq)]; });
   }
   function totals(files, v, rows, plFiles, matchInfo){
     const cur = {}; v.items.forEach(x => { const c = (v.invoices.find(i => i.inv === x.inv) || {}).currency || '?'; cur[c] = rnd((cur[c] || 0) + (x.amt || 0), 2); });
@@ -8941,6 +8986,7 @@ window.ELEAI_CORE = (function(){
   function flagItem(x){
     const f = new Set(), why = [];
     if (!x.code || badCode(x.code)){ f.add('code_below'); why.push('Product Code อ่านไม่ได้/รูปแบบผิด'); }
+    else if (x.codeFix && x.codeFix.why !== 'notpl'){ f.add('code_below'); why.push(x.codeFix.why === 'empty' ? 'Product Code อ่านไม่ได้ (PL มี Customer Part)' : 'Product Code เป็นรหัสของรายการอื่น (อ่านเลื่อนแถว)'); }
     else if (x.master && x.master.st === 'none' && (x.plSt === 'none' || x.plSt === 'ord' || (x.pl && x.pl.rows.every(r => r.cpn && r.cpn !== x.code)))){ f.add('code_below'); f.add('code_left'); why.push('Product Code ไม่พบทั้งใน MASTER และ PL (อาจอ่านผิด)'); }
     if (!x.codeLeft){ f.add('code_left'); why.push('Codice อ่านไม่ได้'); }
     if (x.qty == null || !(x.qty > 0) || !Number.isInteger(x.qty)){ f.add('qty'); why.push('Quantity อ่านไม่ได้'); }
@@ -8966,18 +9012,19 @@ window.ELEAI_CORE = (function(){
         if (!Object.keys(set).length) notes.push('Opus ยืนยันตัวเลขเดิม'); }
     }
     const code = (f, k, known) => { if (!has(f)) return; const v = o[k];
+      const cur = (k === 'code' && x.codeFix) ? (x.codeFix.from || '') : x[k];   /* ★ [local115] เทียบกับค่าที่ AI อ่านจริง (ก่อนใช้ค่าจาก PL) */
       if (!v || badCode(v)){ unsure.push('Opus อ่าน ' + (k === 'code' ? 'Product Code' : 'Codice') + ' ไม่ได้'); return; }
-      if (v === x[k]){ notes.push('Opus ยืนยัน ' + (k === 'code' ? 'Product Code' : 'Codice') + ' เดิม'); return; }
+      if (v === cur){ notes.push('Opus ยืนยัน ' + (k === 'code' ? 'Product Code' : 'Codice') + ' เดิม'); return; }
       if (known(v)){ set[k] = v; return; }
-      if (!x[k] || badCode(x[k])){ set[k] = v; notes.push((k === 'code' ? 'Product Code' : 'Codice') + ' จาก Opus ยังไม่มีหลักฐานจาก MASTER/PL — ตรวจสอบ'); return; }
-      unsure.push('Opus อ่าน ' + (k === 'code' ? 'Product Code' : 'Codice') + ' = ' + v + ' ต่างจาก ' + x[k] + ' และไม่พบใน MASTER/PL — ไม่เปลี่ยน'); };
+      if (!cur || badCode(cur)){ set[k] = v; notes.push((k === 'code' ? 'Product Code' : 'Codice') + ' จาก Opus ยังไม่มีหลักฐานจาก MASTER/PL — ตรวจสอบ'); return; }
+      unsure.push('Opus อ่าน ' + (k === 'code' ? 'Product Code' : 'Codice') + ' = ' + v + ' ต่างจาก ' + cur + ' และไม่พบใน MASTER/PL — ไม่เปลี่ยน'); };
     code('code_below', 'code', ctx.known); code('code_left', 'codeLeft', ctx.knownLeft);
     if (has('desc') && !x.desc && o.desc) set.desc = o.desc;
     if (has('coo') && !/^[A-Z]{2}$/.test(x.coo || '') && /^[A-Z]{2}$/.test(o.coo)) set.coo = o.coo;
     const n = Object.keys(set).length;
     return { st: n ? 'fixed' : (unsure.length ? 'unsure' : 'confirmed'), set, notes, unsure };
   }
-  return { hsKey, flagItem, applyRecheck, makeChunksRange, qpBad, T, codeKey, ordKey, num, rnd, dmy, badCode, invCmp, makeChunks, mergeFile, validate, parsePL, solveGroup, matchPL, pickMaster, buildRows, totals, HEAD };
+  return { plCodes, descOut, hsKey, flagItem, applyRecheck, makeChunksRange, qpBad, T, codeKey, ordKey, num, rnd, dmy, badCode, invCmp, makeChunks, mergeFile, validate, parsePL, solveGroup, matchPL, pickMaster, buildRows, totals, HEAD };
 })();
 </script>
 <script id="eleai-ui">
@@ -9149,6 +9196,7 @@ window.ELEAI_CORE = (function(){
     const v2 = C.validate(files.map(f => Object.assign({}, f, { items: v.items.filter(x => x.file === f.file) })));   /* ตรวจซ้ำหลังทับค่า */
     const plFiles = R.pls.map(x => x.p);
     const mi = C.matchPL(v2.items, plFiles);
+    C.plCodes(v2.items);   /* ★ [local115] ตรวจ Product Code กับแถว PL ที่จับคู่ได้ ก่อนค้น MASTER (ไม่ให้ใช้ TH/HS ของรหัสรายการอื่น) */
     await masterFetch(v2.items, tok, R.MC);
     v2.items.forEach(x => { x.master = x.code ? C.pickMaster(x, R.MC.exact.get(x.code) || R.MC.all.get(x.code)) : { st: 'none', th: '', hs: '', msg: 'ไม่มี Product Code' }; });
     await hsAttach(v2.items, R, tok);   /* ★ [local113] MASTER HS CODE → Stat / Privilege / Seq */
@@ -9201,12 +9249,17 @@ window.ELEAI_CORE = (function(){
       if (f.totalOk === false) out.push({ type: 'B', lvl: 'warn', file: f.file, msg: 'ยอดรวมท้าย PL ไม่เท่ากับผลรวมแถว' });
       if (!f.hasOrd) out.push({ type: 'B', lvl: 'warn', file: f.file, msg: 'PL ไม่มีคอลัมน์ Order no. — จับคู่ด้วย Part Number + Quantity' }); });
     v.items.forEach(x => { const at = { file: x.file, inv: x.inv, pg: x.pg, code: x.code };
+      if (x.codeFix) out.push(Object.assign({ type: 'A', lvl: x.codeFix.why === 'empty' ? 'warn' : 'fix', msg: x.codeFix.msg }, at));   /* ★ [local115] */
+      if (x.codeIss) out.push(Object.assign({ type: 'B', lvl: x.codeIss.lvl, msg: x.codeIss.msg }, at));
       if (x.plSt === 'noord') out.push(Object.assign({ type: 'B', lvl: 'warn', msg: 'จับคู่ PL โดยไม่มี Order No. (' + x.pl.how + ')' }, at));
       else if (x.plSt !== 'ok') out.push(Object.assign({ type: 'B', lvl: 'warn', msg: 'Net WT ว่าง — ' + x.plMsg }, at));
       if (x.master.st !== 'ok') out.push(Object.assign({ type: 'C', lvl: 'warn', msg: x.master.st === 'conflict' ? x.master.msg : 'ไม่พบข้อมูลใน MASTER ELE — ' + x.master.msg }, at));
       if (x.hsm && x.hsm.st !== 'ok' && x.hsm.st !== 'off') out.push(Object.assign({ type: 'C', lvl: 'warn', msg: x.hsm.msg + ' — Stat / Privilege / Seq ว่าง' }, at)); });
     /* ★ [local114] อ่าน MASTER HS CODE ไม่สำเร็จ = ข้อผิดพลาดการเชื่อมต่อ (ไม่ใช่ “ไม่พบ”) → ไม่ส่งออกจนกว่าจะอ่านสำเร็จ */
     const off = v.items.find(x => x.hsm && x.hsm.st === 'off'); if (off) out.push({ type: 'C', lvl: 'hard', conn: true, msg: off.hsm.msg + ' — ไม่ใช่กรณีไม่พบ HS CODE · ยังไม่ส่งออก (ไม่ใช้ข้อมูลเก่า/ข้อมูลสมมติ) · กด EXPORT EXCEL อีกครั้งเพื่ออ่านใหม่' });
+    /* ★ [local115] G.W. WT: ใส่เฉพาะเมื่อมีน้ำหนักรายสินค้าที่ยืนยันได้ — PL นี้มี Gross weight เป็นรายกล่อง/พาเลท จึงเว้นว่าง (ไม่เฉลี่ย/ไม่กระจายเอง) */
+    { const rs = []; plFiles.forEach(f => (f.rows || []).forEach(r => rs.push(r))); const g = rs.filter(r => r.gw != null && r.gw > 0);
+      out.push({ type: 'B', lvl: 'info', msg: 'G.W. WT เว้นว่าง — ' + (g.length ? 'PL มี Gross weight เป็นรายกล่อง/พาเลท (' + g.length + ' จาก ' + rs.length + ' แถว · รวม ' + C.rnd(g.reduce((a, r) => a + r.gw, 0), 3).toFixed(3) + ' kg) ไม่ใช่น้ำหนักรายสินค้า' : 'PL ไม่มี Gross weight') + ' · ไม่เฉลี่ยหรือกระจายน้ำหนักเอง' }); }
     mi.unused.forEach(r => out.push({ type: 'B', lvl: 'warn', file: r.file, code: r.cpn || r.pn, msg: 'PL แถว ' + r.line + ' ไม่ตรงกับรายการใน Invoice (Part ' + r.pn + ' · Qty ' + r.qty + ' · Order ' + (r.ord || '-') + ')' }));
     return out;
   }
@@ -9311,7 +9364,7 @@ window.ELEAI_CORE = (function(){
     R.log.forEach(l => { if (l.err) iss.push({ type: 'A', lvl: 'warn', msg: 'Opus ตรวจซ้ำไม่สำเร็จ: ' + l.err });
       else if (l.page) iss.push({ type: 'A', lvl: l.ok ? 'fix' : 'hard', file: l.page.file, inv: l.page.inv, pg: l.page.from + (l.page.to > l.page.from ? '–' + l.page.to : ''), msg: l.ok ? 'Opus อ่านซ้ำทั้งหน้าแล้ว ยอดรวมตรง TOTAL VALUE — ใช้ผล Opus สำหรับหน้านี้' : 'Opus อ่านซ้ำทั้งหน้าแล้วยอดรวมยังไม่ตรง — ไม่เปลี่ยนข้อมูล' });
       else { const at = { file: l.x.file, inv: l.x.inv, pg: l.x.pg, code: l.x.code || l.x.codeLeft };
-        if (l.r.st === 'fixed') iss.push(Object.assign({ type: 'A', lvl: 'fix', msg: 'แก้โดย Opus: ' + Object.keys(l.r.set).map(k => k + ' ' + (l.x[k] == null || l.x[k] === '' ? '(ว่าง)' : l.x[k]) + ' → ' + l.r.set[k]).join(' · ') + (l.r.notes.length ? ' · ' + l.r.notes.join(' · ') : '') }, at));
+        if (l.r.st === 'fixed') iss.push(Object.assign({ type: 'A', lvl: 'fix', msg: 'แก้โดย Opus: ' + Object.keys(l.r.set).map(k => { const o = (k === 'code' && l.x.codeFix) ? l.x.codeFix.from : l.x[k]; return k + ' ' + (o == null || o === '' ? '(ว่าง)' : o) + ' → ' + l.r.set[k]; }).join(' · ') + (l.r.notes.length ? ' · ' + l.r.notes.join(' · ') : '') }, at));
         else if (l.r.st === 'unsure') iss.push(Object.assign({ type: 'A', lvl: 'warn', msg: 'ต้องตรวจสอบเอง: ' + l.f.why.join(' · ') + ' · ' + l.r.unsure.join(' · ') }, at));
         else iss.push(Object.assign({ type: 'A', lvl: 'info', msg: 'Opus ยืนยันค่าเดิม (' + l.f.why.join(' · ') + ')' }, at)); } });
     if (R.pending) iss.push({ type: 'A', lvl: 'warn', msg: 'พบปัญหาที่ต้องให้ Opus อ่านซ้ำ ' + R.pending.need + ' หน้า เกินงบ 10% (' + R.pending.budget + ' หน้า) — ยังไม่ได้ตรวจซ้ำ กดปุ่มด้านบนหากต้องการให้ Opus ตรวจต่อ' });
