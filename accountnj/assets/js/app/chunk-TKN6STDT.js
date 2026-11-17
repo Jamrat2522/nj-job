@@ -513,7 +513,7 @@ function AU638(t) {
   if (t && ("acc_user_name" in t || "acc_user_nickname" in t)) { let nk = t.acc_user_nickname && String(t.acc_user_nickname).trim(); return { show: nk || UN514(t.acc_user_name) || "-", title: t.acc_user_name || "" }; }
   return { show: (t && t.created_by_nickname && String(t.created_by_nickname).trim()) || UN514(t && t.created_by_name) || "-", title: (t && t.created_by_name) || "" };
 }
-var MD638 = ["IM (SEA)", "IM (AIR)", "IM (TRUCK)", "EX (SEA)", "EX (AIR)", "EX (TRUCK)", "FORM"];
+var MD638 = ["IM (SEA)", "IM (AIR)", "IM (TRUCK)", "EX (SEA)", "EX (AIR)", "EX (TRUCK)", "FORM", "กศก.122"];   /* V.891 : รองรับกรองโหมด กศก.122 */
 function UL514(H, args) {
   if (!document.getElementById("bpd514-css")) {
     let st = document.createElement("style"); st.id = "bpd514-css";
