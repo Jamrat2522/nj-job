@@ -2474,6 +2474,19 @@ body.legacy-active .content-area { display: none !important; }
         <div class="tx-mhist" id="tx-mst-hist"></div>
       </div>
     </div>
+    <!-- ══ [452] กรอบ HS CODE MASTER ในหน้าเดียวกัน (ใช้ข้อมูล/ฟังก์ชันชุดเดียวกับโหมด HS CODE) ══ -->
+    <div class="tx-mbox" id="tx-hs-box" style="margin-bottom:6px">
+      <div class="tx-mhead">🗃️ HS CODE MASTER</div>
+      <div class="tx-msub">Tariff Code 8 หลัก → Stat · Traff Seq · Privilege · เลือกไฟล์แล้วอ่านและใช้ในรอบนี้ทันที<br>
+        กด SAVE HS CODE เมื่อต้องการเก็บเป็น ACTIVE ถาวรสำหรับทุกเครื่อง — ไม่เรียก AI และไม่มีค่า API</div>
+      <div class="tx-mpick" id="tx-hs-pick" onclick="txOpenInput(event,'hs')">คลิกเพื่อเลือกไฟล์ HS CODE (.xlsx)</div>
+      <div class="tx-mbtns">
+        <button class="btn" id="tx-hs-choose" onclick="txOpenInput(event,'hs')">📎 เลือกไฟล์ HS CODE</button>
+        <button class="btn btn-success" id="tx-hs-save" onclick="hsSave()" disabled>💾 SAVE HS CODE</button>
+        <button class="btn" id="tx-hs-cancel" onclick="hsCancel()" disabled>✕ ยกเลิกไฟล์ HS CODE</button>
+      </div>
+      <div class="tx-minfo" id="tx-hs-info">กำลังโหลดข้อมูล HS CODE …</div>
+    </div>
     <input type="file" id="tx-pdf-input" accept=".pdf" multiple style="display:none"/>
     <input type="file" id="tx-mst-input" accept=".xlsx,.xls" style="display:none"/>
     <!-- ══ แถบควบคุม Invoice เดียวเต็มความกว้าง (ห้ามมีปุ่มเหล่านี้ซ้ำที่อื่น) ══ -->
@@ -2486,7 +2499,9 @@ body.legacy-active .content-area { display: none !important; }
       <button class="btn btn-success" id="tx-btn-export" onclick="txDownload()" disabled>📊 EXPORT EXCEL</button>
       <button class="btn" id="tx-btn-clear" onclick="txReset()">♻ ล้าง PDF</button>
       <div class="tx-status" id="tx-status">รอไฟล์ INVOICE PDF</div>
+      <div class="tx-status" id="tx-ai-bar" style="margin-left:0;width:100%;display:none"></div>
       <div class="tx-status" id="tx-mst-bar" style="margin-left:0;width:100%">MASTER: กำลังตรวจ…</div>
+      <div class="tx-status" id="tx-hs-bar" style="margin-left:0;width:100%">HS CODE: กำลังตรวจ…</div>
     </div>
     <div id="tx-result" style="display:none;margin-top:10px"></div>
   </div>
@@ -11528,8 +11543,10 @@ function txRenderResult(){
       ? chip('TEXAS MASTER', 'ไฟล์ที่เลือก (ยังไม่ได้ SAVE)', '#fef9c3', '#854d0e')
       : chip('TEXAS MASTER Version', _txMstActive ? _txMstActive.version : '—',
              _txMstActive ? '#dcfce7' : '#fee2e2', _txMstActive ? '#166534' : '#b91c1c')) +
-    chip('HS CODE Version', _hsActive ? _hsActive.version : '—',
-         _hsActive ? '#dcfce7' : '#fee2e2', _hsActive ? '#166534' : '#b91c1c') +
+    (H.staged
+      ? chip('HS CODE', 'ไฟล์ที่เลือก (ยังไม่ได้ SAVE)', '#fef9c3', '#854d0e')
+      : chip('HS CODE Version', _hsActive ? _hsActive.version : '—',
+             _hsActive ? '#dcfce7' : '#fee2e2', _hsActive ? '#166534' : '#b91c1c')) +
     chip('รายการซ้ำ', M.dup) +
     chip('อ่านไม่ชัด', M.blur, M.blur ? '#fef3c7' : '#f1f5f9', M.blur ? '#b45309' : '') +
     chip('TOTAL QTY', nf(tq, 0)) + chip('TOTAL AMT', amt) +
@@ -11537,11 +11554,12 @@ function txRenderResult(){
     chip('ค่า API รอบนี้', '$' + (R.usage.cost || 0).toFixed(4) + (R.usage.cached ? ' (ใช้ผลเดิม)' : '')) +
     '</div>';
   /* ข้อ 7 — แถบสรุปผลจับคู่ MASTER */
-  const mstOK = (M.miss === 0 && M.blur === 0 && H.miss === 0);
+  const mstOK = (M.miss === 0 && M.blur === 0 && H.miss === 0 && !H.none);
   h += '<div style="font-size:11.5px;margin-bottom:8px;font-weight:700;color:' + (mstOK ? '#16a34a' : '#b91c1c') + '">' +
        (mstOK ? '✅ ' + esc(TX_MST_MSG_OK) + ' · ' + esc(HS_MSG_OK)
               : '⛔ ' + esc(M.miss ? TX_MST_MSG_NG(M.miss)
                           : M.blur ? TX_MST_MSG_BLUR
+                          : H.none ? (HS_MSG_NONE + ' — เลือกไฟล์ที่กรอบ HS CODE MASTER')
                                    : HS_MSG_ROW(H.missList[0]))) + '</div>';
   if(!mstOK){
     const warn = [];
@@ -11550,9 +11568,10 @@ function txRenderResult(){
       else if(it._mstat === 'blur') warn.push('• Invoice ' + esc(r.inv) + ' · Item ' + esc(it.item) + ' — ' + esc(TX_MST_MSG_BLUR));
       else if(it._hstat === 'miss') warn.push('• Invoice ' + esc(r.inv) + ' · Item ' + esc(it.item) + ' — ' + esc(HS_MSG_ROW(it._hkey)));
     }
+    if(H.none) warn.push('• ' + esc(HS_MSG_NONE) + ' — กด "เลือกไฟล์ HS CODE" ที่กรอบ HS CODE MASTER ระบบจะอ่านและจับคู่ให้ทันที');
     h += '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px;margin-bottom:8px;font-size:11px">' +
          warn.slice(0, 50).join('<br>') + (warn.length > 50 ? '<br>… รวม ' + warn.length + ' รายการ' : '') +
-         '<div style="margin-top:6px;font-weight:700">ปุ่ม EXPORT EXCEL ถูกปิดไว้จนกว่าจะพบข้อมูลครบทุก Product Code</div></div>';
+         '<div style="margin-top:6px;font-weight:700">ปุ่ม EXPORT EXCEL ถูกปิดไว้จนกว่าจะพบข้อมูลครบทุก Product Code และ Tariff Code</div></div>';
   }
   const A = _txMstActive;
   h += '<div style="font-size:10.5px;color:#64748b;margin-bottom:8px">MASTER ที่ใช้: ' +
@@ -11570,9 +11589,12 @@ function txRenderResult(){
   const Hv = _hsActive;
   h += '<div style="font-size:11px;margin-bottom:8px;display:flex;gap:8px;flex-wrap:wrap">' +
        vb('TEXAS MASTER', !!A, !!A && (M.miss > 0 || M.blur > 0), A ? ('Version ' + A.version) : 'ยังไม่มี MASTER') +
-       vb('HS CODE', !!Hv, !!Hv && H.miss > 0, Hv ? ('Version ' + Hv.version) : 'ยังไม่มี MASTER') + '</div>';
+       vb('HS CODE', !!Hv || !!H.staged, (!!Hv || !!H.staged) && H.miss > 0,
+          H.staged ? 'ไฟล์ที่เลือก (ยังไม่ได้ SAVE)' : Hv ? ('Version ' + Hv.version) : 'ยังไม่มี MASTER') + '</div>';
   h += '<div style="font-size:10.5px;color:#64748b;margin-bottom:8px">HS CODE ที่ใช้: ' +
-       (Hv ? ('<b>Version ' + esc(Hv.version) + '</b> · ' + esc(Hv.file_name) + ' · ชีท ' + esc(Hv.sheet_name) +
+       (H.staged ? ('<b>ไฟล์ที่เลือกไว้ (ยังไม่ได้ SAVE)</b> · ' + esc(H.file) +
+                    ' · ใช้เฉพาะรอบนี้ — HS CODE ACTIVE เดิมไม่ถูกเปลี่ยน') :
+        Hv ? ('<b>Version ' + esc(Hv.version) + '</b> · ' + esc(Hv.file_name) + ' · ชีท ' + esc(Hv.sheet_name) +
               ' · ' + esc(Hv.codes_uniq) + ' พิกัด · บันทึกโดย ' + esc(Hv.saved_by_name || Hv.saved_by) + ' ' +
               esc(txMstDate(Hv.saved_at)) + ' · SHA-256 ' + esc(String(Hv.file_sha256).slice(0, 16)) + '…')
            : esc(HS_MSG_NONE)) + '</div>';
@@ -11601,6 +11623,7 @@ function txRenderResult(){
     /* [446] สถานะ HS CODE แยกคอลัมน์ของตัวเอง */
     const hlab = hst === 'ok'   ? '<span style="color:#16a34a;font-weight:700">พบใน HS CODE</span>'
                : hst === 'miss' ? '<span style="color:#b91c1c;font-weight:700">ไม่พบใน HS CODE</span>'
+               : hst === 'none' ? '<span style="color:#b91c1c;font-weight:700">ยังไม่มี HS CODE</span>'
                                 : '<span style="color:#b45309;font-weight:700">ยังไม่มี Tariff Code</span>';
     const note = st !== 'ok'   ? (st === 'blur' ? esc(TX_MST_MSG_BLUR) : esc(TX_MST_MSG_ROW(it._pcode)))
                : hst === 'miss' ? esc(HS_MSG_ROW(it._hkey))
@@ -11627,14 +11650,14 @@ async function txRun(){
   if(!txState.pdfs.length) return;
   const bExp = document.getElementById('tx-btn-export');
   _txRunning = true; if(bExp) bExp.disabled = true;
-  txState.res = null; txState.list = null; txRenderResult();
+  txState.res = null; txState.list = null; txRenderResult(); txAiBar('');
   try{
     if(!txLoggedIn()) throw new Error(TX_NEED_LOGIN);
     /* ก่อนส่ง PDF ครั้งแรก — ตรวจว่า AI พร้อม (ไม่เรียก Claude)
        [448] ล้มเหลวเพราะ AI = แจ้งเฉพาะฝั่ง Invoice ไม่กระทบ MASTER/HS CODE */
     if(!_txAiOk && !(await txAiProbe())) throw new Error(TX_AI_NOT_READY);
     const map = new Map(), unclear = [];
-    let cost = 0, inTok = 0, outTok = 0, reqs = 0, allCached = true, modelUsed = '';
+    let cost = 0, inTok = 0, outTok = 0, reqs = 0, allCached = true, modelUsed = '', nCached = 0, nRead = 0;
     for(let i = 0; i < txState.pdfs.length; i++){
       const f = txState.pdfs[i];
       txState.stat[f.name] = 'processing'; txRenderLists();
@@ -11649,6 +11672,8 @@ async function txRun(){
         if(!j.cached) allCached = false;
         modelUsed = u.model || TX_AI_MODEL;
         txState.stat[f.name] = j.cached ? 'cached' : 'success';
+        if(j.cached) nCached++; else nRead++;
+        _txAiOk = true; _txAiDown = false;      // [452] AI/Cache ตอบสำเร็จ = ห้ามขึ้นว่าไม่เชื่อมต่อ
       }catch(e){
         txState.stat[f.name] = 'error:' + (e && e.message ? e.message : 'อ่านไม่สำเร็จ');
       }
@@ -11668,6 +11693,15 @@ async function txRun(){
        ขั้นจับคู่ MASTER → HS CODE เป็น Database Lookup ล้วน แยกไปที่ txMatch() */
     txState.ai = { list, errs, unclear, files: txState.pdfs.length, bad: bad.length,
                    usage: { cost, inTok, outTok, reqs, cached: allCached, model: modelUsed } };
+    /* [452] ข้อ 2 — แจ้งผล AI ตามจริง: Cache ล้วน = ข้อความตามสเปค · อ่านใหม่ = Model / หน้า / Token / ค่า API */
+    { const pgs = new Set(); for(const r of list) for(const it of r.items) if(it._pg) pgs.add(r.inv + '#' + it._pg);
+      const nItem = list.reduce((v, r) => v + r.items.length, 0);
+      const tail = ' · Model ' + (modelUsed || '—') + ' · ' + list.length + ' Invoice · ' + pgs.size + ' หน้า · ' + nItem + ' รายการ';
+      txAiBar((allCached
+        ? 'AI อ่าน Invoice สำเร็จ · ใช้ข้อมูล Cache เดิม · ไม่เสียค่า API เพิ่ม' + tail
+        : 'AI อ่าน Invoice สำเร็จ' + tail + ' · Token เข้า ' + inTok.toLocaleString() + ' / ออก ' + outTok.toLocaleString() +
+          ' · ค่า API $' + cost.toFixed(4) + (nCached ? ' · ใช้ Cache ' + nCached + ' ไฟล์ · อ่านใหม่ ' + nRead + ' ไฟล์' : '')) +
+        (bad.length ? ' · ⚠ อ่านไม่สำเร็จ ' + bad.length + ' ไฟล์' : ''), bad.length ? '' : 'ok'); }
     await txMatch();
   }catch(e){
     txSetStatus('✗ ' + (e && e.message ? e.message : e), 'err');
@@ -11720,19 +11754,21 @@ async function txMatch(){
     /* ── [446] ขั้นที่ 3 — นำ Tariff Code 8 หลักจาก TEXAS MASTER ไปจับ HS CODE ACTIVE
        Exact Match 8 หลัก · Lookup บน Server · ไม่เรียก Claude แม้แต่ครั้งเดียว ── */
     txSetStatus('กำลังจับคู่ Tariff Code กับ HS CODE MASTER …');
-    if(!_hsActive) await hsLoadActive();
-    if(!_hsActive) throw new Error(HS_MSG_NONE);
-    const hs = { found: 0, miss: 0, skip: 0, missList: [],
-                 version: _hsActive.version, file: _hsActive.file_name };
+    if(!hsReady()) await hsLoadActive();
+    const hsOn = hsReady(), hsStg = hsOn && hsSource() === 'staged';   // [452] ไฟล์ที่เลือกไว้ใช้ได้ทันทีแม้ยังไม่ SAVE
+    const hs = { found: 0, miss: 0, skip: 0, missList: [], none: !hsOn, staged: hsStg,
+                 version: !hsOn ? '—' : hsStg ? 'ยังไม่ได้ SAVE' : _hsActive.version,
+                 file:    !hsOn ? ''  : hsStg ? _hsStaged.name  : _hsActive.file_name };
     const hkeys = [];
     for(const r of list) for(const it of r.items){
       it._hkey = (it._m && /^\d{8}$/.test(String(it._m[1] || ''))) ? String(it._m[1]) : '';
       if(it._hkey) hkeys.push(it._hkey);
     }
-    const hfound = await hsLookup(hkeys);
+    const hfound = !hsOn ? new Map() : hsStg ? hsLookupStaged(hkeys) : await hsLookup(hkeys);
     for(const r of list) for(const it of r.items){
       it._h = it._hkey ? (hfound.get(it._hkey) || null) : null;
-      if(!it._hkey){ it._hstat = 'skip'; hs.skip++; }
+      if(!hsOn){ it._h = null; it._hstat = 'none'; }               // ยังไม่มี HS CODE ให้ค้น — ไม่เดาค่า
+      else if(!it._hkey){ it._hstat = 'skip'; hs.skip++; }
       else if(it._h){ it._hstat = 'ok'; hs.found++; }
       else { it._hstat = 'miss'; hs.miss++; if(hs.missList.indexOf(it._hkey) < 0) hs.missList.push(it._hkey); }
     }
@@ -11742,10 +11778,15 @@ async function txMatch(){
     txState.res  = { list, errs, unclear, files: A0.files, mst, hs, usage: A0.usage };
     txRenderResult();
     const rows = list.reduce((v, r) => v + r.items.length, 0);
-    const mstOK = (mst.miss === 0 && mst.blur === 0 && hs.miss === 0);
-    txSetStatus((mstOK ? '✓ ' + TX_MST_MSG_OK : '⚠ ' + (mst.blur ? TX_MST_MSG_BLUR + ' · ' : '') +
-                   (mst.miss ? TX_MST_MSG_NG(mst.miss) : '') +
-                   (hs.miss ? ' · ' + HS_MSG_ROW(hs.missList[0]) : '')) +
+    const mstOK = (mst.miss === 0 && mst.blur === 0 && hs.miss === 0 && !hs.none);
+    /* [452] ข้อ 4 — บอกรหัสที่ไม่พบตามจริง (ห้ามปิด Export เงียบ ๆ) */
+    const codes = (arr) => arr.slice(0, 5).join(', ') + (arr.length > 5 ? ' … รวม ' + arr.length + ' รหัส' : '');
+    const why = [];
+    if(mst.blur) why.push(TX_MST_MSG_BLUR);
+    if(mst.miss) why.push(TX_MST_MSG_NG(mst.miss) + ' [' + codes(mst.missList) + ']');
+    if(hs.none)  why.push(HS_MSG_NONE + ' — เลือกไฟล์ที่กรอบ HS CODE MASTER');
+    if(hs.miss)  why.push('ไม่พบ Tariff Code ใน HS CODE MASTER ' + hs.missList.length + ' รหัส [' + codes(hs.missList) + ']');
+    txSetStatus((mstOK ? '✓ ' + TX_MST_MSG_OK : '⚠ EXPORT ยังปิดอยู่: ' + why.join(' · ')) +
       ' · ' + list.length + ' Invoice · ' + rows + ' รายการ' +
       (A0.bad ? ' · ⚠ อ่านไม่สำเร็จ ' + A0.bad + ' ไฟล์' : '') +
       (errs.length ? ' · ⚠ เลขคณิตไม่ตรง ' + errs.length + ' Invoice' : ''),
@@ -11802,6 +11843,12 @@ function txOpenInput(ev, k){ if(ev) ev.stopPropagation();
   const el = document.getElementById('tx-' + k + '-input');
   if(el){ try{ el.value = ''; }catch(_){}   // [443] เคลียร์ก่อน เพื่อให้เลือกไฟล์ "ชื่อเดิม" ซ้ำได้
     el.click(); } }
+/* [452] แถบผลการอ่านของ AI — แยกบรรทัดของตัวเอง ไม่ถูกสถานะ Mapping เขียนทับ */
+function txAiBar(msg, cls){
+  const el = document.getElementById('tx-ai-bar'); if(!el) return;
+  if(!msg){ el.style.display = 'none'; el.textContent = ''; return; }
+  el.style.display = ''; el.textContent = msg; el.className = 'tx-status' + (cls ? ' ' + cls : '');
+}
 function txSetStatus(msg, cls){ const el = document.getElementById('tx-status'); if(!el) return; el.textContent = msg; el.className = 'tx-status' + (cls ? ' ' + cls : ''); }
 function txEscHtml(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function txRenderLists(){
@@ -11827,7 +11874,7 @@ function txHint(){
   if(!txLoggedIn())        return '⚠ ' + TX_NEED_LOGIN;   // [451] ยังไม่ได้ Login เว็บไซต์
   if(_txAiDown)            return '⚠ ' + TX_AI_NOT_READY; // [448] ข้อ 6 — AI ล่ม กระทบเฉพาะการอ่าน Invoice
   if(!txMstReady())        return '⚠ ' + TX_MST_MSG_NONE;  // [451] ไม่มีทั้งไฟล์ที่เลือกและ MASTER ACTIVE = Export ไม่ได้
-  if(!_hsActive)           return '⚠ ' + HS_MSG_NONE;      // [446] ไม่มี HS CODE ACTIVE = Export ไม่ได้
+  if(!hsReady())           return '⚠ ' + HS_MSG_NONE + ' — เลือกไฟล์ที่กรอบ HS CODE MASTER';   // [452]
   if(!txState.pdfs.length) return '✓ ' + TX_READY + ' — รอไฟล์ INVOICE PDF';
   return '✓ ' + TX_READY_PDF + ' · แนบแล้ว ' + txState.pdfs.length + ' ไฟล์ — AI กำลังเริ่มอ่านอัตโนมัติ';
 }
@@ -11868,15 +11915,15 @@ function txCheckReady(){
   const M = txState.res && txState.res.mst;
   const Hq = txState.res && txState.res.hs;
   /* [446] ข้อ 12 — Export เปิดเมื่อ: MASTER ครบ + HS CODE ACTIVE + จับ Tariff Code ครบทุกรายการ */
-  const mstOK = !!M && M.miss === 0 && M.blur === 0 && !!Hq && Hq.miss === 0;
+  const mstOK = !!M && M.miss === 0 && M.blur === 0 && !!Hq && Hq.miss === 0 && !Hq.none;
   if(b) b.disabled = !(txState.res && txState.res.list && txState.res.list.length)
-                     || busy || bad || _txRunning || _txMatching || !mstOK || !txMstReady() || !_hsActive;
+                     || busy || bad || _txRunning || _txMatching || !mstOK || !txMstReady() || !hsReady();
 }
 function txReset(){
   _txAutoWait++;                                 // [447] ยกเลิกคิวอ่านอัตโนมัติที่ค้างอยู่
   txState.pdfs = []; txState.stat = {}; txState.ai = null; txState.res = null; txState.list = null;
   const pi = document.getElementById('tx-pdf-input'); if(pi) pi.value = '';
-  txRenderResult(); txRenderLists(); txCheckReady(); txSetStatus(txHint());
+  txRenderResult(); txRenderLists(); txCheckReady(); txSetStatus(txHint()); txAiBar('');
 }
 
 /* ══ [16/11/2026] TEXAS DB12 ใช้ AI อย่างเดียว ══
@@ -12216,6 +12263,58 @@ const HS_MSG_NONE = 'ยังไม่มี HS CODE MASTER ที่พร้�
 let _hsActive = null, _hsStagedFile = null, _hsStaged = null, _hsBusy = false;
 let _hsMsg = null, _hsMsgCls = '';
 const _hsFound = new Map();
+/* [452] แหล่ง HS CODE ที่ใช้รอบนี้: ไฟล์ที่เพิ่งเลือกและอ่านผ่านแล้ว (ยังไม่ SAVE) มาก่อน → ไม่มีจึงใช้ HS CODE ACTIVE */
+function hsStagedOk(){
+  return !!(_hsStaged && _hsStaged.rows && _hsStaged.rows.length && !_hsStaged.stats.conflict && !_hsStaged.stats.badCode);
+}
+function hsSource(){ return hsStagedOk() ? 'staged' : (_hsActive ? 'active' : null); }
+function hsReady(){ return !!hsSource(); }
+/* ค้นหาจากไฟล์ที่เลือก (ในหน่วยความจำ · Exact Match 8 หลัก · ไม่เรียก Server · ไม่เรียก AI)
+   แถวจากไฟล์เรียงเหมือน Server อยู่แล้ว = [tariff8, tariff_raw, stat, priv, tseq, duty] */
+function hsLookupStaged(keys){
+  const map = new Map(), src = new Map();
+  for(const rec of _hsStaged.rows) src.set(rec[0], rec);
+  for(const k of new Set(keys.filter(Boolean))) map.set(k, src.get(k) || null);
+  return map;
+}
+/* กรอบ HS CODE MASTER ในหน้า TEXAS DB12 — สะท้อนสถานะเดียวกับโหมด HS CODE (ไม่มีข้อมูลชุดที่สอง) */
+function txHsRender(){
+  const pick = document.getElementById('tx-hs-pick'), info = document.getElementById('tx-hs-info');
+  const bar = document.getElementById('tx-hs-bar');
+  const A = _hsActive, S = _hsStaged, esc = txEscHtml;
+  if(pick){
+    if(S){ const ok = hsStagedOk();
+      pick.innerHTML = (ok ? '📘 ' : '⚠ ') + '<b>' + esc(S.name) + '</b> <span style="color:var(--text3)">(อ่านแล้ว ' +
+        S.rows.length.toLocaleString() + ' พิกัด · ' + (ok ? 'ใช้ในรอบนี้แล้ว · ยังไม่ได้ SAVE' : 'ไฟล์มีปัญหา ยังใช้ไม่ได้') + ')</span>';
+      pick.style.borderColor = ok ? '#16a34a' : '#dc2626'; pick.style.background = ok ? 'rgba(22,163,74,.08)' : 'rgba(220,38,38,.08)'; }
+    else if(_hsStagedFile){ pick.innerHTML = '📎 <b>' + esc(_hsStagedFile.name) + '</b> <span style="color:var(--text3)">(กำลังอ่าน…)</span>';
+      pick.style.borderColor = '#d99a00'; pick.style.background = 'rgba(250,204,21,.14)'; }
+    else { pick.innerHTML = 'คลิกเพื่อเลือกไฟล์ HS CODE (.xlsx)'; pick.style.borderColor = ''; pick.style.background = ''; }
+  }
+  if(info){
+    info.innerHTML = A
+      ? ('<div><span class="tx-mbadge" style="background:#dcfce7;color:#166534">HS CODE ACTIVE</span> <b>Version ' + esc(A.version) + '</b></div>' +
+         '<div>ไฟล์: <b>' + esc(A.file_name) + '</b></div>' +
+         '<div>อัปเดต: <b>' + esc(txMstDate(A.saved_at)) + '</b> · ผู้บันทึก: <b>' + esc(A.saved_by_name || A.saved_by) + '</b>' +
+         ' · Tariff Code: <b>' + Number(A.codes_uniq).toLocaleString() + '</b></div>')
+      : ('<div><span class="tx-mbadge" style="background:#fee2e2;color:#b91c1c">ยังไม่มี HS CODE ACTIVE</span></div>' +
+         '<div style="color:' + (hsStagedOk() ? 'var(--text2)' : '#b91c1c') + '">' +
+         (hsStagedOk() ? 'รอบนี้ใช้ไฟล์ที่เลือกไว้ — กด "SAVE HS CODE" เพื่อเก็บถาวร'
+                       : 'กด "เลือกไฟล์ HS CODE" เพื่ออ่านและใช้งานทันที') + '</div>');
+  }
+  if(bar){
+    const src = document.getElementById('hs-bar');
+    if(_hsMsg && src){ bar.textContent = src.textContent; bar.className = src.className; }
+    else if(hsStagedOk()){ bar.textContent = 'HS CODE: ไฟล์ที่เลือก (ยังไม่ได้ SAVE) · ' + _hsStaged.name + ' · ' +
+        _hsStaged.rows.length.toLocaleString() + ' พิกัด'; bar.className = 'tx-status ok'; }
+    else { bar.textContent = A ? ('HS CODE ACTIVE · Version ' + A.version + ' · ' + Number(A.codes_uniq).toLocaleString() + ' Tariff Code')
+                               : ('HS CODE: ' + HS_MSG_NONE);
+           bar.className = 'tx-status' + (A ? ' ok' : ' err'); }
+  }
+  const en = (id, on) => { const e = document.getElementById(id); if(e) e.disabled = !on; };
+  en('tx-hs-save',   hsStagedOk() && !_hsBusy);
+  en('tx-hs-cancel', (!!_hsStagedFile || !!_hsStaged) && !_hsBusy);
+}
 
 /* [446] normalizeHsTariffCode — 12 หลักขึ้นต้น 0000 → 8 หลักท้าย · 8 หลักใช้ตามเดิม
    ห้ามแปลงผ่าน Number · ห้ามเติม 0 หน้าค่าที่ส่งออก · ไม่เข้าเกณฑ์ = null (ถือว่าผิดรูปแบบ) */
@@ -12258,6 +12357,7 @@ function hsSetBar(msg, cls){
   const bar = document.getElementById('hs-bar'); if(!bar) return;
   if(_hsMsg){ bar.textContent = 'HS CODE: ' + _hsMsg; bar.className = 'tx-status' + (_hsMsgCls ? ' ' + _hsMsgCls : ''); }
   else hsRender();
+  try{ txHsRender(); }catch(_){}
 }
 function hsRender(){
   const pick = document.getElementById('hs-pick'), info = document.getElementById('hs-info');
@@ -12320,18 +12420,34 @@ function hsRender(){
   en('hs-read',   !!_hsStagedFile && !_hsBusy);
   en('hs-save',   !!(_hsStaged && _hsStaged.rows.length && !_hsStaged.stats.conflict && !_hsStaged.stats.badCode) && !_hsBusy);
   en('hs-cancel', (!!_hsStagedFile || !!_hsStaged) && !_hsBusy);
+  try{ txHsRender(); }catch(_){}
 }
 function hsPick(files){
   const f = (files || [])[0];
   if(!f) return;
   if(!/\.(xlsx|xls)$/i.test(f.name)){ if(typeof toast === 'function') toast('รับเฉพาะไฟล์ .xlsx', 'warn'); return; }
   _hsStagedFile = f; _hsStaged = null; _hsMsg = null;
-  hsRender(); hsSetBar('เลือกไฟล์ "' + f.name + '" แล้ว — กด "อ่านและตรวจสอบ"');
+  hsRender();
+  hsAutoRead();             // [452] อ่านและตรวจทันที แล้วใช้ในรอบนี้เลย (ไม่ต้องกดปุ่มใด)
+}
+/* [452] เลือก/ลากไฟล์ HS CODE = Excel Parser อ่านและตรวจทันที → Mapping รอบปัจจุบันใช้ไฟล์นี้ทันทีแม้ยังไม่ SAVE
+   ★ ไม่เรียก Claude · ไม่ตรวจสถานะ AI · ไม่แตะ HS CODE ACTIVE บน Server · AI ไม่ต้องอ่าน PDF ซ้ำ */
+async function hsAutoRead(){
+  if(!_hsStagedFile || _hsBusy) return false;
+  const f = _hsStagedFile;
+  await hsRead();
+  if(_hsStagedFile !== f) return false;
+  const ok = hsStagedOk();
+  if(ok) hsSetBar('อ่านไฟล์ "' + f.name + '" แล้ว · ' + _hsStaged.rows.length.toLocaleString() +
+                  ' Tariff Code — ใช้ในรอบนี้ทันที (ยังไม่ได้ SAVE) · กด "SAVE HS CODE" เพื่อบันทึกเป็น HS CODE ACTIVE ถาวร', 'ok');
+  hsInvalidate();           // คำนวณ Mapping ใหม่จากผลที่ AI อ่านไว้แล้ว (Claude API request = 0)
+  return ok;
 }
 function hsCancel(){
   _hsStagedFile = null; _hsStaged = null; _hsMsg = null;
   const el = document.getElementById('tx-hs-input'); if(el) el.value = '';
   hsRender(); hsSetBar('ยกเลิกไฟล์ที่เลือกแล้ว — HS CODE ACTIVE เดิมไม่เปลี่ยนแปลง');
+  hsInvalidate();           // [452] กลับไปใช้ HS CODE ACTIVE → คำนวณ Mapping ใหม่ทันที
 }
 /* อ่านและตรวจสอบไฟล์ HS CODE — ทำในเบราว์เซอร์ ไม่ส่งเข้า Claude */
 async function hsRead(){
@@ -12815,9 +12931,9 @@ async function txDownload(){
       M.missList.slice(0, 10).map(c => '• ' + TX_MST_MSG_ROW(c)).join('\n') +
       (M.missList.length > 10 ? '\n… รวม ' + M.missList.length + ' รหัส' : ''));
     /* [446] ข้อ 12 — ไม่มี HS CODE ACTIVE หรือจับ Tariff Code ไม่ครบ = ห้าม Export */
-    if(!_hsActive) throw new Error(HS_MSG_NONE);
+    if(!hsReady()) throw new Error(HS_MSG_NONE);
     const HX = (txState.res && txState.res.hs) || null;
-    if(!HX) throw new Error('ยังจับคู่ HS CODE ไม่เสร็จ กรุณารอสักครู่');
+    if(!HX || HX.none) throw new Error('ยังจับคู่ HS CODE ไม่เสร็จ กรุณารอสักครู่');
     if(HX.miss) throw new Error(HX.missList.slice(0, 10).map(c => HS_MSG_ROW(c)).join('\n') +
       (HX.missList.length > 10 ? '\n… รวม ' + HX.missList.length + ' รหัส' : ''));
 
@@ -12847,8 +12963,8 @@ document.addEventListener('DOMContentLoaded', function(){
   if(mi) mi.addEventListener('change', e => txMstPick(e.target.files));
   const hi = document.getElementById('tx-hs-input');
   if(hi) hi.addEventListener('change', e => hsPick(e.target.files));
-  const hb = document.getElementById('hs-box');
-  if(hb){
+  for(const hb of [document.getElementById('hs-box'), document.getElementById('tx-hs-box')]){
+    if(!hb) continue;
     ['dragenter','dragover'].forEach(ev => hb.addEventListener(ev, e => {
       e.preventDefault(); e.stopPropagation(); hb.classList.add('drag'); }));
     ['dragleave','drop'].forEach(ev => hb.addEventListener(ev, e => {
@@ -25759,7 +25875,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local451';
+const DEPLOY_VERSION = 'local452';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
