@@ -11314,19 +11314,27 @@ const TX_LOGIN_NOAI  = 'เข้าสู่ระบบ TEXAS DB12 ไม่�
 /* [448] ข้อความของ "ระบบที่ 1 — MASTER Mapping" และสถานะ AI — ห้ามปนกัน */
 const TX_SESS_EXPIRED = 'Session TEXAS DB12 หมดอายุ กรุณาเข้าสู่ระบบใหม่';
 const TX_AI_NOT_READY = 'AI ยังไม่พร้อม จึงยังไม่สามารถอ่าน Invoice PDF ได้';
-const TX_MST_FAIL = () => _txMstActive
-  ? ('บันทึก Version ใหม่ไม่สำเร็จ ระบบยังใช้ MASTER Version ' + _txMstActive.version + ' เดิม')
-  : 'บันทึก MASTER ไม่สำเร็จ ขณะนี้ยังไม่มี MASTER ACTIVE';
-const HS_FAIL = () => _hsActive
-  ? ('บันทึก Version ใหม่ไม่สำเร็จ ระบบยังใช้ HS CODE Version ' + _hsActive.version + ' เดิม')
-  : 'บันทึก HS CODE ไม่สำเร็จ ขณะนี้ยังไม่มี HS CODE ACTIVE';
+/* [449] ข้อ 8 — "บันทึก MASTER ไม่สำเร็จ: [สาเหตุจริง]" + บอกสถานะ ACTIVE ที่ใช้อยู่จริง */
+const TX_MST_FAIL = why => 'บันทึก MASTER ไม่สำเร็จ: ' + why +
+  (_txMstActive ? (' · ระบบยังใช้ MASTER Version ' + _txMstActive.version + ' เดิม')
+                : ' · ขณะนี้ยังไม่มี MASTER ACTIVE');
+const HS_FAIL = why => 'บันทึก HS CODE ไม่สำเร็จ: ' + why +
+  (_hsActive ? (' · ระบบยังใช้ HS CODE Version ' + _hsActive.version + ' เดิม')
+             : ' · ขณะนี้ยังไม่มี HS CODE ACTIVE');
+/* [449] ต่ออายุ Session ล่วงหน้าเมื่อเหลือน้อยกว่า 3 ชั่วโมง — กัน "Session ครึ่งระบบ" (ข้อ 1) */
+const TX_REFRESH_BEFORE_MS = 3 * 60 * 60 * 1000;
 
 /* ข้อ 8 — ล้าง Session ทุกที่ (Logout · หมดอายุ · Username ไม่ตรง · 401) */
 function txClearSession(){
   _txSess = null; _txSessReady = false; _txSessVerified = false; _txSessChecking = false; _txAiDown = false;
   try{ localStorage.removeItem(TX_LS_KEY); }catch(_){}
-  try{ sessionStorage.removeItem(TX_SS_OLD); }catch(_){}   // ล้างของรุ่นก่อนทิ้ง
+  /* [449] ข้อ 4 — ห้ามล้าง TX_AI_SESSION_V1 ทิ้งที่นี่ · ต้องตรวจกับ Server ก่อน (txMigrateV1) */
   try{ txCheckReady(); }catch(_){}
+}
+/* [449] ลบ Key ของรุ่นเก่าทิ้ง — เรียกเฉพาะหลังย้ายสำเร็จ หรือ Server ยืนยันว่าใช้ไม่ได้ */
+function txDropV1(){
+  try{ sessionStorage.removeItem(TX_SS_OLD); }catch(_){}
+  try{ localStorage.removeItem(TX_SS_OLD); }catch(_){}
 }
 /* ข้อ 6 — เก็บเฉพาะ Token + วันหมดอายุ + Username
    ★ ห้ามเก็บรหัสผ่าน / ANTHROPIC_API_KEY / Service Role Key / Prompt / เนื้อ PDF */
@@ -11375,6 +11383,58 @@ function txRestoreSession(currentUsername){
     return true;
   }catch(error){ txClearSession(); return false; }
 }
+/* [449] ข้อ 3 — ต่ออายุ Session ที่ Server (Sliding / Rotate) · ไม่เรียก Claude · ไม่เก็บรหัสผ่าน
+   คืนค่า: true = ต่ออายุสำเร็จ · false = Server ยืนยันว่าใช้ไม่ได้ (ล้าง Token แล้ว)
+           null = ติดต่อ Server ไม่ได้ → เก็บ Token ไว้ ห้ามล้าง (ข้อ 6) */
+async function txRefreshSession(rotate){
+  const tk = _txSess && _txSess.token;
+  if(!tk) return false;
+  try{
+    const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/nj_tx_refresh_session', {
+      method:'POST',
+      headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json' },
+      body: JSON.stringify({ p_session: tk, p_rotate: !!rotate })
+    });
+    const j = await r.json().catch(()=>null);
+    if(j && j.success && j.session){
+      txSaveSession({ token:j.session, exp: Date.parse(j.expires_at||'') || 0,
+                      username: j.username || (_txSess && _txSess.username) || '' });
+      _txSessReady = true;
+      try{ txCheckReady(); }catch(_){}
+      return true;
+    }
+    if(j && (j.error === 'unauthorized' || j.error === 'inactive')){ txClearSession(); return false; }
+  }catch(e){ try{ console.warn('[TX] ต่ออายุ Session ไม่สำเร็จ', e); }catch(_){} }
+  return null;
+}
+/* [449] ข้อ 1 — ก่อนทุกงานที่ต้องใช้ Token: ถ้าใกล้หมดอายุให้ต่ออายุก่อน ห้ามปล่อยเป็น Session ครึ่งระบบ */
+async function txEnsureSession(rotate){
+  if(!(_txSess && _txSess.token)) return false;
+  const left = Number(_txSess.exp || 0) - Date.now();
+  if(left > TX_REFRESH_BEFORE_MS) return txHasSession();
+  /* [450] ข้อ 3.3 — Rotate = Token เดิมถูกยกเลิกทันที จึงใช้เฉพาะตอนเปิดเว็บ/กู้ Session
+     ระหว่างทำรายการใช้ Sliding (Token เดิม) เพื่อไม่ให้แท็บอื่นหลุดกลางคัน */
+  await txRefreshSession(!!rotate);
+  return txHasSession();
+}
+/* [449] ข้อ 4 — ย้าย Session ของรุ่นก่อน (V1) มาเป็น V2 โดยตรวจกับ Server ก่อนเสมอ */
+async function txMigrateV1(currentUsername){
+  let raw = null;
+  try{ raw = sessionStorage.getItem(TX_SS_OLD); }catch(_){}
+  if(!raw){ try{ raw = localStorage.getItem(TX_SS_OLD); }catch(_){} }
+  if(!raw) return false;
+  let tok = '', user = '';
+  try{ const o = JSON.parse(raw); tok = String((o && o.token) || ''); user = String((o && o.username) || '').toLowerCase(); }
+  catch(_){ tok = String(raw || '').trim(); }
+  const cur = String(currentUsername || '').toLowerCase();
+  if(!tok || (user && cur && user !== cur)){ txDropV1(); return false; }
+  _txSess = { token: tok, exp: Date.now() + 60000, username: user || cur };
+  const ok = await txRefreshSession(true);        // ตรวจ + ออก Token ใหม่ในคราวเดียว
+  if(ok === true){ txDropV1(); return true; }     // ย้ายสำเร็จ → ลบ V1
+  _txSess = null; _txSessReady = false;
+  if(ok === false) txDropV1();                    // Server ยืนยันว่าใช้ไม่ได้ → ลบ V1
+  return false;                                   // null = เครือข่ายล่ม → เก็บ V1 ไว้ลองใหม่รอบหน้า
+}
 /* หมดอายุเมื่อไร = ลบทิ้งทันที (ไม่เรียกซ้ำกลับเพื่อกัน Recursion) · ห้ามต่ออายุเอง */
 function txHasSession(){
   if(_txSess && _txSess.exp && _txSess.exp <= Date.now() + 5000){
@@ -11394,9 +11454,12 @@ async function txSessionCheck(){
     if(j && j.success && j.authenticated){
       _txSessReady = true; _txSessVerified = true; _txAiDown = false; return true;
     }
-    /* [448] Server ยืนยันว่า Token ใช้ไม่ได้จริง → ล้างทิ้ง (เฉพาะกรณีนี้เท่านั้น) */
+    /* [449] ข้อ 6 — Edge Function ปฏิเสธ ยังไม่ล้างทันที ต้องถามฐานข้อมูลก่อน
+       Token ยังดี = ปัญหาอยู่ที่ AI เท่านั้น → MASTER/HS CODE ต้องใช้งานได้ต่อ */
     if(j && (j.authenticated === false || j.error === 'unauthorized' || j.error === 'session_expired')){
-      txClearSession(); return false;
+      const alive = await txRefreshSession(false);
+      if(alive === true){ _txSessVerified = false; _txAiDown = true; return false; }
+      return false;                                  // false = ล้างไปแล้ว · null = เครือข่ายล่ม (เก็บ Token ไว้)
     }
   }catch(e){ try{ console.warn('[TX] ตรวจสถานะ AI ไม่สำเร็จ', e); }catch(_){} }
   /* [448] ติดต่อ AI ไม่ได้ (Edge Function/เครือข่ายล่ม) → เก็บ Token ไว้
@@ -11406,10 +11469,16 @@ async function txSessionCheck(){
 }
 /* ข้อ 10 — Auto Connection ตอนเปิดเว็บ/Refresh — ผู้ใช้ไม่ต้องกดปุ่มใดเลย */
 async function txBootSession(username){
-  if(!txRestoreSession(username)){ try{ txCheckReady(); }catch(_){} return false; }
+  let have = txRestoreSession(username);
+  if(!have) have = await txMigrateV1(username);     // [449] ข้อ 4 — Session Migration V1 → V2
+  if(!have){ try{ txCheckReady(); }catch(_){} return false; }
   /* [448] มี Token ที่ยังไม่หมดอายุแล้ว → ระบบที่ 1 (MASTER Mapping) พร้อมใช้งานทันที
      ไม่รอและไม่ขึ้นกับสถานะ AI — โหลด MASTER/HS CODE ACTIVE ก่อนเสมอ */
   _txSessReady = true; _txSessVerified = false; _txAiDown = false;
+  /* [449] ข้อ 3 — ใกล้หมดอายุให้ต่ออายุที่ Server ทันที ห้ามปล่อยเข้าแอปแบบครึ่งระบบ
+     [450] ตอนเปิดเว็บ/กู้ Session = Rotate Token ใหม่ (ของเดิมถูกยกเลิกทันทีที่ Server) */
+  await txEnsureSession(true);
+  if(!txHasSession()){ try{ txCheckReady(); txSetStatus('✗ ' + TX_SESS_EXPIRED, 'err'); }catch(_){} return false; }
   try{ await txMstLoadActive(); }catch(_){}
   try{ await hsLoadActive(); }catch(_){}
   _txSessChecking = true;
@@ -11681,6 +11750,7 @@ async function txRun(){
   _txRunning = true; if(bExp) bExp.disabled = true;
   txState.res = null; txState.list = null; txRenderResult();
   try{
+    await txEnsureSession();                 // [449] ต่ออายุก่อนส่ง PDF ถ้าใกล้หมดอายุ
     if(!txHasSession()) throw new Error(TX_SESS_EXPIRED);
     /* [438] ก่อนส่ง PDF ครั้งแรกของรอบนี้ — ถาม Server ว่า Session ยังใช้ได้จริง (ไม่เรียก Claude)
        [448] ล้มเหลวเพราะ AI = แจ้งเฉพาะฝั่ง Invoice ไม่กระทบ MASTER/HS CODE */
@@ -12007,7 +12077,9 @@ const HS_MSG_OK  = 'พบข้อมูลใน HS CODE MASTER ครบท�
 
 /* ── เรียก RPC ของ MASTER (ส่ง Session ทุกครั้ง · Server เป็นผู้ตัดสินสิทธิ์) ── */
 async function txMstRpc(fn, body){
-  /* [448] ระบบที่ 1 — ตรวจเฉพาะ Session TEXAS DB12 · ห้ามตรวจสถานะ AI ทุกกรณี */
+  /* [448] ระบบที่ 1 — ตรวจเฉพาะ Session TEXAS DB12 · ห้ามตรวจสถานะ AI ทุกกรณี
+     [449] ใกล้หมดอายุ = ต่ออายุเองก่อน ไม่ให้ผู้ใช้เจอ Session ครึ่งระบบ */
+  await txEnsureSession();
   const tk = txHasSession() ? _txSess.token : '';
   if(!tk) throw new Error(TX_SESS_EXPIRED);
   const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/' + fn, {
@@ -12018,7 +12090,8 @@ async function txMstRpc(fn, body){
   let j = null; try{ j = await r.json(); }catch(e){}
   if(!j) throw new Error('ไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้ (HTTP ' + r.status + ')');
   if(j.success === false){
-    if(j.error === 'unauthorized') throw new Error(TX_SESS_EXPIRED);
+    /* [449] ฐานข้อมูลยืนยันว่า Token ใช้ไม่ได้ = ล้างทิ้งทันที ไม่ปล่อยเป็น Session ครึ่งระบบ */
+    if(j.error === 'unauthorized' || j.error === 'inactive'){ txClearSession(); throw new Error(TX_SESS_EXPIRED); }
     throw new Error(j.msg || 'ไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้');
   }
   return j;
@@ -12259,7 +12332,9 @@ function normalizeHsTariffCode(v){
   return null;
 }
 async function hsRpc(fn, body){
-  /* [448] ระบบที่ 1 — ตรวจเฉพาะ Session TEXAS DB12 · ห้ามตรวจสถานะ AI ทุกกรณี */
+  /* [448] ระบบที่ 1 — ตรวจเฉพาะ Session TEXAS DB12 · ห้ามตรวจสถานะ AI ทุกกรณี
+     [449] ใกล้หมดอายุ = ต่ออายุเองก่อน ไม่ให้ผู้ใช้เจอ Session ครึ่งระบบ */
+  await txEnsureSession();
   const tk = txHasSession() ? _txSess.token : '';
   if(!tk) throw new Error(TX_SESS_EXPIRED);
   const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/' + fn, {
@@ -12270,7 +12345,8 @@ async function hsRpc(fn, body){
   let j = null; try{ j = await r.json(); }catch(e){}
   if(!j) throw new Error('ไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้ (HTTP ' + r.status + ')');
   if(j.success === false){
-    if(j.error === 'unauthorized') throw new Error(TX_SESS_EXPIRED);
+    /* [449] ฐานข้อมูลยืนยันว่า Token ใช้ไม่ได้ = ล้างทิ้งทันที ไม่ปล่อยเป็น Session ครึ่งระบบ */
+    if(j.error === 'unauthorized' || j.error === 'inactive'){ txClearSession(); throw new Error(TX_SESS_EXPIRED); }
     throw new Error(j.msg || 'ไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้');
   }
   return j;
@@ -12475,7 +12551,7 @@ async function hsSave(){
              Number(c.rows).toLocaleString() + ' รายการ', 'ok');
     hsInvalidate();
   }catch(e){
-    hsSetBar(HS_FAIL() + ' — ' + (e && e.message ? e.message : e), 'err');
+    hsSetBar(HS_FAIL(e && e.message ? e.message : String(e)), 'err');
   }finally{ _hsBusy = false; hsRender(); }
 }
 async function hsRollback(ver){
@@ -12519,11 +12595,9 @@ async function txMstSave(){
   _txMstBusy = false; txMstRender();
   if(!okParse || !_txMstStaged) return;
   const S = _txMstStaged;
-  const warn = S.stats.errors ? ('\n\n⚠ พบข้อผิดพลาด ' + S.stats.errors + ' รายการในไฟล์นี้') : '';
-  if(!confirm('บันทึก MASTER ใหม่เป็น Version ที่ใช้งานจริงสำหรับทุกบัญชี?\n\nไฟล์: ' + S.name +
-              '\nแถว: ' + S.stats.rows_total + ' · ไม่ซ้ำ: ' + S.stats.codes_uniq + ' · ซ้ำ: ' + S.stats.codes_dup + warn +
-              '\n\nMASTER เดิมจะถูกเก็บไว้เป็นประวัติและคืนค่าได้')) return;
-  _txMstMsg = null; _txMstBusy = true; txMstRender(); txMstSetBar('กำลังบันทึกขึ้น Server …');
+  /* [450] ข้อ 5.4 — ไม่มีหน้าต่างยืนยันซ้ำ · กด SAVE ครั้งเดียวแล้วบันทึกเป็น ACTIVE ทันที */
+  _txMstMsg = null; _txMstBusy = true; txMstRender();
+  txMstSetBar('กำลังบันทึก MASTER ขึ้น Server · ' + S.stats.codes_uniq.toLocaleString() + ' Product Code …');
   try{
     const j = await txMstRpc('nj_tx_master_save', {
       p_file_name: S.name, p_sha256: S.sha, p_file_b64: S.b64, p_sheet: S.sheet,
@@ -12531,11 +12605,12 @@ async function txMstSave(){
     _txMstStagedFile = null; _txMstStaged = null;
     const el = document.getElementById('tx-mst-input'); if(el) el.value = '';
     await txMstLoadActive();
-    txMstSetBar('MASTER ACTIVE · Version ' + j.version + ' · ' + Number(j.rows).toLocaleString() +
-                ' Product Code · บันทึกสำเร็จ ทุกเครื่องจะเห็น Version นี้', 'ok');
+    /* [450] ข้อ 5.6 — ข้อความสำเร็จตามสเปค */
+    txMstSetBar('บันทึก MASTER สำเร็จ ระบบกำลังใช้ Version ' + j.version + ' · ' +
+                Number(j.rows).toLocaleString() + ' Product Code', 'ok');
     txMstInvalidate();
   }catch(e){
-    txMstSetBar(TX_MST_FAIL() + ' — ' + (e && e.message ? e.message : e), 'err');
+    txMstSetBar(TX_MST_FAIL(e && e.message ? e.message : String(e)), 'err');
   }finally{
     _txMstBusy = false; txMstRender();
   }
@@ -25827,7 +25902,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local448';
+const DEPLOY_VERSION = 'local450';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
