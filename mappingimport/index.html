@@ -2460,6 +2460,7 @@ body.legacy-active .content-area { display: none !important; }
           คลิกเพื่อเลือกไฟล์ MASTER (.xlsx)
         </div>
         <div class="tx-mbtns">
+          <button class="btn" id="tx-mst-choose" onclick="txOpenInput(event,'mst')">📎 เลือกไฟล์ MASTER</button>
           <button class="btn" id="tx-mst-read" onclick="txMstRead()" disabled>🔍 อ่านและตรวจสอบ MASTER</button>
           <button class="btn btn-success" id="tx-mst-save" onclick="txMstSave()" disabled>💾 SAVE MASTER</button>
           <button class="btn" id="tx-mst-cancel" onclick="txMstCancel()" disabled>✕ ยกเลิกไฟล์ที่เลือก</button>
@@ -11649,7 +11650,10 @@ async function txRun(){
 /* ลองใหม่เฉพาะไฟล์ที่ล้มเหลว — ไม่กระทบไฟล์ที่อ่านสำเร็จแล้ว (ใช้ Cache เดิม) */
 function txRetry(i){ const f = txState.pdfs[i]; if(!f) return; txState.stat[f.name] = ''; txRun(); }
 
-function txOpenInput(ev, k){ if(ev) ev.stopPropagation(); const el = document.getElementById('tx-' + k + '-input'); if(el) el.click(); }
+function txOpenInput(ev, k){ if(ev) ev.stopPropagation();
+  const el = document.getElementById('tx-' + k + '-input');
+  if(el){ try{ el.value = ''; }catch(_){}   // [443] เคลียร์ก่อน เพื่อให้เลือกไฟล์ "ชื่อเดิม" ซ้ำได้
+    el.click(); } }
 function txSetStatus(msg, cls){ const el = document.getElementById('tx-status'); if(!el) return; el.textContent = msg; el.className = 'tx-status' + (cls ? ' ' + cls : ''); }
 function txEscHtml(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function txRenderLists(){
@@ -11767,8 +11771,9 @@ function txMstNorm(v){
 const txMstHdr = v => String(v == null ? '' : v).replace(/[\s ​﻿]+/g, '').toLowerCase();
 
 let _txMstActive  = null;    // ข้อมูล MASTER Version ที่ ACTIVE อยู่ (จาก Server)
-let _txMstCanMng  = false;   // Server ยืนยันว่าบัญชีนี้จัดการ MASTER ได้
-let _txMstStaged  = null;    // ไฟล์ MASTER ที่เลือกไว้แต่ยังไม่ SAVE (อยู่ในหน่วยความจำเท่านั้น)
+let _txMstCanMng  = true;    // [443] หน้าเว็บไม่จำกัดสิทธิ์ — Server เป็นผู้ตัดสินทุกคำขอ
+let _txMstStaged  = null;    // ผลอ่านไฟล์ MASTER ที่ยังไม่ SAVE (อยู่ในหน่วยความจำเท่านั้น)
+let _txMstStagedFile = null; // ไฟล์ที่เพิ่งเลือก (ยังไม่ได้กดอ่าน)
 let _txMstBusy    = false;   // กำลังอ่าน/บันทึก MASTER
 const _txMstFound = new Map();   // cache ผลค้นหาต่อ Version (ล้างเมื่อ Version เปลี่ยน)
 
@@ -11799,9 +11804,9 @@ async function txMstLoadActive(){
     const j = await txMstRpc('nj_tx_master_active', {});
     const prev = _txMstActive && _txMstActive.version;
     _txMstActive = j.active || null;
-    _txMstCanMng = !!j.can_manage;
+    /* [443] ไม่นำ can_manage มาปิดปุ่ม — ถ้าไม่มีสิทธิ์จริง Server จะปฏิเสธและแจ้งข้อความเอง */
     if(!_txMstActive || _txMstActive.version !== prev) _txMstFound.clear();
-  }catch(e){ _txMstActive = null; _txMstCanMng = false; }
+  }catch(e){ _txMstActive = null; }   // [443] อ่าน MASTER ACTIVE ไม่ได้ ก็ยังต้องแนบ/อ่าน/SAVE ไฟล์ได้
   txMstRender(); try{ txCheckReady(); }catch(_){}
   txMstHistory();
   return _txMstActive;
@@ -11817,7 +11822,7 @@ async function txMstHistory(){
       '<span style="flex:1 1 auto">' + txEscHtml(v.file_name) + '</span>' +
       '<span style="flex:0 0 auto;color:var(--text3)">' + txEscHtml(txMstDate(v.saved_at)) + ' · ' + txEscHtml(v.saved_by_name || v.saved_by) + '</span>' +
       (v.is_active ? '<span class="tx-mbadge" style="background:#dcfce7;color:#166534">ACTIVE</span>'
-                   : (_txMstCanMng ? '<button onclick="txMstRollback(' + Number(v.version) + ')">คืนค่า Version นี้</button>' : '')) +
+                   : '<button onclick="txMstRollback(' + Number(v.version) + ')">คืนค่า Version นี้</button>') +
       '</div>').join('');
   }catch(e){ box.innerHTML = '<div style="color:#b91c1c">อ่านประวัติ Version ไม่สำเร็จ</div>'; }
 }
@@ -11831,8 +11836,21 @@ function txMstRender(){
   const pick = document.getElementById('tx-mst-pick');
   const bar  = document.getElementById('tx-mst-bar');
   const A = _txMstActive, St = _txMstStaged, esc = txEscHtml;
-  if(pick) pick.innerHTML = St ? ('📘 ' + esc(St.name) + ' <span style="color:var(--text3)">(' + St.rows.length + ' แถว · ยังไม่ได้ SAVE)</span>')
-                               : 'คลิกเพื่อเลือกไฟล์ MASTER (.xlsx)';
+  /* [442] แสดงชื่อไฟล์ทันทีที่เลือก — ไม่ต้องรอกด "อ่านและตรวจสอบ MASTER" */
+  if(pick){
+    if(St){
+      pick.innerHTML = '📘 <b>' + esc(St.name) + '</b> <span style="color:var(--text3)">(อ่านแล้ว ' +
+        St.rows.length + ' รหัส · ยังไม่ได้ SAVE)</span>';
+      pick.style.borderColor = '#16a34a'; pick.style.background = 'rgba(22,163,74,.08)';
+    } else if(_txMstStagedFile){
+      pick.innerHTML = '📎 <b>' + esc(_txMstStagedFile.name) + '</b> <span style="color:var(--text3)">(' +
+        Math.max(1, Math.round(_txMstStagedFile.size / 1024)) + ' KB · ยังไม่ได้อ่าน — กด "อ่านและตรวจสอบ MASTER")</span>';
+      pick.style.borderColor = '#d99a00'; pick.style.background = 'rgba(250,204,21,.14)';
+    } else {
+      pick.innerHTML = 'คลิกเพื่อเลือกไฟล์ MASTER (.xlsx)';
+      pick.style.borderColor = ''; pick.style.background = '';
+    }
+  }
   if(info){
     let h = '';
     if(A){
@@ -11869,11 +11887,9 @@ function txMstRender(){
   }
   const en = (id, on) => { const e = document.getElementById(id); if(e) e.disabled = !on; };
   en('tx-mst-read',   !!_txMstStagedFile && !_txMstBusy);
-  en('tx-mst-save',   !!(_txMstStaged && _txMstStaged.rows.length) && !_txMstBusy && _txMstCanMng);
+  en('tx-mst-save',   !!(_txMstStaged && _txMstStaged.rows.length) && !_txMstBusy);
   en('tx-mst-cancel', (!!_txMstStagedFile || !!_txMstStaged) && !_txMstBusy);
 }
-let _txMstStagedFile = null;      // ไฟล์ที่เลือกไว้ (ยังไม่ได้อ่าน)
-
 /* ── เลือกไฟล์ MASTER — ห้ามกระทบ PDF และห้ามกระทบ MASTER ACTIVE ── */
 function txMstPick(files){
   const f = (files || [])[0];
@@ -25241,7 +25257,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local441';
+const DEPLOY_VERSION = 'local443';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
