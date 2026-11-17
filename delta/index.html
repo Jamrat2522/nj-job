@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <!-- Build Metadata (local316): เลข Version ของ Build นี้ — กำหนดที่บรรทัดนี้ที่เดียว ใช้ทั้งเว็บไซต์ (ป้ายมุมขวาบนอ่านจากที่นี่) -->
-<meta name="nj-build" content="local316">
+<meta name="nj-build" content="local317">
 <title>Mapping Export Hi-Tech HTML</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -390,6 +390,27 @@ body.mode-delta005 #delta005-view{display:flex}
 body.mode-formfax .content-area > *:not(.doa-view){display:none !important}
 body.mode-formfax .doa-view:not(#formfax-view){display:none !important}
 body.mode-formfax #formfax-view{display:flex}
+/* ═══ MASTER พิกัดใบอนุญาต (local317) — ใช้ doa-view#permit-view ═══ */
+body.mode-permit .content-area > *:not(.doa-view){display:none !important}
+body.mode-permit .doa-view:not(#permit-view){display:none !important}
+body.mode-permit #permit-view{display:flex}
+#permit-view .doa-panel{margin-bottom:10px}
+#permit-view .doa-drop.drag{border-color:#3b82f6;background:rgba(59,130,246,.08)}
+#permit-view .pm-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:2px 0 10px}
+#permit-view .pm-search{display:flex;gap:6px;align-items:center;flex:1;min-width:250px}
+#permit-view .pm-search input{flex:1;padding:7px 10px;font-size:12.5px}
+#permit-view .pm-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font-size:11.5px;cursor:pointer;font-family:'IBM Plex Sans Thai',sans-serif}
+#permit-view .pm-chip b{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)}
+#permit-view .pm-chip.on{border-color:#3b82f6;background:rgba(59,130,246,.16);color:#93c5fd}
+#permit-view .pm-chip.warnchip b{color:#f59e0b}
+#permit-view .pm-pend{margin-top:8px;font-size:12px;color:var(--text)}
+#permit-view .pm-page{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:8px;flex-wrap:wrap}
+#permit-view .pm-c{text-align:center}
+#permit-view .pm-y{color:#10b981}
+#permit-view .pm-n{color:var(--text2)}
+#permit-view .sai-tbl th{white-space:nowrap}
+#permit-view .pm-del{color:#fca5a5}
+@media (max-width:900px){#permit-view .pm-bar{gap:6px}#permit-view .pm-chip{font-size:11px;padding:5px 9px}}
 
 /* File entry error styling — when wrong file uploaded */
 #formfax-view .doa-file-entry.err{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.45);color:#fca5a5}
@@ -552,6 +573,11 @@ body.wide-1col .up-card .pdf-file{padding:6px 10px;font-size:11.5px}
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
       <span class="label">GROHE SIAM</span>
       <span class="nav-badge shell">GROHE SIAM</span>
+    </a>
+    <a class="sb-item" href="javascript:void(0)" data-nav="permit" onclick="switchCustomer('permit')">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8 13h8v1.5H8V13zm0 3h8v1.5H8V16zm0-6h3v1.5H8V10z"/></svg>
+      <span class="label">MASTER พิกัดใบอนุญาต</span>
+      <span class="nav-badge shell">MASTER</span>
     </a>
     <a class="sb-item" href="javascript:void(0)" data-nav="delta_truck" onclick="switchCustomer('delta_truck')">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 8h2l3 4v5h-2a2 2 0 0 1-4 0H9a2 2 0 0 1-4 0H2V6a2 2 0 0 1 2-2h11v4zm-11 8.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm11 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm2-7V12h3l-2-2.5h-1z"/></svg>
@@ -838,6 +864,9 @@ body.wide-1col .up-card .pdf-file{padding:6px 10px;font-size:11.5px}
          FORM FAX (KDC) — KDC FAX Form Auto-Filler
          (มองเห็นเฉพาะเมื่อ body.mode-formfax · ไม่กระทบโหมดอื่น)
          ══════════════════════════════════════════════════════════════ -->
+    <!-- MASTER พิกัดใบอนุญาต (local317) — เนื้อหาสร้างโดย permitMaster.render() -->
+    <div class="doa-view" id="permit-view"></div>
+
     <div class="doa-view" id="formfax-view">
 
       <!-- 1. Upload -->
@@ -1265,6 +1294,18 @@ const CUSTOMERS = {
     ]
   },
 
+  /* MASTER พิกัดใบอนุญาต (local317) — ใช้ doa-view#permit-view · ไม่ผ่าน unified upload-grid
+   *  ข้อมูลอยู่ที่ตารางกลาง calc_permit_master (ชุดเดียวกับ checkdecl) ผ่าน RPC nj_permit_master_* */
+  permit: {
+    name:'MASTER', badge:'MASTER',
+    title:'MASTER พิกัดใบอนุญาต',
+    subtitle:'',
+    exportName:'',
+    showPoInput:false,
+    debugLabels:{},
+    slots:[]
+  },
+
   /* Form fax All — ใช้ doa-view#formfax-view · ไม่ผ่าน unified upload-grid */
   formfax: {
     name:'FORM FAX', badge:'FORM FAX',
@@ -1408,6 +1449,7 @@ function switchCustomer(key){
   document.body.classList.toggle('wide-1col', WIDE_1COL_MODES.includes(key));
   document.body.classList.toggle('mode-shell', key === 'shell');
   document.body.classList.toggle('mode-formfax', key === 'formfax');
+  document.body.classList.toggle('mode-permit', key === 'permit');   // local317
   document.body.classList.toggle('mode-delta', key === 'delta_truck');
   document.body.classList.toggle('mode-delta003', key === 'delta_truck_ieat003');
   document.body.classList.toggle('mode-delta005', key === 'delta_truck_ieat005');
@@ -1435,6 +1477,20 @@ function switchCustomer(key){
     // Hide unified-delta-view
     const udv = document.getElementById('unified-delta-view');
     if(udv) udv.style.display = 'none';
+  }
+
+  // ── MASTER พิกัดใบอนุญาต (local317) — ใช้ doa-view ของตัวเอง · return ทันที
+  if(key === 'permit'){
+    document.getElementById('topbar-title').textContent = 'MASTER พิกัดใบอนุญาต';
+    const badge = document.getElementById('topbar-badge');
+    badge.textContent = 'MASTER';
+    badge.className = 'company-badge shell';
+    const h1 = document.getElementById('page-h1');  if(h1) h1.textContent = '';
+    const sub = document.getElementById('page-sub'); if(sub) sub.textContent = '';
+    try{ if(typeof shellAiMount === 'function') shellAiMount(key); } catch(e){}
+    try{ if(typeof groheAiMount === 'function') groheAiMount(key); } catch(e){}
+    try{ if(typeof permitMount === 'function') permitMount(key); } catch(e){ console.warn('permitMount:', e); }
+    return;
   }
 
   // ── Form FAX mode — uses its own doa-view, return early
@@ -1915,6 +1971,7 @@ function renderUnifiedDeltaView(){
   } catch(e){ console.warn('auto-preview:', e); }
   try{ if(typeof shellAiMount === 'function') shellAiMount(key); } catch(e){ console.warn('shellAiMount:', e); }
   try{ if(typeof groheAiMount === 'function') groheAiMount(key); } catch(e){ console.warn('groheAiMount:', e); }
+  try{ if(typeof permitMount === 'function') permitMount(key); } catch(e){ console.warn('permitMount:', e); }   // local317
 }
 
 function uDeltaRefreshStatus(){
@@ -5475,6 +5532,21 @@ async function _doExportGROHERun(){
                  {wch:12},{wch:12},{wch:20},{wch:9},{wch:9},{wch:9},{wch:12},{wch:9},{wch:11},{wch:9},{wch:30},{wch:20},{wch:16},{wch:12},{wch:9},{wch:14},{wch:16},{wch:12},{wch:9}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'MAPPING');
+  // local317: ชีตแยก "รายการติดใบอนุญาต" — ไม่เปลี่ยนคอลัมน์/รูปแบบของชีต MAPPING เดิม และไม่นับรวมใน TOTAL
+  const _lic = _ai.lic || (typeof groheAiLicense === 'function' ? groheAiLicense() : null);
+  if(_lic && _lic.rows && _lic.rows.length){
+    const LIC_HEADERS = ['INVOICE','No.','Product Code','Description','HS CODE','STAT','หน่วยงาน','MODE','สถานะ','หมายเหตุ'];
+    const laoa = [LIC_HEADERS];
+    _lic.rows.forEach(r => laoa.push([
+      /^\d{1,15}$/.test(String(r.invoice)) ? Number(r.invoice) : String(r.invoice || ''),
+      String(r.item_no || ''), String(r.product || ''), String(r.desc || ''),   // รหัสเป็นข้อความ — รักษาเลข 0 นำหน้า
+      String(r.hs || ''), String(r.stat || ''), String(r.agency || ''), String(r.mode || ''),
+      String(r.status || ''), String(r.note || ''),
+    ]));
+    const lws = XLSX.utils.aoa_to_sheet(laoa);
+    lws['!cols'] = [{wch:14},{wch:7},{wch:14},{wch:38},{wch:12},{wch:7},{wch:34},{wch:15},{wch:24},{wch:46}];
+    XLSX.utils.book_append_sheet(wb, lws, 'รายการติดใบอนุญาต');
+  }
   // TOTAL จากข้อมูลที่เขียนลงไฟล์จริง → แสดงเหนือปุ่ม EXPORT ก่อนดาวน์โหลด
   if(typeof groheAiTotals === 'function') groheAiTotals([{ file:CUSTOMERS.grohe.exportName, sheet:'MAPPING', headers:HEADERS, rows:aoa.slice(1) }], SUM_COLS);
   const bin = XLSX.write(wb, {type:'array', bookType:'xlsx', cellDates:true});
@@ -8086,6 +8158,8 @@ async function doLogin(){
          else if(typeof groheAiUseSupabaseAuth === 'function') groheAiUseSupabaseAuth(match.username); } catch(e){}   // GROHE SIAM AI ใช้ Session เดียวกับการ Login
     try{ if(srvSession){ if(typeof shellAiSetSession === 'function') shellAiSetSession(srvSession); }
          else if(typeof shellAiUseSupabaseAuth === 'function') shellAiUseSupabaseAuth(match.username); } catch(e){}   // THE SHELL AI ใช้ Session เดียวกับ Login
+    try{ if(srvSession){ if(typeof permitSetSession === 'function') permitSetSession(srvSession); }
+         else if(typeof permitUseSupabaseAuth === 'function') permitUseSupabaseAuth(match.username); } catch(e){}   // local317: MASTER พิกัดใบอนุญาต ใช้ Session เดียวกับ Login
     if(err) err.style.display = 'none';
     enterApp();
     if(match._emergency){
@@ -8161,6 +8235,7 @@ function doLogout(){
   _currentUser = null;
   try{ if(typeof shellAiLogout === 'function'){ shellAiLogout(); shellAiReset(); } } catch(e){}
   try{ if(typeof groheAiLogout === 'function'){ groheAiLogout(); groheAiReset(); } } catch(e){}
+  try{ if(typeof permitLogout === 'function') permitLogout(); } catch(e){}   // local317
   document.getElementById('login-wrap').style.display = 'flex';
   const pe = document.getElementById('login-p'); if(pe) pe.value = '';
   const ue = document.getElementById('login-u'); if(ue) ue.value = '';
@@ -10102,7 +10177,8 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     files:[], orphans:{}, exporting:false, phase:'', report:null, pend:null, lastOk:false,
     aiMode:'auto',                          // AUTO (ค่าเริ่มต้น) | sonnet | opus — เปลี่ยนได้ก่อนเริ่มประมวลผลเท่านั้น
     usage:{ sonnet:{ calls:0, in:0, out:0, cost:0, priced:true }, opus:{ calls:0, in:0, out:0, cost:0, priced:true } },
-    ai:null, rechecked:new Set(), extra:new Map()   // extra = รายการที่ Opus พบว่าตกหล่น (เก็บแยกเพื่อไม่ให้หายเมื่อรวมผลใหม่)            // ai = สรุปผลรอบล่าสุด · rechecked = ลายเซ็นคำถามที่ตรวจซ้ำไปแล้ว (กดซ้ำไม่เรียกซ้ำ)
+    ai:null, rechecked:new Set(), extra:new Map(),   // extra = รายการที่ Opus พบว่าตกหล่น (เก็บแยกเพื่อไม่ให้หายเมื่อรวมผลใหม่)            // ai = สรุปผลรอบล่าสุด · rechecked = ลายเซ็นคำถามที่ตรวจซ้ำไปแล้ว (กดซ้ำไม่เรียกซ้ำ)
+    lic:null,                               // local317: ผลตรวจ MASTER พิกัดใบอนุญาต (แจ้งเตือนอย่างเดียว — ไม่บล็อก EXPORT)
   };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const num = v => { if(v == null || v === '') return null; const n = parseFloat(String(v).replace(/,/g,'')); return isFinite(n) ? n : null; };
@@ -10145,7 +10221,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   window.groheAiReset = function(){
     if(G.exporting){ toast_('กำลังประมวลผล EXPORT — รอให้เสร็จก่อน', 'warn'); return; }
     G.files.forEach(f => { if(f.url) try{ URL.revokeObjectURL(f.url); } catch(e){} });
-    G.files = []; G.report = null; G.pend = null; G.lastOk = false; G.ai = null; G.extra = new Map(); G.rechecked = new Set(); totalsClear(); render();
+    G.files = []; G.report = null; G.pend = null; G.lastOk = false; G.ai = null; G.lic = null; G.extra = new Map(); G.rechecked = new Set(); totalsClear(); render();
   };
 
   /* ── API ─────────────────────────────────────────────── */
@@ -10509,6 +10585,68 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
 
   /* ── ONE-CLICK: เรียกจาก doExportGROHE ── */
   const filesSig = () => G.files.map(f => f.id + ':' + f.sha).join('|');
+  /* ── ตรวจ MASTER พิกัดใบอนุญาต (local317) ──────────────────────────────────
+   *  HS CODE + Statistical Code (จาก MASTER GROHE) → MASTER พิกัดใบอนุญาต (ตารางกลาง)
+   *   • ตรวจเฉพาะรายการที่จะถูกส่งออกจริง · เรียงตาม Invoice ASC และลำดับสินค้าใน PDF
+   *   • รายงานเฉพาะเงื่อนไข "ส่งออก" (MODE = EXPORT หรือ IMPORT+EXPORT) — IMPORT อย่างเดียวไม่ฟ้อง
+   *   • หนึ่งพิกัดหลายหน่วยงาน = แสดงครบทุกหน่วยงาน (นับสินค้าครั้งเดียว)
+   *   • อ่านไม่ได้ / ข้อมูลไม่ครบ = "ตรวจสอบไม่ได้" (ไม่สรุปว่าไม่ติดใบอนุญาต)
+   *   • เป็นการแจ้งเตือนเท่านั้น — ไม่บล็อก EXPORT และไม่แก้ข้อมูล PDF / Mapping เดิม */
+  function taxNote(r){
+    const n = [];
+    const tx = String(r.tax_no == null ? '' : r.tax_no).trim();
+    if(tx && !/^9+[\/\-]?9+[\/\-]?9+$/.test(tx.replace(/\s/g, '')))
+      n.push(`มีเงื่อนไขเลขประจำตัวผู้เสียภาษี ${tx} — ตรวจสอบไม่ได้ (ระบบไม่มีข้อมูลบริษัทของรายการนี้)`);
+    const c = String(r.permit_cond == null ? '' : r.permit_cond).trim(); if(c) n.push(c);
+    const e = String(r.eff_date == null ? '' : r.eff_date).trim(); if(e) n.push('วันที่มีผล ' + e);
+    return n.join(' · ');
+  }
+  async function licenseCheck(pass){
+    const out = { rows:[], invoices:[], items:0, agencies:[], unknown:0, checked:0, error:'', ran:false };
+    const PM = window.permitMaster;
+    const list = [];
+    (pass || []).forEach(m => (m.good || []).forEach(i => list.push({ m, i })));   // pass เรียง Invoice ASC มาแล้ว · i.seq = ลำดับใน PDF
+    out.checked = list.length;
+    if(!list.length) return out;
+    if(!PM || typeof PM.lookup !== 'function'){ out.error = 'ไม่พบโมดูล MASTER พิกัดใบอนุญาต — ตรวจสอบไม่ได้'; }
+    const keys = [];
+    list.forEach(x => { const ms = x.i.ms || {};
+      x.tk = PM ? PM.tariffKey(ms.tariff) : ''; x.sk = PM ? PM.statKey(ms.stat) : '';
+      if(x.tk && x.sk) keys.push({ tariff_key:x.tk, stat_key:x.sk }); });
+    let res = { ok:false, map:new Map(), err:out.error };
+    if(!out.error){
+      res = keys.length ? await PM.lookup(keys) : { ok:true, map:new Map(), err:'' };
+      if(!res.ok) out.error = res.err;
+    }
+    out.ran = !out.error;
+    const ags = new Set(), invs = new Set(), unkInv = new Set();
+    list.forEach(x => {
+      const it = x.i.it, ms = x.i.ms || {};
+      const base = { invoice:x.m.invoiceNo || '', seq:x.i.seq, item_no:String(it.item_no == null ? '' : it.item_no) || String(x.i.seq),
+                     product:String(it.product == null ? '' : it.product), desc:String(it.desc == null ? '' : it.desc),
+                     hs:String(ms.tariff == null ? '' : ms.tariff), stat:String(ms.stat == null ? '' : ms.stat) };
+      if(out.error){
+        out.rows.push(Object.assign({}, base, { agency:'', mode:'', status:'ตรวจสอบไม่ได้', note:out.error }));
+        out.unknown++; unkInv.add(base.invoice); return;
+      }
+      if(!x.tk || !x.sk){
+        out.rows.push(Object.assign({}, base, { agency:'', mode:'', status:'ตรวจสอบไม่ได้',
+          note:!x.i.ms ? 'ไม่พบ Product นี้ใน MASTER GROHE — ไม่มี HS CODE / STAT ให้ตรวจ'
+             : !x.tk   ? 'MASTER GROHE ไม่มี TARIFF CODE ของสินค้านี้'
+                       : 'MASTER GROHE ไม่มี stat ของสินค้านี้' }));
+        out.unknown++; unkInv.add(base.invoice); return;
+      }
+      const hit = (res.map.get(x.tk + '|' + x.sk) || []).filter(r => PM.isExportMole(r.mole));
+      if(!hit.length) return;                                   // ไม่พบเงื่อนไขส่งออก = ไม่แสดง (ไม่ฟ้องใบอนุญาตนำเข้า)
+      hit.forEach(r => { ags.add(r.agency);
+        out.rows.push(Object.assign({}, base, { agency:r.agency, mode:PM.modeLabel(r.mole), status:'พบเงื่อนไขใบอนุญาตส่งออก', note:taxNote(r) })); });
+      invs.add(base.invoice); out.items++;                      // 1 สินค้า = นับครั้งเดียว แม้พบหลายหน่วยงาน
+    });
+    out.invoices = [...invs]; out.agencies = [...ags]; out.unknownInvoices = [...unkInv];
+    return out;
+  }
+  window.groheAiLicense = function(){ return G.lic; };
+
   window.groheAiExport = async function(){
     G.pend = null;
     if(prepping.size){ setPhase('กำลังเตรียมไฟล์ PDF...'); await Promise.all([...prepping]); }
@@ -10516,7 +10654,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     const nwD = slotData.grohe && slotData.grohe.NW_XLSX, msD = slotData.grohe && slotData.grohe.MASTER;
     if(!nwD || !(nwD.rows || []).length) return { ok:false, msg:'กรุณาแนบไฟล์ XLSX — NET WEIGHT (N.W.) ก่อน' };
     if(!msD || !(msD.rows || []).length) return { ok:false, msg:'กรุณาแนบ MASTER (.xlsx) หรือกด Save ไว้ก่อน' };
-    G.report = null; totalsClear();
+    G.report = null; G.lic = null; totalsClear();
     const sig0 = filesSig();
     if(!G.authMode) return { ok:false, msg:'ยังไม่ได้เข้าสู่ระบบ' };
     setPhase('กำลังตรวจสอบ AI...');
@@ -10555,11 +10693,15 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     const msg = partial ? `EXPORT สำเร็จบางส่วน — ส่งออก ${ev.pass.length} Invoice / ข้าม ${nSkip} Invoice${nFile ? ` · อ่านไม่สำเร็จ ${nFile} ไฟล์` : ''}`
               : nWarn ? `⚠ พบข้อมูลไม่ครบ — สามารถ EXPORT EXCEL ได้ โดยช่องที่ไม่พบข้อมูลจะเว้นว่าง (ส่งออก ${ev.pass.length} Invoice · มีคำเตือน ${nWarn} Invoice)`
                       : `EXPORT สำเร็จ — ส่งออก ${ev.pass.length} Invoice ครบทุกรายการ`;
+    // local317: ตรวจใบอนุญาตหลังจับคู่ MASTER แล้ว — แจ้งเตือนอย่างเดียว ไม่บล็อก EXPORT
+    setPhase('กำลังตรวจใบอนุญาต...'); render(); await sleep(0);
+    try{ G.lic = await licenseCheck(ev.pass); }
+    catch(e){ console.warn('licenseCheck:', e); G.lic = { rows:[], invoices:[], items:0, agencies:[], unknown:0, checked:0, ran:false, error:'ตรวจใบอนุญาตไม่สำเร็จ — ' + ((e && e.message) || e) }; }
     const rows = [];
     ev.pass.forEach(m => m.good.forEach(i => rows.push({ m, i })));     // ส่งออกทุกรายการที่อ่านจาก PDF ได้ (คำเตือนไม่บล็อก)
-    G.pend = { kind:partial ? 'partial' : (nWarn ? 'warn' : 'full'), msg, exported:ev.pass.map(m => m.invoiceNo), skipped:ev.skipped, warned:ev.warned, rows:rows.length };
+    G.pend = { kind:partial ? 'partial' : (nWarn ? 'warn' : 'full'), msg, exported:ev.pass.map(m => m.invoiceNo), skipped:ev.skipped, warned:ev.warned, rows:rows.length, lic:G.lic };
     setPhase('กำลังสร้าง Excel...'); render();
-    return { ok:true, rows, partial, warned:nWarn > 0, msg, exported:G.pend.exported, skipped:ev.skipped };
+    return { ok:true, rows, partial, warned:nWarn > 0, msg, exported:G.pend.exported, skipped:ev.skipped, lic:G.lic };
   };
 
   /* ── TOTAL (ใช้ตัวคำนวณชุดเดียวกับ THE SHELL · แสดงในกรอบของ GROHE) ── */
@@ -10629,6 +10771,37 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       ${warnBlk}
       <div class="sai-msg">ไฟล์ Excel ที่ดาวน์โหลดมีเฉพาะ Invoice ที่ผ่านการตรวจ — แก้ไข / ตรวจใหม่ แล้วกด ⬇ EXPORT EXCEL อีกครั้ง (ใช้ผล AI เดิม)</div></div>`;
   }
+  /* ── รายการติดใบอนุญาต — เรียงตาม INVOICE (local317) ─────────────────────── */
+  function licenseHtml(){
+    const L = G.lic; if(!L || !L.checked) return '';
+    const hits = L.rows.filter(r => r.status !== 'ตรวจสอบไม่ได้');
+    const unk  = L.rows.filter(r => r.status === 'ตรวจสอบไม่ได้');
+    if(!hits.length && !unk.length)
+      return `<div class="sai-rep sai-repok" id="gai-lic" data-lic="none"><b>✓ ตรวจ MASTER พิกัดใบอนุญาตแล้ว — ไม่พบเงื่อนไขใบอนุญาตส่งออก</b>
+        <div class="sai-msg">ตรวจ ${L.checked} รายการ ด้วย HS CODE + STAT จาก MASTER GROHE · MASTER ใบอนุญาตใช้แจ้งเตือนความเกี่ยวข้องเท่านั้น ไม่ใช่หลักฐานยืนยันตามกฎหมายทุกกรณี</div></div>`;
+    const tbl = rs => `<div class="sai-scroll"><table class="sai-tbl" id="gai-lic-tbl"><thead><tr><th>INVOICE</th><th>No.</th><th>Product Code</th><th>Description</th>
+        <th>HS CODE</th><th>STAT</th><th>หน่วยงาน</th><th>MODE</th><th>สถานะ</th><th>หมายเหตุ</th></tr></thead><tbody>
+      ${rs.map(r => `<tr data-st="${r.status === 'ตรวจสอบไม่ได้' ? 'unknown' : 'hit'}"><td class="sai-mono">${esc(r.invoice)}</td><td class="sai-mono">${esc(r.item_no)}</td>
+        <td class="sai-mono">${esc(r.product)}</td><td>${esc(String(r.desc).slice(0, 60))}</td><td class="sai-mono">${esc(r.hs)}</td><td class="sai-mono">${esc(r.stat)}</td>
+        <td>${esc(r.agency)}</td><td class="sai-mono">${esc(r.mode)}</td>
+        <td>${r.status === 'ตรวจสอบไม่ได้' ? '<span class="sai-pill sai-bad">ตรวจสอบไม่ได้</span>' : '<span class="sai-pill sai-warn">พบเงื่อนไขใบอนุญาตส่งออก</span>'}</td>
+        <td class="sai-msg">${esc(r.note)}</td></tr>`).join('')}</tbody></table></div>`;
+    const head = hits.length
+      ? `<b>⚠ รายการติดใบอนุญาต — เรียงตาม INVOICE (${L.invoices.length} Invoice · ${L.items} รายการ)</b>
+         <div class="sai-repl">Invoice ที่เกี่ยวข้อง: ${esc(L.invoices.join(', '))}</div>
+         <div class="sai-repl">หน่วยงานที่พบ: ${esc(L.agencies.join(' · '))}</div>
+         <div class="sai-w">กรุณาตรวจสอบเอกสารใบอนุญาตส่งออกของรายการเหล่านี้ก่อนยื่นใบขน — EXPORT EXCEL ยังทำได้ตามปกติ</div>`
+      : `<b>ตรวจ MASTER พิกัดใบอนุญาตแล้ว — ไม่พบเงื่อนไขใบอนุญาตส่งออกจากรายการที่ตรวจได้</b>`;
+    const unkBlk = unk.length
+      ? `<div class="sai-repl"><b>ตรวจสอบไม่ได้ ${unk.length} รายการ</b> — ไม่สรุปว่าไม่ติดใบอนุญาต:</div>${tbl(unk.slice(0, 50))}
+         ${unk.length > 50 ? `<div class="sai-msg">… อีก ${unk.length - 50} รายการ (ดูทั้งหมดในชีต "รายการติดใบอนุญาต" ของไฟล์ Excel)</div>` : ''}`
+      : '';
+    return `<div class="sai-rep ${hits.length ? 'sai-repwarn' : 'sai-repok'}" id="gai-lic" data-lic="${hits.length ? 'hit' : 'unknown'}">${head}
+      ${hits.length ? tbl(hits.slice(0, 200)) + (hits.length > 200 ? `<div class="sai-msg">… อีก ${hits.length - 200} แถว (ดูทั้งหมดในชีต "รายการติดใบอนุญาต")</div>` : '') : ''}
+      ${unkBlk}
+      <div class="sai-msg">ข้อมูลจาก MASTER พิกัดใบอนุญาต (ตารางกลาง) จับคู่ด้วย HS CODE + Statistical Code · แสดงเฉพาะชื่อหน่วยงานตาม MASTER (ไม่ระบุประเภทใบอนุญาตเอง) · ไม่ใช่หลักฐานยืนยันว่าต้องขอใบอนุญาตตามกฎหมายทุกกรณี</div></div>`;
+  }
+
   // GROHE SIAM — AI RESULT (local316): จำนวนหน้า/รายการ · รุ่นที่ใช้ · จุดที่ตรวจพบ · Opus ตรวจซ้ำ/แก้ได้ · Tokens และค่าใช้จ่ายแยกรุ่น
   function aiResultHtml(){
     const a = G.ai; if(!a) return '';
@@ -10675,6 +10848,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
         <div class="sai-actions"><button type="button" class="btn btn-ghost" data-act="clear" ${lock}>ล้าง PDF</button></div>`;
     html += aiResultHtml();
     html += reportHtml();
+    html += licenseHtml();
     if(built && built.model.length) html += previewHtml(built);
     p.style.display = html ? '' : 'none';
     p.innerHTML = html; bind(p);
@@ -10716,6 +10890,325 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     else if(a === 'aidetail'){ G.showDetail = !G.showDetail; render(); }
     else if(a === 'recheck'){ if(G.authMode && !G.exporting) verify(); } }
   function bind(p){ p.querySelectorAll('[data-act]').forEach(b => b.onclick = e => { e.preventDefault(); act(b); }); }
+})();
+</script>
+<script>
+/* ══════════════════════════════════════════════════════════════════════════════
+ * MAPPING EXPORT NJ · local317 — MASTER พิกัดใบอนุญาต (window.permitMaster)
+ *
+ * ใช้ "ตารางกลางเดิม" public.calc_permit_master (ชุดเดียวกับ checkdecl TYPE 0/1/D/P)
+ * ผ่าน RPC ใหม่ nj_permit_master_* (ติดตั้งด้วย sql/RUN-03-PERMIT-RPC.sql)
+ *   • ไม่เก็บสำเนาไว้ในเครื่อง · ทุกคนที่เข้าใช้งานได้อ่าน MASTER ชุดเดียวกัน
+ *   • Session = ชุดเดียวกับที่ Login หน้าเว็บ (nj_shell) หรือ Supabase Auth (@nj.co)
+ *   • คีย์จับคู่: tariff_key = ตัวเลขล้วนของพิกัด เติม 0 ข้างหน้าให้ครบ 12 หลัก
+ *                stat_key   = ตัวเลขล้วนของ Stat เติม 0 ข้างหน้าให้ครบ 3 หลัก
+ *     (ตรงกับข้อมูลจริงในตารางกลางทั้ง 11,174 แถว — รักษาเลข 0 นำหน้าเสมอ)
+ *   • ไม่เดาข้อมูล: อ่านไม่พบ/ไม่ครบ = เว้นว่าง + แจ้ง "ตรวจสอบไม่ได้"
+ * ══════════════════════════════════════════════════════════════════════════════ */
+(function(){
+  'use strict';
+  const PAGE = 100, SAVE_CHUNK = 1000, LOOKUP_CHUNK = 500;
+  const MOLE = { IMPORT:'นำเข้า', EXPORT:'ส่งออก', BOTH:'นำเข้าและส่งออก' };
+  const MODE_LABEL = { 'นำเข้า':'IMPORT', 'ส่งออก':'EXPORT', 'นำเข้าและส่งออก':'IMPORT+EXPORT' };
+
+  const P = window.permitMaster = {
+    authMode:'', session:null, user:null, mounted:false,
+    rows:[], counts:null, total:0, page:0, q:'', mode:'ALL',
+    state:'none', msg:'', busy:'', pend:null, lastErr:'',
+    cache:new Map(),            // 'tariff_key|stat_key' → [row,...] (ลดการเรียกซ้ำในรอบเดียวกัน)
+  };
+
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const txt = v => v == null ? '' : String(typeof v === 'number' ? (Number.isInteger(v) ? v : v) : v).trim();
+  const digits = v => txt(v).replace(/[^0-9]/g, '');
+  const tKey = v => { const d = digits(v); return d ? d.padStart(12, '0').slice(-12) : ''; };
+  const sKey = v => { const d = digits(v); return d ? d.padStart(3, '0').slice(-3) : ''; };
+  P.tariffKey = tKey; P.statKey = sKey;
+  const isExportMole = m => m === MOLE.EXPORT || m === MOLE.BOTH;   // ตรวจเฉพาะทิศทางส่งออก (IMPORT อย่างเดียว = ไม่ฟ้อง)
+  P.isExportMole = isExportMole;
+  P.modeLabel = m => MODE_LABEL[m] || '';
+  const say = (m, k) => { try{ if(typeof toast === 'function') toast(m, k || 'ok'); }catch(e){} };
+
+  /* ── Session (ชุดเดียวกับการ Login หน้าเว็บ) ─────────────────────────────── */
+  window.permitSetSession = function(d){ P.authMode = 'token'; P.session = d && d.session; P.user = { username:(d && d.username) || '', role:(d && d.role) || '' }; P.cache.clear(); };
+  window.permitUseSupabaseAuth = function(username){ P.authMode = 'jwt'; P.session = null; P.user = { username:username || '', role:'' }; P.cache.clear(); };
+  window.permitLogout = function(){ P.authMode = ''; P.session = null; P.user = null; P.rows = []; P.counts = null; P.total = 0; P.state = 'none'; P.pend = null; P.cache.clear(); };
+
+  /* ── RPC ────────────────────────────────────────────────────────────────── */
+  function errText(e){
+    const c = String((e && e.code) || ''), m = String((e && e.message) || e || '');
+    if(c === 'PGRST202' || /function .*nj_permit/i.test(m) || /not find the function/i.test(m))
+      return 'ยังไม่ได้ติดตั้งคำสั่งเชื่อม MASTER ที่ Supabase (รัน sql/RUN-03-PERMIT-RPC.sql ก่อน)';
+    return m || 'เรียก Supabase ไม่สำเร็จ';
+  }
+  async function rpc(fn, args){
+    const s = (typeof initSupabase === 'function') ? initSupabase() : null;
+    if(!s) return { ok:false, err:'Supabase ไม่พร้อม (ตรวจ network / SDK)' };
+    if(!P.authMode) return { ok:false, err:'ยังไม่ได้เข้าสู่ระบบ' };
+    try{
+      const { data, error } = await s.rpc(fn, Object.assign({ p_session:P.authMode === 'token' ? (P.session || '') : null }, args || {}));
+      if(error) return { ok:false, err:errText(error) };
+      if(!data || data.success !== true){
+        const e = data && data.error;
+        return { ok:false, err:e === 'forbidden' ? 'ไม่มีสิทธิ์ใช้งาน MASTER พิกัดใบอนุญาต (ตรวจสิทธิ์ที่ Server)'
+                         : e === 'bad_data' ? 'ข้อมูลที่ส่งไม่ถูกต้อง'
+                         : e === 'too_many' ? 'ข้อมูลมากเกินกำหนดต่อครั้ง'
+                         : e === 'bad_mode' ? 'ตัวกรอง MODE ไม่ถูกต้อง' : 'เรียกข้อมูลไม่สำเร็จ' };
+      }
+      return { ok:true, data };
+    } catch(e){ return { ok:false, err:errText(e) }; }
+  }
+
+  /* ── อ่าน MASTER (แบ่งหน้า) ─────────────────────────────────────────────── */
+  P.load = async function(reset){
+    if(reset) P.page = 0;
+    P.busy = 'load'; render();
+    const r = await rpc('nj_permit_master_page', { p_q:P.q, p_mode:P.mode, p_limit:PAGE, p_offset:P.page * PAGE });
+    P.busy = '';
+    if(!r.ok){ P.state = 'fail'; P.msg = r.err; P.rows = []; render(); return false; }
+    P.rows = r.data.rows || []; P.counts = r.data.counts || null; P.total = Number(r.data.total || 0);
+    P.lastSaved = r.data.last_saved || '';                 // วันที่บันทึกล่าสุดของ MASTER ทั้งชุด (จาก Server)
+    P.state = 'ok'; P.msg = ''; render(); return true;
+  };
+
+  /* ── อ่านไฟล์ Excel (ใช้หัวคอลัมน์จริงจากไฟล์) ──────────────────────────── */
+  const HDR = {
+    tariff:['Tariff Classification(12 N)','Tariff Classification (12 N)','Tariff Classification','พิกัด','Tariff'],
+    stat:['Tariff Statistical Code (3N)','Tariff Statistical Code(3N)','Tariff Statistical Code','Stat (3N)','Stat','รหัสสถิติ'],
+    tax:['Company Tax Number(17A)','Company Tax Number (17A)','Company Tax Number','เลขประจำตัวผู้เสียภาษี'],
+    agency:['หน่วยงาน','Agency'],
+    imp:['IMPORT','นำเข้า'],
+    exp:['EXPORT','ส่งออก'],
+    mode:['MODE','โหมด'],
+    date:['วันที่บันทึก','Saved at'],
+    status:['สถานะ','Status'],
+    by:['บันทึกโดย','Saved by'],
+    cond:['เงื่อนไข','permit_cond'],
+    eff:['วันที่มีผล','eff_date'],
+  };
+  function colOf(hdr, names){
+    for(const n of names){ const i = hdr.findIndex(h => h.toLowerCase() === String(n).toLowerCase()); if(i >= 0) return i; }
+    for(const n of names){ const i = hdr.findIndex(h => h.toLowerCase().indexOf(String(n).toLowerCase()) >= 0); if(i >= 0) return i; }
+    return -1;
+  }
+  function moleOf(modeTxt, impTxt, expTxt){
+    const m = txt(modeTxt).toUpperCase().replace(/\s/g, '');
+    if(m){
+      if(m === 'IMPORT+EXPORT' || m === 'IMPORTEXPORT' || m === 'BOTH') return MOLE.BOTH;
+      if(m === 'IMPORT') return MOLE.IMPORT;
+      if(m === 'EXPORT') return MOLE.EXPORT;
+    }
+    const mt = txt(modeTxt);
+    if(mt === MOLE.BOTH || mt === MOLE.IMPORT || mt === MOLE.EXPORT) return mt;
+    const yi = /^(y|yes|true|1|ใช่)$/i.test(txt(impTxt)), ye = /^(y|yes|true|1|ใช่)$/i.test(txt(expTxt));
+    if(yi && ye) return MOLE.BOTH;
+    if(yi) return MOLE.IMPORT;
+    if(ye) return MOLE.EXPORT;
+    return null;                      // ไม่พบ MODE = ไม่เดา (ส่ง null → ไม่ลบ MODE เดิมที่ Server)
+  }
+  P.readFile = function(file){
+    return new Promise((resolve, reject) => {
+      const rd = new FileReader();
+      rd.onload = e => { try{
+        const wb = XLSX.read(new Uint8Array(e.target.result), { type:'array', cellDates:false, raw:true });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const aoa = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:null });
+        let hr = aoa.findIndex(r => (r || []).some(c => /tariff\s*classification/i.test(txt(c))));
+        if(hr < 0) hr = aoa.findIndex(r => (r || []).some(c => txt(c) === 'หน่วยงาน'));
+        if(hr < 0) hr = 0;
+        const hdr = (aoa[hr] || []).map(txt);
+        const c = { tariff:colOf(hdr, HDR.tariff), stat:colOf(hdr, HDR.stat), tax:colOf(hdr, HDR.tax), agency:colOf(hdr, HDR.agency),
+                    imp:colOf(hdr, HDR.imp), exp:colOf(hdr, HDR.exp), mode:colOf(hdr, HDR.mode), by:colOf(hdr, HDR.by),
+                    cond:colOf(hdr, HDR.cond), eff:colOf(hdr, HDR.eff) };
+        if(c.tariff < 0 || c.agency < 0) throw new Error('ไม่พบคอลัมน์ Tariff Classification(12 N) และ/หรือ หน่วยงาน ในไฟล์นี้');
+        const g = (a, i) => i >= 0 ? txt(a[i]) : '';
+        const rows = [], bad = [];
+        for(let r = hr + 1; r < aoa.length; r++){
+          const a = aoa[r] || [];
+          const tRaw = g(a, c.tariff), agency = g(a, c.agency);
+          if(!tRaw && !agency) continue;
+          const tk = tKey(tRaw), sk = sKey(g(a, c.stat));
+          if(!tk || !sk || !agency){ bad.push({ row:r + 1, why:!tk ? 'ไม่มีพิกัด' : !sk ? 'ไม่มี Stat' : 'ไม่มีหน่วยงาน' }); continue; }
+          rows.push({ srcRow:r + 1, tariff:tRaw, tariff_key:tk, stat:g(a, c.stat), stat_key:sk,
+                      tax_no:g(a, c.tax) || null, agency, mole:moleOf(g(a, c.mode), g(a, c.imp), g(a, c.exp)),
+                      permit_cond:g(a, c.cond) || null, eff_date:g(a, c.eff) || null });
+        }
+        if(!rows.length) throw new Error('ไม่พบข้อมูลที่ใช้ได้ในไฟล์นี้');
+        resolve({ name:file.name, rows, bad });
+      } catch(err){ reject(err); } };
+      rd.onerror = () => reject(new Error('อ่านไฟล์ไม่สำเร็จ'));
+      rd.readAsArrayBuffer(file);
+    });
+  };
+
+  /* ── บันทึกลงตารางกลาง (แบ่งชุดละ 1000 แถว) ─────────────────────────────── */
+  P.save = async function(){
+    if(!P.pend || !P.pend.rows.length){ say('ยังไม่ได้เลือกไฟล์ MASTER', 'warn'); return false; }
+    P.busy = 'save'; render();
+    const all = P.pend.rows, acc = { inserted:0, updated:0, unchanged:0, invalid:0 };
+    for(let i = 0; i < all.length; i += SAVE_CHUNK){
+      const part = all.slice(i, i + SAVE_CHUNK).map(x => ({ tariff:x.tariff, tariff_key:x.tariff_key, stat:x.stat, stat_key:x.stat_key,
+        tax_no:x.tax_no, agency:x.agency, mole:x.mole, permit_cond:x.permit_cond, eff_date:x.eff_date }));
+      const r = await rpc('nj_permit_master_save', { p_rows:part });
+      if(!r.ok){ P.busy = ''; P.lastErr = r.err; say('บันทึกไม่สำเร็จ: ' + r.err, 'err'); render(); return false; }
+      acc.inserted += Number(r.data.inserted || 0); acc.updated += Number(r.data.updated || 0);
+      acc.unchanged += Number(r.data.unchanged || 0); acc.invalid += Number(r.data.invalid || 0);
+      P.busy = `save:${Math.min(i + SAVE_CHUNK, all.length)}/${all.length}`; render();
+    }
+    P.busy = ''; P.pend = null; P.cache.clear(); P.lastErr = '';
+    say(`บันทึก MASTER แล้ว — เพิ่ม ${acc.inserted} · แก้ไข ${acc.updated} · เหมือนเดิม ${acc.unchanged}${acc.invalid ? ` · ข้าม ${acc.invalid}` : ''}`, 'ok');
+    await P.load(true);
+    return true;
+  };
+  P.del = async function(id, tk, sk, ag){
+    P.busy = 'del'; render();
+    const r = await rpc('nj_permit_master_delete', { p_id:Number(id), p_tariff_key:tk, p_stat_key:sk, p_agency:ag });
+    P.busy = '';
+    if(!r.ok){ say('ลบไม่สำเร็จ: ' + r.err, 'err'); render(); return false; }
+    P.cache.clear(); say('ลบแถวนี้แล้ว', 'ok');
+    await P.load(false);
+    return true;
+  };
+
+  /* ── ค้นหาแบบชุด (ใช้ตอนตรวจใบอนุญาตของ GROHE SIAM) ─────────────────────
+   *  keys = [{tariff_key, stat_key}, ...]
+   *  คืน { ok, map:Map('tk|sk' → [row,...]), err }   — ok=false = ตรวจสอบไม่ได้ (ไม่สรุปว่าไม่ติด) */
+  P.lookup = async function(keys){
+    const want = [], seen = new Set();
+    (keys || []).forEach(k => { const tk = String(k.tariff_key || ''), sk = String(k.stat_key || '');
+      if(!/^\d{12}$/.test(tk) || !/^\d{3}$/.test(sk)) return;
+      const id = tk + '|' + sk; if(seen.has(id)) return; seen.add(id); if(!P.cache.has(id)) want.push({ tariff_key:tk, stat_key:sk }); });
+    for(let i = 0; i < want.length; i += LOOKUP_CHUNK){
+      const r = await rpc('nj_permit_master_lookup', { p_keys:want.slice(i, i + LOOKUP_CHUNK) });
+      if(!r.ok) return { ok:false, map:new Map(), err:r.err };
+      want.slice(i, i + LOOKUP_CHUNK).forEach(k => { const id = k.tariff_key + '|' + k.stat_key; if(!P.cache.has(id)) P.cache.set(id, []); });
+      (r.data.rows || []).forEach(row => { const id = String(row.tariff_key) + '|' + String(row.stat_key);
+        if(!P.cache.has(id)) P.cache.set(id, []); P.cache.get(id).push(row); });
+    }
+    const map = new Map();
+    seen.forEach(id => map.set(id, P.cache.get(id) || []));
+    return { ok:true, map:map, err:'' };
+  };
+
+  /* ── UI ─────────────────────────────────────────────────────────────────── */
+  window.permitMount = function(key){
+    P.mounted = key === 'permit';
+    if(!P.mounted) return;
+    render();
+    if(P.state === 'none' && P.authMode && !P.busy) P.load(true);
+  };
+  function view(){ return document.getElementById('permit-view'); }
+  function fmtN(n){ return Number(n || 0).toLocaleString('en-US'); }
+  function tariffShow(r){ return txt(r.tariff) || txt(r.tariff_key).replace(/^0+(?=\d{6})/, ''); }
+
+  function headHtml(){
+    const c = P.counts || {}, chip = (k, lab, n, cls) =>
+      `<button type="button" class="pm-chip${P.mode === k ? ' on' : ''}${cls ? ' ' + cls : ''}" data-pact="mode" data-v="${k}">${esc(lab)}<b>${fmtN(n)}</b></button>`;
+    return `<div class="pm-bar">
+        <div class="pm-search"><input type="text" class="sai-in" id="pm-q" placeholder="🔍 ค้นหา Tariff (เช่น 21039013 หรือ 2103.90.13) หรือชื่อหน่วยงาน" value="${esc(P.q)}">
+          <button type="button" class="btn btn-ghost sai-mini" data-pact="clearq">Clear</button></div>
+        ${chip('ALL','ทั้งหมด', c.ALL)}${chip('IMPORT','IMPORT', c.IMPORT)}${chip('EXPORT','EXPORT', c.EXPORT)}${chip('BOTH','IMPORT+EXPORT', c.BOTH)}${chip('NONE','ยังไม่มี MODE', c.NONE, 'warnchip')}
+      </div>`;
+  }
+  function uploadHtml(){
+    const p = P.pend, busy = P.busy.indexOf('save') === 0;
+    const info = p ? `<div class="pm-pend"><b>${esc(p.name)}</b> — พร้อมบันทึก ${fmtN(p.rows.length)} รายการ${p.bad.length ? ` · ข้ามแถวที่ข้อมูลไม่ครบ ${p.bad.length} แถว` : ''}
+        <div class="sai-msg">MODE: IMPORT ${fmtN(p.rows.filter(x => x.mole === MOLE.IMPORT).length)} · EXPORT ${fmtN(p.rows.filter(x => x.mole === MOLE.EXPORT).length)} · IMPORT+EXPORT ${fmtN(p.rows.filter(x => x.mole === MOLE.BOTH).length)} · ไม่ระบุ ${fmtN(p.rows.filter(x => !x.mole).length)} (ไม่ทับ MODE เดิมที่บันทึกไว้)</div></div>` : '';
+    return `<div class="doa-panel">
+      <h2>📋 MASTER พิกัดใบอนุญาต (กลาง · ใช้ร่วมกับ GROHE SIAM)</h2>
+      <label class="doa-drop" id="pm-drop">
+        <div class="dico">📥</div><div class="dlabel">UPLOAD MASTER (.xlsx / .xls)</div>
+        <div class="dhint">คลิกเลือกไฟล์ หรือลากมาวาง — ใช้หัวคอลัมน์จริงจากไฟล์: Tariff Classification(12 N) · Tariff Statistical Code (3N) · Company Tax Number(17A) · หน่วยงาน · IMPORT · EXPORT · MODE</div>
+        ${info}
+        <input type="file" id="pm-input" accept=".xlsx,.xls" style="display:none">
+      </label>
+      <div class="doa-row-actions">
+        <button type="button" class="btn btn-success" data-pact="save" ${p && !busy ? '' : 'disabled'}>💾 SAVE บันทึก MASTER</button>
+        <button type="button" class="btn btn-ghost" data-pact="pick" ${busy ? 'disabled' : ''}>📂 เปลี่ยนไฟล์</button>
+        <button type="button" class="btn btn-ghost" data-pact="cancel" ${p && !busy ? '' : 'disabled'}>ยกเลิกไฟล์</button>
+        <button type="button" class="btn btn-ghost" data-pact="reload" ${P.busy ? 'disabled' : ''}>🔄 โหลดข้อมูลใหม่</button>
+        <div style="flex:1"></div>
+        <div class="doa-status" id="pm-status">${esc(statusLine())}</div>
+      </div>
+    </div>`;
+  }
+  function statusLine(){
+    if(P.busy === 'load') return 'กำลังโหลดข้อมูล…';
+    if(P.busy.indexOf('save') === 0) return 'กำลังบันทึก ' + P.busy.slice(5) + ' …';
+    if(P.busy === 'del') return 'กำลังลบ…';
+    if(P.state === 'fail') return '⚠ ' + P.msg;
+    if(P.state === 'ok'){
+      const n = (P.counts && P.counts.ALL) || 0;
+      return `MASTER ปัจจุบัน ${fmtN(n)} รายการ${P.lastSaved ? ' · บันทึกล่าสุด ' + thaiDate(P.lastSaved) : ''}`;
+    }
+    return P.authMode ? 'ยังไม่ได้โหลดข้อมูล' : 'ยังไม่ได้เข้าสู่ระบบ';
+  }
+  function thaiDate(s){
+    const d = new Date(s); if(isNaN(d.getTime())) return String(s || '');
+    const z = n => String(n).padStart(2, '0');
+    return `${z(d.getDate())}/${z(d.getMonth() + 1)}/${d.getFullYear()} ${z(d.getHours())}:${z(d.getMinutes())}`;
+  }
+  function tableHtml(){
+    if(P.state === 'fail') return `<div class="sai-blk"><b>อ่าน MASTER ไม่ได้</b><div class="sai-msg">${esc(P.msg)}</div></div>`;
+    if(!P.rows.length) return `<div class="sai-msg" style="padding:10px 2px">${P.state === 'ok' ? 'ไม่พบข้อมูลตามเงื่อนไขค้นหา' : 'ยังไม่ได้โหลดข้อมูล'}</div>`;
+    const body = P.rows.map((r, k) => {
+      const mo = r.mole ? `<span class="sai-pill ${r.mole === MOLE.EXPORT ? 'sai-ok' : r.mole === MOLE.BOTH ? 'sai-warn' : 'sai-wait'}">${esc(MODE_LABEL[r.mole])}</span>` : '<span class="sai-pill sai-bad">ยังไม่มี MODE</span>';
+      const y = v => v ? '<b class="pm-y">Y</b>' : '<span class="pm-n">-</span>';
+      return `<tr><td class="sai-num">${P.page * PAGE + k + 1}</td><td class="sai-mono">${esc(tariffShow(r))}</td><td class="sai-mono">${esc(r.stat_key)}</td>
+        <td class="sai-mono">${esc(r.tax_no || '')}</td><td>${esc(r.agency)}</td>
+        <td class="pm-c">${y(r.mole === MOLE.IMPORT || r.mole === MOLE.BOTH)}</td><td class="pm-c">${y(r.mole === MOLE.EXPORT || r.mole === MOLE.BOTH)}</td>
+        <td class="pm-c">${mo}</td><td class="sai-mono">${esc(thaiDate(r.updated_at || r.created_at))}</td><td>${esc(r.saved_by_name || '')}</td>
+        <td class="sai-act"><button type="button" class="btn btn-ghost sai-mini pm-del" data-pact="del" data-id="${esc(r.id)}" data-tk="${esc(r.tariff_key)}" data-sk="${esc(r.stat_key)}" data-ag="${esc(r.agency)}" ${P.busy ? 'disabled' : ''}>🗑 ลบ</button></td></tr>`;
+    }).join('');
+    const pages = Math.max(1, Math.ceil(P.total / PAGE));
+    return `<div class="sai-scroll"><table class="sai-tbl" id="pm-tbl"><thead><tr><th>ลำดับ</th><th>Tariff Classification (12 N)</th><th>Stat (3N)</th><th>Company Tax Number (17A)</th><th>หน่วยงาน</th>
+        <th>IMPORT</th><th>EXPORT</th><th>MODE</th><th>วันที่บันทึก</th><th>บันทึกโดย</th><th>จัดการ</th></tr></thead><tbody>${body}</tbody></table></div>
+      <div class="pm-page"><button type="button" class="btn btn-ghost sai-mini" data-pact="prev" ${P.page <= 0 || P.busy ? 'disabled' : ''}>← ก่อนหน้า</button>
+        <span class="sai-msg">หน้า ${P.page + 1} / ${pages} · ทั้งหมด ${fmtN(P.total)} รายการ</span>
+        <button type="button" class="btn btn-ghost sai-mini" data-pact="next" ${P.page + 1 >= pages || P.busy ? 'disabled' : ''}>ถัดไป →</button></div>`;
+  }
+  function render(){
+    const v = view(); if(!v || !P.mounted) return;
+    v.innerHTML = uploadHtml() + `<div class="doa-panel">${headHtml()}${tableHtml()}
+        <div class="sai-msg">MASTER ชุดนี้ใช้สำหรับ "แจ้งเตือนความเกี่ยวข้องกับใบอนุญาต" เท่านั้น ไม่ใช่หลักฐานยืนยันว่าต้องขอใบอนุญาตตามกฎหมายทุกกรณี</div></div>`;
+    bind(v);
+  }
+  function bind(v){
+    v.querySelectorAll('[data-pact]').forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); act(b); });
+    const inp = v.querySelector('#pm-input'), drop = v.querySelector('#pm-drop');
+    if(inp){ inp.onclick = e => e.stopPropagation(); inp.onchange = () => { const f = inp.files && inp.files[0]; inp.value = ''; if(f) pick(f); }; }
+    if(drop){
+      drop.onclick = e => { if(e.target.closest('[data-pact]')) return; if(inp && !P.busy) inp.click(); };
+      drop.ondragover = e => { e.preventDefault(); drop.classList.add('drag'); };
+      drop.ondragleave = () => drop.classList.remove('drag');
+      drop.ondrop = e => { e.preventDefault(); drop.classList.remove('drag'); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if(f && !P.busy) pick(f); };
+    }
+    const q = v.querySelector('#pm-q');
+    if(q){ q.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); P.q = q.value; P.load(true); } };
+           q.onblur = () => { if(q.value !== P.q){ P.q = q.value; P.load(true); } }; }
+  }
+  async function pick(f){
+    try{ const r = await P.readFile(f); P.pend = r; render();
+      say(`อ่านไฟล์แล้ว ${fmtN(r.rows.length)} รายการ — กด SAVE เพื่อบันทึก`, 'ok');
+    } catch(e){ P.pend = null; render(); say('อ่านไฟล์ไม่สำเร็จ: ' + ((e && e.message) || e), 'err'); }
+  }
+  function act(b){
+    const a = b.dataset.pact;
+    if(P.busy && a !== 'cancel') return;
+    if(a === 'mode'){ P.mode = b.dataset.v; P.load(true); }
+    else if(a === 'clearq'){ P.q = ''; P.load(true); }
+    else if(a === 'reload'){ P.load(true); }
+    else if(a === 'prev'){ if(P.page > 0){ P.page--; P.load(false); } }
+    else if(a === 'next'){ P.page++; P.load(false); }
+    else if(a === 'save'){ P.save(); }
+    else if(a === 'cancel'){ P.pend = null; render(); }
+    else if(a === 'pick'){ const i = document.getElementById('pm-input'); if(i) i.click(); }
+    else if(a === 'del'){
+      const ag = b.dataset.ag;
+      if(confirm(`ลบแถวนี้ออกจาก MASTER กลาง?\n\nพิกัด ${b.dataset.tk} · Stat ${b.dataset.sk}\nหน่วยงาน ${ag}\n\n(มีผลกับทุกระบบที่ใช้ MASTER ชุดนี้)`))
+        P.del(b.dataset.id, b.dataset.tk, b.dataset.sk, ag);
+    }
+  }
 })();
 </script>
 
