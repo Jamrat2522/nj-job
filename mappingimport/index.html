@@ -11292,27 +11292,26 @@ const txState = { pdfs: [], stat: {}, ai: null, res: null, list: null, usage: nu
 /* ══════════════════════════════════════════════════════════════════════════
    [AI 16/11/2026] TEXAS DB12 — อ่าน INVOICE PDF ด้วย Claude ผ่าน Edge Function
    ★ ใช้ Edge Function แยกของโหมดนี้เท่านั้น (nj-invoice-ai-tx) — ไม่แตะของ KDC
-   ★ ไม่มี API Key ใด ๆ ฝั่งหน้าเว็บ · ยืนยันตัวตนด้วย Session ที่ Server ออกให้
+   ★ ไม่มี API Key ใด ๆ ฝั่งหน้าเว็บ · ยืนยันตัวตนด้วย Login เดิมของเว็บไซต์ (ไม่มี Session แยก)
    ★ Export ยังใช้ txBuildBook() / TX_TPL_B64 / TX_HDR_KEY เดิม 100%
    ══════════════════════════════════════════════════════════════════════════ */
 const TX_AI_FN    = 'nj-invoice-ai-tx';
 const TX_AI_MODEL = 'claude-sonnet-5-5';
 const TX_AI_MAXMS = 7 * 60 * 1000;          // เพดานรอผลต่อไฟล์
-let   _txSess        = null;   // { token, exp, username } — Memory + localStorage เท่านั้น
-let   _txSessReady   = false; // [448] true = มี Token TEXAS DB12 ที่ใช้ได้ (MASTER/HS CODE ใช้ค่านี้)
-let   _txSessVerified= false; // [448] true = AI พร้อม (ผ่าน session_check) — ใช้เฉพาะการอ่าน INVOICE PDF
-let   _txAiDown      = false; // [448] true = ติดต่อ AI ไม่ได้ แต่ Token ยังดี → MASTER/HS ต้องทำงานได้ตามปกติ
-let   _txSessChecking= false; // true = กำลังเชื่อมต่อ — ปิดปุ่มไว้ก่อน
-const TX_LS_KEY      = 'TX_AI_SESSION_V2';   // localStorage — ปิด/เปิด Browser ภายอายุ Session ยังใช้ได้
-const TX_SS_OLD      = 'TX_AI_SESSION_V1';   // รุ่นก่อน — ล้างทิ้งครั้งเดียวตอนโหลด
-const TX_NO_SESS     = 'เชื่อมต่อ AI สำหรับ TEXAS DB12 ไม่สำเร็จ กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่';
+/* ══════════════════════════════════════════════════════════════════════════
+   [451] TEXAS DB12 ใช้ Login เดิมของเว็บไซต์ — ไม่มี Login / Session / Token แยกของโหมดนี้
+   • ผู้ที่ Login เว็บไซต์นี้สำเร็จ = ใช้ TEXAS DB12 ได้ทันที (ไม่จำกัดรายชื่อ)
+   • บัญชี Supabase Auth  → Server ตรวจ JWT ของ Login เดิม (ต่ออายุเองโดย supabase-js)
+   • บัญชี Local ของเว็บ  → ส่งชื่อผู้ใช้ที่ Login อยู่ (ไม่มีรหัสผ่าน / Token ใด ๆ ถูกเก็บ)
+   • ไม่เรียก RPC Login/Session ของ TEXAS DB12 อีกต่อไป · ไม่มีเวลา Session แยก
+   ══════════════════════════════════════════════════════════════════════════ */
+let   _txAiOk       = false;  // true = Edge Function ของ AI ตอบพร้อมใช้ (ใช้เฉพาะการอ่าน INVOICE PDF)
+let   _txAiDown     = false;  // true = ติดต่อ AI ไม่ได้ → MASTER / HS CODE ยังทำงานได้ตามปกติ
+let   _txAiChecking = false;  // true = กำลังตรวจความพร้อมของ AI
 const TX_CONNECTING  = 'กำลังเชื่อมต่อ AI สำหรับ TEXAS DB12…';
 const TX_READY       = 'AI พร้อมใช้งาน';
 const TX_READY_PDF   = 'พร้อมตรวจสอบด้วย AI';
-const TX_EXPIRED     = 'Session หมดอายุ กรุณาเข้าสู่ระบบอีกครั้งเพื่อเชื่อมต่อ AI';
-const TX_LOGIN_NOAI  = 'เข้าสู่ระบบ TEXAS DB12 ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
-/* [448] ข้อความของ "ระบบที่ 1 — MASTER Mapping" และสถานะ AI — ห้ามปนกัน */
-const TX_SESS_EXPIRED = 'Session TEXAS DB12 หมดอายุ กรุณาเข้าสู่ระบบใหม่';
+const TX_NEED_LOGIN  = 'กรุณาเข้าสู่ระบบเว็บไซต์ก่อนใช้งาน TEXAS DB12';
 const TX_AI_NOT_READY = 'AI ยังไม่พร้อม จึงยังไม่สามารถอ่าน Invoice PDF ได้';
 /* [449] ข้อ 8 — "บันทึก MASTER ไม่สำเร็จ: [สาเหตุจริง]" + บอกสถานะ ACTIVE ที่ใช้อยู่จริง */
 const TX_MST_FAIL = why => 'บันทึก MASTER ไม่สำเร็จ: ' + why +
@@ -11321,201 +11320,75 @@ const TX_MST_FAIL = why => 'บันทึก MASTER ไม่สำเร็�
 const HS_FAIL = why => 'บันทึก HS CODE ไม่สำเร็จ: ' + why +
   (_hsActive ? (' · ระบบยังใช้ HS CODE Version ' + _hsActive.version + ' เดิม')
              : ' · ขณะนี้ยังไม่มี HS CODE ACTIVE');
-/* [449] ต่ออายุ Session ล่วงหน้าเมื่อเหลือน้อยกว่า 3 ชั่วโมง — กัน "Session ครึ่งระบบ" (ข้อ 1) */
-const TX_REFRESH_BEFORE_MS = 3 * 60 * 60 * 1000;
 
-/* ข้อ 8 — ล้าง Session ทุกที่ (Logout · หมดอายุ · Username ไม่ตรง · 401) */
-function txClearSession(){
-  _txSess = null; _txSessReady = false; _txSessVerified = false; _txSessChecking = false; _txAiDown = false;
-  try{ localStorage.removeItem(TX_LS_KEY); }catch(_){}
-  /* [449] ข้อ 4 — ห้ามล้าง TX_AI_SESSION_V1 ทิ้งที่นี่ · ต้องตรวจกับ Server ก่อน (txMigrateV1) */
-  try{ txCheckReady(); }catch(_){}
+/* ชื่อผู้ใช้ที่ Login เว็บไซต์อยู่ตอนนี้ (อ่านจาก Login เดิม — ไม่มีการ Login ซ้ำ) */
+function txSiteUser(){
+  const u = (typeof _currentUser !== 'undefined') ? _currentUser : null;
+  if(!u) return '';
+  const m = u.user_metadata || {};
+  return String(m.username || String(u.email || '').split('@')[0] || '').toLowerCase().trim();
 }
-/* [449] ลบ Key ของรุ่นเก่าทิ้ง — เรียกเฉพาะหลังย้ายสำเร็จ หรือ Server ยืนยันว่าใช้ไม่ได้ */
-function txDropV1(){
-  try{ sessionStorage.removeItem(TX_SS_OLD); }catch(_){}
-  try{ localStorage.removeItem(TX_SS_OLD); }catch(_){}
-}
-/* ข้อ 6 — เก็บเฉพาะ Token + วันหมดอายุ + Username
-   ★ ห้ามเก็บรหัสผ่าน / ANTHROPIC_API_KEY / Service Role Key / Prompt / เนื้อ PDF */
-function txSaveSession(session){
-  _txSess = {
-    token:    String((session && session.token) || ''),
-    exp:      Number((session && session.exp) || 0),
-    username: String((session && session.username) || '').toLowerCase()
-  };
-  try{ localStorage.setItem(TX_LS_KEY, JSON.stringify(_txSess)); }catch(_){}
-}
-/* รับ Session จาก RPC nj_tx_login — เรียกตอน Login หลักเท่านั้น · ไม่เก็บรหัสผ่าน */
-async function txIssueSession(username, password){
+function txLoggedIn(){ return !!txSiteUser(); }
+/* ข้อมูลยืนยันตัวตนจาก Login เดิม: บัญชี Supabase Auth มี JWT · บัญชี Local มีเฉพาะชื่อผู้ใช้ */
+async function txSiteAuth(){
+  let jwt = '';
   try{
-    const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/nj_tx_login', {
-      method:'POST',
-      headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json' },
-      body: JSON.stringify({ p_username: username, p_password: password })
-    });
-    const j = await r.json().catch(()=>null);
-    if(j && j.success && j.session){
-      txSaveSession({ token:j.session, exp: Date.parse(j.expires_at||'') || 0, username:username });
-      _txSessReady = true; _txSessVerified = false;
-      try{ txCheckReady(); }catch(_){}
-      return true;
+    if(typeof sbClient !== 'undefined' && sbClient && !(typeof _isLocalUser !== 'undefined' && _isLocalUser)){
+      const { data } = await sbClient.auth.getSession();
+      jwt = (data && data.session && data.session.access_token) || '';
     }
-  }catch(e){ try{ console.error('[TX] ออก Session ไม่สำเร็จ', e); }catch(_){} }
-  txClearSession();
-  return false;
+  }catch(_){}
+  return { user: txSiteUser(), jwt: jwt };
 }
-/* ข้อ 7 — กู้ Session อัตโนมัติ · Username ต้องตรงผู้ใช้ปัจจุบัน · ห้ามสร้างใหม่เอง */
-function txRestoreSession(currentUsername){
+/* เรียก RPC ของ MASTER / HS CODE — ตรวจเฉพาะ Login เดิมของเว็บไซต์ · ห้ามตรวจสถานะ AI ทุกกรณี */
+async function txDbRpc(fn, body){
+  const a = await txSiteAuth();
+  if(!a.user) throw new Error(TX_NEED_LOGIN);
+  const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/' + fn, {
+    method:'POST',
+    headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer ' + (a.jwt || SUPABASE_KEY), 'Content-Type':'application/json' },
+    body: JSON.stringify(Object.assign({ p_user: a.user }, body || {}))
+  });
+  let j = null; try{ j = await r.json(); }catch(e){}
+  if(!j) throw new Error('ไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้ (HTTP ' + r.status + ')');
+  if(j.success === false) throw new Error(j.msg || 'ไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้');
+  if(!r.ok) throw new Error((j.message || j.msg || 'ฐานข้อมูลไม่ตอบรับคำขอ') + ' (HTTP ' + r.status + ')');
+  return j;
+}
+/* ตรวจความพร้อมของ AI — ไม่รับ PDF · ไม่เรียก Claude · ไม่สร้างแถวใน nj_ai_jobs · ค่า API = 0
+   ล้มเหลว = กระทบเฉพาะการอ่าน Invoice เท่านั้น (ห้ามล้าง Login · ห้ามกระทบ MASTER/HS CODE) */
+async function txAiProbe(){
+  if(!txLoggedIn()) return false;
   try{
-    const raw = localStorage.getItem(TX_LS_KEY);
-    if(!raw) return false;
-    const saved    = JSON.parse(raw);
-    const token    = String((saved && saved.token) || '');
-    const exp      = Number((saved && saved.exp) || 0);
-    const username = String((saved && saved.username) || '').toLowerCase();
-    const current  = String(currentUsername || '').toLowerCase();
-    if(!token || !exp || exp <= Date.now() + 5000 || !username || username !== current){
-      txClearSession(); return false;
-    }
-    _txSess = { token:token, exp:exp, username:username };
-    _txSessReady = true;         // [448] มี Token ที่ยังไม่หมดอายุ = MASTER/HS CODE ใช้งานได้ทันที
-    return true;
-  }catch(error){ txClearSession(); return false; }
-}
-/* [449] ข้อ 3 — ต่ออายุ Session ที่ Server (Sliding / Rotate) · ไม่เรียก Claude · ไม่เก็บรหัสผ่าน
-   คืนค่า: true = ต่ออายุสำเร็จ · false = Server ยืนยันว่าใช้ไม่ได้ (ล้าง Token แล้ว)
-           null = ติดต่อ Server ไม่ได้ → เก็บ Token ไว้ ห้ามล้าง (ข้อ 6) */
-async function txRefreshSession(rotate){
-  const tk = _txSess && _txSess.token;
-  if(!tk) return false;
-  try{
-    const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/nj_tx_refresh_session', {
-      method:'POST',
-      headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json' },
-      body: JSON.stringify({ p_session: tk, p_rotate: !!rotate })
-    });
-    const j = await r.json().catch(()=>null);
-    if(j && j.success && j.session){
-      txSaveSession({ token:j.session, exp: Date.parse(j.expires_at||'') || 0,
-                      username: j.username || (_txSess && _txSess.username) || '' });
-      _txSessReady = true;
-      try{ txCheckReady(); }catch(_){}
-      return true;
-    }
-    if(j && (j.error === 'unauthorized' || j.error === 'inactive')){ txClearSession(); return false; }
-  }catch(e){ try{ console.warn('[TX] ต่ออายุ Session ไม่สำเร็จ', e); }catch(_){} }
-  return null;
-}
-/* [449] ข้อ 1 — ก่อนทุกงานที่ต้องใช้ Token: ถ้าใกล้หมดอายุให้ต่ออายุก่อน ห้ามปล่อยเป็น Session ครึ่งระบบ */
-async function txEnsureSession(rotate){
-  if(!(_txSess && _txSess.token)) return false;
-  const left = Number(_txSess.exp || 0) - Date.now();
-  if(left > TX_REFRESH_BEFORE_MS) return txHasSession();
-  /* [450] ข้อ 3.3 — Rotate = Token เดิมถูกยกเลิกทันที จึงใช้เฉพาะตอนเปิดเว็บ/กู้ Session
-     ระหว่างทำรายการใช้ Sliding (Token เดิม) เพื่อไม่ให้แท็บอื่นหลุดกลางคัน */
-  await txRefreshSession(!!rotate);
-  return txHasSession();
-}
-/* [449] ข้อ 4 — ย้าย Session ของรุ่นก่อน (V1) มาเป็น V2 โดยตรวจกับ Server ก่อนเสมอ */
-async function txMigrateV1(currentUsername){
-  let raw = null;
-  try{ raw = sessionStorage.getItem(TX_SS_OLD); }catch(_){}
-  if(!raw){ try{ raw = localStorage.getItem(TX_SS_OLD); }catch(_){} }
-  if(!raw) return false;
-  let tok = '', user = '';
-  try{ const o = JSON.parse(raw); tok = String((o && o.token) || ''); user = String((o && o.username) || '').toLowerCase(); }
-  catch(_){ tok = String(raw || '').trim(); }
-  const cur = String(currentUsername || '').toLowerCase();
-  if(!tok || (user && cur && user !== cur)){ txDropV1(); return false; }
-  _txSess = { token: tok, exp: Date.now() + 60000, username: user || cur };
-  const ok = await txRefreshSession(true);        // ตรวจ + ออก Token ใหม่ในคราวเดียว
-  if(ok === true){ txDropV1(); return true; }     // ย้ายสำเร็จ → ลบ V1
-  _txSess = null; _txSessReady = false;
-  if(ok === false) txDropV1();                    // Server ยืนยันว่าใช้ไม่ได้ → ลบ V1
-  return false;                                   // null = เครือข่ายล่ม → เก็บ V1 ไว้ลองใหม่รอบหน้า
-}
-/* หมดอายุเมื่อไร = ลบทิ้งทันที (ไม่เรียกซ้ำกลับเพื่อกัน Recursion) · ห้ามต่ออายุเอง */
-function txHasSession(){
-  if(_txSess && _txSess.exp && _txSess.exp <= Date.now() + 5000){
-    _txSess = null; _txSessReady = false; _txSessVerified = false;
-    try{ localStorage.removeItem(TX_LS_KEY); }catch(_){}
-  }
-  return !!(_txSess && _txSess.token && _txSessReady);
-}
-/* [448] AI พร้อมหรือไม่ — ใช้เฉพาะการอ่าน INVOICE PDF · ห้ามนำไปกั้น MASTER หรือ HS CODE */
-function txAiReady(){ return txHasSession() && _txSessVerified && !_txAiDown; }
-/* ข้อ 9 — ถาม Server ว่า Session ใช้ได้จริงไหม
-   ไม่รับ PDF · ไม่เรียก Claude · ไม่สร้างแถวใน nj_ai_jobs · ค่า API = 0 */
-async function txSessionCheck(){
-  if(!(_txSess && _txSess.token)) return false;
-  try{
-    const j = await txAiPost({ session:_txSess.token, action:'session_check' });
-    if(j && j.success && j.authenticated){
-      _txSessReady = true; _txSessVerified = true; _txAiDown = false; return true;
-    }
-    /* [449] ข้อ 6 — Edge Function ปฏิเสธ ยังไม่ล้างทันที ต้องถามฐานข้อมูลก่อน
-       Token ยังดี = ปัญหาอยู่ที่ AI เท่านั้น → MASTER/HS CODE ต้องใช้งานได้ต่อ */
-    if(j && (j.authenticated === false || j.error === 'unauthorized' || j.error === 'session_expired')){
-      const alive = await txRefreshSession(false);
-      if(alive === true){ _txSessVerified = false; _txAiDown = true; return false; }
-      return false;                                  // false = ล้างไปแล้ว · null = เครือข่ายล่ม (เก็บ Token ไว้)
-    }
+    const j = await txAiPost({ action:'probe' });
+    if(j && j.success && j.ready !== false){ _txAiOk = true; _txAiDown = false; return true; }
   }catch(e){ try{ console.warn('[TX] ตรวจสถานะ AI ไม่สำเร็จ', e); }catch(_){} }
-  /* [448] ติดต่อ AI ไม่ได้ (Edge Function/เครือข่ายล่ม) → เก็บ Token ไว้
-     MASTER และ HS CODE ต้องเลือกไฟล์ · SAVE · Lookup ได้ตามปกติ */
-  _txSessVerified = false; _txAiDown = true;
+  _txAiOk = false; _txAiDown = true;
   return false;
 }
-/* ข้อ 10 — Auto Connection ตอนเปิดเว็บ/Refresh — ผู้ใช้ไม่ต้องกดปุ่มใดเลย */
-async function txBootSession(username){
-  let have = txRestoreSession(username);
-  if(!have) have = await txMigrateV1(username);     // [449] ข้อ 4 — Session Migration V1 → V2
-  if(!have){ try{ txCheckReady(); }catch(_){} return false; }
-  /* [448] มี Token ที่ยังไม่หมดอายุแล้ว → ระบบที่ 1 (MASTER Mapping) พร้อมใช้งานทันที
-     ไม่รอและไม่ขึ้นกับสถานะ AI — โหลด MASTER/HS CODE ACTIVE ก่อนเสมอ */
-  _txSessReady = true; _txSessVerified = false; _txAiDown = false;
-  /* [449] ข้อ 3 — ใกล้หมดอายุให้ต่ออายุที่ Server ทันที ห้ามปล่อยเข้าแอปแบบครึ่งระบบ
-     [450] ตอนเปิดเว็บ/กู้ Session = Rotate Token ใหม่ (ของเดิมถูกยกเลิกทันทีที่ Server) */
-  await txEnsureSession(true);
-  if(!txHasSession()){ try{ txCheckReady(); txSetStatus('✗ ' + TX_SESS_EXPIRED, 'err'); }catch(_){} return false; }
+/* เรียกหลัง Login / เปิดเว็บ / Refresh — ผู้ใช้ไม่ต้องกดปุ่มใดเลย
+   ลำดับ: โหลด MASTER + HS CODE ACTIVE ก่อนเสมอ (ไม่รอ AI) → แล้วค่อยตรวจ AI แยกภายหลัง */
+async function txBoot(){
+  /* ล้าง Token ของรุ่นก่อนที่เลิกใช้แล้ว (ไม่แตะข้อมูลอื่นของผู้ใช้) */
+  try{ localStorage.removeItem('TX_AI_SESSION_V2'); localStorage.removeItem('TX_AI_SESSION_V1'); }catch(_){}
+  try{ sessionStorage.removeItem('TX_AI_SESSION_V1'); }catch(_){}
+  if(!txLoggedIn()){ try{ txCheckReady(); }catch(_){} return false; }
   try{ await txMstLoadActive(); }catch(_){}
   try{ await hsLoadActive(); }catch(_){}
-  _txSessChecking = true;
+  _txAiChecking = true;
   try{ txCheckReady(); txSetStatus(TX_CONNECTING); }catch(_){}
-  const ok = await txSessionCheck();          // ระบบที่ 2 (Invoice AI) เท่านั้น
-  _txSessChecking = false;
+  const ok = await txAiProbe();
+  _txAiChecking = false;
   try{ txCheckReady(); txSetStatus(txHint(), ok ? 'ok' : 'err'); }catch(_){}
-  /* [448] คืนค่าตามสถานะ "Session TEXAS DB12" ไม่ใช่สถานะ AI
-     → AI ล่มจะไม่ทำให้ระบบบังคับออกจากระบบอีกต่อไป (ข้อ 6) */
-  return txHasSession();
+  if(ok && txState.pdfs.length && !_txRunning && !txState.ai) txAutoRun();
+  return true;
 }
-/* ข้อ 14 — เพิกถอน Token ที่ Server ก่อนออกจากระบบ (ล้มเหลวก็ยังต้องล้างฝั่ง Browser) */
-async function txLogoutServer(){
-  const tk = _txSess && _txSess.token;
-  if(!tk) return false;
-  try{
-    await fetch(SUPABASE_URL + '/rest/v1/rpc/nj_tx_logout', {
-      method:'POST',
-      headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json' },
-      body: JSON.stringify({ p_session: tk })
-    });
-    return true;
-  }catch(e){ try{ console.warn('[TX] เพิกถอน Session ที่ Server ไม่สำเร็จ', e); }catch(_){} }
-  return false;
-}
-/* ข้อ 11 — Session ใช้ไม่ได้สำหรับผู้ใช้ที่มีสิทธิ์ TEXAS → กลับหน้า Login หลัก */
-function txForceRelogin(){
-  txClearSession();
-  try{ localStorage.removeItem(LOCAL_SESSION_KEY); }catch(_){}
-  try{ if(typeof _isLocalUser !== 'undefined') _isLocalUser = false; }catch(_){}
-  try{ if(typeof _currentUser !== 'undefined') _currentUser = null; }catch(_){}
-  try{ showAuth(); authMsg(TX_EXPIRED, 'err'); }catch(_){}
-}
-/* บัญชีที่มีสิทธิ์ใช้ TEXAS DB12 = ชุดเดียวกับ LOCAL_USERS (ตรงกับตาราง nj_tx_users) */
-function txAccountExists(username){
-  try{ return Object.prototype.hasOwnProperty.call(LOCAL_USERS, String(username||'').toLowerCase()); }
-  catch(_){ return false; }
+/* ออกจากระบบ = ล้างสถานะของโหมดนี้ในหน่วยความจำ (ไม่มี Token ให้เพิกถอน) */
+function txSignOut(){
+  _txAiOk = false; _txAiDown = false; _txAiChecking = false;
+  try{ localStorage.removeItem('TX_AI_SESSION_V2'); localStorage.removeItem('TX_AI_SESSION_V1'); }catch(_){}
+  try{ sessionStorage.removeItem('TX_AI_SESSION_V1'); }catch(_){}
+  try{ txCheckReady(); }catch(_){}
 }
 
 const txB64Of = async (file) => {
@@ -11525,10 +11398,12 @@ const txB64Of = async (file) => {
   return btoa(bin);
 };
 async function txAiPost(body){
+  /* [451] ยืนยันตัวตนด้วย Login เดิมของเว็บไซต์: JWT (บัญชี Supabase) หรือชื่อผู้ใช้ที่ Login อยู่ (บัญชี Local) */
+  const a = await txSiteAuth();
   const r = await fetch(SUPABASE_URL + '/functions/v1/' + TX_AI_FN, {
     method:'POST',
     headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json' },
-    body: JSON.stringify(body)
+    body: JSON.stringify(Object.assign({ user: a.user, access_token: a.jwt || undefined }, body))
   });
   let j = null; try{ j = await r.json(); }catch(e){}
   if(!j) throw new Error('เซิร์ฟเวอร์ตอบข้อมูลไม่ถูกต้อง (HTTP ' + r.status + ')');
@@ -11543,13 +11418,13 @@ function txPickModel(){
 }
 async function txAiRead(file, onTick){
   const pdf = await txB64Of(file);
-  let j = await txAiPost({ session:_txSess.token, name:file.name, mime:'application/pdf', pdf, model:txPickModel() });
+  let j = await txAiPost({ name:file.name, mime:'application/pdf', pdf, model:txPickModel() });
   const t0 = Date.now();
   while(j && j.success && j.pending && j.job_id){
     if(Date.now() - t0 > TX_AI_MAXMS) throw new Error('ใช้เวลานานเกินกำหนด กรุณาลองใหม่');
     if(onTick) onTick(Math.round((Date.now() - t0) / 1000));
     await new Promise(res => setTimeout(res, j.poll_after_ms || 2000));
-    j = await txAiPost({ session:_txSess.token, action:'job_status', job_id:j.job_id });
+    j = await txAiPost({ action:'job_status', job_id:j.job_id });
   }
   if(!j || !j.success) throw new Error((j && j.msg) || 'อ่าน PDF ไม่สำเร็จ');
   return j;
@@ -11649,8 +11524,10 @@ function txRenderResult(){
     chip('ไม่พบใน MASTER', M.miss, M.miss ? '#fee2e2' : '#f1f5f9', M.miss ? '#b91c1c' : '') +
     chip('พบใน HS CODE', H.found, '#dcfce7', '#166534') +
     chip('ไม่พบใน HS CODE', H.miss, H.miss ? '#fee2e2' : '#f1f5f9', H.miss ? '#b91c1c' : '') +
-    chip('TEXAS MASTER Version', _txMstActive ? _txMstActive.version : '—',
-         _txMstActive ? '#dcfce7' : '#fee2e2', _txMstActive ? '#166534' : '#b91c1c') +
+    (M.staged
+      ? chip('TEXAS MASTER', 'ไฟล์ที่เลือก (ยังไม่ได้ SAVE)', '#fef9c3', '#854d0e')
+      : chip('TEXAS MASTER Version', _txMstActive ? _txMstActive.version : '—',
+             _txMstActive ? '#dcfce7' : '#fee2e2', _txMstActive ? '#166534' : '#b91c1c')) +
     chip('HS CODE Version', _hsActive ? _hsActive.version : '—',
          _hsActive ? '#dcfce7' : '#fee2e2', _hsActive ? '#166534' : '#b91c1c') +
     chip('รายการซ้ำ', M.dup) +
@@ -11679,7 +11556,9 @@ function txRenderResult(){
   }
   const A = _txMstActive;
   h += '<div style="font-size:10.5px;color:#64748b;margin-bottom:8px">MASTER ที่ใช้: ' +
-       (A ? ('<b>Version ' + esc(A.version) + '</b> · ' + esc(A.file_name) + ' · ชีท ' + esc(A.sheet_name) +
+       (M.staged ? ('<b>ไฟล์ที่เลือกไว้ (ยังไม่ได้ SAVE)</b> · ' + esc(M.file) +
+                    ' · ใช้เฉพาะรอบนี้ — MASTER ACTIVE เดิมไม่ถูกเปลี่ยน') :
+        A ? ('<b>Version ' + esc(A.version) + '</b> · ' + esc(A.file_name) + ' · ชีท ' + esc(A.sheet_name) +
              ' · ' + esc(A.rows_total) + ' แถว (ไม่ซ้ำ ' + esc(A.codes_uniq) + ')' +
              ' · บันทึกโดย ' + esc(A.saved_by_name || A.saved_by) + ' ' + esc(txMstDate(A.saved_at)) +
              ' · SHA-256 ' + esc(String(A.file_sha256).slice(0, 16)) + '…')
@@ -11750,12 +11629,10 @@ async function txRun(){
   _txRunning = true; if(bExp) bExp.disabled = true;
   txState.res = null; txState.list = null; txRenderResult();
   try{
-    await txEnsureSession();                 // [449] ต่ออายุก่อนส่ง PDF ถ้าใกล้หมดอายุ
-    if(!txHasSession()) throw new Error(TX_SESS_EXPIRED);
-    /* [438] ก่อนส่ง PDF ครั้งแรกของรอบนี้ — ถาม Server ว่า Session ยังใช้ได้จริง (ไม่เรียก Claude)
+    if(!txLoggedIn()) throw new Error(TX_NEED_LOGIN);
+    /* ก่อนส่ง PDF ครั้งแรก — ตรวจว่า AI พร้อม (ไม่เรียก Claude)
        [448] ล้มเหลวเพราะ AI = แจ้งเฉพาะฝั่ง Invoice ไม่กระทบ MASTER/HS CODE */
-    if(!_txSessVerified && !(await txSessionCheck()))
-      throw new Error(txHasSession() ? TX_AI_NOT_READY : TX_SESS_EXPIRED);
+    if(!_txAiOk && !(await txAiProbe())) throw new Error(TX_AI_NOT_READY);
     const map = new Map(), unclear = [];
     let cost = 0, inTok = 0, outTok = 0, reqs = 0, allCached = true, modelUsed = '';
     for(let i = 0; i < txState.pdfs.length; i++){
@@ -11813,10 +11690,12 @@ async function txMatch(){
     /* ── [440] จับคู่ MASTER — Lookup ภายในล้วน ไม่เรียก Claude เพิ่มแม้แต่ครั้งเดียว ── */
     _txMatching = true; txCheckReady();
     txSetStatus('กำลังจับคู่ Product Code กับ MASTER …');
-    if(!_txMstActive) await txMstLoadActive();
-    if(!_txMstActive) throw new Error(TX_MST_MSG_NONE);
-    const mst = { found: 0, miss: 0, blur: 0, dup: 0, pages: 0, missList: [],
-                  version: _txMstActive.version, file: _txMstActive.file_name };
+    if(!txMstReady()) await txMstLoadActive();
+    if(!txMstReady()) throw new Error(TX_MST_MSG_NONE);
+    const useStaged = txMstSource() === 'staged';   // [451] ไฟล์ที่เลือกไว้ใช้ได้ทันทีแม้ยังไม่ SAVE
+    const mst = { found: 0, miss: 0, blur: 0, dup: 0, pages: 0, missList: [], staged: useStaged,
+                  version: useStaged ? 'ยังไม่ได้ SAVE' : _txMstActive.version,
+                  file:    useStaged ? _txMstStaged.name : _txMstActive.file_name };
     const seenPC = new Set(), seenPG = new Set();
     /* รอบแรก: เก็บคีย์ทั้งหมด → ถาม Server ครั้งเดียว (ไม่เรียก AI) */
     const keys = [];
@@ -11826,7 +11705,7 @@ async function txMatch(){
       it._mkey  = txMstNorm(raw);            // ค่าที่ใช้ค้นหาจริง (Normalize แล้ว)
       if(it._mkey) keys.push(it._mkey);
     }
-    const found = await txMstLookup(keys);
+    const found = useStaged ? txMstLookupStaged(keys) : await txMstLookup(keys);
     for(const r of list) for(const it of r.items){
       const raw = it._pcode;
       it._m = it._mkey ? (found.get(it._mkey) || null) : null;
@@ -11881,7 +11760,7 @@ async function txMatch(){
     return false;
   }
 }
-/* [447] ข้อ 1 — เริ่มให้ AI อ่านเองทันทีที่แนบ PDF · ถ้า Session ยังเชื่อมไม่เสร็จให้รอก่อน (ไม่เกิน 20 วินาที) */
+/* [447] ข้อ 1 — เริ่มให้ AI อ่านเองทันทีที่แนบ PDF · ถ้ากำลังตรวจความพร้อมของ AI อยู่ให้รอก่อน (ไม่เกิน 20 วินาที) */
 let _txAutoWait = 0, _txAiRetry = 0;
 const TX_AI_RETRY_MAX = 3, TX_AI_RETRY_MS = 20000;   // [448] ข้อ 6 — Retry จำกัดจำนวน ห้ามวนไม่สิ้นสุด
 async function txAutoRun(opt){
@@ -11891,18 +11770,17 @@ async function txAutoRun(opt){
   for(let i = 0; i < 40; i++){
     if(seq !== _txAutoWait) return;                   // มีการแนบไฟล์ชุดใหม่ซ้อนเข้ามา
     if(!txState.pdfs.length) return;
-    if(!_txSessChecking) break;
+    if(!_txAiChecking) break;
     await new Promise(r => setTimeout(r, 500));
   }
   if(seq !== _txAutoWait || _txRunning || !txState.pdfs.length) return;
-  if(!txHasSession()){ txSetStatus('✗ ' + TX_SESS_EXPIRED, 'err'); return; }
+  if(!txLoggedIn()){ txSetStatus('✗ ' + TX_NEED_LOGIN, 'err'); return; }
   /* [448] ข้อ 6 — AI ยังไม่พร้อม: แจ้งที่กรอบ Invoice · ไม่ล้าง MASTER/HS · ไม่บังคับออกจากระบบ
      ลองเชื่อม AI ใหม่ได้ไม่เกิน TX_AI_RETRY_MAX ครั้ง แล้วหยุด */
-  if(_txAiDown || !_txSessVerified){
-    const ok = await txSessionCheck();
+  if(_txAiDown || !_txAiOk){
+    const ok = await txAiProbe();
     try{ txCheckReady(); }catch(_){}
     if(!ok){
-      if(!txHasSession()){ txSetStatus('✗ ' + TX_SESS_EXPIRED, 'err'); return; }
       if(_txAiRetry < TX_AI_RETRY_MAX){
         _txAiRetry++;
         txSetStatus('⚠ ' + TX_AI_NOT_READY + ' · จะลองเชื่อมต่อใหม่อัตโนมัติ (' +
@@ -11945,10 +11823,10 @@ function txRenderLists(){
           ps.className = 'tx-fstat' + (txState.pdfs.length ? ' on' : ''); }
 }
 function txHint(){
-  if(_txSessChecking)      return TX_CONNECTING;          // [439] กำลังเชื่อมต่อ AI — ปิดปุ่มไว้ก่อน
-  if(!txHasSession())      return '⚠ ' + TX_SESS_EXPIRED; // [448] Session TEXAS DB12 หมดอายุ
+  if(_txAiChecking)        return TX_CONNECTING;          // กำลังตรวจความพร้อมของ AI
+  if(!txLoggedIn())        return '⚠ ' + TX_NEED_LOGIN;   // [451] ยังไม่ได้ Login เว็บไซต์
   if(_txAiDown)            return '⚠ ' + TX_AI_NOT_READY; // [448] ข้อ 6 — AI ล่ม กระทบเฉพาะการอ่าน Invoice
-  if(!_txMstActive)        return '⚠ ' + TX_MST_MSG_NONE;  // [441] ไม่มี MASTER ACTIVE = Export ไม่ได้
+  if(!txMstReady())        return '⚠ ' + TX_MST_MSG_NONE;  // [451] ไม่มีทั้งไฟล์ที่เลือกและ MASTER ACTIVE = Export ไม่ได้
   if(!_hsActive)           return '⚠ ' + HS_MSG_NONE;      // [446] ไม่มี HS CODE ACTIVE = Export ไม่ได้
   if(!txState.pdfs.length) return '✓ ' + TX_READY + ' — รอไฟล์ INVOICE PDF';
   return '✓ ' + TX_READY_PDF + ' · แนบแล้ว ' + txState.pdfs.length + ' ไฟล์ — AI กำลังเริ่มอ่านอัตโนมัติ';
@@ -11977,10 +11855,10 @@ function txAddPdfFiles(files){
 function txCheckReady(){
   const b = document.getElementById('tx-btn-export');
   /* [447] ไม่มีปุ่ม "ตรวจสอบ" แล้ว — AI เริ่มอ่านเองตอนแนบไฟล์
-     ไม่มี Session = ไม่ส่ง PDF · ไม่เรียก Edge Function · ห้าม fallback ไปของ KDC */
-  const okSess = txHasSession();
+     [451] ยังไม่ได้ Login เว็บไซต์ = ไม่ส่ง PDF · ไม่เรียก Edge Function · ห้าม fallback ไปของ KDC */
+  const okSess = txLoggedIn();
   const el = document.getElementById('tx-status');
-  if(!okSess && !_txSessChecking && txState.pdfs.length && el && !_txRunning && el.textContent.indexOf('✗') !== 0)
+  if(!okSess && !_txAiChecking && txState.pdfs.length && el && !_txRunning && el.textContent.indexOf('✗') !== 0)
     txSetStatus(txHint(), 'err');
   /* Export เปิดเมื่อ: ตรวจสอบเสร็จ · ไม่มีไฟล์ค้าง preparing/processing · สร้าง Preview แล้ว */
   const busy = txState.pdfs.some(f => txState.stat[f.name] === 'processing');
@@ -11992,7 +11870,7 @@ function txCheckReady(){
   /* [446] ข้อ 12 — Export เปิดเมื่อ: MASTER ครบ + HS CODE ACTIVE + จับ Tariff Code ครบทุกรายการ */
   const mstOK = !!M && M.miss === 0 && M.blur === 0 && !!Hq && Hq.miss === 0;
   if(b) b.disabled = !(txState.res && txState.res.list && txState.res.list.length)
-                     || busy || bad || _txRunning || _txMatching || !mstOK || !_txMstActive || !_hsActive;
+                     || busy || bad || _txRunning || _txMatching || !mstOK || !txMstReady() || !_hsActive;
 }
 function txReset(){
   _txAutoWait++;                                 // [447] ยกเลิกคิวอ่านอัตโนมัติที่ค้างอยู่
@@ -12023,7 +11901,7 @@ function txMapDesc(v){
    [MASTER 441 · 16/11/2026] MASTER ของโหมด TEXAS DB12 — เก็บบน Server (Supabase)
    ★ ใช้ร่วมกันทุกเครื่อง · มี Version / ACTIVE / Audit Log / Rollback
    ★ เปลี่ยน MASTER ได้โดยไม่แก้ Source และไม่ต้อง Deploy ใหม่
-   ★ ตรวจสิทธิ์ที่ Server ทุกครั้งด้วย p_token (RPC nj_tx_master_*) — ซ่อนปุ่มอย่างเดียวไม่พอ
+   ★ ตรวจผู้ใช้ที่ Server ทุกครั้งจาก Login เดิมของเว็บไซต์ (RPC nj_txm_*) — ซ่อนปุ่มอย่างเดียวไม่พอ
    ★ การค้นหา MASTER ไม่เรียก Claude API แม้แต่ครั้งเดียว
    ══════════════════════════════════════════════════════════════════════════ */
 /* ── [445] Canonical Header Mapping — MASTER TEXAS DB12 ใช้เพียง 4 คอลัมน์ ──
@@ -12061,7 +11939,25 @@ const txMstHdr = normalizeTxMasterHeader;
 let _txMstActive  = null;    // ข้อมูล MASTER Version ที่ ACTIVE อยู่ (จาก Server)
 let _txMstCanMng  = true;    // [443] หน้าเว็บไม่จำกัดสิทธิ์ — Server เป็นผู้ตัดสินทุกคำขอ
 let _txMstStaged  = null;    // ผลอ่านไฟล์ MASTER ที่ยังไม่ SAVE (อยู่ในหน่วยความจำเท่านั้น)
-let _txMstStagedFile = null; // ไฟล์ที่เพิ่งเลือก (ยังไม่ได้กดอ่าน)
+let _txMstStagedFile = null; // ไฟล์ที่เพิ่งเลือก
+/* [451] แหล่ง MASTER ที่ใช้ Mapping รอบนี้: ไฟล์ที่เพิ่งเลือกและอ่านผ่านแล้ว (ยังไม่ SAVE) มาก่อน → ไม่มีจึงใช้ MASTER ACTIVE */
+function txMstSource(){
+  if(_txMstStaged && _txMstStaged.rows && _txMstStaged.rows.length) return 'staged';
+  if(_txMstActive) return 'active';
+  return null;
+}
+function txMstReady(){ return !!txMstSource(); }
+/* ค้นหาจากไฟล์ที่เลือก (ในหน่วยความจำ · Exact Match หลัง Normalize · ไม่เรียก Server · ไม่เรียก AI)
+   แถวจากไฟล์ = [key, raw, eng, thai, tariff, …] → รูปแบบเดียวกับ Server = [thai, tariff, '', '', '', eng] */
+function txMstLookupStaged(keys){
+  const map = new Map(), src = new Map();
+  for(const rec of _txMstStaged.rows) src.set(rec[0], rec);
+  for(const k of new Set(keys.filter(Boolean))){
+    const r = src.get(k);
+    map.set(k, r ? [r[3], r[4], '', '', '', r[2]] : null);
+  }
+  return map;
+}
 let _txMstBusy    = false;   // กำลังอ่าน/บันทึก MASTER
 const _txMstFound = new Map();   // cache ผลค้นหาต่อ Version (ล้างเมื่อ Version เปลี่ยน)
 
@@ -12075,31 +11971,12 @@ const TX_MST_MSG_NONE = 'ยังไม่มี MASTER TEXAS DB12 ที่พ
 const HS_MSG_ROW = c => 'ไม่พบ Tariff Code [' + c + '] ใน HS CODE MASTER';
 const HS_MSG_OK  = 'พบข้อมูลใน HS CODE MASTER ครบทุก Tariff Code';
 
-/* ── เรียก RPC ของ MASTER (ส่ง Session ทุกครั้ง · Server เป็นผู้ตัดสินสิทธิ์) ── */
-async function txMstRpc(fn, body){
-  /* [448] ระบบที่ 1 — ตรวจเฉพาะ Session TEXAS DB12 · ห้ามตรวจสถานะ AI ทุกกรณี
-     [449] ใกล้หมดอายุ = ต่ออายุเองก่อน ไม่ให้ผู้ใช้เจอ Session ครึ่งระบบ */
-  await txEnsureSession();
-  const tk = txHasSession() ? _txSess.token : '';
-  if(!tk) throw new Error(TX_SESS_EXPIRED);
-  const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/' + fn, {
-    method:'POST',
-    headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json' },
-    body: JSON.stringify(Object.assign({ p_session: tk }, body || {}))
-  });
-  let j = null; try{ j = await r.json(); }catch(e){}
-  if(!j) throw new Error('ไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้ (HTTP ' + r.status + ')');
-  if(j.success === false){
-    /* [449] ฐานข้อมูลยืนยันว่า Token ใช้ไม่ได้ = ล้างทิ้งทันที ไม่ปล่อยเป็น Session ครึ่งระบบ */
-    if(j.error === 'unauthorized' || j.error === 'inactive'){ txClearSession(); throw new Error(TX_SESS_EXPIRED); }
-    throw new Error(j.msg || 'ไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้');
-  }
-  return j;
-}
+/* ── เรียก RPC ของ MASTER — ตรวจสิทธิ์จาก Login เดิมของเว็บไซต์ที่ Server (ไม่เกี่ยวกับ AI) ── */
+async function txMstRpc(fn, body){ return txDbRpc(fn, body); }
 /* ── โหลด MASTER ACTIVE + ประวัติ Version ── */
 async function txMstLoadActive(){
   try{
-    const j = await txMstRpc('nj_tx_master_active', {});
+    const j = await txMstRpc('nj_txm_active', {});
     const prev = _txMstActive && _txMstActive.version;
     _txMstActive = j.active || null;
     /* [443] ไม่นำ can_manage มาปิดปุ่ม — ถ้าไม่มีสิทธิ์จริง Server จะปฏิเสธและแจ้งข้อความเอง */
@@ -12112,7 +11989,7 @@ async function txMstLoadActive(){
 async function txMstHistory(){
   const box = document.getElementById('tx-mst-hist'); if(!box) return;
   try{
-    const j = await txMstRpc('nj_tx_master_list', { p_limit: 20 });
+    const j = await txMstRpc('nj_txm_list', { p_limit: 20 });
     const vs = j.versions || [];
     if(!vs.length){ box.innerHTML = '<div style="color:var(--text3)">ยังไม่มีประวัติ Version</div>'; return; }
     box.innerHTML = '<div style="font-weight:700;margin-bottom:2px">ประวัติ Version</div>' + vs.map(v =>
@@ -12138,11 +12015,11 @@ function txMstRender(){
   if(pick){
     if(St){
       pick.innerHTML = '📘 <b>' + esc(St.name) + '</b> <span style="color:var(--text3)">(อ่านแล้ว ' +
-        St.rows.length + ' รหัส · ยังไม่ได้ SAVE)</span>';
+        St.rows.length + ' รหัส · ใช้ในรอบนี้แล้ว · ยังไม่ได้ SAVE)</span>';
       pick.style.borderColor = '#16a34a'; pick.style.background = 'rgba(22,163,74,.08)';
     } else if(_txMstStagedFile){
       pick.innerHTML = '📎 <b>' + esc(_txMstStagedFile.name) + '</b> <span style="color:var(--text3)">(' +
-        Math.max(1, Math.round(_txMstStagedFile.size / 1024)) + ' KB · ยังไม่ได้บันทึก — กด "SAVE MASTER")</span>';
+        Math.max(1, Math.round(_txMstStagedFile.size / 1024)) + ' KB · ยังไม่ได้บันทึก)</span>';
       pick.style.borderColor = '#d99a00'; pick.style.background = 'rgba(250,204,21,.14)';
     } else {
       pick.innerHTML = 'คลิกเพื่อเลือกไฟล์ MASTER (.xlsx)';
@@ -12190,7 +12067,23 @@ function txMstPick(files){
   if(!/\.(xlsx|xls)$/i.test(f.name)){ toast && toast('รับเฉพาะไฟล์ .xlsx', 'warn'); return; }
   _txMstStagedFile = f; _txMstStaged = null;
   txMstRender();
-  txMstSetBar('เลือกไฟล์ "' + f.name + '" แล้ว — กด "SAVE MASTER" เพื่อบันทึก');
+  txMstAutoRead();          // [451] อ่านและตรวจไฟล์ทันที แล้วใช้ Mapping รอบนี้เลย (ไม่ต้องกดปุ่มใด)
+}
+/* [451] ข้อ 4 — เลือก/ลากไฟล์ MASTER = Excel Parser อ่านและตรวจทันที → Mapping รอบปัจจุบันใช้ไฟล์นี้ทันทีแม้ยังไม่ SAVE
+   ★ ไม่เรียก Claude · ไม่ตรวจสถานะ AI · ไม่แตะ MASTER ACTIVE บน Server · AI ไม่ต้องอ่าน PDF ซ้ำ */
+async function txMstAutoRead(){
+  if(!_txMstStagedFile || _txMstBusy) return false;
+  const f = _txMstStagedFile;
+  _txMstMsg = null; _txMstBusy = true; txMstRender(); txMstSetBar('กำลังอ่านและตรวจไฟล์ MASTER …');
+  const ok = await txMstParse();
+  _txMstBusy = false;
+  if(_txMstStagedFile !== f){ txMstRender(); return false; }   // ผู้ใช้เปลี่ยน/ยกเลิกไฟล์ระหว่างอ่าน
+  if(ok && _txMstStaged)
+    txMstSetBar('อ่านไฟล์ "' + f.name + '" แล้ว · ' + _txMstStaged.rows.length.toLocaleString() +
+                ' Product Code — ใช้ Mapping ในรอบนี้ทันที (ยังไม่ได้ SAVE) · กด "SAVE MASTER" เพื่อบันทึกเป็น MASTER ACTIVE ถาวร', 'ok');
+  txMstRender();
+  txMstInvalidate();        // คำนวณ Mapping ใหม่จากผลที่ AI อ่านไว้แล้ว (Claude API request = 0)
+  return ok;
 }
 let _txMstMsg = null, _txMstMsgCls = '';
 function txMstSetBar(msg, cls){
@@ -12204,6 +12097,7 @@ function txMstCancel(){
   _txMstStagedFile = null; _txMstStaged = null;
   const el = document.getElementById('tx-mst-input'); if(el) el.value = '';
   txMstRender(); txMstSetBar('ยกเลิกไฟล์ที่เลือกแล้ว — MASTER ACTIVE เดิมไม่เปลี่ยนแปลง');
+  txMstInvalidate();        // [451] กลับไปใช้ MASTER ACTIVE → คำนวณ Mapping ใหม่ทันที
 }
 const txMstSha = async (buf) => {
   const d = await crypto.subtle.digest('SHA-256', buf);
@@ -12283,7 +12177,7 @@ async function txMstParse(){
     _txMstStaged = { name:_txMstStagedFile.name, sheet, sha, b64: txMstB64(buf), rows, errList, preview, notes,
       stats: { rows_total: total, codes_uniq: rows.length, codes_dup: dup, blank: blank,
                conflict: conflict, errors: errList.length,
-               saved_by_name: (_txSess && _txSess.username) || '' } };
+               saved_by_name: txSiteUser() } };
     const okSave = (conflict === 0 && blank === 0 && rows.length > 0);
     if(!okSave){
       _txMstStaged = null;
@@ -12331,29 +12225,10 @@ function normalizeHsTariffCode(v){
   if(d.length === 8) return d;
   return null;
 }
-async function hsRpc(fn, body){
-  /* [448] ระบบที่ 1 — ตรวจเฉพาะ Session TEXAS DB12 · ห้ามตรวจสถานะ AI ทุกกรณี
-     [449] ใกล้หมดอายุ = ต่ออายุเองก่อน ไม่ให้ผู้ใช้เจอ Session ครึ่งระบบ */
-  await txEnsureSession();
-  const tk = txHasSession() ? _txSess.token : '';
-  if(!tk) throw new Error(TX_SESS_EXPIRED);
-  const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/' + fn, {
-    method:'POST',
-    headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json' },
-    body: JSON.stringify(Object.assign({ p_session: tk }, body || {}))
-  });
-  let j = null; try{ j = await r.json(); }catch(e){}
-  if(!j) throw new Error('ไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้ (HTTP ' + r.status + ')');
-  if(j.success === false){
-    /* [449] ฐานข้อมูลยืนยันว่า Token ใช้ไม่ได้ = ล้างทิ้งทันที ไม่ปล่อยเป็น Session ครึ่งระบบ */
-    if(j.error === 'unauthorized' || j.error === 'inactive'){ txClearSession(); throw new Error(TX_SESS_EXPIRED); }
-    throw new Error(j.msg || 'ไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้');
-  }
-  return j;
-}
+async function hsRpc(fn, body){ return txDbRpc(fn, body); }
 async function hsLoadActive(){
   try{
-    const j = await hsRpc('nj_tx_hs_active', {});
+    const j = await hsRpc('nj_txh_active', {});
     const prev = _hsActive && _hsActive.version;
     _hsActive = j.active || null;
     if(!_hsActive || _hsActive.version !== prev) _hsFound.clear();
@@ -12364,7 +12239,7 @@ async function hsLoadActive(){
 async function hsHistory(){
   const box = document.getElementById('hs-hist'); if(!box) return;
   try{
-    const j = await hsRpc('nj_tx_hs_list', { p_limit: 20 });
+    const j = await hsRpc('nj_txh_list', { p_limit: 20 });
     const vs = j.versions || [];
     box.innerHTML = vs.length
       ? ('<div style="font-weight:700;margin-bottom:2px">ประวัติ Version</div>' + vs.map(v =>
@@ -12515,7 +12390,7 @@ async function hsRead(){
     const sha = await txMstSha(buf);
     _hsStaged = { name:_hsStagedFile.name, sheet, sha, b64: txMstB64(buf), rows, errList, preview,
       stats: { total, uniq: rows.length, dup, badCode, badStat, badPriv, badSeq, conflict,
-               errors: errList.length, saved_by_name: (_txSess && _txSess.username) || '' } };
+               errors: errList.length, saved_by_name: txSiteUser() } };
     const ok = (conflict === 0 && badCode === 0 && rows.length > 0);
     hsSetBar(ok ? ('อ่านไฟล์ HS CODE สำเร็จ พบครบ 5 คอลัมน์ · ' + total.toLocaleString() + ' รายการ · ไม่ซ้ำ ' +
                    rows.length.toLocaleString() + ' · ซ้ำ ' + dup + ' · พร้อมบันทึก')
@@ -12535,15 +12410,15 @@ async function hsSave(){
               '\n\nVersion เดิมจะถูกเก็บเป็นประวัติและคืนค่าได้')) return;
   _hsMsg = null; _hsBusy = true; hsRender(); hsSetBar('กำลังเริ่มบันทึก …');
   try{
-    const b = await hsRpc('nj_tx_hs_begin', { p_file_name:S.name, p_sha256:S.sha, p_file_b64:S.b64,
+    const b = await hsRpc('nj_txh_begin', { p_file_name:S.name, p_sha256:S.sha, p_file_b64:S.b64,
       p_sheet:S.sheet, p_stats:{ rows_total:S.stats.total, codes_uniq:S.rows.length, errors:S.stats.errors,
                                  saved_by_name:S.stats.saved_by_name } });
     for(let i = 0; i < S.rows.length; i += HS_CHUNK){
-      await hsRpc('nj_tx_hs_chunk', { p_version_id: b.version_id, p_rows: S.rows.slice(i, i + HS_CHUNK) });
+      await hsRpc('nj_txh_chunk', { p_version_id: b.version_id, p_rows: S.rows.slice(i, i + HS_CHUNK) });
       hsSetBar('กำลังบันทึก ' + Math.min(i + HS_CHUNK, S.rows.length).toLocaleString() + ' / ' +
                S.rows.length.toLocaleString() + ' พิกัด …');
     }
-    const c = await hsRpc('nj_tx_hs_commit', { p_version_id: b.version_id, p_expect: S.rows.length });
+    const c = await hsRpc('nj_txh_commit', { p_version_id: b.version_id, p_expect: S.rows.length });
     _hsStagedFile = null; _hsStaged = null;
     const el = document.getElementById('tx-hs-input'); if(el) el.value = '';
     await hsLoadActive();
@@ -12559,7 +12434,7 @@ async function hsRollback(ver){
   if(!confirm('คืนค่า HS CODE กลับไปเป็น Version ' + ver + ' สำหรับทุกบัญชี?')) return;
   _hsMsg = null; _hsBusy = true; hsRender(); hsSetBar('กำลังคืนค่า Version ' + ver + ' …');
   try{
-    await hsRpc('nj_tx_hs_rollback', { p_version: ver });
+    await hsRpc('nj_txh_rollback', { p_version: ver });
     await hsLoadActive();
     hsSetBar('คืนค่าเป็น Version ' + ver + ' สำเร็จ', 'ok');
     hsInvalidate();
@@ -12579,7 +12454,7 @@ async function hsLookup(keys){
   const need = [...new Set(keys.filter(k => k && !_hsFound.has(k)))];
   for(let i = 0; i < need.length; i += 1000){
     const part = need.slice(i, i + 1000);
-    const j = await hsRpc('nj_tx_hs_lookup', { p_keys: part });
+    const j = await hsRpc('nj_txh_lookup', { p_keys: part });
     const f = j.found || {};
     for(const k of part) _hsFound.set(k, f[k] || null);
   }
@@ -12590,16 +12465,18 @@ async function hsLookup(keys){
 async function txMstSave(){
   if(!_txMstStagedFile || _txMstBusy) return;
   /* [447] ขั้นตอนเดียว: Excel Parser → ตรวจ Header/ข้อมูลด้วยโค้ด → บันทึก Mapping (ไม่เรียก Claude) */
-  _txMstMsg = null; _txMstBusy = true; txMstRender(); txMstSetBar('กำลังอ่านและตรวจไฟล์ MASTER …');
-  const okParse = await txMstParse();
-  _txMstBusy = false; txMstRender();
-  if(!okParse || !_txMstStaged) return;
+  if(!_txMstStaged){
+    _txMstMsg = null; _txMstBusy = true; txMstRender(); txMstSetBar('กำลังอ่านและตรวจไฟล์ MASTER …');
+    const okParse = await txMstParse();
+    _txMstBusy = false; txMstRender();
+    if(!okParse || !_txMstStaged) return;
+  }
   const S = _txMstStaged;
   /* [450] ข้อ 5.4 — ไม่มีหน้าต่างยืนยันซ้ำ · กด SAVE ครั้งเดียวแล้วบันทึกเป็น ACTIVE ทันที */
   _txMstMsg = null; _txMstBusy = true; txMstRender();
   txMstSetBar('กำลังบันทึก MASTER ขึ้น Server · ' + S.stats.codes_uniq.toLocaleString() + ' Product Code …');
   try{
-    const j = await txMstRpc('nj_tx_master_save', {
+    const j = await txMstRpc('nj_txm_save', {
       p_file_name: S.name, p_sha256: S.sha, p_file_b64: S.b64, p_sheet: S.sheet,
       p_rows: S.rows, p_stats: S.stats, p_note: '' });
     _txMstStagedFile = null; _txMstStaged = null;
@@ -12621,7 +12498,7 @@ async function txMstRollback(ver){
   if(!confirm('คืนค่า MASTER กลับไปเป็น Version ' + ver + ' สำหรับทุกบัญชี?')) return;
   _txMstMsg = null; _txMstBusy = true; txMstRender(); txMstSetBar('กำลังคืนค่า Version ' + ver + ' …');
   try{
-    await txMstRpc('nj_tx_master_rollback', { p_version: ver });
+    await txMstRpc('nj_txm_rollback', { p_version: ver });
     await txMstLoadActive();
     txMstSetBar('คืนค่าเป็น Version ' + ver + ' สำเร็จ', 'ok');
     txMstInvalidate();
@@ -12642,7 +12519,7 @@ function txMstInvalidate(){
 async function txMstLookup(keys){
   const need = [...new Set(keys.filter(k => k && !_txMstFound.has(k)))];
   for(let i = 0; i < need.length; i += 1000){
-    const j = await txMstRpc('nj_tx_master_lookup', { p_keys: need.slice(i, i + 1000) });
+    const j = await txMstRpc('nj_txm_lookup', { p_keys: need.slice(i, i + 1000) });
     const f = j.found || {};
     for(const k of need.slice(i, i + 1000)) _txMstFound.set(k, f[k] || null);
   }
@@ -12786,7 +12663,7 @@ async function txBuildBook(list){
     for(const it of rec.items){
       no++;
       rows.push({ inv: rec.inv, item: it.item,
-        src: { descRaw: it.desc, desc: txMapDesc(it.desc), hts: it.hts,
+        src: { descRaw: it.desc, desc: txMapDesc((it._m && it._m[5]) ? it._m[5] : it.desc), hts: it.hts,   /* [451] ค่าที่คาดหวังของ English Description 1 = แหล่งเดียวกับที่เขียนจริง (MASTER ก่อน · ไม่มีจึงใช้ PDF) */
                pcode: it.cust || it.ti, mst: it._m || null,
                hkey: it._hkey || '', hs: it._h || null },           // ค่าต้นทาง + ผลจับคู่ MASTER/HS CODE
         cells: {
@@ -12931,7 +12808,7 @@ async function txDownload(){
     if(_txMatching) throw new Error('ระบบกำลังจับคู่ MASTER กรุณารอสักครู่');
     /* [440] ข้อ 6 — ไม่พบ Product Code ใน MASTER = ห้าม Export (ห้ามเดาค่า ห้ามเติมเลขเอง) */
     const M = (txState.res && txState.res.mst) || null;
-    if(!_txMstActive) throw new Error(TX_MST_MSG_NONE);
+    if(!txMstReady()) throw new Error(TX_MST_MSG_NONE);
     if(!M) throw new Error('ยังจับคู่ MASTER ไม่เสร็จ กรุณารอสักครู่');
     if(M.blur) throw new Error(TX_MST_MSG_BLUR);
     if(M.miss) throw new Error(TX_MST_MSG_NG(M.miss) + '\n' +
@@ -25833,29 +25710,14 @@ async function doLogin(){
           }
         }
       };
-      /* [439] ข้อ 4 — สร้าง TEXAS AI Session ให้ได้ก่อน จึงบันทึก App Session และเปิดหน้าแอป
-         ★ ห้ามเปิดหน้าแอปก่อน txIssueSession() ทำงานเสร็จ · ไม่สำเร็จ = อยู่หน้า Login
-         ★ เก็บเฉพาะ Token/วันหมดอายุ/Username · ห้ามเก็บรหัสผ่านทุกกรณี */
-      let txSessionReady = false;
-      try{
-        if(typeof txIssueSession === 'function') txSessionReady = await txIssueSession(ulocal, pass);
-      }catch(error){
-        console.error('[TX] ออก Session ไม่สำเร็จ', error);
-        txSessionReady = false;
-      }
-      if(!txSessionReady){
-        txClearSession();
-        authMsg(TX_LOGIN_NOAI, 'err');       // อยู่หน้า Login · ห้ามเข้าแอปแบบครึ่งระบบ
-        return;
-      }
+      /* [451] Login เดิมของเว็บไซต์สำเร็จ = ใช้ TEXAS DB12 ได้ทันที
+         ★ ไม่มี Login/Session แยกของ TEXAS DB12 · ไม่เก็บรหัสผ่านหรือ Token ใด ๆ */
       _isLocalUser = true;
       _currentUser = fakeSession.user;
       try{ localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(fakeSession.user)); }catch(_){}
-      authMsg('เข้าสู่ระบบ (Local) ✓', 'ok');   // [448] ไม่อ้างสถานะ AI ตั้งแต่ยังไม่ได้ตรวจ
-      try{ await txMstLoadActive(); }catch(_){}        // [441] โหลด MASTER ACTIVE ทันทีหลัง Login
-      try{ await hsLoadActive(); }catch(_){}           // [446] โหลด HS CODE ACTIVE ทันทีหลัง Login
+      authMsg('เข้าสู่ระบบ (Local) ✓', 'ok');
       await onAuthSuccess(fakeSession);
-      try{ txCheckReady(); txSetStatus(txHint(), 'ok'); }catch(_){}
+      try{ if(typeof txBoot === 'function') txBoot(); }catch(_){}   // โหลด MASTER/HS + ตรวจ AI เบื้องหลัง
       return;
     } else {
       authMsg('Username หรือ Password ไม่ถูกต้อง','err');
@@ -25874,16 +25736,11 @@ async function doLogin(){
       password: pass
     });
     if(error) throw error;
-    /* [439] บัญชี Supabase ที่มีสิทธิ์ TEXAS DB12 ด้วย → สร้าง AI Session ให้พร้อมกัน
-       บัญชีที่ไม่มีใน nj_tx_users → ใช้โหมดอื่นได้ตามปกติ · ปิดเฉพาะ TEXAS DB12 */
-    try{
-      const uMeta = String((data.user && data.user.user_metadata && data.user.user_metadata.username) || userRaw).toLowerCase();
-      if(typeof txAccountExists === 'function' && txAccountExists(uMeta) && typeof txIssueSession === 'function')
-        await txIssueSession(uMeta, pass);
-    }catch(error){ console.warn('[TX] ออก Session สำหรับบัญชี Supabase ไม่สำเร็จ', error); }
+    /* [451] Login เดิมของเว็บไซต์สำเร็จ = ใช้ TEXAS DB12 ได้ทันที (Server ตรวจ JWT ของ Login นี้เอง) */
     authMsg('เข้าสู่ระบบสำเร็จ ✓', 'ok');
     _currentUser = data.user;
     await onAuthSuccess(data.session);
+    try{ if(typeof txBoot === 'function') txBoot(); }catch(_){}
   } catch(e) {
     console.error(e);
     let msg = 'เข้าสู่ระบบไม่สำเร็จ';
@@ -25902,7 +25759,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local450';
+const DEPLOY_VERSION = 'local451';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
@@ -25985,7 +25842,7 @@ async function onAuthSuccess(session){
   if(txt) txt.textContent = 'Supabase Connected';
 
   showApp();
-  /* [439] ล้างข้อความเฉพาะตอนยังอยู่ในระบบ — กัน txForceRelogin() ถูกลบข้อความทิ้ง */
+  /* ล้างข้อความเฉพาะตอนยังอยู่ในระบบ */
   setTimeout(()=>{ if(_currentUser) authMsg(''); }, 500);
 }
 
@@ -25993,10 +25850,8 @@ async function onAuthSuccess(session){
 async function doLogout(){
   if(!confirm('ออกจากระบบ?')) return;
   try{ localStorage.removeItem(LOCAL_SESSION_KEY); }catch(_){}
-  /* [439] ข้อ 14 — เพิกถอน Token ที่ Server ก่อน แล้วล้าง _txSess + TX_AI_SESSION_V2
-     ★ เรียก nj_tx_logout ไม่สำเร็จก็ยังต้องล้างฝั่ง Browser · ไม่แตะ Cache ใน nj_ai_jobs */
-  try{ if(typeof txLogoutServer === 'function') await txLogoutServer(); }catch(_){}
-  try{ if(typeof txClearSession === 'function') txClearSession(); }catch(_){}
+  /* [451] ไม่มี Token ของ TEXAS DB12 ให้เพิกถอนแล้ว — ล้างเฉพาะสถานะของโหมดในหน่วยความจำ */
+  try{ if(typeof txSignOut === 'function') txSignOut(); }catch(_){}
   _isLocalUser = false;
   _allowedNav  = null;   // [DEMO USER] คืนสิทธิ์เต็มให้ Session ถัดไป
   _curNav      = '';
@@ -26117,13 +25972,8 @@ async function addNewMember(){
         _isLocalUser = true;
         _currentUser = u;
         await onAuthSuccess({ user: u });
-        /* [439] ข้อ 10 — Auto Connection: กู้ TEXAS Session จาก localStorage → Username ต้องตรง
-           → session_check (ไม่เรียก Claude · ไม่ส่ง PDF) · ผู้ใช้ไม่ต้องกดปุ่มใด
-           [439] ข้อ 11 — ไม่ผ่าน → ล้าง App Session แล้วกลับหน้า Login หลัก */
-        let txOk = false;
-        try{ if(typeof txBootSession === 'function')
-               txOk = await txBootSession(u.user_metadata && u.user_metadata.username); }catch(_){ txOk = false; }
-        if(!txOk){ txForceRelogin(); }
+        /* [451] เปิดเว็บ/Refresh: Login เดิมยังอยู่ = TEXAS DB12 พร้อมใช้ทันที · ไม่มีการบังคับ Login ซ้ำ */
+        try{ if(typeof txBoot === 'function') txBoot(); }catch(_){}
         return;
       }
       // ข้อมูลค้าง/ไม่ valid → ลบทิ้ง
@@ -26144,16 +25994,8 @@ async function addNewMember(){
   try {
     const { data } = await sbClient.auth.getSession();
     if(data.session){ await onAuthSuccess(data.session);
-      /* [439] Auto Connection สาย Supabase — บัญชีที่มีสิทธิ์ TEXAS จะกู้ Session คืนอัตโนมัติ
-         บัญชีที่ไม่มีสิทธิ์ TEXAS → ล้าง Session ค้างของคนก่อน และใช้โหมดอื่นได้ตามปกติ */
-      try{
-        const su = data.session.user, sm = (su && su.user_metadata) || {};
-        const uname = String(sm.username || '').toLowerCase();
-        if(typeof txBootSession === 'function'){
-          const ok = await txBootSession(uname);
-          if(!ok && typeof txAccountExists === 'function' && txAccountExists(uname)) txForceRelogin();
-        }
-      }catch(_){}
+      /* [451] เปิดเว็บ/Refresh สาย Supabase: Login เดิมยังอยู่ = TEXAS DB12 พร้อมใช้ทันที */
+      try{ if(typeof txBoot === 'function') txBoot(); }catch(_){}
     }
     else { showAuth(); }
   } catch(e) {
