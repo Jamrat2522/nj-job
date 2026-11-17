@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="nj-build" content="local120"><!-- ★ [local117] เลขรุ่นของไฟล์นี้ (ตรงกับ Deploy github local120.zip) — ป้ายมุมขวาบนอ่านจากไฟล์บนเว็บไซต์จริง -->
+<meta name="nj-build" content="local122"><!-- ★ [local117] เลขรุ่นของไฟล์นี้ (ตรงกับ Deploy github local122.zip) — ป้ายมุมขวาบนอ่านจากไฟล์บนเว็บไซต์จริง -->
 <meta name="viewport" content="width=1440,initial-scale=1.0,user-scalable=yes">
 <title>ตรวจใบขน — N.J. Logistics</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -1388,7 +1388,20 @@ body.legacy-active .content-area { display: none !important; }
     #eleai-view .el-ai,#eleai-view .el-card .el-sub{display:none!important}
     #eleai-view #eleai-result.el-hide{display:none} #eleai-view #eleai-result.el-hide.el-act-only{display:block;padding:8px 12px} #eleai-view #eleai-result.el-act-only>:not(.el-more){display:none}
     #eleai-view #eleai-result.el-act-only .el-more{margin-top:0}
-    #eleai-view .el-rep-sum,#eleai-view #eleai-plrep-tb{display:none}
+    /* ★ [local121] ตารางรายงานข้อผิดพลาด INVOICE PDF เทียบ PL — เส้นกรอบทุกช่อง · Header ค้าง · Scroll ภายใน */
+    #eleai-view .el-rep-btns .btn[hidden]{display:none!important}
+    #eleai-view .el-etb{margin-top:6px;max-height:min(46vh,420px);overflow:auto;border:1px solid #4b5563;border-radius:4px;background:#fff;-webkit-overflow-scrolling:touch}
+    #eleai-view .el-etb table{border-collapse:separate;border-spacing:0;width:100%;font-size:12px}
+    #eleai-view .el-etb th,#eleai-view .el-etb td{border-right:1px solid #6b7280;border-bottom:1px solid #6b7280;padding:3px 7px;text-align:left;vertical-align:top;white-space:normal;overflow-wrap:anywhere}
+    #eleai-view .el-etb th:last-child,#eleai-view .el-etb td:last-child{border-right:none}
+    #eleai-view .el-etb th{position:sticky;top:0;z-index:2;background:#e5e7eb;font-weight:800;color:#111827;font-size:12px}
+    #eleai-view .el-etb td.i,#eleai-view .el-etb th.i{text-align:center;font-weight:800;white-space:nowrap;font-family:'IBM Plex Mono',monospace}
+    #eleai-view .el-etb td.v{font-family:'IBM Plex Mono',monospace;font-size:11.5px}
+    #eleai-view .el-etb td.s,#eleai-view .el-etb th.s{text-align:center;white-space:nowrap}
+    #eleai-view .el-etb tr.err td.s{color:#c00000;font-weight:900} #eleai-view .el-etb tr.unk td.s{color:#c65911;font-weight:800}
+    #eleai-view .el-etb tr.ivh td{background:#f8fafc;font-weight:800;color:#1e3a8a;font-size:11.5px}
+    #eleai-view .el-etb tbody tr:not(.ivh):hover td{background:#fefce8}
+    #eleai-view .el-rep-sum span.good{border-color:#22c55e;background:#dcfce7}
     #eleai-view .el-rep-note{margin-top:2px}
     #eleai-view .el-ai{margin-top:6px;gap:5px}
     #eleai-view .el-ai label{padding:3px 9px;font-size:11.5px;border-width:1px;border-radius:7px}
@@ -1483,7 +1496,7 @@ body.legacy-active .content-area { display: none !important; }
     <!-- ★ [local119] รายงานตรวจสอบ INVOICE PDF เทียบ PACKING LIST (PL) — ค้างจนกดปิด / ล้างข้อมูล / ประมวลผลไฟล์ชุดใหม่ -->
     <div class="el-rep" id="eleai-plrep" hidden role="region" aria-live="polite">
       <div class="el-rep-hd"><h3 id="eleai-plrep-title">⚠️ รายงานตรวจสอบ INVOICE PDF เทียบ PACKING LIST (PL)</h3>
-        <span class="el-rep-btns"><button class="btn el-rep-go" type="button" id="eleai-plrep-go" hidden>📥 EXPORT EXCEL ต่อ</button><button class="btn" type="button" id="eleai-plrep-close">ปิดรายงาน</button></span></div>
+        <span class="el-rep-btns"><button class="btn el-rep-go" type="button" id="eleai-plrep-go" hidden>📥 EXPORT EXCEL ต่อ</button><button class="btn" type="button" id="eleai-plrep-close" hidden>ยกเลิก</button></span></div>
       <div class="el-rep-sum" id="eleai-plrep-sum"></div>
       <div class="el-rep-note" id="eleai-plrep-note"></div>
       <div id="eleai-plrep-tb"></div>
@@ -8934,7 +8947,7 @@ window.ELEAI_CORE = (function(){
     const rows = [], bad = [], totals = [];
     for (let i = hi + 1; i < aoa.length; i++){ const r = aoa[i] || []; if (r.every(v => T(v) === '')) continue;
       const pn = codeKey(sv(cell(r, 'pn'))), qty = num(cell(r, 'qty')), nw = num(cell(r, 'nw'));
-      if (!pn){ if (qty != null || nw != null) totals.push({ line: i + 1, qty, nw }); continue; }
+      if (!pn){ if (qty != null || nw != null) totals.push({ line: i + 1, qty, nw, gw: num(cell(r, 'gw')) }); continue; }   /* ★ [local121] อ่าน Gross weight ท้ายตารางเพิ่ม (ใช้ตรวจ Total G.W. WT เท่านั้น) */
       const x = { file, line: i + 1, pn, cpn: codeKey(sv(cell(r, 'cpn'))), desc: T(cell(r, 'desc')), qty, nw, gw: num(cell(r, 'gw')), unit: num(cell(r, 'unit')),
         ord: ordKey(sv(cell(r, 'ord'))), cust: T(cell(r, 'cust')), pack: T(cell(r, 'pack')) };
       if (qty == null || !(qty > 0) || nw == null || nw < 0) bad.push(x); else rows.push(x); }
@@ -8947,9 +8960,16 @@ window.ELEAI_CORE = (function(){
   /* ── จับคู่ PL ↔ Invoice: Part Number + Order No. + Quantity (แยกตามรายการจริง · ห้ามแจกจ่ายน้ำหนักโดยเดา)
      · 1 รายการ Invoice อาจ = หลายแถว PL ที่ Part/Order เดียวกัน (แยกกล่อง) เมื่อผลรวม Qty ตรงพอดี
      · ถ้ามีหลายวิธีจับคู่ที่ให้ Net Weight ต่างกัน → กำกวม (ไม่ใส่ Net WT) ── */
-  function solveGroup(its, rows){
+  function solveGroup(its, rows, cap){
     const n = its.length, m = rows.length; let best = -1, sols = [], steps = 0, cut = false; const asg = new Array(n).fill(null);
     function subsets(avail, target){ const out = [];
+      /* ★ [local121] รอบเสริม (cap > 4): PL แยกสินค้าเดียวกันหลายบรรทัด (เช่น 160+160+160+160+118) — รวมแถวที่ Qty/NW เท่ากันเป็นชนิดเดียว เพื่อหาผลรวมได้ไม่จำกัด 4 แถว */
+      if (cap > 4){ const kinds = [], km = new Map();
+        avail.forEach(ix => { const r = rows[ix], k = r.qty + '|' + r.nw; if (!km.has(k)){ km.set(k, kinds.length); kinds.push({ q: r.qty, ix: [] }); } kinds[km.get(k)].ix.push(ix); });
+        (function rec(ki, sum, pick){ if (out.length > 64 || ++steps > 40000) return; if (pick.length && Math.abs(sum - target) < 1e-9){ out.push(pick.slice()); return; } if (ki >= kinds.length || pick.length >= cap) return;
+          const K = kinds[ki], mx = Math.min(K.ix.length, cap - pick.length, Math.floor((target - sum) / K.q + 1e-9));
+          for (let c = mx; c >= 0; c--){ for (let t = 0; t < c; t++) pick.push(K.ix[t]); rec(ki + 1, sum + c * K.q, pick); pick.length -= c; } })(0, 0, []);
+        return out.sort((a, b) => a.length - b.length); }
       (function rec(st, sum, pick){ if (out.length > 64) return; if (pick.length && Math.abs(sum - target) < 1e-9){ out.push(pick.slice()); return; } if (pick.length >= 4) return;
         for (let i = st; i < avail.length; i++){ const q = rows[avail[i]].qty; if (sum + q > target + 1e-9) continue; pick.push(avail[i]); rec(i + 1, sum + q, pick); pick.pop(); } })(0, 0, []);
       return out.sort((a, b) => a.length - b.length); }
@@ -8965,20 +8985,20 @@ window.ELEAI_CORE = (function(){
   function matchPL(items, plFiles){
     const pl = []; plFiles.forEach(f => (f.rows || []).forEach(r => pl.push(r)));
     const hasOrd = plFiles.length > 0 && plFiles.every(f => f.hasOrd);
-    const used = new Set();
+    const used = new Set(), usedBy = new Map();
     /* ★ [local118] จับด้วย Customer Part อย่างเดียวได้เฉพาะรายการที่ไม่มี Codice หรือ Codice ไม่อยู่ใน PL (อาจอ่านผิด)
        — ถ้า Codice เป็นสินค้าที่มีใน PL แต่ Qty/Order ไม่ตรง จะไม่ไปเอาน้ำหนักของแถว PL สินค้าอื่น */
     const allPn = new Set(pl.map(r => r.pn).filter(Boolean));
     const cpOk = it => !it.codeLeft || !allPn.has(it.codeLeft);
-    const stage = (kI, kR, how) => {
+    const stage = (kI, kR, how, cap) => {
       const gI = new Map(), gR = new Map();
       items.forEach(it => { if (it.pl || it.plAmb) return; const k = kI(it); if (!k) return; if (!gI.has(k)) gI.set(k, []); gI.get(k).push(it); });
       pl.forEach(r => { if (used.has(r)) return; const k = kR(r); if (!k) return; if (!gR.has(k)) gR.set(k, []); gR.get(k).push(r); });
       gI.forEach((its, k) => { const rs = gR.get(k); if (!rs || !rs.length) return;
-        const { sols, cut } = solveGroup(its, rs);
+        const { sols, cut } = solveGroup(its, rs, cap || 4);
         its.forEach((it, i) => {
           const vals = new Set(sols.map(s => s[i] ? rnd(s[i].reduce((a, j) => a + rs[j].nw, 0), 6) : 'X'));
-          if (sols.length && !vals.has('X') && vals.size === 1 && !cut){ const pick = sols[0][i].map(j => rs[j]); it.pl = { rows: pick, nw: [...vals][0], qty: rnd(pick.reduce((a, r) => a + r.qty, 0), 6), how }; pick.forEach(r => used.add(r)); }
+          if (sols.length && !vals.has('X') && vals.size === 1 && !cut){ const pick = sols[0][i].map(j => rs[j]); it.pl = { rows: pick, nw: [...vals][0], qty: rnd(pick.reduce((a, r) => a + r.qty, 0), 6), how }; pick.forEach(r => { used.add(r); usedBy.set(r, it); }); }
           else if (sols.length && (vals.size > 1 || (vals.has('X') && vals.size > 1) || cut)){ it.plAmb = true; it.plHow = how; }
         });
       });
@@ -8997,6 +9017,15 @@ window.ELEAI_CORE = (function(){
     stage(it => noOrd(it) ? K2(it.code, it.codeLeft, '') : '', r => K2(r.cpn, r.pn, ''), 'Customer Part + Part number + Qty (ไม่มี Order No.)');
     stage(it => noOrd(it) ? it.codeLeft : '', r => r.pn, 'Part number + Qty (ไม่มี Order No.)');
     stage(it => noOrd(it) && cpOk(it) ? it.code : '', r => r.cpn, 'Customer Part + Qty (ไม่มี Order No.)');
+    /* ★ [local121] รอบเสริมสำหรับรายการที่ยังจับคู่ไม่ได้เท่านั้น: กฎเดิมทุกข้อ (รหัส + Order No. + Qty) แต่รวม Quantity ได้มากกว่า 4 แถว
+       (เดิมจำกัด 4 แถว → PL ที่แยกสินค้าเดียวกันเป็น 5 แถวขึ้นไปถูกฟ้อง Qty ไม่ตรงทั้งที่ผลรวมเท่ากัน) · รายการที่จับคู่แล้ว / กำกวมแล้ว ไม่ถูกแตะ */
+    const ML = ' · รวมหลายแถว';
+    stage(it => it.ord ? K2(it.code, it.codeLeft, it.ord) : '', r => r.ord ? K2(r.cpn, r.pn, r.ord) : '', 'Customer Part + Part number + Order No. + Qty' + ML, 60);
+    stage(it => it.ord ? K(it.codeLeft, it.ord) : '', r => r.ord ? K(r.pn, r.ord) : '', 'Part number (Codice) + Order No. + Qty' + ML, 60);
+    stage(it => it.ord && cpOk(it) ? K(it.code, it.ord) : '', r => r.ord ? K(r.cpn, r.ord) : '', 'Customer Part + Order No. + Qty' + ML, 60);
+    stage(it => noOrd(it) ? K2(it.code, it.codeLeft, '') : '', r => K2(r.cpn, r.pn, ''), 'Customer Part + Part number + Qty (ไม่มี Order No.)' + ML, 60);
+    stage(it => noOrd(it) ? it.codeLeft : '', r => r.pn, 'Part number + Qty (ไม่มี Order No.)' + ML, 60);
+    stage(it => noOrd(it) && cpOk(it) ? it.code : '', r => r.cpn, 'Customer Part + Qty (ไม่มี Order No.)' + ML, 60);
     items.forEach(it => {
       if (it.pl){ it.nw = it.pl.nw; it.plSt = /ไม่มี Order/.test(it.pl.how) ? 'noord' : 'ok'; return; }
       it.nw = null;
@@ -9008,7 +9037,7 @@ window.ELEAI_CORE = (function(){
       else { it.plSt = 'none'; it.plMsg = 'ไม่พบ Part Number นี้ใน Packing List'; }
     });
     const unused = pl.filter(r => !used.has(r));
-    return { unused, plRows: pl.length };
+    return { unused, plRows: pl.length, usedBy };
   }
 
   /* ★ [local118] INVOICE PDF เป็นหลัก — PL ใช้ตรวจสอบเท่านั้น (ไม่เขียนทับ Product Code / Qty / Description / Amount / COO)
@@ -9076,57 +9105,72 @@ window.ELEAI_CORE = (function(){
     (mi && mi.unused || []).filter(r => !relUsed.has(r)).forEach(r => { rows.push({ inv: '', no: '', file: r.file, pg: '', topic: 'รายการเกินใน PL', pdf: 'ไม่พบ', pl: r.pn + (r.cpn && r.cpn !== r.pn ? ' (Customer Part ' + r.cpn + ')' : '') + ' · Qty ' + r.qty + ' · Order ' + (r.ord || '-'), st: 'พบรายการเกินใน PL', note: r.file + ' แถว ' + r.line + ' · ไม่เพิ่มลง MAPPING' }); cnt.extra++; });
     return { rows, cnt, problems: cnt.diff + cnt.notfound + cnt.amb + cnt.extra };
   }
-  /* ★ [local120] รายงานค่าผิด (หน้าจอ + Sheet 2 ใช้ชุดเดียวกัน) — ตรวจทุกรายการจริง · ไม่แก้ข้อมูล EXPORT
-     sev: err = ผิด (แดง) · chk = ต้องตรวจสอบ (ส้ม) · src = แหล่งเปรียบเทียบจริง */
-  const SRC_PL = 'Invoice PDF ↔ Packing List', SRC_ME = 'Invoice ↔ MASTER พิกัด ELE', SRC_HS = 'HS Code ↔ MASTER HS CODE', SRC_AI = 'AI อ่าน Invoice PDF';
-  const PL_TOPIC = { 'Product Code|ไม่ตรง': 'Product Code ไม่ตรงกัน', 'Product Code|ไม่พบใน PL': 'Product Code ไม่พบใน PL', 'จับคู่ PL|AMBIGUOUS': 'Product Code ซ้ำและจับคู่ไม่ได้',
-    'Quantity|ไม่ตรง': 'Quantity ไม่ตรงกัน', 'Order No.|ไม่ตรง': 'Order No. ไม่ตรงกัน', 'Codice (Description (Eng)2)|ไม่ตรง': 'Codice (Description (Eng)2) ไม่ตรงกัน', 'รายการเกินใน PL|พบรายการเกินใน PL': 'รายการเกินใน PL' };
-  function errReport(items, plFiles, mi, aiIss){
-    const ord = exportOrder(items), seq = new Map(ord.map((x, i) => [x, i + 1])), pr = plReport(items, plFiles, mi), rows = [];
-    const add = (x, topic, pdf, pl, st, note, src, sev, extra) => rows.push(Object.assign({ inv: x ? x.inv : '', no: x ? seq.get(x) : '', code: x ? (x.code || x.codeLeft || '') : '', file: x ? x.file : '', pg: x ? x.pg : '',
-      topic, pdf: pdf == null || pdf === '' ? '-' : String(pdf), pl: pl == null || pl === '' ? '-' : String(pl), st, note: note || '', src, sev }, extra || {}));
-    /* 1) Invoice PDF ↔ PL (ผลเดิมของ plReport ทุกแถว) */
-    pr.rows.forEach(r => { const x = r.no ? ord[r.no - 1] : null;
-      add(x, PL_TOPIC[r.topic + '|' + r.st] || r.topic, r.pdf, r.pl, r.st, r.note, SRC_PL, r.st === 'AMBIGUOUS' || r.st === 'พบรายการเกินใน PL' ? 'chk' : 'err', x ? null : { inv: r.inv, file: r.file }); });
+  /* ★ [local121] รายงานข้อผิดพลาด INVOICE PDF เทียบ PACKING LIST — ตรวจเฉพาะ 6 หัวข้อ (หน้าจอ + Sheet 2 ใช้ชุดเดียวกัน)
+     Product Code ↔ Customer Part · Description (Eng)2 ↔ Part number · Qty1 ↔ Quantity (รวมแถวที่จับคู่ได้จริง) · Description (Eng) ↔ Description
+     Total Net WT / Total G.W. WT ↔ ยอดรวม PL (ขอบเขตทั้งชุดงาน เพราะ PL ไม่มีเลข Invoice) · ไม่มีหลักฐาน = ตรวจสอบไม่ได้ (ไม่ฟ้องผิด)
+     รวม ITEM ได้เฉพาะ Invoice + หัวข้อ + ค่า PDF + ค่า PL + สถานะ ตรงกันทั้งหมด · ห้ามรวมข้าม Invoice */
+  const ST_BAD = 'ผิด', ST_UNK = 'ตรวจสอบไม่ได้';
+  const dKey = v => descOut(v).toUpperCase().replace(/\s+/g, '');
+  /* Description: Invoice พิมพ์ (อิตาลี 20 ตัว + อังกฤษ 20 ตัว) · PL พิมพ์อังกฤษ 30 ตัว → ตรงเมื่อท้ายคำอธิบาย Invoice = ต้นคำอธิบาย PL (≥ 12 ตัว หรือทั้งข้อความ PL) */
+  function descOk(pdf, pl){ const a = dKey(pdf), b = dKey(pl); if (!a || !b) return false; if (a.includes(b)) return true;
+    for (let k = Math.min(a.length, b.length); k >= Math.min(b.length, 12); k--) if (a.endsWith(b.slice(0, k))) return true; return false; }
+  function errReport(items, plFiles, mi){
+    const ord = exportOrder(items), seq = new Map(ord.map((x, i) => [x, i + 1])), raw = [];
+    const uq = a => [...new Set(a.filter(v => v != null && v !== ''))];
+    const loc = (x, rs) => 'ITEM ' + seq.get(x) + ': ' + x.file + ' หน้า ' + x.pg + (rs && rs.length ? ' · PL ' + uq(rs.map(r => r.file + ' แถว ' + r.line)).join(', ') : '');
+    const add = (x, topic, pdf, pl, st, diff, note) => raw.push({ inv: x ? x.inv : '', no: x ? seq.get(x) : '', topic, pdf: String(pdf), pl: String(pl), st, diff: diff == null || diff === '' ? '-' : String(diff), note: note || '' });
+    const num3 = v => rnd(v, 3), sgn = v => (v > 0 ? '+' : '') + num3(v);   /* ผลต่าง = PACKING LIST − INVOICE PDF */
+    const qBr = rs => rs.length > 1 ? 'PL ' + rs.length + ' แถว: ' + rs.map(r => r.qty).join(' + ') + ' = ' + num3(rs.reduce((a, r) => a + (+r.qty || 0), 0)) : '';
     ord.forEach(x => {
-      /* 2) Net Weight: ไม่ได้จับคู่ PL แน่นอน → Net WT ว่าง */
-      if (!x.pl) add(x, 'Net Weight ไม่พบหรือจับคู่ไม่ได้', 'Net WT จาก PL (Qty ' + x.qty + ')', 'ว่าง — ' + (x.plSt === 'amb' ? 'AMBIGUOUS' : x.plSt === 'qty' ? 'Qty ไม่ตรง' : x.plSt === 'ord' ? 'Order No. ไม่ตรง' : 'ไม่พบใน PL'), 'ต้องตรวจสอบ', 'ไม่ใช้น้ำหนักของสินค้าอื่น · ไม่เฉลี่ยน้ำหนักเอง', SRC_PL, 'chk');
-      /* 3) MASTER พิกัด ELE */
-      const m = x.master || {};
-      if (m.st === 'none') add(x, 'Part Number ไม่พบ MASTER พิกัด ELE', x.code || '(ว่าง)', 'ไม่พบ', 'ไม่พบ MASTER', (m.msg || '') + ' · TH Description / HS Code ว่าง', SRC_ME, 'err');
-      else if (m.st === 'partial'){
-        if (!m.th) add(x, 'TH Description ไม่พบ MASTER', x.code, 'TH Description ว่างใน MASTER', 'ไม่พบ MASTER', m.how ? 'จับคู่ MASTER ด้วย ' + m.how : '', SRC_ME, 'err');
-        if (!m.hs) add(x, 'HS Code ไม่พบ MASTER', x.code, 'HS Code ว่างใน MASTER', 'ไม่พบ MASTER', m.how ? 'จับคู่ MASTER ด้วย ' + m.how : '', SRC_ME, 'err'); }
-      else if (m.st === 'conflict') add(x, 'MASTER มีค่าหลายชุดและไม่สามารถยืนยันชุดที่ถูกต้องได้', x.code, (m.n || '') + ' รายการใน MASTER พิกัด ELE', 'ต้องตรวจสอบ', m.msg, SRC_ME, 'chk');
-      /* 4) MASTER HS CODE → Stat / Privilege / Seq */
-      const h = x.hsm;
-      if (h && h.st !== 'ok'){
-        if (h.st === 'dup') add(x, 'MASTER มีค่าหลายชุดและไม่สามารถยืนยันชุดที่ถูกต้องได้', m.hs, h.key + ' · ' + (h.n || '') + ' รายการใน MASTER HS CODE', 'ต้องตรวจสอบ', h.msg, SRC_HS, 'chk');
-        else if (h.st === 'off') add(x, 'เชื่อมต่อ MASTER HS CODE ไม่สำเร็จ', m.hs, 'อ่านฐานข้อมูลไม่สำเร็จ', 'ไม่พบ', h.msg, SRC_HS, 'err');
-        else add(x, 'HS Code ไม่พบ MASTER HS CODE', m.hs, h.key ? h.key + ' — ไม่พบ' : 'รูปแบบไม่ถูกต้อง', 'ไม่พบ MASTER', h.msg, SRC_HS, 'err');
-        add(x, 'Stat / Privilege / Seq ไม่พบข้อมูล', 'Tariff Code ' + (h.key || m.hs || '-'), 'Stat / Privilege / Seq ว่าง', 'ไม่พบ', h.st === 'dup' ? 'MASTER HS CODE มีหลายชุด — ไม่เลือกเอง' : 'ไม่ใช้ข้อมูลเดา', SRC_HS, h.st === 'dup' ? 'chk' : 'err'); }
+      const rs = x.pl ? x.pl.rows : (x.plRel || []);
+      if (!rs.length){ add(x, 'Product Code', x.code || '(ว่าง)', 'ไม่พบใน PL', ST_BAD, '', 'ไม่พบ Customer Part / Part number นี้ใน PL · ' + loc(x)); return; }
+      const how = x.pl ? 'จับคู่ด้วย ' + x.pl.how : (x.plSt === 'amb' ? 'มีหลายแถวที่เป็นไปได้ (AMBIGUOUS)' : x.plSt === 'qty' ? 'พบรหัสใน PL แต่ Quantity ไม่ตรง' : x.plSt === 'ord' ? 'พบรหัสใน PL แต่ Order No. ไม่ตรง' : '');
+      const cpns = uq(rs.map(r => r.cpn)), pns = uq(rs.map(r => r.pn));
+      /* 1) Product Code ↔ Customer Part (ไม่ใช้ Part number แทน) */
+      if (!cpns.length) add(x, 'Product Code', x.code || '(ว่าง)', 'ไม่มีค่า Customer Part', ST_UNK, '', 'PL ไม่มีค่า Customer Part · ' + loc(x, rs) + ' · ' + how);
+      else if (!x.code || !cpns.includes(x.code)) add(x, 'Product Code', x.code || '(ว่าง — อ่านไม่ได้)', cpns.join(' / '), ST_BAD, '', ['Customer Part ไม่ตรง', x.code ? codeDiff(x.code, cpns[0]) : 'PDF ว่าง', loc(x, rs), how].filter(Boolean).join(' · '));
+      /* 2) Description (Eng)2 ↔ Part number (ไม่ใช้ Customer Part แทน) */
+      if (!pns.length) add(x, 'Description (Eng)2', x.codeLeft || '(ว่าง)', 'ไม่มีค่า Part number', ST_UNK, '', 'PL ไม่มีค่า Part number · ' + loc(x, rs) + ' · ' + how);
+      else if (!x.codeLeft || !pns.includes(x.codeLeft)) add(x, 'Description (Eng)2', x.codeLeft || '(ว่าง — อ่านไม่ได้)', pns.join(' / '), ST_BAD, '', ['Part number ไม่ตรง', x.codeLeft ? codeDiff(x.codeLeft, pns[0]) : 'PDF ว่าง', loc(x, rs), how].filter(Boolean).join(' · '));
+      /* 3) Qty1 ↔ Quantity (รวมทุกแถวที่จับคู่ได้จริง) · จับคู่ไม่แน่นอน / Order No. ไม่ตรง / แถวถูกใช้กับรายการอื่น = ตรวจสอบไม่ได้ (ไม่ฟ้องผิด) */
+      const sumQ = a => num3(a.reduce((t, r) => t + (+r.qty || 0), 0)), qI = num3(+x.qty || 0);
+      if (x.pl){ const q = sumQ(rs); if (qI !== q) add(x, 'Qty1', x.qty, q, ST_BAD, sgn(q - qI), ['จำนวนไม่ตรง', qBr(rs), loc(x, rs), how].filter(Boolean).join(' · ')); }
+      else if (x.plSt === 'amb') add(x, 'Qty1', x.qty, rs.map(r => r.qty).join(' / '), ST_UNK, '', 'จับคู่ไม่แน่นอน: PL มีหลายแถวที่เป็นไปได้ (' + rs.map(r => 'Qty ' + r.qty + (r.ord ? ' Order ' + r.ord : '')).join(' / ') + ') · ' + loc(x, rs));
+      else if (x.plSt === 'ord'){ const q = sumQ(rs); add(x, 'Qty1', x.qty, q, ST_UNK, '', 'ยืนยันคู่รายการไม่ได้: Order No. ไม่ตรง (Invoice ' + (x.ord || '-') + ' · PL ' + uq(rs.map(r => r.ord)).join(', ') + ')' + (rs.length > 1 ? ' · ' + qBr(rs) : '') + ' · ' + loc(x, rs)); }
+      else if (x.plSt === 'qty'){ const shared = rs.filter(r => (mi && mi.usedBy ? mi.usedBy.get(r) : null)), q = sumQ(rs);
+        if (shared.length) add(x, 'Qty1', x.qty, q, ST_UNK, '', 'จับคู่ไม่แน่นอน: แถว PL บางแถวถูกใช้กับ ITEM อื่นแล้ว (' + shared.map(r => 'Qty ' + r.qty + ' → ITEM ' + seq.get(mi.usedBy.get(r))).join(', ') + ') · ' + loc(x, rs));
+        else add(x, 'Qty1', x.qty, q, ST_BAD, sgn(q - qI), ['จำนวนไม่ตรง', qBr(rs), loc(x, rs), how].filter(Boolean).join(' · ')); }
+      /* 4) Description (Eng) ↔ Description (PL อาจตัดข้อความยาว — ถือว่าตรงเมื่อคำอธิบาย PL อยู่ในคำอธิบาย Invoice) */
+      const pd = uq(rs.map(r => r.desc));
+      if (!pd.length) add(x, 'Description (Eng)', descOut(x.desc) || '(ว่าง)', 'ไม่มีค่า Description', ST_UNK, '', loc(x, rs) + ' · ไม่เดาค่า');
+      else if (!x.desc || !pd.some(d => descOk(x.desc, d))) add(x, 'Description (Eng)', descOut(x.desc) || '(ว่าง — อ่านไม่ได้)', pd.join(' / '), ST_BAD, '', 'Description ไม่ตรง · ' + loc(x, rs) + ' · ' + how);
     });
-    /* 5) AI อ่าน Invoice PDF ไม่ชัดเจน / ยอดรวมไม่ตรง (เฉพาะที่ยังเป็น WARNING / FAIL หลังตรวจซ้ำ) */
-    (aiIss || []).forEach(i => { const x = i.it && seq.has(i.it) ? i.it : null, mm = /\(([^()]*)\)\s*$/.exec(i.msg || '');
-      add(x, 'AI อ่านข้อมูล PDF ไม่ชัดเจน', mm ? mm[1] : (x ? (x.code || x.codeLeft || '-') : '-'), x ? 'ค่าที่ AI อ่านได้' : (i.inv ? 'Invoice ' + i.inv : '-'), i.lvl === 'hard' ? 'ไม่ตรง' : 'ต้องตรวจสอบ', i.msg, SRC_AI, i.lvl === 'hard' ? 'err' : 'chk', x ? null : { inv: i.inv || '', file: i.file || '', pg: i.pg || '' }); });
-    /* 6) ไฟล์ PL: แถวที่ใช้ไม่ได้ / ยอดรวมท้ายไฟล์ไม่ตรง */
-    plFiles.forEach(f => { (f.bad || []).forEach(r => add(null, 'แถว PL ข้อมูลไม่ถูกต้อง', '-', (r.pn || '-') + ' · Qty ' + (r.qty == null ? '-' : r.qty) + ' · NW ' + (r.nw == null ? '-' : r.nw), 'ต้องตรวจสอบ', f.file + ' แถว ' + r.line + ' — ไม่ใช้แถวนี้', 'Packing List', 'chk', { file: f.file }));
-      if (f.totalOk === false) add(null, 'ยอดรวมท้าย PL ไม่เท่ากับผลรวมแถว', '-', f.file, 'ต้องตรวจสอบ', '', 'Packing List', 'chk', { file: f.file }); });
-    /* 7) จำนวนรายการ PDF กับ PL */
-    const used = new Set(); items.forEach(x => (x.pl ? x.pl.rows : []).forEach(r => used.add(r)));
-    if (pr.cnt.notfound || pr.cnt.extra || pr.cnt.amb) add(null, 'จำนวนรายการ PDF กับ PL ไม่ตรงกัน', items.length + ' รายการ (PDF)', pr.cnt.plRows + ' แถว (PL) · จับคู่ได้ ' + used.size + ' แถว · เกิน ' + pr.cnt.extra + ' แถว', 'ต้องตรวจสอบ',
-      'ไม่พบใน PL ' + pr.cnt.notfound + ' รายการ · AMBIGUOUS ' + pr.cnt.amb + ' รายการ', SRC_PL, 'chk');
-    /* เรียงตาม Invoice และลำดับสินค้า (รายการระดับเอกสารไว้ท้าย Invoice นั้น / ท้ายตาราง) */
-    const ivo = new Map(); ord.forEach(x => { if (!ivo.has(x.inv)) ivo.set(x.inv, ivo.size); });
-    rows.forEach((r, i) => { r._i = i; });
+    /* 5–6) Total Net WT / Total G.W. WT — MAPPING (ยึด PDF · น้ำหนักจาก PL ที่จับคู่ได้) เทียบยอดรวม PL ทั้งชุดงาน */
+    const invs = uq(ord.map(x => x.inv)), scope = 'ขอบเขต: ทั้งชุดงาน (Invoice ' + invs.join(', ') + ' · PL ' + plFiles.length + ' ไฟล์ — PL ไม่มีเลข Invoice)';
+    const plT = k => { let v = 0, any = false, src = []; plFiles.forEach(f => { const t = f.total && f.total[k] != null ? f.total[k] : null;
+        const rs = (f.rows || []).map(r => r[k]).filter(n => n != null);
+        if (t != null){ v += t; any = true; src.push(f.file + ' ยอดท้ายตาราง ' + num3(t)); } else if (rs.length && rs.length === (f.rows || []).length){ const s2 = rs.reduce((a, b) => a + b, 0); v += s2; any = true; src.push(f.file + ' รวมแถว ' + num3(s2)); }
+        else src.push(f.file + ' ไม่มียอดรวม'); }); return { v: num3(v), any, src: src.join(' · ') }; };
+    const nwP = ord.filter(x => x.nw != null), nwSum = num3(nwP.reduce((a, x) => a + x.nw, 0)), plN = plT('nw');
+    const extra = (mi && mi.unused || []).length;
+    if (!plN.any || !nwP.length) add(null, 'Total Net WT', nwP.length ? nwSum : 'ไม่มีค่า', plN.any ? plN.v : 'ไม่มีค่า', ST_UNK, '', scope + ' · ' + plN.src);
+    else if (Math.abs(nwSum - plN.v) > 0.0005) add(null, 'Total Net WT', nwSum, plN.v, ST_BAD, sgn(plN.v - nwSum), 'Net Weight รวมไม่ตรง · ' + scope + ' · MAPPING มี Net WT ' + nwP.length + '/' + ord.length + ' รายการ · ' + plN.src + (extra ? ' · แถว PL ที่ไม่ตรงกับ Invoice ' + extra + ' แถว' : ''));
+    const gwP = ord.filter(x => x.gw != null), plG = plT('gw');
+    if (!gwP.length || !plG.any) add(null, 'Total G.W. WT', gwP.length ? num3(gwP.reduce((a, x) => a + x.gw, 0)) : 'ว่าง (MAPPING ไม่มี G.W. WT รายสินค้า)', plG.any ? plG.v : 'ไม่มีค่า', ST_UNK, '', 'ตรวจสอบไม่ได้: MAPPING ไม่มี G.W. WT รายสินค้า · ' + scope + ' · ' + plG.src + ' · PL ระบุ Gross weight เป็นรายกล่อง/พาเลท ไม่เฉลี่ยน้ำหนักเอง');
+    else { const g = num3(gwP.reduce((a, x) => a + x.gw, 0)); if (Math.abs(g - plG.v) > 0.0005) add(null, 'Total G.W. WT', g, plG.v, ST_BAD, sgn(plG.v - g), 'Gross Weight รวมไม่ตรง · ' + scope + ' · ' + plG.src); }
+    /* จัดกลุ่ม ITEM: Invoice + หัวข้อ + ค่า PDF + ค่า PL + สถานะ */
+    const TOP = ['Product Code', 'Description (Eng)2', 'Qty1', 'Description (Eng)', 'Total Net WT', 'Total G.W. WT'];
+    const ivo = new Map(invs.map((v, i) => [v, i])), grp = new Map(), rows = [];
+    raw.forEach(r => { const k = [r.inv, r.topic, r.pdf, r.pl, r.st].join('\u0001'); let g = grp.get(k);
+      if (!g){ g = { inv: r.inv, nos: [], topic: r.topic, pdf: r.pdf, pl: r.pl, st: r.st, diff: r.diff, notes: [] }; grp.set(k, g); rows.push(g); }
+      if (r.no !== '' && !g.nos.includes(r.no)) g.nos.push(r.no); if (r.note && !g.notes.includes(r.note)) g.notes.push(r.note); });
+    rows.forEach(g => { g.nos.sort((a, b) => a - b); g.item = g.nos.length ? g.nos.join(',') : 'TOTAL'; g.note = g.notes.join(' | '); g.sev = g.st === ST_BAD ? 'err' : 'unk'; delete g.notes; });
     rows.sort((a, b) => { const ia = ivo.has(a.inv) ? ivo.get(a.inv) : 1e9, ib = ivo.has(b.inv) ? ivo.get(b.inv) : 1e9;
-      return ia - ib || (a.no === '' ? 1e9 : a.no) - (b.no === '' ? 1e9 : b.no) || a._i - b._i; });
-    rows.forEach(r => { delete r._i; });
-    const itemsBad = new Set(), nf = new Set(), nm = new Set(), chk = new Set();
-    rows.forEach(r => { if (r.no === '') return; itemsBad.add(r.no); if (r.st === 'ไม่พบใน PL') nf.add(r.no); if (r.src === SRC_ME || r.src === SRC_HS) nm.add(r.no); if (r.sev === 'chk') chk.add(r.no); });
-    const cnt = Object.assign({}, pr.cnt, { items: items.length, pass: items.length - itemsBad.size, bad: itemsBad.size, topics: rows.length, nf: nf.size, nm: nm.size, chk: chk.size,
-      docRows: rows.filter(r => r.no === '').length });
-    return { rows, cnt, problems: rows.length, pl: pr };
+      return ia - ib || (a.nos.length ? a.nos[0] : 1e9) - (b.nos.length ? b.nos[0] : 1e9) || TOP.indexOf(a.topic) - TOP.indexOf(b.topic); });
+    const bad = rows.filter(r => r.st === ST_BAD), badItems = new Set(); bad.forEach(r => r.nos.forEach(n => badItems.add(n)));
+    const cnt = { items: items.length, rows: rows.length, bad: bad.length, unk: rows.length - bad.length, badItems: badItems.size, raw: raw.length,
+      byTopic: TOP.reduce((o, t) => (o[t] = bad.filter(r => r.topic === t).length, o), {}), plRows: plFiles.reduce((a, f) => a + (f.rows || []).length, 0) };
+    return { rows, raw, cnt, problems: bad.length, invs };
   }
   /* ★ [local118] ลำดับรายการใน EXPORT (ใช้ทั้ง buildRows และรายงาน) */
   function exportOrder(items){
@@ -9628,20 +9672,18 @@ window.ELEAI_CORE = (function(){
     const manual = new Set(iss.filter(i => i.lvl === 'warn' || i.lvl === 'hard').map(i => (i.file || '') + '|' + (i.pg || '') + '|' + (i.code || '') + '|' + (i.inv || '')));
     const hsc = hsCount(AN.v.items), conn = iss.some(i => i.conn);
     /* ★ [local119] ตรวจ PDF เทียบ PL ทุกรายการ · ★ [local120] รวม MASTER / AI / น้ำหนัก เป็นรายงานค่าผิดชุดเดียว (หน้าจอ = Sheet 2) */
-    const aiIss = iss.filter(i => (i.lvl === 'warn' || i.lvl === 'hard') && !i.conn && (i.type === 'A' || (i.type === 'B' && /TOTAL VALUE|หลายไฟล์/.test(i.msg || ''))));
-    const prep = C.errReport(AN.v.items, AN.plFiles, AN.mi, aiIss);
-    prep.gw = (iss.find(i => /^G\.W\. WT/.test(i.msg || '')) || {}).msg || '';
+    const prep = C.errReport(AN.v.items, AN.plFiles, AN.mi);   /* ★ [local121] ตรวจ 6 หัวข้อ PDF เทียบ PL (หน้าจอ = Sheet 2) */
     S.last = { R, rows, invoices: AN.v.invoices, status, fresh: true, hsc, conn, rep: prep };
     render(R, AN, tot, iss, status, manual.size);
-    renderRep(null);
+    renderRep(prep, false);
     exportBtn();
     bar(null);
     /* ★ [local120] ซ่อน Dashboard / ตาราง → แสดงเฉพาะข้อความสถานะสั้น (FAIL แสดงสาเหตุจริง) */
     const hardMsg = iss.filter(i => i.lvl === 'hard').slice(0, 3).map(i => (i.inv ? 'Invoice ' + i.inv + ': ' : '') + i.msg).join(' · ');
-    const nW = prep.cnt.topics;
+    const nW = prep.cnt.bad;
     prog(status === 'FAIL' ? (conn ? '❌ เชื่อมต่อ MASTER HS CODE ไม่สำเร็จ — ยังไม่ส่งออก (ไม่ใช่กรณีไม่พบ HS CODE) · กด 📥 EXPORT EXCEL เพื่ออ่าน MASTER ใหม่' : '❌ ประมวลผลล้มเหลว — ส่งออกไม่ได้: ' + hardMsg)
-      : (nW ? '⚠️ ประมวลผลเสร็จ — พบคำเตือน ' + fmt(nW) + ' หัวข้อ (' + fmt(prep.cnt.bad) + ' รายการสินค้า) · กด 📥 EXPORT EXCEL (รายละเอียดอยู่ใน Sheet “รายงานค่าผิด”)' : (status === 'WARNING' ? '⚠️ ประมวลผลเสร็จ — มีคำเตือน · กด 📥 EXPORT EXCEL' : '✅ ประมวลผลสำเร็จ — กด 📥 EXPORT EXCEL')),
-      status === 'FAIL' ? '#c00000' : (nW || status === 'WARNING' ? '#b45309' : '#0b7a2a'));
+      : (nW ? '⚠️ ประมวลผลเสร็จ — พบข้อมูลผิด ' + fmt(nW) + ' แถว (' + fmt(prep.cnt.badItems) + ' ITEM) · ดูตารางด้านล่าง · กด 📥 EXPORT EXCEL' : '✅ ประมวลผลสำเร็จ — ไม่พบข้อมูลผิดใน 6 หัวข้อ · กด 📥 EXPORT EXCEL'),
+      status === 'FAIL' ? '#c00000' : (nW ? '#b45309' : '#0b7a2a'));
   }
   function hsCount(items){ const c = { ok: 0, none: 0, dup: 0, off: 0 }; items.forEach(x => { const h = x.hsm; if (!h) return; if (h.st === 'ok') c.ok++; else if (h.st === 'dup') c.dup++; else if (h.st === 'off') c.off++; else c.none++; }); return c; }
   function renderFail(R, err){ bar(null); exportBtn(); $('eleai-result').classList.add('el-hide'); $('eleai-result').classList.remove('el-act-only');
@@ -9690,30 +9732,31 @@ window.ELEAI_CORE = (function(){
   /* ── EXPORT EXCEL (ใช้ผลที่ประมวลผลแล้ว · ไม่เรียก AI) ── */
   const TXT = new Set([1, 2, 3, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]);
   /* ★ [local120] Sheet 2 — รายงานค่าผิด: ชุดเดียวกับหน้าจอ · ค่าเป็นข้อความ (กันเลขศูนย์นำหน้าหาย) · แดง = ผิด · ส้ม = ต้องตรวจสอบ */
-  const REP_H = ['No.', 'Invoice No.', 'รายการที่', 'Product Code (PDF)', 'หัวข้อที่ผิด', 'ค่า PDF / ค่าที่ควรได้', 'ค่า PL / ค่าที่พบ', 'สถานะ', 'รายละเอียด', 'แหล่งเปรียบเทียบ'];
+  /* ★ [local121] Sheet 2 — รายงานค่าผิด 9 คอลัมน์ · ชุดเดียวกับตารางหน้าจอ · เส้นกรอบทุกเซลล์ (ไม่ใช่ Gridlines) · รหัสเป็นข้อความ */
+  const REP_H = ['No.', 'Invoice No.', 'ITEM', 'หัวข้อผิด', 'INVOICE PDF', 'PACKING LIST', 'ผลต่าง', 'สถานะ', 'หมายเหตุ'], REP_W = [6, 13, 12, 20, 34, 34, 18, 15, 70];
   function repSheet(wb, rep, invs){
-    const ws = wb.addWorksheet('รายงานค่าผิด'), c = rep ? rep.cnt : null, rows = rep ? rep.rows : [], HR = 5;
-    const RED = 'FFC00000', ORG = 'FFC65911', thin = { style: 'thin', color: { argb: 'FFBFBFBF' } }, bd = { top: thin, left: thin, bottom: thin, right: thin };
+    const ws = wb.addWorksheet('รายงานค่าผิด'), rows = rep ? rep.rows : [], c = rep ? rep.cnt : null, HR = 3, NC = REP_H.length;
+    const ln = { style: 'thin', color: { argb: 'FF404040' } }, bd = { top: ln, left: ln, bottom: ln, right: ln };
     const d = new Date(), p = n => String(n).padStart(2, '0');
-    ws.getCell(1, 1).value = 'รายงานค่าผิด — ELE TYPE 0 · Invoice ' + invs.map(v => v.inv).join(', ') + ' · ตรวจเมื่อ ' + p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    ws.mergeCells(1, 1, 1, NC); ws.getCell(1, 1).value = 'รายงานข้อผิดพลาด — INVOICE PDF เทียบ PACKING LIST · ELE TYPE 0 · Invoice ' + invs.map(v => v.inv).join(', ') + ' · ตรวจเมื่อ ' + p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
     ws.getCell(1, 1).font = { bold: true, size: 13 };
-    const SUM = c ? [['รายการสินค้าจาก PDF', c.items], ['ตรวจผ่าน', c.pass], ['รายการที่มีข้อผิดพลาด', c.bad], ['หัวข้อที่ผิดทั้งหมด', c.topics], ['ไม่พบใน PL', c.nf], ['ไม่พบ MASTER', c.nm], ['ต้องตรวจสอบเพิ่มเติม', c.chk]] : [];
-    SUM.forEach(([k, v], i) => { const a = ws.getCell(2, i + 1), b = ws.getCell(3, i + 1); a.value = k; b.value = v;
-      a.font = { bold: true, size: 10 }; a.alignment = { wrapText: true, vertical: 'middle' }; a.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } }; a.border = bd; b.border = bd;
-      b.font = { bold: true, size: 12, color: { argb: i >= 2 && v ? (i === 6 ? ORG : RED) : 'FF000000' } }; b.alignment = { horizontal: 'center' }; });
-    ws.getCell(4, 1).value = c ? 'รายการที่มีข้อผิดพลาด = จำนวนรายการสินค้า (ไม่นับซ้ำ) · หัวข้อที่ผิดทั้งหมด = จำนวนแถวในตาราง (1 รายการอาจผิดหลายหัวข้อ)'
-      + ' · แถว PL ' + c.plRows + (c.noord ? ' · จับคู่ PL โดยไม่มี Order No. ' + c.noord + ' รายการ' : '') + (c.docRows ? ' · หัวข้อระดับเอกสาร/ไฟล์ ' + c.docRows : '') + (rep.gw ? ' · ' + rep.gw : '') : '';
-    ws.getCell(4, 1).font = { italic: true, size: 9, color: { argb: 'FF595959' } };
-    const h = ws.getRow(HR); REP_H.forEach((t, k) => { const x = h.getCell(k + 1); x.value = t; x.font = { bold: true, color: { argb: 'FFFFFFFF' } }; x.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F4E79' } }; x.border = bd; x.alignment = { vertical: 'middle', wrapText: true }; });
-    if (!rows.length){ ws.mergeCells(HR + 1, 1, HR + 1, REP_H.length); const x = ws.getCell(HR + 1, 1); x.value = 'ตรวจสอบแล้ว — ไม่พบข้อมูลผิดหรือไม่ตรงกัน'; x.font = { bold: true, size: 12, color: { argb: 'FF0B7A2A' } }; }
-    rows.forEach((r, i) => { const R = ws.getRow(HR + 1 + i), col = { argb: r.sev === 'chk' ? ORG : RED };
-      [i + 1, r.inv || '-', r.no === '' ? '-' : r.no, r.code || '-', r.topic, r.pdf, r.pl, r.st, r.note, r.src].forEach((v, k) => { const x = R.getCell(k + 1);
-        if (k === 0 || (k === 2 && typeof v === 'number')) x.value = v; else { x.numFmt = '@'; x.value = String(v); }
-        x.font = { color: col, bold: k === 4 || k === 7 }; x.border = bd; x.alignment = { vertical: 'top', wrapText: k === 8 }; }); });
-    ws.autoFilter = { from: { row: HR, column: 1 }, to: { row: HR + Math.max(rows.length, 1), column: REP_H.length } };
+    ws.mergeCells(2, 1, 2, NC); ws.getCell(2, 1).value = c ? 'ผิด ' + c.bad + ' แถว (' + c.badItems + ' ITEM) · ตรวจสอบไม่ได้ ' + c.unk + ' แถว · ตรวจ ' + c.items + ' ITEM × 6 หัวข้อ: Product Code ↔ Customer Part · Description (Eng)2 ↔ Part number · Qty1 ↔ Quantity · Description (Eng) ↔ Description · Total Net WT · Total G.W. WT' : '';
+    ws.getCell(2, 1).font = { size: 10, color: { argb: 'FF404040' } }; ws.getCell(2, 1).alignment = { wrapText: true, vertical: 'top' }; ws.getRow(2).height = 30;
+    const h = ws.getRow(HR); REP_H.forEach((t, k) => { const x = h.getCell(k + 1); x.value = t; x.font = { bold: true }; x.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE7E6E6' } }; x.border = bd; x.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
+    h.height = 20;
+    if (!rows.length){ ws.mergeCells(HR + 1, 1, HR + 1, NC); const x = ws.getCell(HR + 1, 1); x.value = 'ไม่พบข้อมูลผิดใน 6 หัวข้อที่กำหนด'; x.font = { bold: true, size: 12, color: { argb: 'FF0B7A2A' } }; x.alignment = { horizontal: 'center' };
+      for (let k = 1; k <= NC; k++) ws.getCell(HR + 1, k).border = bd; }
+    const lines = (v, w) => String(v).split('\n').reduce((a, t) => a + Math.max(1, Math.ceil(t.length * 1.05 / Math.max(4, w - 1))), 0);
+    rows.forEach((r, i) => { const R = ws.getRow(HR + 1 + i), vals = [i + 1, r.inv || 'ทั้งชุดงาน', r.item, r.topic, r.pdf, r.pl, r.diff || '-', r.st, r.note]; let mx = 1;
+      vals.forEach((v, k) => { const x = R.getCell(k + 1);
+        if (k === 0) x.value = v; else { x.numFmt = '@'; x.value = String(v); }
+        x.border = bd; x.alignment = { vertical: 'top', wrapText: true, horizontal: k === 0 || k === 2 || k === 7 ? 'center' : 'left' };
+        if (k === 7) x.font = r.sev === 'err' ? { bold: true, color: { argb: 'FFC00000' } } : { bold: true, color: { argb: 'FFC65911' } };
+        mx = Math.max(mx, lines(x.value, REP_W[k])); });
+      R.height = Math.min(409, 15 * mx + 3); });
+    ws.autoFilter = { from: { row: HR, column: 1 }, to: { row: HR + Math.max(rows.length, 1), column: NC } };
     ws.views = [{ state: 'frozen', xSplit: 0, ySplit: HR, topLeftCell: 'A' + (HR + 1), activeCell: 'A' + (HR + 1) }];
-    [16, 14, 13, 18, 34, 28, 36, 18, 70, 28].forEach((w, k) => { ws.getColumn(k + 1).width = w; });
-    ws.getRow(2).height = 30;
+    REP_W.forEach((w, k) => { ws.getColumn(k + 1).width = w; });
   }
   async function writeXlsx(rows, invs, rep){
     const wb = new ExcelJS.Workbook(); wb.creator = 'checkdecl ELE TYPE 0'; const ws = wb.addWorksheet('Sheet1');
@@ -9750,31 +9793,43 @@ window.ELEAI_CORE = (function(){
       S.last.fresh = false;
       if (S.last.status === 'FAIL') return;   /* finish แจ้งเหตุแล้ว */
       /* ★ [local119] พบความต่าง PDF กับ PL → เปิดรายงาน และรอผู้ใช้กด “EXPORT EXCEL ต่อ” ก่อนดาวน์โหลด */
-      if (S.last.rep && S.last.rep.problems && !S.last.repOk){ S.last.pending = true; renderRep(S.last.rep, true, true); bar(null);
-        prog('⚠️ พบข้อผิดพลาด ' + S.last.rep.cnt.topics + ' หัวข้อ (' + S.last.rep.cnt.bad + ' รายการสินค้า) — ยังไม่ดาวน์โหลด · ตรวจรายงานแล้วกด “📥 EXPORT EXCEL ต่อ” (ได้ Excel 2 Sheets: MAPPING + รายงานค่าผิด · ยึดค่าตาม PDF)', '#b45309'); return; }
+      if (S.last.rep && S.last.rep.problems && !S.last.repOk){ S.last.pending = true; renderRep(S.last.rep, true); bar(null);
+        prog('⚠️ พบข้อมูลผิด ' + S.last.rep.cnt.bad + ' แถว (' + S.last.rep.cnt.badItems + ' ITEM) — ยังไม่ดาวน์โหลด · ตรวจตารางแล้วกด “📥 EXPORT EXCEL ต่อ” (Excel 2 Sheets · ยึดค่าตาม PDF)', '#b45309'); return; }
       await writeOut(); }
     catch (e){ bar(null); prog('❌ ส่งออกไม่สำเร็จ: ' + String(e && e.message || e) + ' — ไม่ได้ใช้ข้อมูล MASTER เดิมแทน กด EXPORT EXCEL เพื่อลองใหม่', '#c00000'); }
     finally { exporting = false; exportBtn(); }
   }
   async function writeOut(){
     const name = await writeXlsx(S.last.rows, S.last.invoices, S.last.rep), h = S.last.hsc || {};
-    const note = (h.none ? ' · ไม่พบ HS CODE ใน MASTER ' + h.none + ' รายการ' : '') + (h.dup ? ' · พบ HS CODE หลายรายการ ต้องตรวจสอบ ' + h.dup + ' รายการ' : '') + (S.last.rep && S.last.rep.problems ? ' · รายงานค่าผิด ' + S.last.rep.cnt.topics + ' หัวข้อ (Sheet “รายงานค่าผิด”)' : ' · Sheet “รายงานค่าผิด”: ไม่พบข้อมูลผิด');
-    prog((S.last.status === 'WARNING' || (S.last.rep && S.last.rep.problems) ? '⚠️ EXPORT สำเร็จ (มีคำเตือน): ' : '✅ EXPORT สำเร็จ: ') + name + ' · ' + S.last.rows.length + ' รายการ' + note, S.last.status === 'WARNING' ? '#b45309' : '#0b7a2a');
+    const note = (h.none ? ' · ไม่พบ HS CODE ใน MASTER ' + h.none + ' รายการ' : '') + (h.dup ? ' · พบ HS CODE หลายรายการ ต้องตรวจสอบ ' + h.dup + ' รายการ' : '') + (S.last.rep && S.last.rep.problems ? ' · รายงานค่าผิด ' + S.last.rep.cnt.bad + ' แถว (Sheet “รายงานค่าผิด”)' : ' · Sheet “รายงานค่าผิด”: ไม่พบข้อมูลผิดใน 6 หัวข้อ');
+    prog((S.last.rep && S.last.rep.problems ? '⚠️ EXPORT สำเร็จ (มีข้อมูลผิด): ' : '✅ EXPORT สำเร็จ: ') + name + ' · ' + S.last.rows.length + ' รายการ' + note, S.last.status === 'WARNING' ? '#b45309' : '#0b7a2a');
   }
   /* ★ [local119] รายงานตรวจสอบ INVOICE PDF เทียบ PACKING LIST (PL) */
-  /* ★ [local120] ไม่แสดงตารางรายงานบนหน้าจอ — แสดงเฉพาะแถบยืนยัน EXPORT เมื่อพบคำเตือน (รายละเอียดครบใน Sheet “รายงานค่าผิด”) */
-  function renderRep(rep, open, pending){
+  /* ★ [local121] ตารางรายงานข้อผิดพลาดบนหน้าจอ (ชุดเดียวกับ Sheet 2) · ITEM | หัวข้อผิด | INVOICE PDF | PACKING LIST | สถานะ · แยกตาม Invoice */
+  function renderRep(rep, pending){
     const box = $('eleai-plrep'), ob = $('eleai-plrep-open'); if (!box) return;
     if (ob) ob.hidden = true;
-    if (!rep || !pending){ box.hidden = true; return; }
-    const c = rep.cnt;
-    $('eleai-plrep-title').textContent = '⚠️ พบคำเตือน ' + fmt(c.topics) + ' หัวข้อ (' + fmt(c.bad) + ' รายการสินค้า' + (c.docRows ? ' · ระดับเอกสาร ' + fmt(c.docRows) : '') + ') — ยังไม่ดาวน์โหลด';
-    $('eleai-plrep-note').textContent = 'กด “📥 EXPORT EXCEL ต่อ” เพื่อดาวน์โหลด Excel 2 Sheets (MAPPING + รายงานค่าผิด) · ยึด Invoice PDF';
-    $('eleai-plrep-go').hidden = false; box.hidden = false;
+    if (!rep){ box.hidden = true; return; }
+    const c = rep.cnt, bad = c.bad > 0;
+    box.classList.toggle('ok', !c.rows);
+    $('eleai-plrep-title').textContent = (bad ? '⚠️' : '✅') + ' รายงานข้อผิดพลาด — INVOICE PDF เทียบ PACKING LIST';
+    $('eleai-plrep-sum').innerHTML = '<span class="' + (bad ? 'bad' : 'good') + '">ผิด <b>' + fmt(c.bad) + '</b> แถว · <b>' + fmt(c.badItems) + '</b> ITEM</span>' + (c.unk ? '<span>ตรวจสอบไม่ได้ <b>' + fmt(c.unk) + '</b></span>' : '') + '<span>ตรวจ ' + fmt(c.items) + ' ITEM × 6 หัวข้อ</span>';
+    $('eleai-plrep-note').textContent = pending ? '⏸ ยังไม่ดาวน์โหลด — กด “📥 EXPORT EXCEL ต่อ” เพื่อดาวน์โหลด Excel 2 Sheets (MAPPING + รายงานค่าผิด) โดยยึด Invoice PDF' : (c.rows ? '' : 'ไม่พบข้อมูลผิดใน 6 หัวข้อที่กำหนด');
+    let h = '';
+    if (c.rows){
+      const groups = []; rep.rows.forEach(r => { const k = r.inv || 'ALL'; let g = groups.find(x => x.k === k); if (!g){ g = { k, inv: r.inv, rows: [] }; groups.push(g); } g.rows.push(r); });
+      h = '<div class="el-etb" id="eleai-plrep-scroll"><table><thead><tr><th class="i">ITEM</th><th>หัวข้อผิด</th><th>INVOICE PDF</th><th>PACKING LIST</th><th class="s">สถานะ</th></tr></thead><tbody>'
+        + groups.map(g => '<tr class="ivh"><td colspan="5">' + (g.inv ? 'Invoice ' + esc(g.inv) : 'ยอดรวมทั้งชุดงาน (TOTAL)') + ' — ผิด ' + g.rows.filter(r => r.sev === 'err').length + ' แถว' + (g.rows.some(r => r.sev !== 'err') ? ' · ตรวจสอบไม่ได้ ' + g.rows.filter(r => r.sev !== 'err').length + ' แถว' : '') + '</td></tr>'
+          + g.rows.map(r => '<tr class="' + r.sev + '" title="' + esc((r.diff && r.diff !== '-' ? 'ผลต่าง (PL − PDF): ' + r.diff + '\n' : '') + r.note) + '"><td class="i">' + esc(r.item) + '</td><td>' + esc(r.topic) + '</td><td class="v">' + esc(r.pdf) + '</td><td class="v">' + esc(r.pl) + '</td><td class="s">' + esc(r.st) + '</td></tr>').join('')).join('')
+        + '</tbody></table></div>';
+    }
+    $('eleai-plrep-tb').innerHTML = h;
+    $('eleai-plrep-go').hidden = !pending; $('eleai-plrep-close').hidden = !pending;
+    box.hidden = false;
   }
   async function exportConfirmed(){
     if (exporting || !S.last || !S.last.pending) return;
-    S.last.repOk = true; S.last.pending = false; renderRep(S.last.rep, false, false);
+    S.last.repOk = true; S.last.pending = false; renderRep(S.last.rep, false);
     exporting = true; exportBtn();
     try { await writeOut(); } catch (e){ prog('❌ ส่งออกไม่สำเร็จ: ' + String(e && e.message || e), '#c00000'); }
     finally { exporting = false; exportBtn(); }
@@ -9790,7 +9845,7 @@ window.ELEAI_CORE = (function(){
     dropZone($('eleai-dz-pdf'), 'pdf'); dropZone($('eleai-dz-pl'), 'pl');
     $('eleai-plrep-go').addEventListener('click', exportConfirmed);
     ['pdf', 'pl'].forEach(k => $('eleai-' + k + '-all').addEventListener('click', e => { e.stopPropagation(); S.listOpen[k] = !S.listOpen[k]; renderLists(); }));
-    $('eleai-plrep-close').addEventListener('click', () => { if (!S.last || !S.last.pending) return; S.last.pending = false; renderRep(null); prog('ยกเลิก EXPORT — ยังไม่ดาวน์โหลด · กด 📥 EXPORT EXCEL เพื่อเริ่มใหม่', '#475569'); });
+    $('eleai-plrep-close').addEventListener('click', () => { if (!S.last || !S.last.pending) return; S.last.pending = false; renderRep(S.last.rep, false); prog('ยกเลิก EXPORT — ยังไม่ดาวน์โหลด · กด 📥 EXPORT EXCEL เพื่อเริ่มใหม่', '#475569'); });
     /* กันเบราว์เซอร์เปิดไฟล์แทนการแนบ เมื่อปล่อยไฟล์นอกกรอบ ① / ② — เฉพาะตอนหน้า ELE TYPE 0 เปิดอยู่ */
     ['dragover', 'drop'].forEach(t => window.addEventListener(t, e => {
       const v = $('eleai-view'); if (!v || !v.classList.contains('active') || document.body.classList.contains('mpage-on')) return;
