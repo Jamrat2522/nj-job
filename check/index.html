@@ -835,6 +835,10 @@ body.legacy-active .content-area { display: none !important; }
       <span style="width:16px;text-align:center;flex-shrink:0;font-size:14px;line-height:1">📗</span>
       <span class="label">พิกัด ELE</span>
     </a>
+    <a class="sb-item" data-role="admin-only" onclick="openHsMaster()"><!-- ★ [local113] MASTER HS CODE (Tariff Code · Stat · Privilege · Seq · Tariff rate duty) -->
+      <span style="width:16px;text-align:center;flex-shrink:0;font-size:14px;line-height:1">📘</span>
+      <span class="label">HS CODE</span>
+    </a>
 </div>
 
 <!-- ── ADMIN BOTTOM SECTION ── -->
@@ -1291,6 +1295,7 @@ body.legacy-active .content-area { display: none !important; }
   <div class="doa-panel" id="chkd-result" style="display:none"></div>
 </div><!-- /chkd-view -->
 <!-- ═══ ★ [local112] โหมด ELE TYPE 0 (PDF → Excel AI) — View แยก #eleai-view · Handler eleai* · ไม่ใช้ State/Logic ของ TYPE 0 / TYPE IEAT / TYPE 1 / TYPE D / TYPE P เดิม
+     local114: ซ่อนกรอบ ③ MASTER พิกัด ELE (UI เท่านั้น — ระบบเชื่อม MASTER เบื้องหลังเหมือนเดิม) · กรอบอัปโหลด 2 กรอบ 50/50 · Mobile เรียงแนวตั้ง
      local112: ตัวเลือก AI (AUTO / Sonnet 5.5 / Opus 5.5) · ประมวลผลหลังแนบไฟล์ · EXPORT EXCEL ปุ่มเดียวด้านบน · AI RESULT · ไม่มี Preview ด้านล่าง ═══ -->
 <div class="doa-view" id="eleai-view">
   <style>
@@ -1306,7 +1311,7 @@ body.legacy-active .content-area { display: none !important; }
     #eleai-view .el-ready{font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:12px;background:#f1f5f9;color:#475569;max-width:100%;overflow-wrap:anywhere}
     #eleai-view .el-ready.ok{background:#dcfce7;color:#166534} #eleai-view .el-ready.bad{background:#fee2e2;color:#b91c1c}
     #eleai-view #eleai-btn-export{font-size:15px;padding:11px 24px;min-height:44px}
-    #eleai-view .el-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:8px}
+    #eleai-view .el-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:8px}
     #eleai-view .el-card{border:2px dashed #cbd5e1;border-radius:10px;padding:10px;background:#fff;display:flex;flex-direction:column;gap:6px;min-width:0}
     #eleai-view .el-card.c1{border-color:#93c5fd;background:#f8fbff} #eleai-view .el-card.c2{border-color:#fdba74;background:#fffaf5} #eleai-view .el-card.c3{border-color:#86efac;background:#f7fef9;border-style:solid}
     #eleai-view .el-card h3{margin:0;font-size:12.5px;font-weight:800;color:#1e293b}
@@ -1338,7 +1343,8 @@ body.legacy-active .content-area { display: none !important; }
     #eleai-view .el-more{margin-top:8px}
     #eleai-view .el-more .btn{background:#b45309;color:#fff;border:none;padding:8px 14px;font-size:12px}
     #eleai-view .el-sec:empty{display:none}
-    @media (max-width:1000px){ #eleai-view .el-grid{grid-template-columns:1fr} }
+    #eleai-view .el-card[hidden]{display:none!important}
+    @media (max-width:760px){ #eleai-view .el-grid{grid-template-columns:1fr} }
     @media (max-width:640px){ #eleai-view #eleai-btn-export{width:100%;justify-content:center} #eleai-view .el-tot{grid-template-columns:repeat(2,minmax(0,1fr))} #eleai-view .el-ai label{flex:1 1 100%} }
   </style>
   <div class="doa-panel">
@@ -1368,7 +1374,7 @@ body.legacy-active .content-area { display: none !important; }
         <div class="el-pick"><button class="btn" type="button" id="eleai-btn-pl">📂 เลือก Packing List</button><input type="file" id="eleai-pl" accept=".xls,.xlsx" multiple hidden/></div>
         <ul class="el-list" id="eleai-pl-list"></ul>
       </div>
-      <div class="el-card c3">
+      <div class="el-card c3" hidden aria-hidden="true"><!-- ★ [local114] ซ่อนเฉพาะ UI · MASTER พิกัด ELE + MASTER HS CODE เชื่อมอัตโนมัติทุกครั้งที่ประมวลผล / EXPORT -->
         <h3>③ MASTER พิกัด ELE</h3>
         <div class="el-sub">ใช้ MASTER เดิมในระบบ (อ่านล่าสุดจาก Supabase ทุกครั้งที่ประมวลผล · ไม่ต้องอัปโหลด · ไม่แก้ไข MASTER)</div>
         <div class="el-sub" style="font-weight:700;color:#166534" id="eleai-master-st">เชื่อมต่ออัตโนมัติเมื่อประมวลผล</div>
@@ -1612,6 +1618,69 @@ body.legacy-active .content-area { display: none !important; }
       <div id="em-e-status" style="font-weight:700"></div>
     </div>
     <div class="pm-foot"><button class="pm-b pm-b-cancel" onclick="emCloseEdit()">ยกเลิก</button><button class="pm-b pm-b-save" id="em-e-save" onclick="emEditSave()">💾 บันทึก</button></div>
+  </div>
+</div>
+<div class="mm-overlay" id="hs-overlay"><!-- ★ [local113] MASTER → HS CODE (Supabase public.calc_hs_master · RPC calc_hs_master_page / _lookup / _save / _update) -->
+  <div class="mm-modal" style="max-width:1320px;display:flex;flex-direction:column;max-height:calc(100vh - 80px);min-width:0">
+    <div class="mm-head" style="flex:none">
+      <div class="mm-head-ic" style="font-size:18px">📘</div>
+      <h3>📘 MASTER HS CODE</h3>
+      <button class="mm-head-close" onclick="closeHsMaster()" title="ปิด">✕</button>
+    </div>
+    <div style="padding:12px 18px 0;flex:none">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="pm-b pm-b-up" id="hs-btn-upload" onclick="hsPickFile()">⬆️ UPLOAD EXCEL</button>
+        <button class="pm-b pm-b-save" id="hs-btn-save" onclick="hsSave()" disabled>💾 SAVE MASTER</button>
+        <button class="pm-b pm-b-exp" id="hs-btn-export" onclick="hsExport()">📥 EXPORT EXCEL</button>
+        <button class="pm-b pm-b-paste" id="hs-btn-refresh" onclick="hsRefresh()">🔄 REFRESH</button>
+        <input id="hs-up-file" type="file" accept=".xlsx,.xls" style="display:none" onchange="hsUpPick(this.files[0])">
+        <span style="font-size:11px;color:var(--text3);flex:1;min-width:240px">Header: Tariff Code · Stat · Privilege · Seq · Tariff rate duty · Key = Tariff Code (12 หลัก) · เก็บเป็นข้อความ รักษา 0 นำหน้า · ข้อมูลตามไฟล์ต้นฉบับ ไม่ใช่การยืนยันพิกัด/อัตราอากรตามกฎหมายล่าสุด</span>
+      </div>
+      <div class="hs-q" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
+        <input id="hs-q-tariff" type="search" inputmode="numeric" placeholder="🔍 Tariff Code" oninput="hsSearchInput()" onkeydown="if(event.key==='Enter')hsSearchNow()">
+        <input id="hs-q-stat" type="search" inputmode="numeric" placeholder="Stat" oninput="hsSearchInput()" onkeydown="if(event.key==='Enter')hsSearchNow()">
+        <input id="hs-q-priv" type="search" inputmode="numeric" placeholder="Privilege" oninput="hsSearchInput()" onkeydown="if(event.key==='Enter')hsSearchNow()">
+        <input id="hs-q-seq" type="search" inputmode="numeric" placeholder="Seq" oninput="hsSearchInput()" onkeydown="if(event.key==='Enter')hsSearchNow()">
+        <input id="hs-q-rate" type="search" inputmode="decimal" placeholder="Tariff rate duty" oninput="hsSearchInput()" onkeydown="if(event.key==='Enter')hsSearchNow()">
+        <button class="btn btn-ghost" onclick="hsClearSearch()" style="padding:8px 14px">Clear</button>
+        <span id="hs-count" style="font-size:12px;font-weight:700"></span>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0"><span id="hs-main-status" style="font-size:12px;font-weight:700;flex:1;min-width:200px"></span></div>
+      <div id="hs-up-box" style="display:none;border:2px dashed #93c5fd;border-radius:10px;padding:10px;margin-bottom:8px">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b id="hs-up-name" style="font-size:12px"></b><span style="flex:1"></span><button class="pm-b pm-b-cancel" onclick="hsCancelUpload()">ยกเลิกไฟล์นี้</button></div>
+        <div class="pm-sum" id="hs-up-sum"></div>
+        <div id="hs-up-status" style="font-size:12px;font-weight:700"></div>
+        <div id="hs-up-preview" style="margin-top:6px;max-height:260px;overflow:auto"></div>
+      </div>
+    </div>
+    <div id="hs-table-wrap" style="flex:1;overflow:auto;min-height:180px;margin:0 18px;border:1px solid var(--border);border-radius:8px;min-width:0;-webkit-overflow-scrolling:touch"><div id="hs-table"></div></div>
+    <div class="pm-pg" style="display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap;padding:10px 18px;flex:none;font-size:12px">
+      <span id="hs-pg-info" style="flex:1;min-width:160px;color:var(--text3)"></span>
+      แสดงต่อหน้า <select id="hs-ps" onchange="hsPageSize(this.value)" style="padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text)"><option>25</option><option selected>50</option><option>100</option><option>200</option></select>
+      <button id="hs-pg-first" onclick="hsGo(1)" title="หน้าแรก">«</button><button id="hs-pg-prev" onclick="hsGo('-')" title="ก่อนหน้า">‹</button>
+      <span id="hs-pg-no" style="min-width:70px;text-align:center;font-weight:700"></span>
+      <button id="hs-pg-next" onclick="hsGo('+')" title="ถัดไป">›</button><button id="hs-pg-last" onclick="hsGo('last')" title="หน้าสุดท้าย">»</button>
+    </div>
+  </div>
+  <style>
+    #hs-overlay .hs-q input{flex:1 1 140px;min-width:110px;max-width:220px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:12px}
+    #hs-overlay .hs-q input#hs-q-tariff{max-width:260px}
+    #hs-overlay .pm-tb td.mono{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
+    @media(max-width:820px){ #hs-overlay .hs-q input{flex:1 1 45%;max-width:none} }
+  </style>
+</div>
+<div class="mm-overlay pm-sub" id="hs-edit-ov" style="z-index:9999"><!-- ★ [local113] แก้ไข MASTER HS CODE (Tariff Code = Key แก้ไม่ได้ · ไม่มี DELETE) -->
+  <div class="mm-modal" style="max-width:560px">
+    <div class="mm-head" style="flex:none"><div class="mm-head-ic" style="font-size:18px">✏️</div><h3>✏️ แก้ไข MASTER HS CODE</h3><button class="mm-head-close" onclick="hsCloseEdit()" title="ปิด">✕</button></div>
+    <div style="padding:14px 18px;overflow:auto;flex:1;font-size:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <label style="grid-column:1/3">Tariff Code (Key)<input id="hs-e-tariff" readonly style="width:100%;box-sizing:border-box;padding:7px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:monospace"></label>
+      <label>Stat<input id="hs-e-stat" inputmode="numeric" maxlength="3" style="width:100%;box-sizing:border-box;padding:7px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:monospace"></label>
+      <label>Privilege<input id="hs-e-priv" inputmode="numeric" maxlength="3" style="width:100%;box-sizing:border-box;padding:7px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:monospace"></label>
+      <label>Seq<input id="hs-e-seq" inputmode="numeric" maxlength="10" style="width:100%;box-sizing:border-box;padding:7px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:monospace"></label>
+      <label>Tariff rate duty<input id="hs-e-rate" inputmode="decimal" style="width:100%;box-sizing:border-box;padding:7px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:monospace"></label>
+      <div id="hs-e-status" style="grid-column:1/3;font-weight:700"></div>
+    </div>
+    <div class="pm-foot"><button class="pm-b pm-b-cancel" onclick="hsCloseEdit()">ยกเลิก</button><button class="pm-b pm-b-save" id="hs-e-save" onclick="hsEditSave()">💾 บันทึก</button></div>
   </div>
 </div>
 <div class="mm-overlay" id="mm-overlay" onclick="if(event.target===this)closeManageMembers()">
@@ -8432,20 +8501,179 @@ window.termAirUpdate=termAirUpdate; window.termAirMaster=termAirMaster; window.t
 
 })();
 </script>
-<style>/* ★ [local081] MASTER พิกัดใบอนุญาต / พิกัด ELE = หน้าหลัก (ไม่ใช่ Modal) */
-#pm-overlay.show,#em-overlay.show{position:static;inset:auto;background:none;backdrop-filter:none;z-index:auto;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;flex:1;padding:20px 24px;overflow:visible;min-width:0}
-#pm-overlay>.mm-modal,#em-overlay>.mm-modal{max-width:none!important;width:100%;border:none;border-radius:0;box-shadow:none;max-height:calc(100vh - 110px)!important}
-#pm-overlay>.mm-modal>.mm-head>.mm-head-close,#em-overlay>.mm-modal>.mm-head>.mm-head-close{display:none}
-body.mpage-on #app-main .main>:not(.topbar):not(#pm-overlay):not(#em-overlay){display:none!important}
-@media(max-width:1200px){#pm-overlay.show,#em-overlay.show{padding:16px 16px}}
-@media(max-width:820px){#pm-overlay.show,#em-overlay.show{padding:14px 12px}}
+<script id="hs-master">
+/* ★ [local113] MASTER → HS CODE (MASTER HS CODE กลาง · Supabase public.calc_hs_master · RPC calc_hs_master_page / _lookup / _save / _update)
+   · ค้นหาบางส่วน 5 ช่อง + แบ่งหน้าฝั่ง DB (ไม่โหลดทั้งตารางลง Browser) · Key = Tariff Code 12 หลัก (ข้อความ · รักษา 0 นำหน้า)
+   · UPLOAD EXCEL = Preview เท่านั้น (อ่านหัวคอลัมน์ตามชื่อ) → SAVE MASTER = บันทึกทั้งชุดใน 1 ธุรกรรม (ผิด = ไม่บันทึกเลย) · ไม่ลบรายการที่ไม่อยู่ในไฟล์
+   · ไม่เติม/ตัด 0 ให้เอง: รหัสไม่ครบหลัก = ผิดพลาด (อาจถูก Excel ตัด 0 นำหน้า) · ไม่คำนวณอัตราอากรใหม่
+   · window.hsMasterLookup(codes) — ให้ ELE TYPE 0 อ่าน Stat / Privilege / Seq / Tariff rate duty (อ่านอย่างเดียว) */
+(function(){
+  const T=v=>String(v==null?'':v).replace(/ /g,' ').replace(/\s+/g,' ').trim();
+  const esc=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const $=id=>document.getElementById(id);
+  const sb=()=>{ try{ return (typeof sbClient!=='undefined' && sbClient) ? sbClient : null; }catch(_){ return null; } };
+  const auth=()=>{ try{ return typeof window.calcAuthGet==='function' ? window.calcAuthGet() : null; }catch(_){ return null; } };
+  const J=d=>{ if(typeof d==='string'){ try{ return JSON.parse(d); }catch(_){ return null; } } return d; };
+  async function rpc(n,a){ const c=sb(), A=auth(); if(!c || !A || !A.token) return { success:false, error:'no_auth' };
+    try{ const r=await c.rpc(n,Object.assign({ p_token:A.token },a)); const j=r && !r.error ? J(r.data) : null;
+      return (j && j.success) ? j : Object.assign({ success:false, error:(r&&r.error&&(r.error.code||r.error.message))||(j&&j.error)||'fail' }, j||{}, { success:false }); }catch(e){ return { success:false, error:String(e&&e.message||e) }; } }
+  const ERR=e=>({ forbidden:'สิทธิ์ไม่เพียงพอ / Session หมดอายุ', PGRST202:'ยังไม่ได้ RUN-HS-01.sql (ไม่พบ RPC MASTER HS CODE)', '42883':'ยังไม่ได้ RUN-HS-01.sql (ไม่พบ RPC MASTER HS CODE)', no_auth:'ยังไม่ได้เข้าสู่ระบบ', not_found:'ไม่พบรายการเดิม', invalid:'รูปแบบข้อมูลไม่ถูกต้อง' }[e]||e);
+  const fmtN=n=>(+n||0).toLocaleString('en-US');
+  const rateTxt=v=>{ if(v==null||v==='') return ''; const s=String(v); return /\./.test(s) ? s.replace(/0+$/,'').replace(/\.$/,'') : s; };
+  const HD=['tariff code','stat','privilege','seq','tariff rate duty'];
+  const hn=v=>T(v).toLowerCase();
+  const cellTxt=v=>(typeof v==='number') ? (Number.isInteger(v) ? String(v) : String(v)) : T(v);
+  /* ตรวจรูปแบบ (ไม่แก้ค่าให้) */
+  function check(x){ const why=[];
+    if(!/^\d{12}$/.test(x.t)) why.push(/^\d{1,11}$/.test(x.t) ? 'Tariff Code ไม่ครบ 12 หลัก (อาจถูก Excel ตัด 0 นำหน้า)' : 'Tariff Code ต้องเป็นตัวเลข 12 หลัก');
+    if(!/^\d{3}$/.test(x.s)) why.push('Stat ต้องเป็นตัวเลข 3 หลัก (เช่น 000 / 090)');
+    if(!/^\d{3}$/.test(x.p)) why.push('Privilege ต้องเป็นตัวเลข 3 หลัก');
+    if(!/^\d{1,10}$/.test(x.q)) why.push('Seq ต้องเป็นตัวเลข');
+    if(x.r!=='' && !/^\d+(\.\d+)?$/.test(x.r)) why.push('Tariff rate duty ต้องเป็นตัวเลข');
+    return why; }
+  function parseWb(wb){
+    const names=wb.SheetNames.slice().sort((a,b)=>(b==='Deduplicated')-(a==='Deduplicated'));
+    for(const n of names){ const aoa=XLSX.utils.sheet_to_json(wb.Sheets[n],{ header:1, raw:true, defval:'' });
+      for(let i=0;i<Math.min(aoa.length,30);i++){ const h=(aoa[i]||[]).map(hn); const ix=HD.map(x=>h.indexOf(x));
+        if(ix.every(x=>x>=0)){ const rows=[];
+          for(let k=i+1;k<aoa.length;k++){ const r=aoa[k]||[]; if(ix.every(c=>T(r[c])==='')) continue;
+            const x={ line:k+1, t:cellTxt(r[ix[0]]), s:cellTxt(r[ix[1]]), p:cellTxt(r[ix[2]]), q:cellTxt(r[ix[3]]), r:cellTxt(r[ix[4]]) }; x.why=check(x); rows.push(x); }
+          return { sheet:n, rows }; }
+        if(h.some(v=>HD.indexOf(v)>=0)){ const miss=HD.filter((x,j)=>ix[j]<0); if(miss.length) return { sheet:n, rows:[], missing:miss }; } } }
+    return { sheet:'', rows:[], missing:HD };
+  }
+  const S={ q:{ t:'', s:'', p:'', q:'', r:'' }, ps:50, pg:1, total:0, all:0, rows:[] }; let seqN=0, qT=null, UP=null, busy=false;
+  const say=(m,c,id)=>{ const el=$(id||'hs-main-status'); if(el){ el.textContent=m||''; el.style.color=c||''; } };
+  async function load(){
+    const my=++seqN; const j=await rpc('calc_hs_master_page',{ p_tariff:S.q.t, p_stat:S.q.s, p_priv:S.q.p, p_seq:S.q.q, p_rate:S.q.r, p_limit:S.ps, p_offset:(S.pg-1)*S.ps }); if(my!==seqN) return;
+    if(!j.success){ say('❌ โหลด MASTER HS CODE ไม่ได้: '+ERR(j.error),'#c00000'); S.rows=[]; S.total=0; render(); return; }
+    S.total=+j.total||0; S.all=+j.all||0; S.rows=j.rows||[]; const mx=Math.max(1,Math.ceil(S.total/S.ps)); if(S.pg>mx){ S.pg=mx; return load(); } render();
+  }
+  const fmtD=v=>{ if(!v) return ''; const d=new Date(v); if(isNaN(d)) return T(v); const p=n=>String(n).padStart(2,'0'); return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear()+' '+p(d.getHours())+':'+p(d.getMinutes()); };
+  function render(){
+    const o=(S.pg-1)*S.ps, tb=$('hs-table'); if(!tb) return;
+    tb.innerHTML='<table class="pm-tb"><thead><tr>'+['No','Tariff Code','Stat','Privilege','Seq','Tariff rate duty','วันที่บันทึก','บันทึกโดย','จัดการ'].map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+
+      (S.rows.length ? S.rows.map((x,i)=>'<tr><td style="text-align:center">'+fmtN(o+i+1)+'</td><td class="mono">'+esc(x.tariff_code)+'</td><td class="mono" style="text-align:center">'+esc(x.stat)+'</td><td class="mono" style="text-align:center">'+esc(x.privilege)+'</td><td class="mono" style="text-align:center">'+esc(x.seq)+'</td><td class="mono" style="text-align:right">'+esc(rateTxt(x.duty_rate))+'</td><td style="white-space:nowrap">'+esc(fmtD(x.updated_at))+'</td><td>'+esc(x.saved_by_name||'')+'</td><td style="text-align:center"><button class="pm-edit" onclick="hsOpenEdit('+i+')">✏️ แก้ไข</button></td></tr>').join('')
+        : '<tr><td colspan="9" style="text-align:center;padding:16px;color:var(--text3)">ไม่พบข้อมูล</td></tr>')+'</tbody></table>';
+    const mx=Math.max(1,Math.ceil(S.total/S.ps));
+    $('hs-pg-no').textContent=S.pg+' / '+mx; $('hs-pg-info').textContent=S.total ? ('แสดง '+fmtN(o+1)+'–'+fmtN(o+S.rows.length)+' จาก '+fmtN(S.total)+' รายการ') : 'ไม่พบข้อมูล';
+    const q=Object.values(S.q).some(Boolean); $('hs-count').textContent='MASTER HS CODE ทั้งหมด '+fmtN(S.all)+' รายการ'+(q?' · ค้นพบ '+fmtN(S.total):'');
+    ['hs-pg-first','hs-pg-prev'].forEach(id=>{ $(id).disabled=S.pg<=1; }); ['hs-pg-next','hs-pg-last'].forEach(id=>{ $(id).disabled=S.pg>=mx; });
+    const wr=$('hs-table-wrap'); if(wr) wr.scrollTop=0;
+  }
+  function searchNow(){ clearTimeout(qT); S.q={ t:T($('hs-q-tariff').value), s:T($('hs-q-stat').value), p:T($('hs-q-priv').value), q:T($('hs-q-seq').value), r:T($('hs-q-rate').value) }; S.pg=1; return load(); }
+  function searchInput(){ clearTimeout(qT); qT=setTimeout(searchNow,300); }
+  function clearSearch(){ ['hs-q-tariff','hs-q-stat','hs-q-priv','hs-q-seq','hs-q-rate'].forEach(id=>{ $(id).value=''; }); return searchNow(); }
+  function pageSize(v){ S.ps=Math.max(1,parseInt(v,10)||50); S.pg=1; return load(); }
+  function go(t){ const mx=Math.max(1,Math.ceil(S.total/S.ps)); S.pg = t==='+' ? S.pg+1 : (t==='-' ? S.pg-1 : (t==='last' ? mx : +t||1)); S.pg=Math.min(mx,Math.max(1,S.pg)); return load(); }
+  async function refresh(){ say('กำลังโหลด MASTER HS CODE ล่าสุด…'); await load(); if(S.all>=0 && $('hs-main-status').textContent.indexOf('❌')<0) say('✅ โหลดล่าสุดแล้ว · '+fmtN(S.all)+' รายการ','#0b7a2a'); }
+  /* ── UPLOAD → Preview (ยังไม่บันทึก) ── */
+  function pickFile(){ if(busy) return; const f=$('hs-up-file'); f.value=''; f.click(); }
+  function cancelUpload(){ UP=null; $('hs-up-box').style.display='none'; $('hs-up-sum').innerHTML=''; $('hs-up-preview').innerHTML=''; say('','','hs-up-status'); $('hs-btn-save').disabled=true; }
+  async function upPick(f){ if(!f || busy) return;
+    $('hs-up-box').style.display=''; $('hs-up-sum').innerHTML=''; $('hs-up-preview').innerHTML=''; $('hs-btn-save').disabled=true; UP=null;
+    if(!/\.xlsx?$/i.test(f.name||'')){ say('❌ รองรับเฉพาะไฟล์ .xlsx / .xls','#c00000','hs-up-status'); return; }
+    if(f.size>30*1024*1024){ say('❌ ไฟล์ใหญ่เกิน 30 MB','#c00000','hs-up-status'); return; }
+    $('hs-up-name').textContent='📗 '+f.name+' · '+(f.size/1024/1024).toFixed(2)+' MB'; say('กำลังอ่านไฟล์…','','hs-up-status');
+    let P; try{ P=parseWb(XLSX.read(new Uint8Array(await f.arrayBuffer()),{ type:'array' })); }catch(e){ say('❌ อ่านไฟล์ไม่ได้: '+String(e&&e.message||e),'#c00000','hs-up-status'); return; }
+    if(P.missing && P.missing.length){ say('❌ ไม่พบหัวคอลัมน์: '+P.missing.join(' · ')+' (ต้องมีครบ 5 คอลัมน์: Tariff Code · Stat · Privilege · Seq · Tariff rate duty)','#c00000','hs-up-status'); return; }
+    const rows=P.rows; if(!rows.length){ say('❌ ไม่มีแถวข้อมูล','#c00000','hs-up-status'); return; }
+    const last=new Map(); rows.forEach((x,i)=>{ if(!x.why.length) last.set(x.t,i); });
+    rows.forEach((x,i)=>{ x.st = x.why.length ? 'bad' : (last.get(x.t)!==i ? 'dup' : ''); });
+    const eff=rows.filter(x=>!x.st), DB=new Map();
+    for(let i=0;i<eff.length;i+=5000){ say('กำลังตรวจกับ MASTER ใน DB… '+fmtN(Math.min(i+5000,eff.length))+' / '+fmtN(eff.length),'','hs-up-status');
+      const j=await rpc('calc_hs_master_lookup',{ p_codes:eff.slice(i,i+5000).map(x=>x.t) });
+      if(!j.success){ say('❌ ตรวจข้อมูลเดิมไม่ได้: '+ERR(j.error),'#c00000','hs-up-status'); return; }
+      (j.rows||[]).forEach(e=>DB.set(e.tariff_code,e)); }
+    eff.forEach(x=>{ const e=DB.get(x.t); x.cur=e||null; x.st = !e ? 'new' : ((e.stat===x.s && e.privilege===x.p && String(e.seq)===x.q && rateTxt(e.duty_rate)===rateTxt(x.r)) ? 'same' : 'upd'); });
+    UP={ name:f.name, sheet:P.sheet, rows };
+    const n=k=>rows.filter(x=>x.st===k).length;
+    $('hs-up-sum').innerHTML=[['pm-s-new','รายการใหม่',n('new')],['pm-s-upd','จะอัปเดต',n('upd')],['pm-s-same','ไม่เปลี่ยน',n('same')],['pm-s-no','รายการซ้ำในไฟล์ (ใช้แถวล่าสุด)',n('dup')],['pm-s-bad','ผิดพลาด (ไม่บันทึก)',n('bad')]].map(a=>'<div class="'+a[0]+'">'+a[1]+'<b>'+fmtN(a[2])+'</b></div>').join('');
+    const ST={ new:['✅ ใหม่','#0b7a2a'], upd:['⚠️ อัปเดต','#1d4ed8'], same:['ไม่เปลี่ยน','#6b7280'], bad:['❌ ผิดพลาด','#c00000'], dup:['⚠️ ซ้ำในไฟล์','#b45309'] }, ORD={ bad:0, dup:1, upd:2, new:3, same:4 }, LIM=500;
+    const show=rows.map((x,i)=>[x,i]).filter(a=>a[0].st!=='same').sort((a,b)=>(ORD[a[0].st]-ORD[b[0].st])||(a[1]-b[1])).slice(0,LIM);
+    const td=v=>'<td style="border:1px solid var(--border);padding:3px 6px;font-family:monospace">'+v+'</td>';
+    $('hs-up-preview').innerHTML = show.length ? '<table style="border-collapse:collapse;width:100%;font-size:12px"><thead><tr>'+['แถว','Tariff Code','Stat','Privilege','Seq','Tariff rate duty','สถานะ'].map(h=>'<th style="border:1px solid var(--border);padding:3px 6px;background:var(--surface2);position:sticky;top:0">'+h+'</th>').join('')+'</tr></thead><tbody>'+
+      show.map(([x])=>'<tr>'+td(x.line)+td(esc(x.t))+td(esc(x.s))+td(esc(x.p))+td(esc(x.q))+td(esc(x.r))+'<td style="border:1px solid var(--border);padding:3px 6px;font-weight:700;color:'+ST[x.st][1]+'">'+ST[x.st][0]+(x.st==='bad'?'<div style="font-weight:400">'+esc(x.why.join(' · '))+'</div>':'')+(x.st==='upd'&&x.cur?'<div style="font-weight:400;color:var(--text3)">เดิม: '+esc(x.cur.stat+' · '+x.cur.privilege+' · '+x.cur.seq+' · '+rateTxt(x.cur.duty_rate))+'</div>':'')+'</td></tr>').join('')+'</tbody></table>'+(rows.length-n('same')>LIM?'<div style="font-size:11px;color:var(--text3)">แสดง '+LIM+' แถวแรกที่ไม่ใช่ "ไม่เปลี่ยน"</div>':'') : '';
+    const nSave=n('new')+n('upd'); $('hs-btn-save').disabled=!nSave;
+    say('Preview '+fmtN(rows.length)+' แถว (Sheet '+P.sheet+') · ใหม่ '+fmtN(n('new'))+' · อัปเดต '+fmtN(n('upd'))+' · ไม่เปลี่ยน '+fmtN(n('same'))+' · ซ้ำในไฟล์ '+fmtN(n('dup'))+' · ผิดพลาด '+fmtN(n('bad'))+(nSave?' — กด 💾 SAVE MASTER เพื่อบันทึก':' — ไม่มีรายการที่ต้องบันทึก'), n('bad')?'#c00000':'', 'hs-up-status');
+  }
+  /* ── SAVE MASTER: ทั้งชุดใน 1 ธุรกรรม ── */
+  async function save(){
+    if(busy || !UP) return; const send=UP.rows.filter(x=>x.st==='new'||x.st==='upd');
+    if(!send.length){ say('ไม่มีรายการใหม่ / อัปเดต','','hs-up-status'); return; }
+    if(send.length>20000){ say('❌ เกิน 20,000 รายการต่อครั้ง — แบ่งไฟล์','#c00000','hs-up-status'); return; }
+    busy=true; $('hs-btn-save').disabled=true; say('กำลังบันทึก '+fmtN(send.length)+' รายการ (ธุรกรรมเดียว)…','','hs-up-status');
+    const j=await rpc('calc_hs_master_save',{ p_rows:send.map(x=>[x.t,x.s,x.p,x.q,x.r]) }); busy=false;
+    if(!j.success){ say('❌ บันทึกไม่สำเร็จ — ไม่มีข้อมูลถูกบันทึก: '+(j.error==='invalid_rows'?('ข้อมูลผิด '+j.invalid+' · รหัสซ้ำ '+j.duplicate):ERR(j.error)),'#c00000','hs-up-status'); $('hs-btn-save').disabled=false; return; }
+    const nb=UP.rows.filter(x=>x.st==='bad').length, nd=UP.rows.filter(x=>x.st==='dup').length;
+    const msg='✅ SAVE MASTER สำเร็จ '+fmtN(j.rows)+' รายการ — เพิ่มใหม่ '+fmtN(j.inserted)+' · อัปเดต '+fmtN(j.updated)+(j.unchanged?' · ไม่เปลี่ยน '+fmtN(j.unchanged):'')+' · MASTER ทั้งหมด '+fmtN(j.all)+(nb?' · ไม่บันทึกแถวผิดพลาด '+fmtN(nb):'')+(nd?' · ซ้ำในไฟล์ (ใช้แถวล่าสุด) '+fmtN(nd):'');
+    cancelUpload(); say(msg,'#0b7a2a'); await load();
+  }
+  /* ── EXPORT EXCEL (ทุกรายการจาก DB · 5 Header ต้นฉบับ · Text รักษา 0 นำหน้า) ── */
+  async function exportAll(){
+    if(busy) return; busy=true; const btn=$('hs-btn-export'); btn.disabled=true; say('กำลังดึง MASTER HS CODE ล่าสุดจาก DB…');
+    try{ const all=[]; let off=0, total=null;
+      for(;;){ const j=await rpc('calc_hs_master_page',{ p_tariff:'', p_stat:'', p_priv:'', p_seq:'', p_rate:'', p_limit:5000, p_offset:off }); if(!j.success){ say('❌ Export ไม่สำเร็จ: '+ERR(j.error),'#c00000'); return; }
+        if(total==null) total=+j.total||0; all.push.apply(all,j.rows||[]); off+=(j.rows||[]).length; say('กำลังดึง… '+fmtN(all.length)+' / '+fmtN(total)); if(!(j.rows||[]).length || off>=total) break; }
+      if(all.length!==total){ say('❌ Export ไม่สำเร็จ: ได้ '+all.length+' จาก '+total+' แถว','#c00000'); return; }
+      const wb=new ExcelJS.Workbook(); wb.creator='checkdecl'; const ws=wb.addWorksheet('Deduplicated');
+      ws.columns=[18,8,10,10,16].map(w=>({ width:w }));
+      const hr=ws.getRow(1); ['Tariff Code','Stat','Privilege','Seq','Tariff rate duty'].forEach((h,k)=>{ const c=hr.getCell(k+1); c.value=h; c.font={ bold:true }; });
+      ws.views=[{ state:'frozen', ySplit:1 }];
+      all.forEach((x,i)=>{ const R=ws.getRow(i+2);
+        [x.tariff_code,x.stat,x.privilege].forEach((v,k)=>{ const c=R.getCell(k+1); c.numFmt='@'; c.value=String(v==null?'':v); });
+        const q=R.getCell(4); q.value=/^\d{1,15}$/.test(String(x.seq)) ? Number(x.seq) : String(x.seq); q.numFmt='0';
+        const r=R.getCell(5); if(x.duty_rate!=null && x.duty_rate!==''){ r.value=Number(x.duty_rate); r.numFmt='0.####'; } });
+      const buf=await wb.xlsx.writeBuffer(); const blob=new Blob([buf],{ type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const p=n=>String(n).padStart(2,'0'), now=new Date(); const url=URL.createObjectURL(blob), a=document.createElement('a');
+      a.href=url; a.download='MASTER HS CODE_'+now.getFullYear()+p(now.getMonth()+1)+p(now.getDate())+'_'+p(now.getHours())+p(now.getMinutes())+'.xlsx';
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
+      say('✅ Export MASTER HS CODE '+fmtN(all.length)+' รายการ','#0b7a2a');
+    }catch(e){ say('❌ Export ไม่สำเร็จ: '+String(e&&e.message||e),'#c00000'); } finally{ busy=false; btn.disabled=false; }
+  }
+  /* ── แก้ไข ── */
+  const openSub=id=>{ const e=$(id); if(e) e.classList.add('show'); }, closeSub=id=>{ const e=$(id); if(e) e.classList.remove('show'); };
+  let EDIT=null;
+  function openEdit(i){ const x=S.rows[i]; if(!x) return; EDIT=x; $('hs-e-tariff').value=x.tariff_code; $('hs-e-stat').value=x.stat; $('hs-e-priv').value=x.privilege; $('hs-e-seq').value=x.seq; $('hs-e-rate').value=rateTxt(x.duty_rate); say('','','hs-e-status'); $('hs-e-save').disabled=false; openSub('hs-edit-ov'); }
+  function closeEdit(){ closeSub('hs-edit-ov'); EDIT=null; }
+  async function editSave(){ const x=EDIT; if(!x) return; const row={ stat:T($('hs-e-stat').value), privilege:T($('hs-e-priv').value), seq:T($('hs-e-seq').value), duty_rate:T($('hs-e-rate').value) };
+    const why=check({ t:x.tariff_code, s:row.stat, p:row.privilege, q:row.seq, r:row.duty_rate }); if(why.length){ say('❌ '+why.join(' · '),'#c00000','hs-e-status'); return; }
+    $('hs-e-save').disabled=true; say('กำลังบันทึก…','','hs-e-status');
+    const j=await rpc('calc_hs_master_update',{ p_tariff:x.tariff_code, p_row:row });
+    if(!j.success){ say('❌ บันทึกไม่สำเร็จ: '+ERR(j.error),'#c00000','hs-e-status'); $('hs-e-save').disabled=false; return; }
+    closeEdit(); say(j.updated ? ('✅ แก้ไขสำเร็จ — '+x.tariff_code) : 'ไม่มีการเปลี่ยนแปลง', j.updated ? '#0b7a2a' : '#b45309'); await load(); }
+  async function openHsMaster(){
+    const A=auth(); if(!A || (A.role!=='SUPER_ADMIN' && A.role!=='USER')){ if(typeof toast==='function') toast('สิทธิ์ไม่เพียงพอ — ต้องเป็น SUPER_ADMIN','warn'); return; }   /* สิทธิ์เดียวกับ พิกัดใบอนุญาต / พิกัด ELE */
+    mpPageOpen('hs-overlay'); say(''); await load();
+  }
+  function closeHsMaster(){ closeSub('hs-edit-ov'); $('hs-overlay').classList.remove('show'); }
+  /* ── ให้ ELE TYPE 0 ใช้: อ่าน MASTER HS CODE ตาม Tariff Code 12 หลัก (อ่านอย่างเดียว) ── */
+  async function hsMasterLookup(codes){
+    const out=new Map(), list=[...new Set((codes||[]).filter(c=>/^\d{12}$/.test(c)))];
+    for(let i=0;i<list.length;i+=5000){ const j=await rpc('calc_hs_master_lookup',{ p_codes:list.slice(i,i+5000) });
+      if(!j.success){ const e=new Error(ERR(j.error)); e.code=j.error; throw e; }
+      (j.rows||[]).forEach(e=>out.set(e.tariff_code,e)); }
+    return out;
+  }
+  Object.assign(window,{ openHsMaster, closeHsMaster, hsPickFile:pickFile, hsUpPick:upPick, hsCancelUpload:cancelUpload, hsSave:save, hsExport:exportAll, hsRefresh:refresh,
+    hsSearchInput:searchInput, hsSearchNow:searchNow, hsClearSearch:clearSearch, hsPageSize:pageSize, hsGo:go, hsOpenEdit:openEdit, hsCloseEdit:closeEdit, hsEditSave:editSave,
+    hsMasterLookup, hsParseWorkbook:parseWb });
+})();
+</script>
+<style>/* ★ [local081] MASTER พิกัดใบอนุญาต / พิกัด ELE = หน้าหลัก (ไม่ใช่ Modal) · ★ [local113] + HS CODE (#hs-overlay) */
+#pm-overlay.show,#em-overlay.show,#hs-overlay.show{position:static;inset:auto;background:none;backdrop-filter:none;z-index:auto;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;flex:1;padding:20px 24px;overflow:visible;min-width:0}
+#pm-overlay>.mm-modal,#em-overlay>.mm-modal,#hs-overlay>.mm-modal{max-width:none!important;width:100%;border:none;border-radius:0;box-shadow:none;max-height:calc(100vh - 110px)!important}
+#pm-overlay>.mm-modal>.mm-head>.mm-head-close,#em-overlay>.mm-modal>.mm-head>.mm-head-close,#hs-overlay>.mm-modal>.mm-head>.mm-head-close{display:none}
+body.mpage-on #app-main .main>:not(.topbar):not(#pm-overlay):not(#em-overlay):not(#hs-overlay){display:none!important}
+@media(max-width:1200px){#pm-overlay.show,#em-overlay.show,#hs-overlay.show{padding:16px 16px}}
+@media(max-width:820px){#pm-overlay.show,#em-overlay.show,#hs-overlay.show{padding:14px 12px}}
 </style>
 <script>
 /* ★ [local081] MASTER → Main Content Page (UI only · เปิด/ปิดหน้า · Sidebar active · Header) */
 (function(){
-  const PG={ 'pm-overlay':{ open:'openPermitMaster', close:'closePermitMaster', title:'MASTER พิกัดใบอนุญาต' }, 'em-overlay':{ open:'openEleMaster', close:'closeEleMaster', title:'MASTER พิกัด ELE' } };
+  const PG={ 'pm-overlay':{ open:'openPermitMaster', close:'closePermitMaster', title:'MASTER พิกัดใบอนุญาต' }, 'em-overlay':{ open:'openEleMaster', close:'closeEleMaster', title:'MASTER พิกัด ELE' }, 'hs-overlay':{ open:'openHsMaster', close:'closeHsMaster', title:'MASTER HS CODE' } };
   let prev=null;
-  const $=id=>document.getElementById(id), isOn=()=>!!document.querySelector('#pm-overlay.show,#em-overlay.show');
+  const $=id=>document.getElementById(id), isOn=()=>!!document.querySelector('#pm-overlay.show,#em-overlay.show,#hs-overlay.show');
   const items=()=>[...document.querySelectorAll('.sidebar .sb-item')];
   function restore(){ if(isOn()) return; document.body.classList.remove('mpage-on');   /* ปิดหน้า MASTER → คืน Sidebar / Header ของหน้าก่อนหน้า */
     if(prev){ items().forEach(el=>el.classList.toggle('active', prev.active.indexOf(el)>=0)); const t=$('topbar-title'), b=$('topbar-badge'); if(t) t.textContent=prev.title; if(b){ b.textContent=prev.badge; b.className=prev.badgeCls; } prev=null; } }
@@ -8682,6 +8910,10 @@ window.ELEAI_CORE = (function(){
     return { st: 'ok', th, hs, how };
   }
 
+  /* ★ [local113] HS Code จาก MASTER พิกัด ELE → Key ของ MASTER HS CODE (Tariff Code 12 หลัก)
+     ปรับเฉพาะรูปแบบที่ยืนยันว่าเป็นรหัสเดียวกัน: ตัดจุด/ช่องว่าง · 8 หลัก → เติม 0000 นำหน้า (รูปแบบในไฟล์ MASTER) · 12 หลักที่ขึ้นต้น 0000 = ใช้ตรง · อื่น ๆ = ไม่ค้น (ไม่เดา) */
+  function hsKey(hs){ const d = String(hs == null ? '' : hs).replace(/[\s.]/g, ''); if (/^\d{8}$/.test(d)) return '0000' + d; if (/^0000\d{8}$/.test(d)) return d; return ''; }
+
   /* ── 19 คอลัมน์ตาม GOLDEN MAPPING (ห้ามเพิ่ม/ลบ/สลับ/เปลี่ยนชื่อ) ── */
   const HEAD = ['No.', 'INVOICE Number', 'INVOICE DATE', 'Product Code', 'Qty1', 'Qty2', 'Amt.', 'Net WT', 'G.W. WT', 'ใบขนอ้างอิง', 'รายการที่', 'Description (Eng)', 'Description (Eng)2', 'COO', 'TH Description', 'Tariff Code', 'Stat', 'Privilege', 'Seq'];
   function buildRows(items, invoices){
@@ -8689,7 +8921,8 @@ window.ELEAI_CORE = (function(){
     const fileOrd = new Map(); items.forEach(x => { if (!fileOrd.has(x.file)) fileOrd.set(x.file, fileOrd.size); });
     const s = items.slice().sort((a, b) => invCmp(a.inv, b.inv) || (fileOrd.get(a.file) - fileOrd.get(b.file)) || (a.pg - b.pg) || (a.row - b.row));
     return s.map((x, i) => { const iv = ivm.get(x.inv) || {}; const m = x.master || {};
-      return [i + 1, x.inv, dmy(iv.date), x.code, x.qty, x.qty, x.amt, x.nw == null ? null : x.nw, null, null, null, x.desc, x.codeLeft, x.coo, m.th || '', m.hs || '', null, null, null]; });
+      const h = x.hsm && x.hsm.st === 'ok' ? x.hsm : {};   /* ★ [local113] Stat / Privilege / Seq จาก MASTER HS CODE (Tariff Code คงค่าจาก MASTER พิกัด ELE) */
+      return [i + 1, x.inv, dmy(iv.date), x.code, x.qty, x.qty, x.amt, x.nw == null ? null : x.nw, null, null, null, x.desc, x.codeLeft, x.coo, m.th || '', m.hs || '', h.stat || null, h.privilege || null, h.seq == null || h.seq === '' ? null : String(h.seq)]; });
   }
   function totals(files, v, rows, plFiles, matchInfo){
     const cur = {}; v.items.forEach(x => { const c = (v.invoices.find(i => i.inv === x.inv) || {}).currency || '?'; cur[c] = rnd((cur[c] || 0) + (x.amt || 0), 2); });
@@ -8698,7 +8931,8 @@ window.ELEAI_CORE = (function(){
     return { invoices: v.invoices.length, pdfPages: files.reduce((s, f) => s + f.nPages, 0), invPages: files.reduce((s, f) => s + f.invPages, 0), items: rows.length,
       qty: rnd(v.items.reduce((s, x) => s + (x.qty || 0), 0), 6), amt: cur, nw: rnd(v.items.reduce((s, x) => s + (x.nw || 0), 0), 6),
       plQty: rnd(plFiles.reduce((s, f) => s + (f.sumQty || 0), 0), 6), plNw: rnd(plFiles.reduce((s, f) => s + (f.sumNw || 0), 0), 6),
-      mOk: ms('ok'), mNone: ms('none') + ms('partial'), mConf: ms('conflict'), plBad, plUnused: matchInfo ? matchInfo.unused.length : 0 };
+      mOk: ms('ok'), mNone: ms('none') + ms('partial'), mConf: ms('conflict'), plBad,
+      hsOk: v.items.filter(x => x.hsm && x.hsm.st === 'ok').length, hsNone: v.items.filter(x => x.hsm && x.hsm.st !== 'ok').length, plUnused: matchInfo ? matchInfo.unused.length : 0 };
   }
   /* ── ประเภทปัญหา: A = อ่านผิด/ไม่ชัด · B = ข้อมูลไม่ตรงกัน · C = MASTER ไม่พบ ── */
   const qpBad = x => x.qty != null && x.amt != null && x.price != null && Math.abs(x.qty * x.price - x.amt) > 0.005 * x.qty + 0.011;
@@ -8743,7 +8977,7 @@ window.ELEAI_CORE = (function(){
     const n = Object.keys(set).length;
     return { st: n ? 'fixed' : (unsure.length ? 'unsure' : 'confirmed'), set, notes, unsure };
   }
-  return { flagItem, applyRecheck, makeChunksRange, qpBad, T, codeKey, ordKey, num, rnd, dmy, badCode, invCmp, makeChunks, mergeFile, validate, parsePL, solveGroup, matchPL, pickMaster, buildRows, totals, HEAD };
+  return { hsKey, flagItem, applyRecheck, makeChunksRange, qpBad, T, codeKey, ordKey, num, rnd, dmy, badCode, invCmp, makeChunks, mergeFile, validate, parsePL, solveGroup, matchPL, pickMaster, buildRows, totals, HEAD };
 })();
 </script>
 <script id="eleai-ui">
@@ -8752,7 +8986,9 @@ window.ELEAI_CORE = (function(){
    · ตัวเลือก AI: AUTO (ค่าเริ่มต้น) = Sonnet 5.5 อ่านทั้งหมด → ฟ้องเฉพาะค่าที่ผิด/ไม่แน่นอน → Opus 5.5 อ่านซ้ำเฉพาะหน้าที่มีปัญหา · Sonnet 5.5 / Opus 5.5 = ใช้รุ่นที่เลือกเท่านั้น (ไม่สลับรุ่นเอง)
    · งบ Opus: ไม่เกิน 10% ของจำนวนหน้า PDF — เกินงบต้องให้ผู้ใช้กดยืนยันก่อน · ไม่มีปัญหา = ไม่เรียก Opus
    · ประมวลผลหลังแนบไฟล์ (Invoice PDF + PL) · EXPORT EXCEL ปุ่มเดียวด้านบน ใช้ผลที่ประมวลผลแล้ว (ไม่เรียก AI ซ้ำ) · Warning ส่งออกได้ · FAIL (รายการตกหล่น) ไม่ส่งออก
-   · MASTER พิกัด ELE: อ่านอย่างเดียวผ่าน RPC เดิม calc_ele_master_lookup (+ calc_ele_master_page สำหรับ Part Number) · ไม่เพิ่ม SQL · ไม่เขียน MASTER · AI ไม่แต่งคำแปล/HS Code */
+   · MASTER พิกัด ELE: อ่านอย่างเดียวผ่าน RPC เดิม calc_ele_master_lookup (+ calc_ele_master_page สำหรับ Part Number) · ไม่เพิ่ม SQL · ไม่เขียน MASTER · AI ไม่แต่งคำแปล/HS Code
+   · ★ [local114] EXPORT EXCEL ปุ่มเดียว: กดได้ทันทีเมื่อแนบ PDF + PL — ยังประมวลผลไม่เสร็จ = รอแล้วดาวน์โหลดอัตโนมัติ · ทุกครั้งที่ EXPORT อ่าน MASTER พิกัด ELE + MASTER HS CODE ล่าสุดจาก Supabase (ไม่เรียก AI ซ้ำ)
+     MASTER HS CODE: จับคู่ตรงตัวเท่านั้น · พบหลายรายการที่ค่าต่างกัน = เว้นว่าง + แจ้ง · เชื่อมต่อไม่ได้ = แจ้งแยก (ไม่ใช่ “ไม่พบ”) และไม่ส่งออก */
 (function(){
   'use strict';
   const C = window.ELEAI_CORE; if (!C) return;
@@ -8778,10 +9014,13 @@ window.ELEAI_CORE = (function(){
   async function sha(buf){ const d = await crypto.subtle.digest('SHA-256', buf); return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join(''); }
   function b64(u8){ let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
 
-  const S = { pdfs: [], pls: [], sel: 'auto', busy: false, again: false, memo: new Map(), last: null, probed: false, timer: null, gen: 0, allowOver: false };
+  const S = { pdfs: [], pls: [], sel: 'auto', busy: false, wantExport: false, again: false, memo: new Map(), last: null, probed: false, timer: null, gen: 0, allowOver: false };
   const prog = (m, c) => { const e = $('eleai-prog'); if (e){ e.textContent = m || ''; e.style.color = c || ''; } };
   const bar = p => { const b = $('eleai-bar'); if (!b) return; if (p == null){ b.style.display = 'none'; return; } b.style.display = ''; b.firstElementChild.style.width = Math.max(0, Math.min(100, p)) + '%'; };
-  const exportBtn = on => { const b = $('eleai-btn-export'); if (b) b.disabled = !on; };
+  /* ★ [local114] ปุ่ม EXPORT: เปิดเมื่อแนบ Invoice PDF + PL ครบ (ไม่ต้องรอประมวลผล) · ปิดระหว่างส่งออก / รอส่งออก (กันกดซ้ำ) */
+  const filesReady = () => S.pdfs.length > 0 && S.pls.length > 0 && !S.pdfs.some(x => x.err) && !S.pls.some(x => x.err);
+  let exporting = false;
+  const exportBtn = () => { const b = $('eleai-btn-export'); if (b) b.disabled = !(filesReady() && !exporting && !S.wantExport); };
 
   /* ── ไฟล์ ── */
   function renderLists(){
@@ -8789,7 +9028,7 @@ window.ELEAI_CORE = (function(){
     $('eleai-pdf-list').innerHTML = S.pdfs.map((x, i) => li(x, i, 'pdf', x.err ? x.err : (x.nPages + ' หน้า · ' + (x.size / 1048576).toFixed(2) + ' MB'))).join('');
     $('eleai-pl-list').innerHTML = S.pls.map((x, i) => li(x, i, 'pl', x.err ? x.err : (x.p.rows.length + ' แถว · Qty ' + fmt(x.p.sumQty) + ' · NW ' + fmt(x.p.sumNw, 3)))).join('');
   }
-  function changed(){ S.last = null; S.allowOver = false; S.gen++; exportBtn(false); $('eleai-result').innerHTML = ''; renderLists(); schedule(); }
+  function changed(){ S.last = null; S.allowOver = false; S.gen++; exportBtn(); $('eleai-result').innerHTML = ''; renderLists(); schedule(); }
   async function addPdfs(list){
     for (const f of list){
       const x = { name: f.name, size: f.size, nPages: 0, err: '' };
@@ -8912,7 +9151,43 @@ window.ELEAI_CORE = (function(){
     const mi = C.matchPL(v2.items, plFiles);
     await masterFetch(v2.items, tok, R.MC);
     v2.items.forEach(x => { x.master = x.code ? C.pickMaster(x, R.MC.exact.get(x.code) || R.MC.all.get(x.code)) : { st: 'none', th: '', hs: '', msg: 'ไม่มี Product Code' }; });
+    await hsAttach(v2.items, R, tok);   /* ★ [local113] MASTER HS CODE → Stat / Privilege / Seq */
     return { files, v: v2, plFiles, mi };
+  }
+  /* ★ [local113/114] HS Code (จาก MASTER พิกัด ELE · ตัวเดียวกับคอลัมน์ 16) → MASTER HS CODE (อ่านอย่างเดียว · จับคู่ตรงตัว · ไม่เดา · ไม่เปลี่ยน HS Code เดิม)
+     ผลต่อรายการ: ok · none (ไม่พบ) · dup (พบหลายรายการที่ Stat/Privilege/Seq ต่างกัน → เว้นว่าง) · badfmt · off (อ่านฐานข้อมูลไม่สำเร็จ — แยกจาก “ไม่พบ”) */
+  const JX = d => { if (typeof d === 'string'){ try { return JSON.parse(d); } catch (_){ return null; } } return d; };
+  const HSERR = e => ({ forbidden: 'Session หมดอายุ / สิทธิ์ไม่เพียงพอ', PGRST202: 'ยังไม่ได้ RUN-HS-01.sql (ไม่พบ RPC MASTER HS CODE)', '42883': 'ยังไม่ได้ RUN-HS-01.sql (ไม่พบ RPC MASTER HS CODE)' }[e] || e);
+  async function hsFetch(keys, tok){
+    const c = sb(); if (!c) throw new Error('ไม่มีการเชื่อมต่อฐานข้อมูล');
+    const out = new Map();
+    for (let i = 0; i < keys.length; i += 5000){
+      let r; try { r = await c.rpc('calc_hs_master_lookup', { p_token: tok, p_codes: keys.slice(i, i + 5000) }); } catch (e){ throw new Error(String(e && e.message || e)); }
+      const j = r && !r.error ? JX(r.data) : null;
+      if (!j || !j.success) throw new Error(HSERR((j && j.error) || (r && r.error && (r.error.code || r.error.message)) || 'fail'));
+      (j.rows || []).forEach(e => { const k = String(e.tariff_code); if (!out.has(k)) out.set(k, []); out.get(k).push(e); });
+    }
+    return out;
+  }
+  async function hsAttach(items, R, tok){
+    R.HC = R.HC || new Map();
+    const has = x => x.master && String(x.master.hs || '').trim();
+    const need = [...new Set(items.filter(has).map(x => C.hsKey(x.master.hs)).filter(k => k && !R.HC.has(k)))];
+    if (need.length && !R.hsOff){
+      try { const m = await hsFetch(need, tok); need.forEach(k => R.HC.set(k, m.get(k) || [])); }
+      catch (e){ R.hsOff = String(e && e.message || e); }
+    }
+    items.forEach(x => {
+      if (!has(x)){ x.hsm = null; return; }
+      const k = C.hsKey(x.master.hs);
+      if (!k){ x.hsm = { st: 'badfmt', key: '', msg: 'HS Code จาก MASTER พิกัด ELE (' + x.master.hs + ') ไม่ใช่รูปแบบ 8 หลัก — ไม่ค้น MASTER HS CODE (ไม่เดา)' }; return; }
+      if (R.hsOff){ x.hsm = { st: 'off', key: k, msg: 'เชื่อมต่อ MASTER HS CODE ไม่สำเร็จ: ' + R.hsOff }; return; }
+      const rows = R.HC.get(k) || [];
+      const vals = [...new Set(rows.map(h => [h.stat, h.privilege, h.seq].join('|')))];
+      if (!rows.length) x.hsm = { st: 'none', key: k, msg: 'ไม่พบ HS CODE ใน MASTER (' + x.master.hs + ' → ' + k + ')' };
+      else if (vals.length > 1) x.hsm = { st: 'dup', key: k, n: rows.length, msg: 'พบ HS CODE หลายรายการ กรุณาตรวจสอบ (' + k + ' · ' + rows.length + ' รายการ Stat / Privilege / Seq ต่างกัน)' };
+      else { const h = rows[0]; x.hsm = { st: 'ok', key: k, stat: h.stat, privilege: h.privilege, seq: h.seq, rate: h.duty_rate }; }
+    });
   }
   function dropPages(res, chunk, pages){
     if (!res) return res; const keep = it => !pages.has(chunk.from + it.pg - 1);
@@ -8928,18 +9203,21 @@ window.ELEAI_CORE = (function(){
     v.items.forEach(x => { const at = { file: x.file, inv: x.inv, pg: x.pg, code: x.code };
       if (x.plSt === 'noord') out.push(Object.assign({ type: 'B', lvl: 'warn', msg: 'จับคู่ PL โดยไม่มี Order No. (' + x.pl.how + ')' }, at));
       else if (x.plSt !== 'ok') out.push(Object.assign({ type: 'B', lvl: 'warn', msg: 'Net WT ว่าง — ' + x.plMsg }, at));
-      if (x.master.st !== 'ok') out.push(Object.assign({ type: 'C', lvl: 'warn', msg: x.master.st === 'conflict' ? x.master.msg : 'ไม่พบข้อมูลใน MASTER ELE — ' + x.master.msg }, at)); });
+      if (x.master.st !== 'ok') out.push(Object.assign({ type: 'C', lvl: 'warn', msg: x.master.st === 'conflict' ? x.master.msg : 'ไม่พบข้อมูลใน MASTER ELE — ' + x.master.msg }, at));
+      if (x.hsm && x.hsm.st !== 'ok' && x.hsm.st !== 'off') out.push(Object.assign({ type: 'C', lvl: 'warn', msg: x.hsm.msg + ' — Stat / Privilege / Seq ว่าง' }, at)); });
+    /* ★ [local114] อ่าน MASTER HS CODE ไม่สำเร็จ = ข้อผิดพลาดการเชื่อมต่อ (ไม่ใช่ “ไม่พบ”) → ไม่ส่งออกจนกว่าจะอ่านสำเร็จ */
+    const off = v.items.find(x => x.hsm && x.hsm.st === 'off'); if (off) out.push({ type: 'C', lvl: 'hard', conn: true, msg: off.hsm.msg + ' — ไม่ใช่กรณีไม่พบ HS CODE · ยังไม่ส่งออก (ไม่ใช้ข้อมูลเก่า/ข้อมูลสมมติ) · กด EXPORT EXCEL อีกครั้งเพื่ออ่านใหม่' });
     mi.unused.forEach(r => out.push({ type: 'B', lvl: 'warn', file: r.file, code: r.cpn || r.pn, msg: 'PL แถว ' + r.line + ' ไม่ตรงกับรายการใน Invoice (Part ' + r.pn + ' · Qty ' + r.qty + ' · Order ' + (r.ord || '-') + ')' }));
     return out;
   }
 
   /* ── ประมวลผลทั้งหมด ── */
   async function process(){
-    const A0 = auth(); if (!A0 || !A0.token){ prog('❌ ไม่มี Session Token — กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่', '#c00000'); return; }
+    const A0 = auth(); if (!A0 || !A0.token){ S.wantExport = false; exportBtn(); prog('❌ ไม่มี Session Token — กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่', '#c00000'); return; }
     const pdfs = S.pdfs.filter(x => !x.err), pls = S.pls.filter(x => !x.err);
-    if (S.pdfs.some(x => x.err) || S.pls.some(x => x.err)){ prog('❌ มีไฟล์ที่เปิดไม่ได้ — นำออกก่อน (✕)', '#c00000'); return; }
-    if (!pdfs.length || !pls.length) return;
-    S.busy = true; S.again = false; const gen = S.gen; exportBtn(false); $('eleai-result').innerHTML = '';
+    if (S.pdfs.some(x => x.err) || S.pls.some(x => x.err)){ S.wantExport = false; exportBtn(); prog('❌ มีไฟล์ที่เปิดไม่ได้ — นำออกก่อน (✕)', '#c00000'); return; }
+    if (!pdfs.length || !pls.length){ S.wantExport = false; exportBtn(); return; }
+    S.busy = true; S.again = false; const gen = S.gen; exportBtn(); $('eleai-result').innerHTML = '';
     const sel = S.sel, MAIN = sel === 'opus' ? OPUS : SONNET, tok = A0.token;
     const R = { gen, sel, MAIN, pdfs, pls, parts: new Map(), pageOv: new Map(), fixOv: new Map(), MC: { pairs: new Set(), exact: new Map(), all: new Map() },
       U: { by: {}, session: 0 }, flagged: 0, opusItems: 0, opusPages: 0, opusPageJobs: 0, fixed: 0, unsureItems: new Set(), log: [], pending: null };
@@ -8967,7 +9245,9 @@ window.ELEAI_CORE = (function(){
       if (gen !== S.gen) return;
       finish(R, AN);
     } catch (e){ prog('❌ ' + String(e && e.message || e), '#c00000'); bar(null); }
-    finally { S.busy = false; if (S.again || gen !== S.gen){ S.again = false; schedule(); } }
+    finally { S.busy = false;
+      if (S.again || gen !== S.gen){ S.again = false; schedule(); }
+      else if (S.wantExport){ S.wantExport = false; exportBtn(); if (S.last) doExport(); }   /* ★ [local114] กด EXPORT ไว้ระหว่างประมวลผล → ดาวน์โหลดอัตโนมัติ */ }
   }
   /* แผนตรวจซ้ำ: รายการที่ถูกฟ้อง (จัดกลุ่มตามหน้า) + Invoice ที่ยอดรวมไม่ตรง (ตรวจซ้ำทั้งหน้าของ Invoice นั้น) */
   function planRecheck(R, AN){
@@ -9039,13 +9319,15 @@ window.ELEAI_CORE = (function(){
     const hard = iss.some(i => i.lvl === 'hard'), warn = iss.some(i => i.lvl === 'warn');
     const status = hard ? 'FAIL' : (warn ? 'WARNING' : 'PASS');
     const manual = new Set(iss.filter(i => i.lvl === 'warn' || i.lvl === 'hard').map(i => (i.file || '') + '|' + (i.pg || '') + '|' + (i.code || '') + '|' + (i.inv || '')));
-    S.last = { R, rows, invoices: AN.v.invoices, status };
+    const hsc = hsCount(AN.v.items), conn = iss.some(i => i.conn);
+    S.last = { R, rows, invoices: AN.v.invoices, status, fresh: true, hsc, conn };
     render(R, AN, tot, iss, status, manual.size);
-    exportBtn(status !== 'FAIL');
+    exportBtn();
     bar(null);
-    prog(status === 'FAIL' ? '❌ FAIL — มีรายการตกหล่น/ยอดรวมไม่ตรง ส่งออกไม่ได้ (ดูรายละเอียดด้านล่าง)' : (status === 'WARNING' ? '⚠️ ประมวลผลเสร็จ — มีคำเตือน ส่งออกได้ (กด 📥 EXPORT EXCEL)' : '✅ ประมวลผลเสร็จ — PASS กด 📥 EXPORT EXCEL'), status === 'FAIL' ? '#c00000' : (status === 'WARNING' ? '#b45309' : '#0b7a2a'));
+    prog(status === 'FAIL' ? (conn ? '❌ เชื่อมต่อ MASTER HS CODE ไม่สำเร็จ — ยังไม่ส่งออก (ไม่ใช่กรณีไม่พบ HS CODE) · กด 📥 EXPORT EXCEL เพื่ออ่าน MASTER ใหม่' : '❌ FAIL — มีรายการตกหล่น/ยอดรวมไม่ตรง ส่งออกไม่ได้ (ดูรายละเอียดด้านล่าง)') : (status === 'WARNING' ? '⚠️ ประมวลผลเสร็จ — มีคำเตือน ส่งออกได้ (กด 📥 EXPORT EXCEL)' : '✅ ประมวลผลเสร็จ — PASS กด 📥 EXPORT EXCEL'), status === 'FAIL' ? '#c00000' : (status === 'WARNING' ? '#b45309' : '#0b7a2a'));
   }
-  function renderFail(R, err){ bar(null); exportBtn(false);
+  function hsCount(items){ const c = { ok: 0, none: 0, dup: 0, off: 0 }; items.forEach(x => { const h = x.hsm; if (!h) return; if (h.st === 'ok') c.ok++; else if (h.st === 'dup') c.dup++; else if (h.st === 'off') c.off++; else c.none++; }); return c; }
+  function renderFail(R, err){ bar(null); exportBtn();
     $('eleai-result').innerHTML = '<h2>ELE TYPE 0 — AI RESULT <span class="el-st FAIL">FAIL</span></h2><div class="el-iss"><table><tbody>' + err.map(m => '<tr class="hard"><td>❌</td><td>' + esc(m) + '</td></tr>').join('') + '</tbody></table></div>';
     prog('❌ อ่าน PDF ไม่สำเร็จ ' + err.length + ' ชุดหน้า — แนบไฟล์ใหม่หรือรอสักครู่แล้วเปลี่ยนตัวเลือก AI เพื่อประมวลผลใหม่ (ชุดที่อ่านสำเร็จแล้วไม่เรียก AI ซ้ำ)', '#c00000'); }
   const LV = { hard: ['❌ FAIL', 0], warn: ['⚠️ WARNING', 1], fix: ['✅ แก้แล้ว', 2], info: ['ℹ️', 3] };
@@ -9069,6 +9351,7 @@ window.ELEAI_CORE = (function(){
       box('แก้ไขสำเร็จ', fmt(R.fixed), R.fixed ? 'g' : '') +
       box('ต้องตรวจสอบเอง', fmt(manual), manual ? 'y' : 'g') +
       box('MASTER ELE', 'พบ ' + fmt(t.mOk) + ' / ไม่พบ ' + fmt(t.mNone), t.mNone || t.mConf ? 'y' : 'g', t.mConf ? 'ขัดแย้ง ' + t.mConf : '') +
+      (function(){ const h = hsCount(AN.v.items); return h.off ? box('MASTER HS CODE', 'เชื่อมต่อไม่ได้', 'r', 'อ่านฐานข้อมูลไม่สำเร็จ — ไม่ใช่กรณีไม่พบ') : box('MASTER HS CODE', 'พบ ' + fmt(h.ok) + ' / ไม่พบ ' + fmt(h.none), h.none || h.dup ? 'y' : 'g', (h.dup ? 'HS CODE ซ้ำต้องตรวจสอบ ' + fmt(h.dup) + ' รายการ · ' : '') + 'Stat · Privilege · Seq จาก HS Code ของ MASTER พิกัด ELE'); })() +
       box('Tokens Sonnet 5.5', tk(us), '', sm(us)) + box('Tokens Opus 5.5', tk(uo), '', sm(uo)) +
       box('ค่าใช้จ่ายรวม (รอบนี้)', usd(cost), '', 'Sonnet ' + usd(us.usd) + ' · Opus ' + usd(uo.usd) + ' · คำนวณจาก Tokens จริงที่ API รายงาน × ราคาต่อรุ่น' + (us.cached + uo.cached + R.U.session ? ' · ใช้ผลเดิม ' + (us.cached + uo.cached + R.U.session) + ' งาน = $0' : '')) +
       box('Total Quantity', fmt(t.qty), '', 'PL ' + fmt(t.plQty)) + box('Total Amount', amt) + box('Total Net Weight', fmt(t.nw, 3), '', 'PL ' + fmt(t.plNw, 3)) +
@@ -9077,6 +9360,11 @@ window.ELEAI_CORE = (function(){
     $('eleai-result').innerHTML += '<div class="el-iss"><table><thead><tr><th>สถานะ</th><th>ประเภท</th><th>ไฟล์</th><th>Invoice</th><th>หน้า</th><th>รหัส</th><th>รายละเอียด</th></tr></thead><tbody>' +
       (list.length ? list.map(x => '<tr class="' + x.lvl + '"><td style="white-space:nowrap">' + LV[x.lvl][0] + '</td><td style="white-space:nowrap">' + esc(TY[x.type] || '') + '</td><td>' + esc(x.file || '') + '</td><td>' + esc(x.inv || '') + '</td><td>' + esc(x.pg || '') + '</td><td>' + esc(x.code || '') + '</td><td>' + esc(x.msg) + '</td></tr>').join('')
         : '<tr class="info"><td colspan="7">✅ ไม่พบปัญหา — ทุกรายการผ่านการตรวจ</td></tr>') + '</tbody></table></div>';
+    /* ★ [local113] ข้อมูลประกอบ: HS Code → MASTER HS CODE (Tariff rate duty แสดงเท่านั้น · ไม่เพิ่มคอลัมน์ใน Mapping) */
+    const hg = new Map(); AN.v.items.forEach(x => { if (!x.hsm) return; const k = x.master.hs; const g = hg.get(k) || { hs: k, h: x.hsm, n: 0 }; g.n++; hg.set(k, g); });
+    if (hg.size) $('eleai-result').innerHTML += '<div class="el-iss"><table><thead><tr><th>HS Code (MASTER พิกัด ELE)</th><th>Tariff Code (MASTER HS CODE)</th><th>Stat</th><th>Privilege</th><th>Seq</th><th>Tariff rate duty</th><th>รายการ</th></tr></thead><tbody>' +
+      [...hg.values()].sort((a, b) => a.hs < b.hs ? -1 : 1).map(g => { const h = g.h || {}, ok = h.st === 'ok';
+        return '<tr class="' + (ok ? 'info' : 'warn') + '"><td>' + esc(g.hs) + '</td><td>' + esc(h.key || '-') + '</td><td>' + esc(ok ? h.stat : '') + '</td><td>' + esc(ok ? h.privilege : '') + '</td><td>' + esc(ok ? h.seq : '') + '</td><td>' + esc(ok ? (h.rate == null ? '' : h.rate) : (h.msg || 'ไม่พบ HS CODE ใน MASTER')) + '</td><td>' + g.n + '</td></tr>'; }).join('') + '</tbody></table></div>';
     const ob = $('eleai-btn-over'); if (ob) ob.addEventListener('click', () => { if (S.busy) return; S.allowOver = true; process(); });
   }
 
@@ -9097,15 +9385,31 @@ window.ELEAI_CORE = (function(){
     a.href = url; a.download = name.replace(/[\\/:*?"<>|]/g, '_'); document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
     return name;
   }
-  let exporting = false;
+  /* ★ [local114] EXPORT EXCEL ปุ่มเดียว: ยังไม่ประมวลผล/กำลังประมวลผล → รอแล้วดาวน์โหลดอัตโนมัติ · มีผลแล้ว → อ่าน MASTER ล่าสุดจาก Supabase ก่อนสร้าง Excel (ไม่เรียก AI ซ้ำ) */
   async function doExport(){
-    if (exporting || S.busy || !S.last || S.last.status === 'FAIL') return; exporting = true; exportBtn(false);
-    try { const name = await writeXlsx(S.last.rows, S.last.invoices);
-      prog((S.last.status === 'WARNING' ? '⚠️ ส่งออกแล้ว (มีคำเตือน — ดู AI RESULT): ' : '✅ ส่งออกแล้ว: ') + name + ' · ' + S.last.rows.length + ' รายการ', S.last.status === 'WARNING' ? '#b45309' : '#0b7a2a'); }
-    catch (e){ prog('❌ ส่งออกไม่สำเร็จ: ' + String(e && e.message || e), '#c00000'); }
-    finally { exporting = false; exportBtn(!!S.last && S.last.status !== 'FAIL' && !S.busy); }
+    if (exporting || S.wantExport) return;
+    if (!filesReady()){ prog(S.pdfs.some(x => x.err) || S.pls.some(x => x.err) ? '❌ มีไฟล์ที่เปิดไม่ได้ — นำออกก่อน (✕)' : '❌ กรุณาแนบ Invoice PDF และ Packing List ก่อน EXPORT EXCEL', '#c00000'); return; }
+    if (S.busy || !S.last){ S.wantExport = true; exportBtn(); clearTimeout(S.timer);
+      if (!S.busy) process(); else prog('⏳ กำลังประมวลผล — จะดาวน์โหลด Excel อัตโนมัติเมื่อเสร็จ', '#1d4ed8');
+      return; }
+    exporting = true; exportBtn(); const gen = S.gen;
+    try {
+      if (!S.last.fresh){
+        const A0 = auth(); if (!A0 || !A0.token) throw new Error('ไม่มี Session Token — กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่');
+        prog('กำลังอ่าน MASTER พิกัด ELE + MASTER HS CODE ล่าสุดจาก Supabase …', '#1d4ed8'); bar(90);
+        const R = S.last.R; R.MC = { pairs: new Set(), exact: new Map(), all: new Map() }; R.HC = new Map(); R.hsOff = '';
+        const AN = await analyze(R, A0.token); if (gen !== S.gen) return;
+        finish(R, AN);
+      }
+      S.last.fresh = false;
+      if (S.last.status === 'FAIL') return;   /* finish แจ้งเหตุแล้ว */
+      const name = await writeXlsx(S.last.rows, S.last.invoices), h = S.last.hsc || {};
+      const note = (h.none ? ' · ไม่พบ HS CODE ใน MASTER ' + h.none + ' รายการ' : '') + (h.dup ? ' · พบ HS CODE หลายรายการ ต้องตรวจสอบ ' + h.dup + ' รายการ' : '');
+      prog((S.last.status === 'WARNING' ? '⚠️ ส่งออกแล้ว (มีคำเตือน — ดู AI RESULT): ' : '✅ ส่งออกแล้ว: ') + name + ' · ' + S.last.rows.length + ' รายการ' + note, S.last.status === 'WARNING' ? '#b45309' : '#0b7a2a'); }
+    catch (e){ bar(null); prog('❌ ส่งออกไม่สำเร็จ: ' + String(e && e.message || e) + ' — ไม่ได้ใช้ข้อมูล MASTER เดิมแทน กด EXPORT EXCEL เพื่อลองใหม่', '#c00000'); }
+    finally { exporting = false; exportBtn(); }
   }
-  function clearAll(){ if (S.busy) return; S.pdfs = []; S.pls = []; S.last = null; S.gen++; clearTimeout(S.timer); exportBtn(false); $('eleai-result').innerHTML = ''; prog(''); bar(null); renderLists(); $('eleai-pdf').value = ''; $('eleai-pl').value = ''; }
+  function clearAll(){ if (S.busy || exporting) return; S.pdfs = []; S.pls = []; S.last = null; S.wantExport = false; S.gen++; clearTimeout(S.timer); exportBtn(); $('eleai-result').innerHTML = ''; prog(''); bar(null); renderLists(); $('eleai-pdf').value = ''; $('eleai-pl').value = ''; }
 
   function bind(){
     if (!$('eleai-view')) return;
