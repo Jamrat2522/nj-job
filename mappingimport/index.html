@@ -2452,20 +2452,21 @@ body.legacy-active .content-area { display: none !important; }
       <!-- ══ กรอบซ้าย: INVOICE PDF ══ -->
       <div class="doa-drop" id="tx-pdf-drop" onclick="txOpenInput(event,'pdf')" style="cursor:pointer">
         <div class="doa-drop-title">📄 INVOICE PDF (เลือกได้หลายไฟล์)</div>
-        <div class="doa-drop-sub">TEXAS INSTRUMENTS Commercial Invoice · 1 ไฟล์มีได้หลาย Invoice</div>
+        <div class="doa-drop-sub">TEXAS INSTRUMENTS Commercial Invoice · 1 ไฟล์มีได้หลาย Invoice<br>
+          แนบไฟล์แล้ว AI เริ่มอ่านอัตโนมัติ ไม่ต้องกดปุ่มใด</div>
         <div class="tx-fstat" id="tx-pdf-stat">ยังไม่ได้แนบไฟล์</div>
         <div class="doa-file-list" id="tx-pdf-list"></div>
       </div>
       <!-- ══ กรอบขวา: MASTER TEXAS DB12 ══ -->
       <div class="tx-mbox" id="tx-mst-box">
         <div class="tx-mhead">🗂️ MASTER TEXAS DB12</div>
-        <div class="tx-msub">เก็บบน Server · ใช้ร่วมกันทุกเครื่อง · เปลี่ยนได้โดยไม่ต้อง Deploy ใหม่</div>
+        <div class="tx-msub">เก็บบน Server · ใช้ร่วมกันทุกเครื่อง · เปลี่ยนได้โดยไม่ต้อง Deploy ใหม่<br>
+          กด SAVE แล้วระบบอ่าน Excel ด้วยโค้ดและบันทึก Mapping ให้ทันที — ไม่เรียก AI และไม่มีค่า API</div>
         <div class="tx-mpick" id="tx-mst-pick" onclick="txOpenInput(event,'mst')">
           คลิกเพื่อเลือกไฟล์ MASTER (.xlsx)
         </div>
         <div class="tx-mbtns">
           <button class="btn" id="tx-mst-choose" onclick="txOpenInput(event,'mst')">📎 เลือกไฟล์ MASTER</button>
-          <button class="btn" id="tx-mst-read" onclick="txMstRead()" disabled>🔍 อ่านและตรวจสอบ MASTER</button>
           <button class="btn btn-success" id="tx-mst-save" onclick="txMstSave()" disabled>💾 SAVE MASTER</button>
           <button class="btn" id="tx-mst-cancel" onclick="txMstCancel()" disabled>✕ ยกเลิกไฟล์ที่เลือก</button>
         </div>
@@ -2482,7 +2483,6 @@ body.legacy-active .content-area { display: none !important; }
         <option value="claude-haiku-5-5">ประหยัด — Haiku 5.5</option>
         <option value="claude-sonnet-5-5">คุณภาพสูง — Sonnet 5.5</option>
       </select>
-      <button class="btn btn-primary" id="tx-btn-run" onclick="txRun()" disabled>🔎 ตรวจสอบ</button>
       <button class="btn btn-success" id="tx-btn-export" onclick="txDownload()" disabled>📊 EXPORT EXCEL</button>
       <button class="btn" id="tx-btn-clear" onclick="txReset()">♻ ล้าง PDF</button>
       <div class="tx-status" id="tx-status">รอไฟล์ INVOICE PDF</div>
@@ -11287,7 +11287,7 @@ function txB64ToU8(b64){
   for(let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
   return u8;
 }
-const txState = { pdfs: [], stat: {}, res: null, list: null, usage: null };
+const txState = { pdfs: [], stat: {}, ai: null, res: null, list: null, usage: null };
 
 /* ══════════════════════════════════════════════════════════════════════════
    [AI 16/11/2026] TEXAS DB12 — อ่าน INVOICE PDF ด้วย Claude ผ่าน Edge Function
@@ -11570,13 +11570,13 @@ function txRenderResult(){
        (mstOK ? '✅ ' + esc(TX_MST_MSG_OK) + ' · ' + esc(HS_MSG_OK)
               : '⛔ ' + esc(M.miss ? TX_MST_MSG_NG(M.miss)
                           : M.blur ? TX_MST_MSG_BLUR
-                                   : HS_MSG_ROW(H.missList[0], H.version))) + '</div>';
+                                   : HS_MSG_ROW(H.missList[0]))) + '</div>';
   if(!mstOK){
     const warn = [];
     for(const r of list) for(const it of r.items){
       if(it._mstat === 'miss') warn.push('• Invoice ' + esc(r.inv) + ' · Item ' + esc(it.item) + ' — ' + esc(TX_MST_MSG_ROW(it._pcode)));
       else if(it._mstat === 'blur') warn.push('• Invoice ' + esc(r.inv) + ' · Item ' + esc(it.item) + ' — ' + esc(TX_MST_MSG_BLUR));
-      else if(it._hstat === 'miss') warn.push('• Invoice ' + esc(r.inv) + ' · Item ' + esc(it.item) + ' — ' + esc(HS_MSG_ROW(it._hkey, H.version)));
+      else if(it._hstat === 'miss') warn.push('• Invoice ' + esc(r.inv) + ' · Item ' + esc(it.item) + ' — ' + esc(HS_MSG_ROW(it._hkey)));
     }
     h += '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px;margin-bottom:8px;font-size:11px">' +
          warn.slice(0, 50).join('<br>') + (warn.length > 50 ? '<br>… รวม ' + warn.length + ' รายการ' : '') +
@@ -11629,7 +11629,7 @@ function txRenderResult(){
                : hst === 'miss' ? '<span style="color:#b91c1c;font-weight:700">ไม่พบใน HS CODE</span>'
                                 : '<span style="color:#b45309;font-weight:700">ยังไม่มี Tariff Code</span>';
     const note = st !== 'ok'   ? (st === 'blur' ? esc(TX_MST_MSG_BLUR) : esc(TX_MST_MSG_ROW(it._pcode)))
-               : hst === 'miss' ? esc(HS_MSG_ROW(it._hkey, H.version))
+               : hst === 'miss' ? esc(HS_MSG_ROW(it._hkey))
                                 : esc(it._note ? txThai(it._note) : '');
     const td = v => '<td>' + esc(v == null ? '' : v) + '</td>';
     h += '<tr' + (st === 'ok' && hst === 'ok' ? '' : ' style="background:#fff7ed"') + '>' +
@@ -11645,14 +11645,14 @@ function txRenderResult(){
   box.style.display = ''; box.innerHTML = h;
 }
 
-/* ── ปุ่ม "ตรวจสอบ" ── */
+/* ── [447] ข้อ 1 — AI อ่าน INVOICE PDF อัตโนมัติเมื่อแนบไฟล์ (ไม่มีปุ่ม "ตรวจสอบ") ── */
 let _txRunning = false;
 let _txMatching = false;      // [440] true = กำลังจับคู่ MASTER → ปิดปุ่มทั้งสองไว้ก่อน
 async function txRun(){
   if(_txRunning) return;                                   // กดซ้ำระหว่างประมวลผล = ไม่สร้างคำขอใหม่
   if(!txState.pdfs.length) return;
-  const bRun = document.getElementById('tx-btn-run'), bExp = document.getElementById('tx-btn-export');
-  _txRunning = true; if(bRun) bRun.disabled = true; if(bExp) bExp.disabled = true;
+  const bExp = document.getElementById('tx-btn-export');
+  _txRunning = true; if(bExp) bExp.disabled = true;
   txState.res = null; txState.list = null; txRenderResult();
   try{
     if(!txHasSession()) throw new Error(TX_NO_SESS);
@@ -11689,6 +11689,29 @@ async function txRun(){
     });
     const errs = txValidate(list);
 
+    /* [447] ข้อ 1/ข้อ 4 — AI จบหน้าที่ตรงนี้ (อ่าน INVOICE PDF เสร็จ)
+       ขั้นจับคู่ MASTER → HS CODE เป็น Database Lookup ล้วน แยกไปที่ txMatch() */
+    txState.ai = { list, errs, unclear, files: txState.pdfs.length, bad: bad.length,
+                   usage: { cost, inTok, outTok, reqs, cached: allCached, model: modelUsed } };
+    await txMatch();
+  }catch(e){
+    txSetStatus('✗ ' + (e && e.message ? e.message : e), 'err');
+  }finally{
+    _txRunning = false; txCheckReady();
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   [447] txMatch — ขั้นจับคู่ล้วน ๆ จากผลที่ AI อ่านไว้แล้ว (txState.ai)
+   Invoice Product Code → MASTER TEXAS DB12 → Tariff Code 8 หลัก
+                        → HS CODE ACTIVE → Stat + Traff Seq + Privilege
+   ★ Database Lookup 100% · Claude API request = 0 (ข้อ 2 · ข้อ 3 · ข้อ 7)
+   ★ เปลี่ยน MASTER/HS CODE Version แล้วเรียกซ้ำได้ ไม่ต้องให้ AI อ่าน PDF ใหม่
+   ══════════════════════════════════════════════════════════════════════════ */
+async function txMatch(){
+  const A0 = txState.ai; if(!A0) return false;
+  const { list, errs, unclear } = A0;
+  try{
     /* ── [440] จับคู่ MASTER — Lookup ภายในล้วน ไม่เรียก Claude เพิ่มแม้แต่ครั้งเดียว ── */
     _txMatching = true; txCheckReady();
     txSetStatus('กำลังจับคู่ Product Code กับ MASTER …');
@@ -11739,25 +11762,43 @@ async function txRun(){
     _txMatching = false;
 
     txState.list = list;
-    txState.res  = { list, errs, unclear, files: txState.pdfs.length, mst, hs,
-                     usage: { cost, inTok, outTok, reqs, cached: allCached, model: modelUsed } };
+    txState.res  = { list, errs, unclear, files: A0.files, mst, hs, usage: A0.usage };
     txRenderResult();
     const rows = list.reduce((v, r) => v + r.items.length, 0);
     const mstOK = (mst.miss === 0 && mst.blur === 0 && hs.miss === 0);
     txSetStatus((mstOK ? '✓ ' + TX_MST_MSG_OK : '⚠ ' + (mst.blur ? TX_MST_MSG_BLUR + ' · ' : '') +
                    (mst.miss ? TX_MST_MSG_NG(mst.miss) : '') +
-                   (hs.miss ? ' · ' + HS_MSG_ROW(hs.missList[0], hs.version) : '')) +
+                   (hs.miss ? ' · ' + HS_MSG_ROW(hs.missList[0]) : '')) +
       ' · ' + list.length + ' Invoice · ' + rows + ' รายการ' +
-      (bad.length ? ' · ⚠ อ่านไม่สำเร็จ ' + bad.length + ' ไฟล์' : '') +
+      (A0.bad ? ' · ⚠ อ่านไม่สำเร็จ ' + A0.bad + ' ไฟล์' : '') +
       (errs.length ? ' · ⚠ เลขคณิตไม่ตรง ' + errs.length + ' Invoice' : ''),
-      (mstOK && !errs.length && !bad.length) ? 'ok' : (mstOK ? '' : 'err'));
-    /* ข้อ 6 — เปิด Export เมื่ออ่าน PDF และจับคู่ MASTER เสร็จครบเท่านั้น */
-    if(bExp) bExp.disabled = !!bad.length || !mstOK;
+      (mstOK && !errs.length && !A0.bad) ? 'ok' : (mstOK ? '' : 'err'));
+    /* ข้อ 6 — เปิด Export เมื่ออ่าน PDF และจับคู่ MASTER + HS CODE ครบเท่านั้น */
+    txCheckReady();
+    return mstOK && !A0.bad;
   }catch(e){
+    _txMatching = false;
     txSetStatus('✗ ' + (e && e.message ? e.message : e), 'err');
-  }finally{
-    _txRunning = false; if(bRun) bRun.disabled = !txState.pdfs.length;
+    txCheckReady();
+    return false;
   }
+}
+/* [447] ข้อ 1 — เริ่มให้ AI อ่านเองทันทีที่แนบ PDF · ถ้า Session ยังเชื่อมไม่เสร็จให้รอก่อน (ไม่เกิน 20 วินาที) */
+let _txAutoWait = 0;
+async function txAutoRun(){
+  if(_txRunning || !txState.pdfs.length) return;
+  const seq = ++_txAutoWait;
+  for(let i = 0; i < 40; i++){
+    if(seq !== _txAutoWait) return;                       // มีการแนบไฟล์ชุดใหม่ซ้อนเข้ามา
+    if(!txState.pdfs.length) return;
+    if(txHasSession() && !_txSessChecking) break;
+    if(!_txSessChecking && !txHasSession() && i > 2){      // เชื่อม AI ไม่ได้จริง ๆ
+      txSetStatus('✗ ' + TX_NO_SESS, 'err'); return; }
+    await new Promise(r => setTimeout(r, 500));
+  }
+  if(seq !== _txAutoWait || _txRunning || !txState.pdfs.length) return;
+  if(!txHasSession()){ txSetStatus('✗ ' + TX_NO_SESS, 'err'); return; }
+  await txRun();
 }
 /* ลองใหม่เฉพาะไฟล์ที่ล้มเหลว — ไม่กระทบไฟล์ที่อ่านสำเร็จแล้ว (ใช้ Cache เดิม) */
 function txRetry(i){ const f = txState.pdfs[i]; if(!f) return; txState.stat[f.name] = ''; txRun(); }
@@ -11776,7 +11817,7 @@ function txRenderLists(){
     const lab = bad ? '❌ ' + txEscHtml(st.slice(6) || 'อ่านไม่สำเร็จ')
       : st === 'processing' ? '⏳ กำลังอ่าน…'
       : st === 'cached'     ? '✅ ใช้ผลเดิม (ไม่เสียค่า API)'
-      : st === 'success'    ? '✅ อ่านสำเร็จ' : '• รอตรวจสอบ';
+      : st === 'success'    ? '✅ อ่านสำเร็จ' : '• รอ AI อ่าน';
     return '<div class="doa-file-entry"><span class="dfn">📄 ' + txEscHtml(f.name) +
       ' <span style="color:' + (bad ? '#b91c1c' : st === 'processing' ? '#b45309' : '#64748b') + '">— ' + lab + '</span></span>' +
       (bad ? '<button class="drm" title="ลองใหม่เฉพาะไฟล์นี้" onclick="event.stopPropagation();txRetry(' + i + ')">↻</button>' : '') +
@@ -11792,10 +11833,10 @@ function txHint(){
   if(!_txMstActive)        return '⚠ ' + TX_MST_MSG_NONE;  // [441] ไม่มี MASTER ACTIVE = Export ไม่ได้
   if(!_hsActive)           return '⚠ ' + HS_MSG_NONE;      // [446] ไม่มี HS CODE ACTIVE = Export ไม่ได้
   if(!txState.pdfs.length) return '✓ ' + TX_READY + ' — รอไฟล์ INVOICE PDF';
-  return '✓ ' + TX_READY_PDF + ' · แนบแล้ว ' + txState.pdfs.length + ' ไฟล์ — กด "ตรวจสอบ"';
+  return '✓ ' + TX_READY_PDF + ' · แนบแล้ว ' + txState.pdfs.length + ' ไฟล์ — AI กำลังเริ่มอ่านอัตโนมัติ';
 }
 /* แนบ/ลบไฟล์ = ผลตรวจเดิมใช้ไม่ได้แล้ว ต้องตรวจสอบใหม่ก่อน Export */
-function txInvalidate(){ txState.res = null; txState.list = null; txRenderResult(); }
+function txInvalidate(){ txState.ai = null; txState.res = null; txState.list = null; txRenderResult(); }
 function txRemovePdf(i){
   if(i < 0 || i >= txState.pdfs.length) return;
   delete txState.stat[txState.pdfs[i].name];
@@ -11813,18 +11854,13 @@ function txAddPdfFiles(files){
   if(added) txInvalidate();
   txRenderLists(); txCheckReady();
   txSetStatus(txHint() + (dup ? ' · ข้ามไฟล์ซ้ำ ' + dup + ' ไฟล์' : ''));
+  if(added) txAutoRun();                        // [447] ข้อ 1 — AI เริ่มอ่านเองทันที
 }
 function txCheckReady(){
-  const r = document.getElementById('tx-btn-run');
   const b = document.getElementById('tx-btn-export');
-  /* เปิดปุ่ม "ตรวจสอบ" เมื่อครบทุกข้อ:
-     1) มี PDF อย่างน้อย 1 ไฟล์  2) ไม่มีไฟล์อยู่ระหว่างเตรียม
-     3) มี _txSess.token         4) Session ยังไม่หมดอายุ
-     5) ไม่มีงาน AI กำลังประมวลผล
-     ไม่มี Session = ปิดปุ่ม · ห้ามส่ง PDF · ห้ามเรียก Edge Function · ห้าม fallback ไปของ KDC */
-  const preparing = txState.pdfs.some(f => txState.stat[f.name] === 'processing');
+  /* [447] ไม่มีปุ่ม "ตรวจสอบ" แล้ว — AI เริ่มอ่านเองตอนแนบไฟล์
+     ไม่มี Session = ไม่ส่ง PDF · ไม่เรียก Edge Function · ห้าม fallback ไปของ KDC */
   const okSess = txHasSession();
-  if(r) r.disabled = !txState.pdfs.length || _txRunning || preparing || !okSess || _txSessChecking || _txMatching;
   const el = document.getElementById('tx-status');
   if(!okSess && !_txSessChecking && txState.pdfs.length && el && !_txRunning && el.textContent.indexOf('✗') !== 0)
     txSetStatus(txHint(), 'err');
@@ -11841,7 +11877,8 @@ function txCheckReady(){
                      || busy || bad || _txRunning || _txMatching || !mstOK || !_txMstActive || !_hsActive;
 }
 function txReset(){
-  txState.pdfs = []; txState.stat = {}; txState.res = null; txState.list = null;
+  _txAutoWait++;                                 // [447] ยกเลิกคิวอ่านอัตโนมัติที่ค้างอยู่
+  txState.pdfs = []; txState.stat = {}; txState.ai = null; txState.res = null; txState.list = null;
   const pi = document.getElementById('tx-pdf-input'); if(pi) pi.value = '';
   txRenderResult(); txRenderLists(); txCheckReady(); txSetStatus(txHint());
 }
@@ -11913,12 +11950,11 @@ const _txMstFound = new Map();   // cache ผลค้นหาต่อ Version
 /* ── ข้อความแจ้งเตือนภาษาไทย ── */
 const TX_MST_MSG_OK   = 'ตรวจสอบสำเร็จ: พบข้อมูลใน MASTER ครบทุก Product Code พร้อม EXPORT EXCEL';
 const TX_MST_MSG_NG   = n => 'พบ Product Code ที่ไม่มีใน MASTER จำนวน ' + n + ' รายการ กรุณาตรวจสอบก่อน EXPORT EXCEL';
-const TX_MST_MSG_ROW  = c => 'ไม่พบ Product Code [' + c + '] ใน MASTER — ระบบไม่เติม DESCRIPTIONS THAI 3, Tariff Code, Stat, Traff Seq และ Privilege';
+const TX_MST_MSG_ROW  = c => 'ไม่พบ Product Code [' + c + '] ใน MASTER TEXAS DB12';
 const TX_MST_MSG_BLUR = 'AI อ่าน Product Code ไม่ชัด กรุณาตรวจสอบจากเอกสารต้นฉบับ';
 const TX_MST_MSG_NONE = 'ยังไม่มี MASTER TEXAS DB12 ที่พร้อมใช้งาน กรุณาแนบไฟล์ อ่านและบันทึก MASTER';
 /* [446] ข้อความของ HS CODE MASTER (ตามสเปคข้อ 12 — ห้ามแก้ถ้อยคำ) */
-const HS_MSG_ROW = (c, v) => 'ไม่พบ Tariff Code [' + c + '] ใน HS CODE MASTER Version [' + v +
-  '] จึงไม่สามารถเติม Stat, Traff Seq และ Privilege ได้';
+const HS_MSG_ROW = c => 'ไม่พบ Tariff Code [' + c + '] ใน HS CODE MASTER';
 const HS_MSG_OK  = 'พบข้อมูลใน HS CODE MASTER ครบทุก Tariff Code';
 
 /* ── เรียก RPC ของ MASTER (ส่ง Session ทุกครั้ง · Server เป็นผู้ตัดสินสิทธิ์) ── */
@@ -11981,7 +12017,7 @@ function txMstRender(){
       pick.style.borderColor = '#16a34a'; pick.style.background = 'rgba(22,163,74,.08)';
     } else if(_txMstStagedFile){
       pick.innerHTML = '📎 <b>' + esc(_txMstStagedFile.name) + '</b> <span style="color:var(--text3)">(' +
-        Math.max(1, Math.round(_txMstStagedFile.size / 1024)) + ' KB · ยังไม่ได้อ่าน — กด "อ่านและตรวจสอบ MASTER")</span>';
+        Math.max(1, Math.round(_txMstStagedFile.size / 1024)) + ' KB · ยังไม่ได้บันทึก — กด "SAVE MASTER")</span>';
       pick.style.borderColor = '#d99a00'; pick.style.background = 'rgba(250,204,21,.14)';
     } else {
       pick.innerHTML = 'คลิกเพื่อเลือกไฟล์ MASTER (.xlsx)';
@@ -12002,36 +12038,7 @@ function txMstRender(){
       h += '<div><span class="tx-mbadge" style="background:#fee2e2;color:#b91c1c">ยังไม่มี MASTER ACTIVE</span></div>' +
            '<div style="color:#b91c1c">' + esc(TX_MST_MSG_NONE) + '</div>';
     }
-    if(St){
-      const T = St.stats;
-      h += '<div style="margin-top:4px;padding-top:4px;border-top:1px dashed var(--line,#cbd5e1)">' +
-        '<span class="tx-mbadge" style="background:#fef3c7;color:#b45309">ไฟล์ใหม่ที่ยังไม่ SAVE</span> <b>' + esc(St.name) + '</b>' +
-        '<div>ชีทที่อ่าน: <b>' + esc(St.sheet) + '</b></div>' +
-        '<div>แถว: <b>' + T.rows_total.toLocaleString() + '</b> · ไม่ซ้ำ: <b>' + T.codes_uniq.toLocaleString() + '</b>' +
-        ' · ซ้ำ: <b>' + T.codes_dup + '</b> · รหัสว่าง: <b>' + T.blank + '</b>' +
-        ' · Mapping ขัดแย้ง: <b style="color:' + (T.conflict ? '#b91c1c' : 'inherit') + '">' + T.conflict + '</b>' +
-        ' · ข้อผิดพลาด: <b style="color:' + (T.errors ? '#b91c1c' : 'inherit') + '">' + T.errors + '</b></div>' +
-        '<div style="color:var(--text3);font-size:10px">SHA-256 ' + esc(String(St.sha)) + '</div>';
-      if(St.notes && St.notes.length)
-        h += '<div style="color:#b45309;font-size:10.5px">⚠ ' + St.notes.map(esc).join('<br>⚠ ') + '</div>';
-      if(St.errList.length)
-        h += '<div style="color:#b91c1c;font-size:10.5px">' + St.errList.slice(0,8).map(esc).join('<br>') +
-             (St.errList.length > 8 ? '<br>… รวม ' + St.errList.length + ' รายการ' : '') + '</div>';
-      /* Preview 20 แถวแรก พร้อมเลขแถวต้นฉบับ (สเปกข้อ 9) */
-      if(St.preview && St.preview.length){
-        h += '<div style="margin-top:5px;max-height:190px;overflow:auto">' +
-          '<table class="doa-tbl" style="font-size:10px;width:100%"><thead><tr>' +
-          ['ลำดับ','แถวต้นฉบับ','Product Code/Local CM Part Number','English Description',
-           'DESCRIPTIONS THAI 3','Tariff Code','สถานะ']
-            .map(x => '<th>' + esc(x) + '</th>').join('') + '</tr></thead><tbody>' +
-          St.preview.map((p, n) => '<tr><td>' + (n + 1) + '</td><td>' + p.row + '</td>' +
-            [p.rec[1], p.rec[2], p.rec[3], p.rec[4]].map(v => '<td>' + esc(v) + '</td>').join('') +
-            '<td style="color:#16a34a;font-weight:700">อ่านสำเร็จ</td></tr>').join('') +
-          '</tbody></table><div style="color:var(--text3);font-size:10px">แสดง ' + St.preview.length +
-          ' แถวแรกจาก ' + T.codes_uniq.toLocaleString() + ' รหัส</div></div>';
-      }
-      h += '</div>';
-    }
+    /* [447] ข้อ 5.8 — ไม่แสดง Preview MASTER · ผลการตรวจไฟล์แจ้งผ่านแถบสถานะ MASTER เท่านั้น */
     info.innerHTML = h;
   }
   if(bar){
@@ -12045,9 +12052,8 @@ function txMstRender(){
     }
   }
   const en = (id, on) => { const e = document.getElementById(id); if(e) e.disabled = !on; };
-  en('tx-mst-read',   !!_txMstStagedFile && !_txMstBusy);
-  en('tx-mst-save',   !!(_txMstStaged && _txMstStaged.rows.length
-                         && !_txMstStaged.stats.conflict && !_txMstStaged.stats.blank) && !_txMstBusy);
+  /* [447] ข้อ 8 — มีแค่ เลือกไฟล์ / SAVE MASTER / ยกเลิกไฟล์ที่เลือก */
+  en('tx-mst-save',   !!_txMstStagedFile && !_txMstBusy);
   en('tx-mst-cancel', (!!_txMstStagedFile || !!_txMstStaged) && !_txMstBusy);
 }
 /* ── เลือกไฟล์ MASTER — ห้ามกระทบ PDF และห้ามกระทบ MASTER ACTIVE ── */
@@ -12057,7 +12063,7 @@ function txMstPick(files){
   if(!/\.(xlsx|xls)$/i.test(f.name)){ toast && toast('รับเฉพาะไฟล์ .xlsx', 'warn'); return; }
   _txMstStagedFile = f; _txMstStaged = null;
   txMstRender();
-  txMstSetBar('เลือกไฟล์ "' + f.name + '" แล้ว — กด "อ่านและตรวจสอบ MASTER"');
+  txMstSetBar('เลือกไฟล์ "' + f.name + '" แล้ว — กด "SAVE MASTER" เพื่อบันทึก');
 }
 let _txMstMsg = null, _txMstMsgCls = '';
 function txMstSetBar(msg, cls){
@@ -12080,10 +12086,10 @@ const txMstB64 = (buf) => { const u = new Uint8Array(buf); let s = ''; const CH 
   for(let i = 0; i < u.length; i += CH) s += String.fromCharCode.apply(null, u.subarray(i, i + CH));
   return btoa(s); };
 
-/* ── อ่านและตรวจสอบไฟล์ MASTER (ฝั่งเบราว์เซอร์ · ยังไม่เขียนลง Server) ── */
-async function txMstRead(){
-  if(!_txMstStagedFile || _txMstBusy) return;
-  _txMstMsg = null; _txMstBusy = true; txMstRender(); txMstSetBar('กำลังอ่านไฟล์ …');
+/* ── [447] อ่านและตรวจไฟล์ MASTER ด้วย Excel Parser + โค้ดล้วน (ไม่ใช่ AI · ไม่มีค่า API)
+   เป็นขั้นตอนภายในของ SAVE MASTER — ไม่มีปุ่มแยก และไม่แสดง Preview (ข้อ 5.7 · 5.8) ── */
+async function txMstParse(){
+  if(!_txMstStagedFile) return false;
   try{
     const buf = await _txMstStagedFile.arrayBuffer();
     const wb  = XLSX.read(new Uint8Array(buf), { type:'array' });
@@ -12117,8 +12123,7 @@ async function txMstRead(){
     }
 
     const { nm: sheet, aoa: rowsAoa, hr, m: map } = best;
-    const notes = ['Stat · Traff Seq · Privilege ไม่ได้มาจาก MASTER — ใช้ค่าจากระบบเดิม (' +
-                   TX_FIX.STAT + ' / ' + TX_FIX.TSEQ + ' / ' + TX_FIX.PRIV + ')'];
+    const notes = ['Stat · Traff Seq · Privilege มาจาก HS CODE MASTER (จับด้วย Tariff Code 8 หลัก) ไม่ได้มาจาก MASTER นี้'];
     const get = (r, k) => (map[k] === undefined ? '' : String(r[map[k]] == null ? '' : r[map[k]]).trim());
     const seen = new Map(), rows = [], errList = [], preview = [];
     let total = 0, dup = 0, blank = 0, conflict = 0;
@@ -12153,17 +12158,19 @@ async function txMstRead(){
                conflict: conflict, errors: errList.length,
                saved_by_name: (_txSess && _txSess.username) || '' } };
     const okSave = (conflict === 0 && blank === 0 && rows.length > 0);
-    txMstSetBar(okSave
-      ? ('อ่านไฟล์ MASTER สำเร็จ พบครบ 4 คอลัมน์ พร้อมบันทึก · ' + total.toLocaleString() +
-         ' แถว · ไม่ซ้ำ ' + rows.length.toLocaleString() + ' · ซ้ำ ' + dup + ' ค่า')
-      : (conflict ? ('อ่านไฟล์ได้ แต่พบ Mapping ขัดแย้ง ' + conflict + ' รายการ — แก้ไฟล์ก่อนจึงจะบันทึกได้')
-                  : ('อ่านไฟล์ได้ แต่พบ Product Code ว่าง ' + blank + ' แถว — แก้ไฟล์ก่อนจึงจะบันทึกได้')),
-      okSave ? 'ok' : 'err');
+    if(!okSave){
+      _txMstStaged = null;
+      txMstSetBar(conflict ? ('ไม่สามารถบันทึก MASTER ได้ — พบ Mapping ขัดแย้ง ' + conflict + ' รายการ · ' +
+                              errList.slice(0, 5).join(' · '))
+                : blank    ? ('ไม่สามารถบันทึก MASTER ได้ — พบ Product Code ว่าง ' + blank + ' แถว')
+                           : 'ไม่สามารถบันทึก MASTER ได้ — ไม่พบข้อมูลในไฟล์', 'err');
+      return false;
+    }
+    return true;
   }catch(e){
     _txMstStaged = null;
-    txMstSetBar('อ่านไฟล์ไม่สำเร็จ — ' + (e && e.message ? e.message : e), 'err');
-  }finally{
-    _txMstBusy = false; txMstRender();
+    txMstSetBar('อ่านไฟล์ MASTER ไม่สำเร็จ — ' + (e && e.message ? e.message : e), 'err');
+    return false;
   }
 }
 
@@ -12425,11 +12432,13 @@ async function hsRollback(ver){
   }catch(e){ hsSetBar('คืนค่าไม่สำเร็จ — ' + (e && e.message ? e.message : e), 'err'); }
   finally{ _hsBusy = false; hsRender(); }
 }
-/* HS CODE เปลี่ยน = ผลตรวจเดิมใช้ไม่ได้ ต้องกด "ตรวจสอบ" ใหม่ (ไม่ล้างไฟล์ PDF) */
+/* [447] HS CODE เปลี่ยน = จับคู่ใหม่ทันทีจากผลที่ AI อ่านไว้แล้ว (Claude API request = 0) */
 function hsInvalidate(){
   _hsFound.clear();
-  if(typeof txState !== 'undefined' && txState.res){ txState.res = null; txState.list = null; txRenderResult(); }
+  if(typeof txState === 'undefined') return;
+  txState.res = null; txState.list = null; txRenderResult();
   try{ txCheckReady(); }catch(_){}
+  if(txState.ai) txMatch().catch(() => {});
 }
 /* ค้นหาจาก HS CODE ACTIVE บน Server — Exact Match 8 หลัก · ไม่เรียก AI */
 async function hsLookup(keys){
@@ -12445,7 +12454,12 @@ async function hsLookup(keys){
 
 /* ── SAVE MASTER → Version ใหม่เป็น ACTIVE ทันทีสำหรับทุกบัญชี ── */
 async function txMstSave(){
-  if(!_txMstStaged || _txMstBusy) return;
+  if(!_txMstStagedFile || _txMstBusy) return;
+  /* [447] ขั้นตอนเดียว: Excel Parser → ตรวจ Header/ข้อมูลด้วยโค้ด → บันทึก Mapping (ไม่เรียก Claude) */
+  _txMstMsg = null; _txMstBusy = true; txMstRender(); txMstSetBar('กำลังอ่านและตรวจไฟล์ MASTER …');
+  const okParse = await txMstParse();
+  _txMstBusy = false; txMstRender();
+  if(!okParse || !_txMstStaged) return;
   const S = _txMstStaged;
   const warn = S.stats.errors ? ('\n\n⚠ พบข้อผิดพลาด ' + S.stats.errors + ' รายการในไฟล์นี้') : '';
   if(!confirm('บันทึก MASTER ใหม่เป็น Version ที่ใช้งานจริงสำหรับทุกบัญชี?\n\nไฟล์: ' + S.name +
@@ -12483,11 +12497,12 @@ async function txMstRollback(ver){
     _txMstBusy = false; txMstRender();
   }
 }
-/* MASTER เปลี่ยน = ผลจับคู่เดิมใช้ไม่ได้ ต้องกด "ตรวจสอบ" ใหม่ (แต่ไม่ล้างไฟล์ PDF) */
+/* [447] MASTER เปลี่ยน = จับคู่ใหม่ทันทีจากผลที่ AI อ่านไว้แล้ว (Claude API request = 0) */
 function txMstInvalidate(){
   _txMstFound.clear();
-  if(txState.res){ txState.res = null; txState.list = null; txRenderResult(); }
+  txState.res = null; txState.list = null; txRenderResult();
   try{ txCheckReady(); }catch(_){}
+  if(txState.ai) txMatch().catch(() => {});
 }
 /* ── ค้นหา Mapping จาก MASTER ACTIVE บน Server (ไม่เรียก AI) ── */
 async function txMstLookup(keys){
@@ -12707,7 +12722,7 @@ async function txBuildBook(list){
       bad.push(at + 'คอลัมน์ "' + TX_KEY_LABEL.TARIFF + '" ต้องตรง MASTER และเป็นตัวเลข 8 หลัก (ได้ "' + row.cells.TARIFF.v + '")');
     /* [446] Stat · Traff Seq · Privilege ต้องตรงกับ HS CODE MASTER และห้ามว่าง (ข้อ 12) */
     const hv = row.src.hs;
-    if(!hv){ bad.push(at + HS_MSG_ROW(row.src.hkey || row.cells.TARIFF.v, _hsActive ? _hsActive.version : '—')); return; }
+    if(!hv){ bad.push(at + HS_MSG_ROW(row.src.hkey || row.cells.TARIFF.v)); return; }
     if(row.cells.STAT.t !== 's' || row.cells.STAT.v !== hv[2] || !/^\d{3}$/.test(row.cells.STAT.v))
       bad.push(at + 'คอลัมน์ "' + TX_KEY_LABEL.STAT + '" ต้องตรง HS CODE MASTER และเป็นตัวเลข 3 หลัก (ได้ "' + row.cells.STAT.v + '")');
     if(row.cells.TSEQ.t !== 's' || row.cells.TSEQ.v !== hv[4] || !/^\d{5}$/.test(row.cells.TSEQ.v))
@@ -12767,14 +12782,14 @@ async function txBuildBook(list){
   return await zip.generateAsync({ type: 'arraybuffer' });
 }
 
-/* ── EXPORT EXCEL — ใช้ผลที่ "ตรวจสอบ" ไว้แล้วเท่านั้น (ห้าม Export ก่อนตรวจสอบ)
+/* ── EXPORT EXCEL — ใช้ผลที่ AI อ่านและจับคู่ MASTER/HS CODE ไว้แล้วเท่านั้น
    ★ Mapping / Template / รูปแบบไฟล์ ใช้ txBuildBook() เดิม 100% ไม่แก้แม้แต่คอลัมน์เดียว ── */
 async function txDownload(){
   const btn = document.getElementById('tx-btn-export');
   if(btn) btn.disabled = true;
   try{
     const list = txState.list;
-    if(!list || !list.length) throw new Error('กรุณากด "ตรวจสอบ" ก่อน');
+    if(!list || !list.length) throw new Error('ยังไม่มีผลอ่าน INVOICE PDF — กรุณาแนบไฟล์ INVOICE PDF');
     const busy = txState.pdfs.some(f => txState.stat[f.name] === 'processing');
     const bad  = txState.pdfs.some(f => String(txState.stat[f.name] || '').indexOf('error') === 0);
     if(busy) throw new Error('ยังมีไฟล์ที่ AI อ่านไม่เสร็จ');
@@ -12783,7 +12798,7 @@ async function txDownload(){
     /* [440] ข้อ 6 — ไม่พบ Product Code ใน MASTER = ห้าม Export (ห้ามเดาค่า ห้ามเติมเลขเอง) */
     const M = (txState.res && txState.res.mst) || null;
     if(!_txMstActive) throw new Error(TX_MST_MSG_NONE);
-    if(!M) throw new Error('กรุณากด "ตรวจสอบ" ก่อน');
+    if(!M) throw new Error('ยังจับคู่ MASTER ไม่เสร็จ กรุณารอสักครู่');
     if(M.blur) throw new Error(TX_MST_MSG_BLUR);
     if(M.miss) throw new Error(TX_MST_MSG_NG(M.miss) + '\n' +
       M.missList.slice(0, 10).map(c => '• ' + TX_MST_MSG_ROW(c)).join('\n') +
@@ -12791,8 +12806,8 @@ async function txDownload(){
     /* [446] ข้อ 12 — ไม่มี HS CODE ACTIVE หรือจับ Tariff Code ไม่ครบ = ห้าม Export */
     if(!_hsActive) throw new Error(HS_MSG_NONE);
     const HX = (txState.res && txState.res.hs) || null;
-    if(!HX) throw new Error('กรุณากด "ตรวจสอบ" ก่อน');
-    if(HX.miss) throw new Error(HX.missList.slice(0, 10).map(c => HS_MSG_ROW(c, HX.version)).join('\n') +
+    if(!HX) throw new Error('ยังจับคู่ HS CODE ไม่เสร็จ กรุณารอสักครู่');
+    if(HX.miss) throw new Error(HX.missList.slice(0, 10).map(c => HS_MSG_ROW(c)).join('\n') +
       (HX.missList.length > 10 ? '\n… รวม ' + HX.missList.length + ' รหัส' : ''));
 
     txSetStatus('กำลังสร้าง Excel …');
@@ -25753,7 +25768,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local446';
+const DEPLOY_VERSION = 'local447';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
