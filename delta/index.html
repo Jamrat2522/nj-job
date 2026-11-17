@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<!-- Build Metadata (local315): เลข Version ของ Build นี้ — กำหนดที่บรรทัดนี้ที่เดียว ใช้ทั้งเว็บไซต์ (ป้ายมุมขวาบนอ่านจากที่นี่) -->
-<meta name="nj-build" content="local315">
+<!-- Build Metadata (local316): เลข Version ของ Build นี้ — กำหนดที่บรรทัดนี้ที่เดียว ใช้ทั้งเว็บไซต์ (ป้ายมุมขวาบนอ่านจากที่นี่) -->
+<meta name="nj-build" content="local316">
 <title>Mapping Export Hi-Tech HTML</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -10066,7 +10066,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   .sai-sum span{display:block;font-size:11px;color:var(--text3)}.sai-sum b{font-size:15px}.sai-sum .sai-wide{grid-column:span 2}.sai-okc{color:#10b981}.sai-bc{color:#ef4444}
   .sai-sub{margin-top:10px;font-size:12px;font-weight:700;color:var(--text2,var(--text))}
   .sai-rep{margin-top:10px;padding:10px;border-radius:8px;font-size:12px;max-height:300px;overflow:auto}.sai-repl{margin-top:4px;word-break:break-word}
-  .sai-repok{border:1px solid rgba(16,185,129,.45);color:#10b981}.sai-repwarn{border:1px solid rgba(245,158,11,.55);color:#f59e0b}
+  .sai-repok{border:1px solid rgba(16,185,129,.45);color:#10b981}.sai-repai{border:1px solid rgba(59,130,246,.45);color:#93c5fd}.sai-repwarn{border:1px solid rgba(245,158,11,.55);color:#f59e0b}
   #shell-total-panel{margin-top:12px}#shell-total-panel h2{font-size:13px;margin:0 0 6px}
   .sai-total tfoot td{font-weight:700;border-top:2px solid var(--border2);background:rgba(245,158,11,.08)}
   .sai-blk{margin-top:10px;padding:10px;border:1px solid rgba(239,68,68,.4);border-radius:8px;font-size:12px;color:#ef4444;max-height:260px;overflow:auto}
@@ -10077,12 +10077,14 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
 </script>
 <script>
 /* ═══════════════════════════════════════════════════════════════════════════
- * GROHE SIAM — ONE-CLICK AI EXPORT (local314)
+ * GROHE SIAM — ONE-CLICK AI EXPORT (local316)
  * อัปโหลด INVOICE PDF (AI) + XLSX (N.W. เท่านั้น) + MASTER → กด ⬇ EXPORT EXCEL ครั้งเดียว
  *   → Cache/AI อ่าน PDF (nj-invoice-ai-grohe · Background Job + Polling) → ตรวจ → หา N.W. → MASTER MAPPING
  *   → เรียง Invoice น้อย→มาก → TOTAL → ดาวน์โหลด
  * PDF = MASTER หลัก: Invoice No. / Document no. / Date / Product / Description / Qty / Unit Price / Amount / COO — XLSX ห้ามทับ
  * XLSX = ใช้ 2 อย่างเท่านั้น: Net weight → N.W. · Delivery → MARK (จับกลุ่มด้วย Billing Document = Document no. ของ PDF)
+ * local316: AUTO = Sonnet 5.5 อ่านทั้งไฟล์ → ตรวจค่าที่อ่านได้กับ XLSX/MASTER → ส่งเฉพาะ 'จุดที่ถูกฟ้อง' (หน้าที่เกี่ยวข้อง) ให้ Opus 5.5 อ่านซ้ำ
+ *   แก้เฉพาะค่าที่ Opus ยืนยันว่าอ่านได้จริง · อ่านไม่ชัด = คงคำเตือนไว้ (ไม่แต่งข้อมูล) · เลือก Sonnet / Opus อย่างเดียวได้
  * local314: คำเตือนไม่บล็อก EXPORT — จับคู่ไม่ได้ / ไม่พบ N.W. / MARK / MASTER = เว้นว่างช่องนั้นแล้ว EXPORT ต่อได้ (ไม่เดา ไม่สร้างข้อมูล)
  * MASTER = EN DESC. / TH DESC. / TARIFF CODE / stat / brandName / BOI (จับคู่ด้วย PRODUCT)
  * ไฟล์ใหญ่เกิน 8 MB: แบ่งเป็นช่วงหน้าอัตโนมัติ (pdf-lib) แล้วรวมผลตาม Invoice — ไม่ตัดรายการทิ้ง
@@ -10097,7 +10099,10 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   const ST = { WAIT:'รอการตรวจสอบ', PREP:'กำลังเตรียมไฟล์', AI:'กำลังอ่านด้วย AI', OK:'อ่านสำเร็จ', FAIL:'อ่านไม่สำเร็จ' };
   const G = window.groheAi = {
     session:null, user:null, sessState:'none', sessMsg:'', authMode:'', authPromise:null, showDetail:false, mounted:false,
-    files:[], orphans:{}, exporting:false, phase:'', report:null, pend:null, lastOk:false
+    files:[], orphans:{}, exporting:false, phase:'', report:null, pend:null, lastOk:false,
+    aiMode:'auto',                          // AUTO (ค่าเริ่มต้น) | sonnet | opus — เปลี่ยนได้ก่อนเริ่มประมวลผลเท่านั้น
+    usage:{ sonnet:{ calls:0, in:0, out:0, cost:0, priced:true }, opus:{ calls:0, in:0, out:0, cost:0, priced:true } },
+    ai:null, rechecked:new Set(), extra:new Map()   // extra = รายการที่ Opus พบว่าตกหล่น (เก็บแยกเพื่อไม่ให้หายเมื่อรวมผลใหม่)            // ai = สรุปผลรอบล่าสุด · rechecked = ลายเซ็นคำถามที่ตรวจซ้ำไปแล้ว (กดซ้ำไม่เรียกซ้ำ)
   };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const num = v => { if(v == null || v === '') return null; const n = parseFloat(String(v).replace(/,/g,'')); return isFinite(n) ? n : null; };
@@ -10140,7 +10145,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   window.groheAiReset = function(){
     if(G.exporting){ toast_('กำลังประมวลผล EXPORT — รอให้เสร็จก่อน', 'warn'); return; }
     G.files.forEach(f => { if(f.url) try{ URL.revokeObjectURL(f.url); } catch(e){} });
-    G.files = []; G.report = null; G.pend = null; G.lastOk = false; totalsClear(); render();
+    G.files = []; G.report = null; G.pend = null; G.lastOk = false; G.ai = null; G.extra = new Map(); G.rechecked = new Set(); totalsClear(); render();
   };
 
   /* ── API ─────────────────────────────────────────────── */
@@ -10248,6 +10253,9 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   }
 
   /* ── อ่านด้วย AI (Server ตรวจ Cache ก่อนเสมอ) ───────────── */
+  function addUsage(which, u){ if(!u) return; const a = G.usage[which]; a.calls++; a.in += Number(u.input_tokens || 0); a.out += Number(u.output_tokens || 0);
+    if(u.cost_usd_est == null && u.priced === false) a.priced = false; else a.cost += Number(u.cost_usd_est || 0); }
+  const mainModel = () => G.aiMode === 'opus' ? 'opus' : 'sonnet';
   function b64Of(bytes){ let s = ''; const chunk = 0x8000; for(let i = 0; i < bytes.length; i += chunk) s += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk)); return btoa(s); }
   async function pollJob(p, jobId, wait){
     const t0 = Date.now();
@@ -10255,15 +10263,16 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       await sleep(Math.max(1500, wait || 2500));
       const { j } = await api({ action:'job_status', job_id:jobId });
       if(j && j.pending){ wait = j.poll_after_ms; continue; }
-      if(j && j.success){ p.result = j.result; p.cached = !!j.cached; p.status = ST.OK; jobForget(p.sha); return; }
+      if(j && j.success){ p.result = j.result; p.cached = !!j.cached; p.status = ST.OK; addUsage(p.model === 'opus' ? 'opus' : 'sonnet', j.usage); jobForget(p.sha); return; }
       p.status = ST.FAIL; p.msg = (j && j.msg) || 'อ่าน PDF ไม่สำเร็จ'; if(j && j.error !== 'network') jobForget(p.sha); return;
     }
     p.status = ST.FAIL; p.msg = 'รอผลนานเกินกำหนด — กด EXPORT EXCEL อีกครั้ง';
   }
   async function readPart(f, p){
     p.status = ST.AI; f.status = ST.AI; f.msg = f.parts.length > 1 ? `กำลังอ่านหน้า ${p.from}–${p.to} ด้วย AI` : 'กำลังอ่านข้อมูลด้วย AI'; render();
-    const { status, j } = await api({ name:`${f.name} (p${p.from}-${p.to}).pdf`, mime:'application/pdf', pdf:b64Of(p.bytes), idempotency_key:p.sha }, 120000);
-    if(status === 200 && j && j.success){ p.result = j.result; p.cached = !!j.cached; p.status = ST.OK; return; }
+    p.model = mainModel();
+    const { status, j } = await api({ name:`${f.name} (p${p.from}-${p.to}).pdf`, mime:'application/pdf', pdf:b64Of(p.bytes), idempotency_key:p.sha, model:p.model }, 180000);
+    if(status === 200 && j && j.success){ p.result = j.result; p.cached = !!j.cached; p.status = ST.OK; addUsage(p.model === 'opus' ? 'opus' : 'sonnet', j.usage); return; }
     if(status === 202 && j && j.job_id){ jobRemember(p.sha, j.job_id, f.name); render(); await pollJob(p, j.job_id, j.poll_after_ms); return; }
     p.status = ST.FAIL; p.msg = (j && j.msg) || 'ไม่สามารถเชื่อมต่อระบบ AI ได้';
   }
@@ -10302,6 +10311,9 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   // รวมผลข้ามช่วงหน้า: Invoice เดียวกันที่ถูกแบ่งคนละช่วง = Invoice เดียว · รายการต่อกันตามลำดับหน้า · ไม่ซ้ำรายการเดิม
   function mergeInvoices(){
     const out = [];
+    const addExtra = (f, m2) => { const list = G.extra.get(`${f.sha}|${String(m2.iv.invoice_no || '')}`) || [];
+      list.forEach(x => { const k = [String(x.item_no || ''), String(x.product || ''), String(x.qty || ''), String(x.amount || '')].join('|');
+        if(m2.keys.has(k)) return; m2.keys.add(k); m2.iv.items.push(x); }); };
     G.files.forEach(f => f.parts.forEach(p => {
       const r = p.result; if(!r || !Array.isArray(r.invoices)) return;
       r.invoices.forEach(iv => {
@@ -10311,10 +10323,13 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
         (iv.items || []).forEach(it => {
           const k = [String(it.item_no || ''), String(it.product || ''), String(it.qty || ''), String(it.amount || '')].join('|');
           if(m.keys.has(k)) return;                       // ช่วงหน้าทับกัน / Packing List ซ้ำ = ไม่เพิ่มซ้ำ
-          m.keys.add(k); m.iv.items.push(it);
+          m.keys.add(k);
+          it.gpg = (Number(it.pg) || 1) + (p.from - 1);   // หน้าในไฟล์จริง (ผล AI นับหน้าในช่วงที่ส่งไป)
+          m.iv.items.push(it);
         });
       });
     }));
+    out.forEach(x => addExtra(x.f, x));        // เติมรายการที่ตกหล่น (ยืนยันด้วย Opus) ไว้ท้าย Invoice เดิม
     return out;
   }
   // N.W. (XLSX): จับคู่ด้วยข้อมูลจริง — Delivery (ถ้า PDF พิมพ์ไว้) + Material + Quantity ภายในกลุ่มของ Invoice เดียวกัน
@@ -10412,6 +10427,86 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   const skipInvN = sk => sk.filter(x => x.t === 'inv').length;
   const skipFileN = sk => sk.filter(x => x.t === 'file').length;
 
+  /* ── ตรวจจับ 'จุดที่ถูกฟ้อง' (local316) — แยกความผิดพลาดจากการอ่าน (ส่ง Opus) ออกจากความผิดพลาดของการจับคู่ (เตือนอย่างเดียว) ── */
+  function suspects(built){
+    const out = [];
+    built.model.forEach(m => {
+      const inXlsx = new Set((m.nwDoc && (slotData.grohe.NW_XLSX.rows || []).filter(r => String(r.billing).trim() === m.nwDoc)) ? (slotData.grohe.NW_XLSX.rows || []).filter(r => String(r.billing).trim() === m.nwDoc).map(r => key8(r.material)) : []);
+      m.items.forEach(i => {
+        const it = i.it, fields = [], why = [];
+        if(it.product == null || it.product === ''){ fields.push('product'); why.push('อ่าน Product ไม่ได้'); }
+        if(it.qty == null || it.qty === ''){ fields.push('qty'); why.push('อ่าน Quantity ไม่ได้'); }
+        if(it.amount == null || it.amount === ''){ fields.push('amount'); why.push('อ่าน Amount ไม่ได้'); }
+        if(it.desc == null || it.desc === '') { fields.push('desc'); why.push('อ่าน Description ไม่ได้'); }
+        // Product ไม่มีทั้งใน XLSX และ MASTER = น่าจะอ่านเลขผิด (ส่งตรวจซ้ำ) · มีใน XLSX แต่ไม่มีใน MASTER = เรื่องของ MASTER (เตือนอย่างเดียว)
+        const p8 = key8(it.product);
+        if(p8 && !i.ms && m.nwDoc && !inXlsx.has(p8)){ if(fields.indexOf('product') < 0) fields.push('product'); why.push('ไม่พบ Product นี้ทั้งใน XLSX และ MASTER'); }
+        if(i.nw && !eq(num(i.nw.qty), i.qty)){ if(fields.indexOf('qty') < 0) fields.push('qty'); why.push(`Quantity ไม่ตรงกับ XLSX (${fmt(num(i.nw.qty),0)})`); }
+        if(fields.length) out.push({ id:`${m.invoiceNo || '?'}#${i.seq}`, f:m.f, pg:it.gpg || it.pg || 1, invoice:m.invoiceNo, item_no:it.item_no || String(i.seq),
+          product:it.product || '', qty:it.qty || '', amount:it.amount || '', fields, why:why.join(' · '), m, i });
+      });
+      // จำนวนรายการอาจตกหล่น: แถวใน XLSX ของกลุ่มนี้มากกว่ารายการที่อ่านได้ → ตรวจซ้ำ 'ทั้งหน้า' ของ Invoice นี้
+      if(m.nwDoc){
+        const rows = (slotData.grohe.NW_XLSX.rows || []).filter(r => String(r.billing).trim() === m.nwDoc).length;
+        if(rows > m.items.length) out.push({ id:`${m.invoiceNo || '?'}#rows`, f:m.f, pg:(m.items[0] && (m.items[0].it.gpg || m.items[0].it.pg)) || 1, invoice:m.invoiceNo,
+          item_no:'-', product:'', qty:'', amount:'', fields:['missing'], scan:true, why:`XLSX มี ${rows} แถว แต่อ่านได้ ${m.items.length} รายการ — อาจมีรายการตกหล่น`, m });
+      }
+    });
+    return out;
+  }
+  // ส่งเฉพาะหน้าที่เกี่ยวข้องให้ Opus — รวมหน้าแบบไม่ซ้ำต่อไฟล์ · ไม่ส่งรายการที่ผ่านแล้ว
+  async function recheckWithOpus(built, allSus){
+    const byFile = new Map();
+    allSus.forEach(s => { if(!byFile.has(s.f)) byFile.set(s.f, []); byFile.get(s.f).push(s); });
+    const res = { asked:0, pages:0, fixed:0, unresolved:0, added:0, notes:[] };
+    for(const [f, list] of byFile){
+      const pages = [...new Set(list.map(s => Math.max(1, Math.min(f.pages || 1, Number(s.pg) || 1))))].sort((a, b) => a - b);
+      const sig = f.sha.slice(0, 12) + '|' + list.map(s => `${s.id}:${s.fields.join(',')}:${s.product}:${s.qty}:${s.amount}`).join(';');
+      if(G.rechecked.has(sig)){ res.notes.push(`${f.name}: ตรวจซ้ำไปแล้วในรอบก่อน (ไม่เรียก AI ซ้ำ)`); res.asked += list.length; res.pages += pages.length; continue; }
+      let bytes;
+      try{ const src = await PDFLib.PDFDocument.load(await f.file.arrayBuffer(), { ignoreEncryption:true });
+        const doc = await PDFLib.PDFDocument.create();
+        const cp = await doc.copyPages(src, pages.map(n => n - 1)); cp.forEach(pp => doc.addPage(pp));
+        bytes = await doc.save(); }
+      catch(e){ res.notes.push(`${f.name}: ตัดหน้าเพื่อตรวจซ้ำไม่สำเร็จ — คงคำเตือนไว้`); continue; }
+      if(bytes.byteLength > MAX_BYTES){ res.notes.push(`${f.name}: หน้าที่ต้องตรวจซ้ำรวมแล้วใหญ่เกิน 8 MB — คงคำเตือนไว้`); continue; }
+      const idx = new Map(pages.map((n, k) => [n, k + 1]));          // หน้าในไฟล์จริง → หน้าในชุดที่ส่งไป
+      const questions = list.map(s => ({ id:s.id, pg:idx.get(Math.max(1, Math.min(f.pages || 1, Number(s.pg) || 1))) || 1, invoice:s.invoice, item_no:s.item_no,
+        fields:s.fields, product:s.product, qty:s.qty, amount:s.amount, why:s.why }));
+      res.asked += list.length; res.pages += pages.length;
+      setPhase(`Opus ตรวจซ้ำ ${list.length} จุด (${pages.length} หน้า)...`); render();
+      let { status, j } = await api({ action:'recheck', model:'opus', pdf:b64Of(new Uint8Array(bytes)), questions, scan_missing:list.some(s => s.scan) }, 180000);
+      if(status === 200 && j && j.success) addUsage('opus', j.usage);
+      if(status === 202 && j && j.job_id){ const p = { sha:'', status:ST.AI, model:'opus' }; await pollJob(p, j.job_id, j.poll_after_ms); j = p.result ? { success:true, result:p.result, usage:p.usage } : null; }
+      if(!j || !j.success || !j.result){ res.notes.push(`${f.name}: Opus ตรวจซ้ำไม่สำเร็จ — คงคำเตือนไว้ (ไม่แต่งข้อมูล)`); continue; }
+      G.rechecked.add(sig);
+      const ans = new Map((j.result.answers || []).map(a => [String(a.id), a]));
+      list.forEach(s => {
+        const a = ans.get(s.id);
+        if(!a || a.legible !== true){ s.i && (s.i.opus = 'unreadable'); res.unresolved++; return; }
+        let changed = false;
+        s.fields.forEach(fd => { if(fd === 'missing') return; const v = a[fd];
+          if(v == null || String(v).trim() === '') return;
+          if(String(s.i.it[fd] == null ? '' : s.i.it[fd]).trim() === String(v).trim()) return;
+          s.i.it[fd] = String(v).trim(); changed = true; });                 // แก้เฉพาะช่องที่ถูกถามและ Opus อ่านได้จริง
+        if(changed){ res.fixed++; s.i.opus = 'fixed'; } else { s.i.opus = 'same'; }
+      });
+      const miss = Array.isArray(j.result.missing_items) ? j.result.missing_items : [];
+      if(miss.length){
+        const scanInv = list.filter(s => s.scan).map(s => s.m);
+        if(scanInv.length === 1){ const m = scanInv[0];
+          miss.forEach(x => { const k = [String(x.item_no || ''), String(x.product || ''), String(x.qty || ''), String(x.amount || '')].join('|');
+            if(m.iv.items.some(y => [String(y.item_no || ''), String(y.product || ''), String(y.qty || ''), String(y.amount || '')].join('|') === k)) return;
+            const ek = `${f.sha}|${String(m.iv.invoice_no || '')}`;
+            const cur = G.extra.get(ek) || []; cur.push({ ...x, gpg:pages[Math.max(0, (Number(x.pg) || 1) - 1)] || pages[0], note:'เพิ่มจากการตรวจซ้ำด้วย Opus', by:'opus' });
+            G.extra.set(ek, cur); res.added++; });
+        } else res.notes.push('Opus พบรายการเพิ่มเติม แต่ระบุ Invoice ไม่ได้ — ไม่เพิ่มเข้าไฟล์ (ตรวจสอบเอง)');
+      }
+      if(j.result.remarks) res.notes.push(`Opus: ${j.result.remarks}`);
+    }
+    return res;
+  }
+
   /* ── ONE-CLICK: เรียกจาก doExportGROHE ── */
   const filesSig = () => G.files.map(f => f.id + ':' + f.sha).join('|');
   window.groheAiExport = async function(){
@@ -10437,7 +10532,17 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     }
     if(filesSig() !== sig0) return { ok:false, msg:'ไฟล์เปลี่ยนระหว่างประมวลผล — กด ⬇ EXPORT EXCEL อีกครั้ง (ใช้ผล AI เดิม)' };
     setPhase('กำลังตรวจสอบข้อมูล...'); await sleep(0);
-    const built = build();
+    let built = build();
+    // AUTO: Sonnet อ่านทั้งไฟล์แล้ว → ตรวจค่าที่อ่านได้ → ส่งเฉพาะจุดที่ถูกฟ้องให้ Opus ตรวจซ้ำ
+    const pagesAll = G.files.reduce((a, f) => a + (f.pages || 0), 0);
+    let rc = null, sus = [];
+    if(G.aiMode === 'auto'){
+      sus = suspects(built);
+      if(sus.length){ rc = await recheckWithOpus(built, sus); built = build(); }
+    }
+    G.ai = { mode:G.aiMode, main:G.aiMode === 'opus' ? 'Opus 5.5' : 'Sonnet 5.5', pages:pagesAll, items:built.model.reduce((a, m) => a + m.items.length, 0),
+      invoices:built.model.length, issues:sus.length, rc, usage:G.usage,
+      heavy:rc && pagesAll ? (rc.pages / pagesAll) > 0.10 : false };
     setPhase('กำลังจับคู่ N.W. / MASTER...'); await sleep(0);
     const ev = evaluate(built);
     const nSkip = skipInvN(ev.skipped), nFile = skipFileN(ev.skipped);
@@ -10498,6 +10603,12 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       return `<span class="sai-chip sai-${cl}" title="${esc(f.name)} — ${f.pages || '?'} หน้า">${esc(f.name)}${G.exporting ? '' : `<b data-act="rm" data-id="${f.id}" title="ลบไฟล์นี้">×</b>`}</span>`; }).join('');
     return `<div class="dico">📄</div><div class="dlabel">INVOICE PDF — AI อ่านข้อมูล (หลายไฟล์)</div><div class="dhint">ลากวาง / กดเลือก · รองรับ PDF หลายหน้า</div>
       <div class="sai-zrow">${sessBox()}<span class="sai-msg">${n ? esc(summaryLine(c)) : 'ยังไม่มีไฟล์ PDF'}</span></div>
+      <div class="sai-zrow"><label class="sai-msg">AI:
+        <select class="sai-in" id="gai-model" data-ai-mode="1" ${G.exporting ? 'disabled' : ''}>
+          <option value="auto" ${G.aiMode === 'auto' ? 'selected' : ''}>AUTO — Sonnet 5.5 + Opus 5.5 ตรวจซ้ำเฉพาะค่าที่ผิด</option>
+          <option value="sonnet" ${G.aiMode === 'sonnet' ? 'selected' : ''}>Sonnet 5.5 — อ่านอย่างเดียว</option>
+          <option value="opus" ${G.aiMode === 'opus' ? 'selected' : ''}>Opus 5.5 — อ่านอย่างเดียว</option>
+        </select></label></div>
       ${n ? `<div class="sai-chips">${chips}</div>` : ''}
       <input type="file" id="gai-input" accept=".pdf,application/pdf" multiple style="display:none">`;
   }
@@ -10517,6 +10628,26 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       <div class="sai-repl"><b>ไม่ได้ส่งออก ${skipInvN(r.skipped)} Invoice${skipFileN(r.skipped) ? ` · อ่านไม่สำเร็จ ${skipFileN(r.skipped)} ไฟล์` : ''}</b> (ไม่ถูกเขียนลง Excel):</div>${sk}
       ${warnBlk}
       <div class="sai-msg">ไฟล์ Excel ที่ดาวน์โหลดมีเฉพาะ Invoice ที่ผ่านการตรวจ — แก้ไข / ตรวจใหม่ แล้วกด ⬇ EXPORT EXCEL อีกครั้ง (ใช้ผล AI เดิม)</div></div>`;
+  }
+  // GROHE SIAM — AI RESULT (local316): จำนวนหน้า/รายการ · รุ่นที่ใช้ · จุดที่ตรวจพบ · Opus ตรวจซ้ำ/แก้ได้ · Tokens และค่าใช้จ่ายแยกรุ่น
+  function aiResultHtml(){
+    const a = G.ai; if(!a) return '';
+    const money = u => u.priced ? `US$ ${u.cost.toFixed(4)}` : 'ยังไม่ได้ตั้งราคารุ่นนี้ที่ Server';
+    const line = (k, u) => `<div>• <b>${k}</b> — เรียก ${u.calls} ครั้ง · Tokens ${u.in.toLocaleString('en-US')} เข้า / ${u.out.toLocaleString('en-US')} ออก · ค่าใช้จ่าย ${esc(money(u))}</div>`;
+    const rc = a.rc;
+    const tot = { calls:a.usage.sonnet.calls + a.usage.opus.calls, cost:a.usage.sonnet.cost + a.usage.opus.cost, priced:a.usage.sonnet.priced && a.usage.opus.priced };
+    return `<div class="sai-rep sai-repai" id="gai-ai-result"><b>GROHE SIAM — AI RESULT</b>
+      <div>• PDF: ${a.pages} หน้า · Invoice ${a.invoices} ใบ · รายการทั้งหมด ${a.items} รายการ</div>
+      <div>• AI หลัก: ${esc(a.main)}${a.mode === 'auto' ? ' (AUTO — Opus ตรวจซ้ำเฉพาะจุดที่ถูกฟ้อง)' : ' (เลือกเอง)'}</div>
+      <div>• ตรวจพบปัญหา: ${a.issues} จุด</div>
+      ${rc ? `<div>• Opus ตรวจซ้ำ: ${rc.asked} จุด (${rc.pages} หน้า จาก ${a.pages} หน้า = ${a.pages ? (rc.pages / a.pages * 100).toFixed(0) : 0}%)</div>
+      <div>• แก้ไขสำเร็จ: ${rc.fixed} จุด${rc.added ? ` · เพิ่มรายการที่ตกหล่น ${rc.added} รายการ` : ''}</div>
+      <div>• ยังต้องตรวจสอบ: ${rc.unresolved} จุด</div>
+      ${rc.notes.map(x => `<div class="sai-msg">• ${esc(x)}</div>`).join('')}` : '<div>• Opus ตรวจซ้ำ: 0 จุด (ไม่พบค่าที่ต้องตรวจซ้ำ)</div>'}
+      ${a.heavy ? `<div class="sai-w">⚠ จุดที่ต้องตรวจซ้ำเกิน 10% ของจำนวนหน้า (${rc.pages}/${a.pages} หน้า) — ค่าใช้จ่าย Opus สูงกว่าปกติ ${a.usage.opus.priced ? `(ตาม API จริง US$ ${a.usage.opus.cost.toFixed(4)})` : '(ยังไม่ได้ตั้งราคา Opus ที่ Server)'}</div>` : ''}
+      ${line('Sonnet 5.5', a.usage.sonnet)}${line('Opus 5.5', a.usage.opus)}
+      <div>• รวม: เรียก ${tot.calls} ครั้ง · ค่าใช้จ่าย ${tot.priced ? `US$ ${tot.cost.toFixed(4)}` : 'ดูจำนวน Tokens ด้านบน (ยังไม่ได้ตั้งราคาบางรุ่น)'}</div>
+      <div class="sai-msg">ตัวเลข Tokens มาจาก API จริง · ค่าใช้จ่ายคำนวณจากราคาที่ตั้งไว้ที่ Server (ไม่ใช่ยอดเรียกเก็บจริง)</div></div>`;
   }
   function render(){
     if(!G.mounted) return;
@@ -10542,6 +10673,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
         ${rows ? `<div class="sai-sub">INVOICE PDF — รายการที่ไม่สำเร็จ / ต้องตรวจสอบ</div>
         <div class="sai-scroll"><table class="sai-tbl" id="gai-files"><thead><tr><th>ไฟล์</th><th>Invoice</th><th>สาเหตุ</th><th>จัดการ</th></tr></thead><tbody>${rows}</tbody></table></div>` : ''}
         <div class="sai-actions"><button type="button" class="btn btn-ghost" data-act="clear" ${lock}>ล้าง PDF</button></div>`;
+    html += aiResultHtml();
     html += reportHtml();
     if(built && built.model.length) html += previewHtml(built);
     p.style.display = html ? '' : 'none';
@@ -10574,6 +10706,9 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     z.ondragover = e => { e.preventDefault(); e.stopPropagation(); z.classList.add('drag'); }; z.ondragleave = () => z.classList.remove('drag');
     z.ondrop = e => { e.preventDefault(); e.stopPropagation(); z.classList.remove('drag'); addFiles(e.dataTransfer.files); };
     if(inp){ inp.onclick = e => e.stopPropagation(); inp.onchange = () => { const fl = [...inp.files]; inp.value = ''; addFiles(fl); }; }
+    const sel = z.querySelector('[data-ai-mode]');
+    if(sel){ sel.onclick = e => e.stopPropagation();
+      sel.onchange = e => { e.stopPropagation(); if(G.exporting) return; G.aiMode = sel.value; G.report = null; totalsClear(); render(); }; }
   }
   function act(b){ const a = b.dataset.act, id = b.dataset.id;
     if(a === 'rm') removeFile(id); else if(a === 'view') viewPdf(id, b.dataset.pg); else if(a === 'retry') retryFile(id);
