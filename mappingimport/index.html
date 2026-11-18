@@ -2401,7 +2401,7 @@ body.legacy-active .content-area { display: none !important; }
 <div class="doa-view" id="tx-view">
   <style>
     /* [441] Desktop = 2 กรอบแถวเดียวกัน 50/50 · Mobile (<768px) = เรียงบนล่าง 100% */
-    #tx-view .tx-uploads{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px;align-items:stretch}
+    #tx-view .tx-uploads{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px;align-items:start}   /* [454] กรอบซ้ายไม่ยืดตามกรอบขวา */
     #tx-view .tx-mbox{border:1px dashed var(--line,#cbd5e1);border-radius:12px;padding:12px;display:flex;
       flex-direction:column;gap:6px;min-width:0}
     #tx-view .tx-mbox .tx-mhead{font-size:12.5px;font-weight:700;color:var(--text)}
@@ -2413,7 +2413,7 @@ body.legacy-active .content-area { display: none !important; }
     #tx-view .tx-minfo{font-size:11px;line-height:1.6;color:var(--text2);word-break:break-word}
     #tx-view .tx-minfo b{color:var(--text)}
     #tx-view .tx-mbadge{display:inline-block;font-size:10.5px;font-weight:700;border-radius:6px;padding:1px 7px}
-    #tx-view .tx-mhist{max-height:132px;overflow:auto;font-size:10.5px;border-top:1px dashed var(--line,#cbd5e1);padding-top:5px}
+    #tx-view .tx-mhist{max-height:120px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;font-size:10.5px;border-top:1px dashed var(--line,#cbd5e1);padding-top:5px}
     #tx-view .tx-mhist .hrow{display:flex;gap:6px;align-items:center;padding:2px 0;border-bottom:1px dotted rgba(148,163,184,.3)}
     #tx-view .tx-mhist .hrow > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     #tx-view .tx-mhist button{font-size:10px;padding:2px 6px;border-radius:6px;border:1px solid var(--line,#cbd5e1);
@@ -2427,19 +2427,24 @@ body.legacy-active .content-area { display: none !important; }
       #tx-view .tx-uploads{grid-template-columns:1fr}
       #tx-view .tx-actions{gap:6px}
       #tx-view .tx-actions .btn,#tx-view .tx-actions select{flex:1 1 auto}
-      #tx-view .tx-mhist{max-height:160px}
+      #tx-view .tx-mhist{max-height:120px}
       #tx-view .tx-mhist .hrow{flex-wrap:wrap}
     }
-    #tx-view .tx-uploads > .doa-drop{min-height:120px;justify-content:flex-start;padding:12px 12px 10px}
+    #tx-view .tx-uploads > .doa-drop{min-height:0;justify-content:flex-start;padding:10px 12px 8px}
     #tx-view .doa-drop-title{font-size:12.5px;font-weight:700;color:var(--text)}
     #tx-view .doa-drop-sub{font-size:10px;color:var(--text3);margin-top:2px}
     #tx-view .tx-fstat{font-size:11px;font-weight:700;margin-top:6px;color:var(--text3)}
     #tx-view .tx-fstat.on{color:#4ade80}
-    #tx-view .doa-file-list{max-height:170px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    #tx-view .doa-file-list{max-height:120px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    /* [454] ย่อกรอบ: ซ่อนคำอธิบายใต้หัวข้อ INVOICE PDF / MASTER และรายละเอียด MASTER ACTIVE (ซ่อนเฉพาะการแสดงผล) */
+    #tx-view #tx-pdf-drop .doa-drop-sub,#tx-view #tx-mst-box .tx-msub{display:none}
+    #tx-view #tx-pdf-list:empty{display:none;margin-top:0}
+    #tx-view .tx-mbox{padding:10px 12px}
+    #tx-view .tx-minfo:empty,#tx-view .tx-mhist:empty{display:none}
     #tx-view .doa-file-entry{padding:3px 7px;font-size:10.5px}
     @media (max-width:820px){
       #tx-view .tx-uploads > .doa-drop{min-height:0}
-      #tx-view .doa-file-list{max-height:150px}
+      #tx-view .doa-file-list{max-height:120px}
       #tx-view .tx-status{margin-left:0;width:100%}
     }
     .tx-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
@@ -2478,10 +2483,11 @@ body.legacy-active .content-area { display: none !important; }
     <input type="file" id="tx-mst-input" accept=".xlsx,.xls" style="display:none"/>
     <!-- ══ แถบควบคุม Invoice เดียวเต็มความกว้าง (ห้ามมีปุ่มเหล่านี้ซ้ำที่อื่น) ══ -->
     <div class="tx-actions">
-      <select id="tx-model" title="คุณภาพการอ่านของ AI" style="height:34px;border:1px solid var(--line,#cbd5e1);border-radius:8px;padding:0 8px;font-size:12px">
+      <select id="tx-model" title="คุณภาพการอ่านของ AI" onchange="txModelChanged()" style="height:34px;border:1px solid var(--line,#cbd5e1);border-radius:8px;padding:0 8px;font-size:12px">
         <option value="">อัตโนมัติ — แนะนำ</option>
         <option value="claude-haiku-5-5">ประหยัด — Haiku 5.5</option>
         <option value="claude-sonnet-5-5">คุณภาพสูง — Sonnet 5.5</option>
+        <option value="claude-opus-5-5">ละเอียดสูงสุด — Opus 5.5</option>
       </select>
       <button class="btn btn-success" id="tx-btn-export" onclick="txDownload()" disabled>📊 EXPORT EXCEL</button>
       <button class="btn" id="tx-btn-clear" onclick="txReset()">♻ ล้าง PDF</button>
@@ -11451,6 +11457,12 @@ function txPickModel(){
   const v = el ? String(el.value || '') : '';
   return v || TX_AI_MODEL;
 }
+/* [456] เปลี่ยนรุ่น AI จากเมนู → ถ้ามี PDF แนบอยู่ ให้อ่านใหม่ด้วยรุ่นที่เลือกทันที (ไม่ต้องแนบไฟล์ซ้ำ)
+   ผลของแต่ละรุ่นเก็บ Cache แยกกันที่ Server · MASTER / HS CODE ไม่ถูกแตะ */
+function txModelChanged(){
+  if(_txRunning || !txState.pdfs.length) return;
+  txAutoRun();
+}
 async function txAiRead(file, onTick){
   const pdf = await txB64Of(file);
   let j = await txAiPost({ name:file.name, mime:'application/pdf', pdf, model:txPickModel() });
@@ -11652,7 +11664,7 @@ function txRenderResult(){
     h += '<tr' + (st === 'ok' && hst === 'ok' ? '' : ' style="background:#fff7ed"') + '>' +
       '<td>' + no + '</td>' + td(r.inv) + td(it.item) +
       td(it._pcode) + td(it._mkey) +
-      td(m ? m[5] : '') + td(m ? m[0] : '') + td(m ? m[1] : '') +
+      td(txMapDesc(it.desc)) + td(m ? m[0] : '') + td(m ? m[1] : '') +   /* [455] English Description ใน Preview = ค่าจาก Invoice PDF (ตรงกับที่ Export) */
       td(hh ? hh[2] : '') + td(hh ? hh[4] : '') + td(hh ? hh[3] : '') +
       '<td style="text-align:right">' + nf(it.qty, 0) + '</td>' +
       '<td style="text-align:right">' + nf(it.sub, 2) + '</td>' + td(it.coo) +
@@ -12096,13 +12108,7 @@ function txMstRender(){
   if(info){
     let h = '';
     if(A){
-      h += '<div><span class="tx-mbadge" style="background:#dcfce7;color:#166534">MASTER ACTIVE</span> ' +
-           '<b>Version ' + esc(A.version) + '</b></div>' +
-           '<div>ไฟล์: <b>' + esc(A.file_name) + '</b></div>' +
-           '<div>อัปเดต: <b>' + esc(txMstDate(A.saved_at)) + '</b> · ผู้บันทึก: <b>' + esc(A.saved_by_name || A.saved_by) + '</b></div>' +
-           '<div>แถว: <b>' + esc(A.rows_total) + '</b> · ไม่ซ้ำ: <b>' + esc(A.codes_uniq) + '</b> · ซ้ำ: <b>' + esc(A.codes_dup) + '</b>' +
-           ' · ข้อผิดพลาด: <b style="color:' + (A.errors ? '#b91c1c' : 'inherit') + '">' + esc(A.errors) + '</b></div>' +
-           '<div style="color:var(--text3);font-size:10px">SHA-256 ' + esc(String(A.file_sha256).slice(0,16)) + '…</div>';
+      /* [454] ข้อ 2.1 — ซ่อนรายละเอียด MASTER ACTIVE (Version / ไฟล์ / อัปเดต / ผู้บันทึก / แถว / SHA-256) จากกรอบนี้ */
     } else {
       h += '<div><span class="tx-mbadge" style="background:#fee2e2;color:#b91c1c">ยังไม่มี MASTER ACTIVE</span></div>' +
            '<div style="color:#b91c1c">' + esc(TX_MST_MSG_NONE) + '</div>';
@@ -12799,7 +12805,7 @@ async function txBuildBook(list){
     for(const it of rec.items){
       no++;
       rows.push({ inv: rec.inv, item: it.item,
-        src: { descRaw: it.desc, desc: txMapDesc((it._m && it._m[5]) ? it._m[5] : it.desc), hts: it.hts,   /* [451] ค่าที่คาดหวังของ English Description 1 = แหล่งเดียวกับที่เขียนจริง (MASTER ก่อน · ไม่มีจึงใช้ PDF) */
+        src: { descRaw: it.desc, desc: txMapDesc(it.desc), hts: it.hts,   /* [455] English Description 1 = Description จาก Invoice PDF เท่านั้น */
                pcode: it.cust || it.ti, mst: it._m || null,
                hkey: it._hkey || '', hs: it._h || null },           // ค่าต้นทาง + ผลจับคู่ MASTER/HS CODE
         cells: {
@@ -12807,8 +12813,8 @@ async function txBuildBook(list){
         INV:  { t:'s', v: rec.inv },
         IDATE:{ t: rec.y ? 'n' : 'e', v: rec.y ? txSerial(rec.y, rec.m, rec.d) : '' },
         PCODE:{ t:'s', v: it.cust || it.ti },
-        /* [445] English Description 1 มาจาก MASTER · ถ้า MASTER ไม่มีค่า ใช้ Description ที่ AI อ่าน */
-        DESC1:{ t:'s', v: (it._m && it._m[5]) ? it._m[5] : txMapDesc(it.desc) },
+        /* [455] English Description 1 (คอลัมน์ E) มาจาก Invoice PDF เท่านั้น — ไม่ใช้ค่าจาก MASTER */
+        DESC1:{ t:'s', v: txMapDesc(it.desc) },
         DESC2:{ t:'e', v:'' },
         /* [440] DESCRIPTIONS THAI 3 มาจาก MASTER เท่านั้น — ไม่พบ = ว่าง (ห้ามใช้ข้อความที่ AI เดา) */
         TH3:  it._m ? { t:'s', v: it._m[0] } : { t:'e', v:'' },
@@ -25897,7 +25903,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local453';
+const DEPLOY_VERSION = 'local456';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
