@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="nj-build" content="local123"><!-- ★ [local117] เลขรุ่นของไฟล์นี้ (ตรงกับ Deploy github local123.zip) — ป้ายมุมขวาบนอ่านจากไฟล์บนเว็บไซต์จริง -->
+<meta name="nj-build" content="local124"><!-- ★ [local117] เลขรุ่นของไฟล์นี้ (ตรงกับ Deploy github local124.zip) — ป้ายมุมขวาบนอ่านจากไฟล์บนเว็บไซต์จริง -->
 <meta name="viewport" content="width=1440,initial-scale=1.0,user-scalable=yes">
 <title>ตรวจใบขน — N.J. Logistics</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -1390,6 +1390,10 @@ body.legacy-active .content-area { display: none !important; }
     #eleai-view #eleai-result.el-act-only .el-more{margin-top:0}
     /* ★ [local121] ตารางรายงานข้อผิดพลาด INVOICE PDF เทียบ PL — เส้นกรอบทุกช่อง · Header ค้าง · Scroll ภายใน */
     #eleai-view .el-rep-btns .btn[hidden]{display:none!important}
+    /* ★ [local124] ซ่อนหัวข้อบรรทัดบน และแถบ TOTAL / G.W. WT บนหน้าจอ (ยอด TOTAL / G.W. WT ยังคำนวณและอยู่ใน Excel Sheet 1 ตามเดิม) · ปุ่ม EXPORT EXCEL คงตำแหน่งขวาบน */
+    #eleai-view .el-top h2{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;margin:0;padding:0}
+    #eleai-view .el-top{justify-content:flex-end}
+    #eleai-view .el-totbar{display:none!important}
     /* ★ [local123] แถบ TOTAL / G.W. WT ก่อน EXPORT */
     #eleai-view .el-totbar{margin-top:8px;border:1px solid #6b7280;border-radius:6px;background:#f8fafc;padding:5px 9px;font-size:12px;display:flex;flex-direction:column;gap:3px}
     #eleai-view .el-totbar[hidden]{display:none}
@@ -9585,7 +9589,7 @@ window.ELEAI_CORE = (function(){
     const pdfs = S.pdfs.filter(x => !x.err), pls = S.pls.filter(x => !x.err);
     if (S.pdfs.some(x => x.err) || S.pls.some(x => x.err)){ S.wantExport = false; exportBtn(); prog('❌ มีไฟล์ที่เปิดไม่ได้ — นำออกก่อน (✕)', '#c00000'); return; }
     if (!pdfs.length || !pls.length){ S.wantExport = false; exportBtn(); return; }
-    S.busy = true; S.again = false; const gen = S.gen; exportBtn(); $('eleai-result').innerHTML = '';
+    S.busy = true; S.again = false; const gen = S.gen; exportBtn(); $('eleai-result').innerHTML = ''; renderRep(null);   /* ★ [local124] ระหว่างประมวลผลใหม่ ไม่แสดงรายงานชุดก่อน */
     S.sel = 'auto';   /* ★ [local120] ELE TYPE 0 ใช้ AI AUTO ทุกครั้ง (ซ่อนตัวเลือก AI · ไม่มีค่า Sonnet-only / Opus-only ค้าง) */
     const sel = S.sel, MAIN = sel === 'opus' ? OPUS : SONNET, tok = A0.token;
     const R = { gen, sel, MAIN, pdfs, pls, parts: new Map(), pageOv: new Map(), fixOv: new Map(), MC: { pairs: new Set(), exact: new Map(), all: new Map() },
@@ -9702,9 +9706,9 @@ window.ELEAI_CORE = (function(){
     /* ★ [local120] ซ่อน Dashboard / ตาราง → แสดงเฉพาะข้อความสถานะสั้น (FAIL แสดงสาเหตุจริง) */
     const hardMsg = iss.filter(i => i.lvl === 'hard').slice(0, 3).map(i => (i.inv ? 'Invoice ' + i.inv + ': ' : '') + i.msg).join(' · ');
     const nW = prep.cnt.bad;
-    prog(status === 'FAIL' ? (conn ? '❌ เชื่อมต่อ MASTER HS CODE ไม่สำเร็จ — ยังไม่ส่งออก (ไม่ใช่กรณีไม่พบ HS CODE) · กด 📥 EXPORT EXCEL เพื่ออ่าน MASTER ใหม่' : '❌ ประมวลผลล้มเหลว — ส่งออกไม่ได้: ' + hardMsg)
-      : (nW ? '⚠️ ประมวลผลเสร็จ — พบข้อมูลผิด ' + fmt(nW) + ' แถว (' + fmt(prep.cnt.badItems) + ' ITEM) · ดูตารางด้านล่าง · กด 📥 EXPORT EXCEL' : '✅ ประมวลผลสำเร็จ — ไม่พบข้อมูลผิดใน 6 หัวข้อ · กด 📥 EXPORT EXCEL'),
-      status === 'FAIL' ? '#c00000' : (nW ? '#b45309' : '#0b7a2a'));
+    /* ★ [local124] ซ่อนข้อความสรุปหลังประมวลผลสำเร็จ (ตารางรายงานแสดงผลแทน) · ยังแสดงข้อความผิดพลาดร้ายแรง (FAIL) เสมอ */
+    if (status === 'FAIL') prog(conn ? '❌ เชื่อมต่อ MASTER HS CODE ไม่สำเร็จ — ยังไม่ส่งออก (ไม่ใช่กรณีไม่พบ HS CODE) · กด 📥 EXPORT EXCEL เพื่ออ่าน MASTER ใหม่' : '❌ ประมวลผลล้มเหลว — ส่งออกไม่ได้: ' + hardMsg, '#c00000');
+    else prog('');
   }
   function hsCount(items){ const c = { ok: 0, none: 0, dup: 0, off: 0 }; items.forEach(x => { const h = x.hsm; if (!h) return; if (h.st === 'ok') c.ok++; else if (h.st === 'dup') c.dup++; else if (h.st === 'off') c.off++; else c.none++; }); return c; }
   function renderFail(R, err){ bar(null); exportBtn(); $('eleai-result').classList.add('el-hide'); $('eleai-result').classList.remove('el-act-only');
