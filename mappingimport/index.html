@@ -2684,7 +2684,8 @@ body.legacy-active .content-area { display: none !important; }
 <div class="doa-view" id="avg-view">
   <style>
     #avg-view{gap:10px}
-    #avg-view .avg-head{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#1e3a8a,#1d4ed8);color:#fff;border-radius:12px;padding:10px 16px}
+    #avg-view .avg-head{display:none !important}   /* [474] ซ่อนแถบหัวข้อสีน้ำเงินทั้งแถบ (ชื่อ · คำอธิบาย · ป้ายสถานะ) — ระบบคำนวณสถานะภายในยังทำงานตามเดิม */
+    #avg-view .avg-head-old{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#1e3a8a,#1d4ed8);color:#fff;border-radius:12px;padding:10px 16px}
     #avg-view .avg-head h2{font-size:18px;font-weight:800;margin:0;color:#fff}
     #avg-view .avg-head .sub{font-size:12px;opacity:.9}
     #avg-view .avg-flag{margin-left:auto;padding:8px 14px;border-radius:9px;font-weight:800;font-size:13px;background:rgba(255,255,255,.16);color:#fff;white-space:nowrap}
@@ -2692,10 +2693,16 @@ body.legacy-active .content-area { display: none !important; }
     #avg-view .avg-flag.bad{background:#fecaca;color:#7f1d1d}
     #avg-view .avg-panel{background:#fff;border:1px solid #dbe3ef;border-radius:12px;box-shadow:0 2px 8px rgba(15,23,42,.06);overflow:hidden;min-width:0}
     #avg-view .avg-ph{background:#1e40af;color:#fff;font-weight:700;font-size:13.5px;padding:7px 12px}
-    #avg-view .avg-tg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(190px,.8fr);gap:10px;padding:10px}
-    #avg-view .avg-card{border:1px solid #dbe3ef;border-radius:10px;overflow:hidden;min-width:0}
-    #avg-view .avg-card h3{margin:0;padding:6px 10px;background:#eaf1fb;color:#0f172a;font-size:14px;font-weight:800}
-    #avg-view .avg-card .b{padding:8px 10px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.8fr) minmax(0,1.25fr);gap:4px 6px}
+    /* [474] 4 กรอบเท่ากันในแถวเดียว: F/W_OTH | Frg_OTH | Ins_OTH | รวมยอดไทย + คำนวณเฉลี่ย */
+    #avg-view .avg-tg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:12px;align-items:stretch}
+    #avg-view .avg-card{border:2px solid #9DB6DE;border-radius:12px;overflow:hidden;min-width:0;background:#fff;box-shadow:0 2px 6px rgba(30,64,175,.12);display:flex;flex-direction:column}
+    #avg-view .avg-card h3{margin:0;padding:7px 10px;background:#EAF1FC;color:#0f172a;font-size:14px;font-weight:800;border-bottom:1px solid #c9d8ef}
+    #avg-view .avg-card .b{flex:1;align-content:start}
+    #avg-view .avg-card.avg-total .sum{flex:1;background:#FEF3C7;padding:10px 12px;display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0}
+    #avg-view .avg-card.avg-total .sum b{font:800 clamp(15px,1.45vw,21px) 'IBM Plex Mono',monospace;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #avg-view .avg-card.avg-total .sum span{font-size:11px;font-weight:700;color:#475569}
+    #avg-view .avg-card.avg-total .act{border-top:1px solid #c9d8ef;padding:10px}
+    #avg-view .avg-card .b{padding:8px 10px;display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,.8fr) minmax(0,1.5fr);gap:4px 6px}
     #avg-view .avg-card label{font-size:11px;font-weight:700;color:#475569}
     #avg-view .avg-card .w{grid-column:1 / -1}
     #avg-view .avg-card input{width:100%;box-sizing:border-box;font:700 14px 'IBM Plex Mono',monospace;padding:6px 7px;border:1px solid #cbd5e1;border-radius:7px;background:#fff;color:#0f172a;text-align:right}
@@ -2742,7 +2749,8 @@ body.legacy-active .content-area { display: none !important; }
     #avg-view .avg-bad ul{margin:4px 0 0 18px;font-weight:600}
     #avg-view .avg-info{margin:0 12px 8px;font-size:12px;color:#92400e;font-weight:600}
     #avg-view .avg-empty{padding:22px;text-align:center;color:#64748b}
-    @media(max-width:1100px){#avg-view .avg-tg{grid-template-columns:1fr 1fr}#avg-view .avg-files{grid-template-columns:1fr}}
+    @media(max-width:1500px){#avg-view .avg-tg{gap:10px;padding:10px}#avg-view .avg-card .b{padding:7px 7px;gap:4px 4px}#avg-view .avg-card input{font-size:12px;padding:6px 4px}#avg-view .avg-card input.thb{font-size:14px}#avg-view .avg-card h3{padding:6px 8px}#avg-view .avg-card.avg-total .sum{padding:8px}#avg-view .avg-card.avg-total .act{padding:8px}}
+    @media(max-width:1000px){#avg-view .avg-tg{grid-template-columns:1fr 1fr}#avg-view .avg-files{grid-template-columns:1fr}#avg-view .avg-card input{font-size:14px}}
   </style>
   <div class="avg-head">
     <div><h2>เฉลี่ยยอดเงิน Excel</h2><div class="sub">แสดงเฉพาะรายการที่มีการเปลี่ยนแปลง</div></div>
@@ -2772,9 +2780,9 @@ body.legacy-active .content-area { display: none !important; }
         <input id="avgRate2" inputmode="decimal" autocomplete="off" oninput="avgFxChanged()" disabled>
         <input id="avgF2" readonly tabindex="-1">
       </div></div>
-      <div class="avg-side">
-        <div class="avg-sum"><span>รวมยอดไทย</span><b id="avgTSum">-</b></div>
-        <button class="btn btn-primary avg-btn" id="avgCalcBtn" onclick="avgCalc()" disabled>🧮 คำนวณเฉลี่ย</button>
+      <div class="avg-card avg-total" id="avgTotalCard"><h3>รวมยอดไทย</h3>
+        <div class="sum"><span>ยอดรวม 3 หัวข้อ (THB)</span><b id="avgTSum">-</b></div>
+        <div class="act"><button class="btn btn-primary avg-btn" id="avgCalcBtn" onclick="avgCalc()" disabled>🧮 คำนวณเฉลี่ย</button></div>
       </div>
     </div>
     <datalist id="avgCurList"></datalist>
@@ -27550,7 +27558,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local473';
+const DEPLOY_VERSION = 'local474';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
