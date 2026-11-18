@@ -7660,9 +7660,10 @@ function stFinish(){
   const cachedAll = list.every(p => p._ai && p._ai.cached);
   const cost = list.reduce((v, p) => v + Number((p._ai && p._ai.usage && p._ai.usage.cost_usd_est) || 0), 0);
   stSetStatus('AI อ่าน Invoice PDF สำเร็จ · ' + S.invoices + ' Invoice · ' + S.items + ' รายการ · TOTAL QTY ' + S.qty.toLocaleString() +
-              ' · TOTAL AMT ' + S.amt.toLocaleString(undefined, { minimumFractionDigits:2, maximumFractionDigits:2 }) +
+              ' · TOTAL AMT ' + stAmtText(S) +
               (cachedAll ? ' · ใช้ผลเดิมจาก Cache (ไม่เสียค่า API เพิ่ม)' : ' · ค่า API $' + cost.toFixed(4)) +
               (S.all.some(r => r._tcb) ? ' · รูปแบบ TCB BEARING (COMMERCIAL INVOICE) ' + S.all.filter(r => r._tcb).length + ' ใบ' : '') +
+              ['ALT_JIANGSU_INVOICE', 'SNH_BEARINGS_INVOICE'].map(t => { const n = S.all.filter(r => r._dtype === t).length; return n ? ' · รูปแบบ ' + ST_EXT_LABEL[t] + ' ' + n + ' ใบ' : ''; }).join('') +
               (S.warn.length ? '\n⚠ มีข้อมูลที่อ่านไม่พบ ' + S.warn.length + ' จุด — ดูรายละเอียดใน Preview' : ''),
               S.warn.length ? '' : 'ok');
   stRenderPreview(true);
@@ -7720,7 +7721,12 @@ function stToResults(pdf){
     /* [465] เอกสารรูปแบบ TCB BEARING (COMMERCIAL INVOICE) — AI ระบุรูปแบบมาใน doc_type · ใช้ Mapping เดิมของ Techno ทุกช่อง
        ต่างจากรูปแบบเดิมเฉพาะ "รูปแบบการพิมพ์" 2 จุด: วันที่ YYYY/MM/DD → DD.MM.YYYY (รูปแบบวันที่เดิมของ Mapping) · หน่วย PCS = PC */
     const isTcb = stIsTcb(iv);
-    const invoice_number = str(iv.doc_no), invoice_date = isTcb ? stTcbDate(iv.doc_date) : str(iv.doc_date);
+    /* [466] เพิ่มรูปแบบ ALT (Jiangsu) และ SNH Bearings — ใช้ Mapping เดิมของ Techno ทุกช่อง เช่นเดียวกับ TCB
+       ต่างเฉพาะ "รูปแบบการพิมพ์": วันที่ (ALT = YYYY/M/D · SNH = DD-MM-YYYY) → DD.MM.YYYY · หน่วย pcs / ไม่พิมพ์หน่วย = ชิ้น (C62 ค่าคงที่เดิม)
+       · ไม่มีเลข Item ในเอกสาร → No = ลำดับที่พิมพ์ใน PDF (1, 2, 3 …) */
+    const dtype = stDocType(iv), isExt = ST_EXT_TYPES.indexOf(dtype) >= 0, seqNo = (dtype === 'ALT_JIANGSU_INVOICE' || dtype === 'SNH_BEARINGS_INVOICE');
+    const invoice_number = str(iv.doc_no),
+          invoice_date = dtype === 'SNH_BEARINGS_INVOICE' ? stDmyDate(iv.doc_date) : (isTcb || dtype === 'ALT_JIANGSU_INVOICE') ? stTcbDate(iv.doc_date) : str(iv.doc_date);
     const currency = str(iv.cur).toUpperCase(), incoterm = str(iv.incoterm).toUpperCase().slice(0, 3);
     const items = [];
     for(const it of (iv.items || [])){
@@ -7728,13 +7734,13 @@ function stToResults(pdf){
       const product_code = str(it.mat);
       const cust = str(it.cust);
       const material_no = cust || product_code.replace(/-/g, '');
-      const noNum = parseInt(str(it.item), 10);
+      const noNum = seqNo ? (items.length + 1) : parseInt(str(it.item), 10);
       const raw_unit = str(it.unit).toUpperCase();
       const qn = parseInt(str(it.qty).replace(/,/g, ''), 10);
       items.push({
         no: isNaN(noNum) ? '' : String(noNum), invoice_no: invoice_number, invoice_date,
         product_code, english_description: stEngDesc(invoice_number, it),
-        quantity: isNaN(qn) ? 0 : qn, unit: (raw_unit === 'PC' || (isTcb && raw_unit === 'PCS')) ? 'C62' : raw_unit,
+        quantity: isNaN(qn) ? 0 : qn, unit: (raw_unit === 'PC' || (isExt && (raw_unit === 'PCS' || raw_unit === ''))) ? 'C62' : raw_unit,
         /* [464] Unit Price = Value ÷ Quantity (ความละเอียดเต็ม · ไม่ปัดก่อนตรวจ) · Total Price = Value จาก PDF โดยตรง */
         unit_price: stUnitPrice(qn, it.value), total_price: toNumberCommon(it.value),
         _chk: stPriceCheck(qn, it.value, it.price, it.per),
@@ -7746,13 +7752,46 @@ function stToResults(pdf){
       });
     }
     out.push({ customer:'SCHAEFFLER TECHNO', invoice_number, invoice_date, currency: currency || '', incoterm, items,
-               _amount: toNumberCommon(iv.amount), _file: pdf.name, _tcb: isTcb });
+               _amount: toNumberCommon(iv.amount), _file: pdf.name, _tcb: isTcb, _ext: isExt, _dtype: dtype });
   }
   return out;
 }
 /* [465] ตัวตรวจรูปแบบเอกสาร TCB BEARING + แปลงวันที่ที่พิมพ์แบบ YYYY/MM/DD ให้เป็นรูปแบบวันที่เดิมของ Mapping (DD.MM.YYYY)
    วันที่ที่ไม่ใช่รูปแบบนี้ = คงค่าที่พิมพ์ไว้ตามเดิม (ไม่เดา) */
 function stIsTcb(iv){ return String((iv && iv.doc_type) || '').trim().toUpperCase() === 'TCB_COMMERCIAL_INVOICE'; }
+/* [466] รูปแบบเอกสารของผู้ขายรายอื่นที่ใช้ Mapping Techno เดิม (AI ระบุมาใน doc_type) */
+const ST_EXT_TYPES = ['TCB_COMMERCIAL_INVOICE', 'ALT_JIANGSU_INVOICE', 'SNH_BEARINGS_INVOICE'];
+const ST_EXT_LABEL = { TCB_COMMERCIAL_INVOICE:'TCB BEARING', ALT_JIANGSU_INVOICE:'ALT Jiangsu', SNH_BEARINGS_INVOICE:'SNH Bearings' };
+function stDocType(iv){ return String((iv && iv.doc_type) || '').trim().toUpperCase(); }
+/* วันที่ที่พิมพ์แบบ DD-MM-YYYY (SNH) → DD.MM.YYYY · รูปแบบอื่น = คงค่าที่พิมพ์ไว้ (ไม่เดา) */
+function stDmyDate(v){
+  const t = String(v == null ? '' : v).trim();
+  const m = t.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/);
+  if(!m) return t;
+  const d = +m[1], mo = +m[2];
+  if(mo < 1 || mo > 12 || d < 1 || d > 31) return t;
+  return String(d).padStart(2, '0') + '.' + String(mo).padStart(2, '0') + '.' + m[3];
+}
+/* [466] ลำดับ Invoice ตอนมีเอกสารรูปแบบผู้ขายรายอื่น: เรียงตามลำดับไฟล์ที่แนบ แล้วตามลำดับใน PDF
+   (ไฟล์รูปแบบ Schaeffler เดิมล้วน ๆ = เรียงตามเลข Invoice เหมือนเดิมทุกอย่าง) — คืน Map เลข Invoice → ลำดับ */
+function stAttachOrder(all){
+  if(!all.some(r => r._ext)) return null;
+  const m = new Map();
+  for(const r of all){ const k = String(r.invoice_number || ''); if(!m.has(k)) m.set(k, m.size + 1); }
+  return m;
+}
+/* ยอดรวมแยกตามสกุลเงิน — ห้ามรวมยอดต่างสกุลเงินเป็นยอดเดียว */
+function stAmtByCur(all){
+  const m = new Map();
+  for(const r of all) for(const it of r.items){ const c = String(it.currency || r.currency || '').toUpperCase() || '?'; m.set(c, (m.get(c) || 0) + (Number(it.total_price) || 0)); }
+  return m;
+}
+function stAmtText(S){
+  const f = v => (Math.round(v * 100) / 100).toLocaleString(undefined, { minimumFractionDigits:2, maximumFractionDigits:2 });
+  const m = stAmtByCur(S.all);
+  if(m.size <= 1) return f(S.amt);
+  return [...m.entries()].map(([c, v]) => f(v) + ' ' + c).join(' + ') + ' (แยกสกุลเงิน ไม่รวมกัน)';
+}
 function stTcbDate(v){
   const t = String(v == null ? '' : v).trim();
   const m = t.match(/^(\d{4})[\/.\-](\d{1,2})[\/.\-](\d{1,2})$/);
@@ -7792,14 +7831,16 @@ function stSummary(){
     if(!r.incoterm)       warn.push(tag + ': ไม่พบ Incoterm (Delivery conditions)');
     if(!r.items.length)   warn.push(tag + ': ไม่พบรายการสินค้า');
     let sum = 0;
+    const noOrig = r.items.length > 1 && r.items.every(x => !x.origin && !x._coo_raw);
+    if(noOrig) warn.push(tag + ': เอกสารไม่ได้พิมพ์ Country of origin — คอลัมน์ Origin ว่างทั้ง ' + r.items.length + ' รายการ (ไม่เดาค่า)');
     for(const it of r.items){
       items++; qty += Number(it.quantity) || 0; amt += Number(it.total_price) || 0; sum += Number(it.total_price) || 0;
       const miss = [];
       if(!it.no) miss.push('No'); if(!it.product_code) miss.push('Product Code');
       if(!it.english_description) miss.push('English Description'); if(!it.quantity) miss.push('Quantity');
       if(!it.unit) miss.push('Unit'); if(it.unit_price === '') miss.push('Unit Price');
-      if(it._chk && !it._chk.ok && it._chk.why) warn.push(tag + ' รายการ ' + (it.no || '?') + ' [' + (it.product_code || '-') + ']: ตรวจ Unit Price — ' + it._chk.why);
-      if(it.total_price === '') miss.push('Total Price'); if(!it.origin) miss.push('Origin');
+      if(it._chk && !it._chk.ok && it._chk.why) warn.push(tag + ' รายการ ' + (it.no || '?') + ' [' + (it.product_code || '-') + ']: ตรวจ Unit Price — ' + it._chk.why + (it.page_no ? ' (หน้า ' + it.page_no + ')' : ''));
+      if(it.total_price === '') miss.push('Total Price'); if(!it.origin && !noOrig) miss.push('Origin');
       if(!it.desc2) miss.push('Desc 2'); if(!it.page_no) miss.push('Page #');
       if(miss.length) warn.push(tag + ' รายการ ' + (it.no || '?') + ' [' + (it.product_code || '-') + ']: อ่านไม่พบ ' + miss.join(', ') +
                                 (it._note ? ' (' + it._note + ')' : ''));
@@ -7817,7 +7858,10 @@ function stRenderPreview(show){
   const S = stSummary();
   const rows = [];
   for(const r of S.all) for(const it of r.items) rows.push(it);
+  const ord = stAttachOrder(S.all);   /* [466] มีเอกสารผู้ขายรายอื่น → เรียงตามลำดับไฟล์ที่แนบ */
   rows.sort((a, b) => {
+    if(ord){ const oa = ord.get(String(a.invoice_no || '')) || 0, ob = ord.get(String(b.invoice_no || '')) || 0; if(oa !== ob) return oa - ob;
+             const x0 = parseFloat(String(a.no || '').replace(/[^\d.]/g,'')), y0 = parseFloat(String(b.no || '').replace(/[^\d.]/g,'')); return (!isNaN(x0) && !isNaN(y0)) ? x0 - y0 : 0; }
     const ai = String(a.invoice_no || ''), bi = String(b.invoice_no || '');
     const aN = parseFloat(ai.replace(/[^\d.]/g,'')), bN = parseFloat(bi.replace(/[^\d.]/g,''));
     if(!isNaN(aN) && !isNaN(bN) && aN !== bN) return aN - bN;
@@ -7829,7 +7873,7 @@ function stRenderPreview(show){
   const e = escapeHtml, nf = (v, d) => (v === '' || v == null) ? '' : Number(v).toLocaleString(undefined, { minimumFractionDigits:d, maximumFractionDigits:d });
   let h = '<div id="st-preview" style="white-space:normal">' +
     '<div style="font-weight:700;margin-bottom:6px">ไฟล์ PDF: ' + stPdfs().length + ' · Invoice: ' + S.invoices + ' · รายการ: ' + S.items +
-    ' · TOTAL QTY: ' + S.qty.toLocaleString() + ' · TOTAL AMT: ' + nf(S.amt, 2) + '</div>';
+    ' · TOTAL QTY: ' + S.qty.toLocaleString() + ' · TOTAL AMT: ' + e(stAmtText(S)) + '</div>';
   if(S.warn.length)
     h += '<div id="st-warn" style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:8px;padding:8px;margin-bottom:8px;font-size:12px">' +
          '<b>⚠ ข้อมูลที่ต้องตรวจสอบ</b><br>' + S.warn.slice(0, 60).map(w => '• ' + e(w)).join('<br>') +
@@ -7977,7 +8021,9 @@ function sxFinish(cust){
   const cost = list.reduce((v, p) => v + Number((p._ai && p._ai.usage && p._ai.usage.cost_usd_est) || 0), 0);
   sxSetStatus(cust, 'AI อ่าน Invoice PDF สำเร็จ · ' + S.invoices + ' Invoice · ' + S.items + ' รายการ · TOTAL QTY ' + S.qty.toLocaleString() +
               ' · TOTAL AMT ' + S.amt.toLocaleString(undefined, { minimumFractionDigits:2, maximumFractionDigits:2 }) +
+              (S.all.some(r => r._hx) ? ' ' + [...new Set(S.all.filter(r => r._hx).map(r => r._cur).filter(Boolean))].join('/') : '') +
               (cachedAll ? ' · ใช้ผลเดิมจาก Cache (ไม่เสียค่า API เพิ่ม)' : ' · ค่า API $' + cost.toFixed(4)) +
+              (S.all.some(r => r._hx) ? ' · รูปแบบ ALT (Ningbo Hongxie) ' + S.all.filter(r => r._hx).length + ' ใบ' : '') +
               (S.warn.length ? '\n⚠ มีข้อมูลที่ต้องตรวจสอบ ' + S.warn.length + ' จุด — ดูรายละเอียดใน Preview' : ''),
               S.warn.length ? '' : 'ok');
   try{ refreshButtons(); }catch(_){}
@@ -8013,7 +8059,11 @@ function sxAutoToResults(pdf){
   const str = v => (v == null ? '' : String(v).trim());
   for(const iv of R.invoices){
     if(!iv) continue;
-    const invoice_no = str(iv.inv_no), invoice_date = str(iv.inv_date), incoterm = cleanTextCommon(iv.incoterm);
+    /* [467] เอกสารรูปแบบ ALT (Ningbo Hongxie · PACKING LIST + INVOICE) — AI ระบุมาใน doc_type · ใช้ Mapping Automotive เดิมทุกคอลัมน์
+       ต่างเฉพาะ "รูปแบบการพิมพ์": วันที่ JUL.20,2026 → 20.07.2026 · หน่วย PCS → PC · Product Code = รหัสหลักตามที่พิมพ์ (มีขีด) · Currency ตามเอกสาร (USD) */
+    const hx = sxIsHongxie(iv);
+    const invoice_no = str(iv.inv_no), invoice_date = hx ? sxMonDate(iv.inv_date) : str(iv.inv_date), incoterm = cleanTextCommon(iv.incoterm);
+    const curHx = hx ? str(iv.cur).toUpperCase() : '';
     const items = [];
     for(const it of (iv.items || [])){
       if(!it) continue;
@@ -8022,9 +8072,10 @@ function sxAutoToResults(pdf){
       const quantity = /\./.test(q) ? (parseFloat(q) || '') : (parseInt(q, 10) || '');
       items.push({
         item_no: isNaN(noNum) ? '' : String(noNum), invoice_no, invoice_date,
-        article_no: '', batch_no: '', product_code: str(it.cust).replace(/-/g, ''),
-        description: cleanTextCommon(it.desc), hs_code: '', quantity, unit: str(it.unit).toUpperCase(),
-        unit_price_thb: toNumberCommon(it.price), amount_thb: toNumberCommon(it.amount), currency: 'THB',
+        article_no: '', batch_no: '', product_code: hx ? str(it.cust) : str(it.cust).replace(/-/g, ''),
+        description: cleanTextCommon(it.desc), hs_code: '', quantity,
+        unit: (hx && str(it.unit).toUpperCase() === 'PCS') ? 'PC' : str(it.unit).toUpperCase(),
+        unit_price_thb: toNumberCommon(it.price), amount_thb: toNumberCommon(it.amount), currency: hx ? curHx : 'THB',
         activity_date: '', preference_status: '', country_of_origin: str(it.coo), origin_code: sxAutoCountry(it.coo),
         tax_code: '', dispatch_type: '', incoterm, net_weight_total: '', gross_weight_total: '', packages_total: '',
         page_no: (it.pg == null || it.pg === '') ? '' : String(it.pg), _note: str(it.note)
@@ -8032,10 +8083,23 @@ function sxAutoToResults(pdf){
     }
     out.push({ customer:'SCHAEFFLER AUTOMOTIVE', invoice_number: invoice_no, invoice_no, invoice_date, dispatch_type:'', incoterm,
                total_amount_thb: toNumberCommon(iv.total_amount), exchange_rate:'', payment_conditions:'',
-               net_weight_total:'', gross_weight_total:'', packages_total:'', items, _file: pdf.name });
+               net_weight_total:'', gross_weight_total:'', packages_total:'', items, _file: pdf.name,
+               _hx: hx, _cur: hx ? curHx : 'THB', _total_qty: hx ? toNumberCommon(iv.total_qty) : '' });
   }
   return out;
 }
+/* [467] ตัวตรวจรูปแบบ ALT (Ningbo Hongxie) + แปลงวันที่แบบ JUL.20,2026 → 20.07.2026 (รูปแบบวันที่เดิมของ Mapping)
+   วันที่ที่ไม่ใช่รูปแบบนี้ = คงค่าที่พิมพ์ไว้ (ไม่เดา) */
+function sxIsHongxie(iv){ return String((iv && iv.doc_type) || '').trim().toUpperCase() === 'HONGXIE_INVOICE'; }
+function sxMonDate(v){
+  const t = String(v == null ? '' : v).trim();
+  const m = t.match(/^([A-Za-z]{3,9})\.?\s*(\d{1,2})\s*,\s*(\d{4})$/);
+  if(!m) return t;
+  const mo = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'].indexOf(m[1].slice(0, 3).toUpperCase()) + 1, d = +m[2];
+  if(mo < 1 || d < 1 || d > 31) return t;
+  return String(d).padStart(2, '0') + '.' + String(mo).padStart(2, '0') + '.' + m[3];
+}
+
 /* ── ตัวแปลงของ INDIA เท่านั้น ───────────────────────────────────────────────
    ผล AI → โครงสร้างเดิมที่ parseSchaefflerIndia คืน (กฎเดิมทุกข้อ)
    Product Code / Material No = Material · EN desc2 = รหัสแรกในบรรทัด PO Pos (ตัดที่ช่องว่างหรือ #) ·
@@ -8113,7 +8177,15 @@ function sxSummary(cust){
       if(india){ if(!it.article) miss.push('EN desc2'); if(it.net_weight === '') miss.push('Net Weight'); if(it.gross_weight === '') miss.push('Gross Weight'); }
       else { if(!it.description) miss.push('English Description'); if(!it.unit) miss.push('Unit'); }
       if(miss.length) warn.push(tag + ' รายการลำดับ ' + (i + 1) + ' [' + (it.product_code || '-') + ']: อ่านไม่พบ ' + miss.join(', ') + (it._note ? ' (' + it._note + ')' : ''));
+      /* [467] รูปแบบ ALT: Quantity × Unit Price ต้องเท่ากับ Total Price (ปัด 2 ตำแหน่ง) — ไม่ตรง = แจ้ง ไม่แก้ยอดเอง */
+      if(r._hx && it.quantity && it.unit_price_thb !== '' && it.amount_thb !== '' &&
+         Math.abs(Math.round((Number(it.quantity) * Number(it.unit_price_thb) + Number.EPSILON) * 100) / 100 - Number(it.amount_thb)) > 0.005)
+        warn.push(tag + ' รายการลำดับ ' + (i + 1) + ' [' + (it.product_code || '-') + ']: Quantity × Unit Price = ' +
+                  (Number(it.quantity) * Number(it.unit_price_thb)).toFixed(2) + ' ไม่เท่ากับ Total Price ' + Number(it.amount_thb).toFixed(2) + (it.page_no ? ' (หน้า ' + it.page_no + ')' : ''));
     });
+    if(r._hx && !r._cur) warn.push(tag + ': ไม่พบ Currency');
+    if(r._hx && r._total_qty !== '' && r._total_qty != null && Number(r._total_qty) !== sumQ)
+      warn.push(tag + ': ผลรวม Quantity ' + sumQ + ' ไม่ตรงกับยอด TOTAL ที่พิมพ์ใน PDF ' + Number(r._total_qty));
     const tA = india ? r._total_amount : r.total_amount_thb;
     if(tA !== '' && tA != null && Math.abs(Number(tA) - sumA) > 0.005)
       warn.push(tag + ': ผลรวม Total Price ' + sumA.toFixed(2) + ' ไม่ตรงกับยอดรวมที่พิมพ์ใน PDF ' + Number(tA).toFixed(2));
@@ -8175,7 +8247,24 @@ function doExportSCHAEFFLERTECHNO(){
   const allResults = stAllResults();
   if(!allResults.length){ toast('ไม่ได้ข้อมูลจาก PDF', 'err'); return; }
   const wb = XLSX.utils.book_new();
-  const wsT = buildSheetSchaefflerTechno(allResults);
+  /* [466] มีเอกสารผู้ขายรายอื่น (TCB / ALT / SNH) → Invoice เรียงตามลำดับไฟล์ที่แนบ
+     ไม่แก้ buildSheetSchaefflerTechno: ส่งเลข Invoice เป็น "เลขลำดับชั่วคราว" ให้ตัวจัดเรียงเดิม แล้วคืนเลข Invoice จริงลงคอลัมน์ B หลังสร้าง Sheet */
+  const ordT = stAttachOrder(allResults), aliasT = new Map();
+  let srcT = allResults;
+  if(ordT){
+    srcT = allResults.map(r => { const al = String(ordT.get(String(r.invoice_number || ''))).padStart(6, '0'); aliasT.set(al, String(r.invoice_number || ''));
+      return Object.assign({}, r, { invoice_number: al, items: r.items.map(it => Object.assign({}, it, { invoice_no: al })) }); });
+  }
+  const wsT = buildSheetSchaefflerTechno(srcT);
+  if(ordT){
+    try{ const rg0 = XLSX.utils.decode_range(wsT['!ref']);
+      for(let r = 1; r < rg0.e.r; r++){ const c = wsT[XLSX.utils.encode_cell({ r, c: 1 })]; if(c && aliasT.has(String(c.v))){ c.v = aliasT.get(String(c.v)); c.t = 's'; delete c.w; } }
+    }catch(_){}
+  }
+  /* [466] หลายสกุลเงินในไฟล์เดียว → ไม่รวมยอด Total Price ต่างสกุลเงินในแถว Total (เว้นว่าง) · สกุลเงินเดียว = เหมือนเดิม */
+  if(stAmtByCur(allResults).size > 1){
+    try{ const rg1 = XLSX.utils.decode_range(wsT['!ref']); const c = wsT[XLSX.utils.encode_cell({ r: rg1.e.r, c: 8 })]; if(c){ c.v = ''; c.t = 's'; delete c.w; delete c.f; } }catch(_){}
+  }
   /* [464] Unit Price (คอลัมน์ H): เก็บเป็นตัวเลขเต็มความละเอียด · แสดง 4 ตำแหน่ง — ไม่แตะคอลัมน์/รูปแบบอื่น */
   try{
     const rg = XLSX.utils.decode_range(wsT['!ref']);
@@ -26628,7 +26717,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local465';
+const DEPLOY_VERSION = 'local467';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
