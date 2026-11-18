@@ -2690,7 +2690,7 @@ body.legacy-active .content-area { display: none !important; }
     #avg-view .avg-flag{margin-left:auto;padding:8px 14px;border-radius:9px;font-weight:800;font-size:13px;background:rgba(255,255,255,.16);color:#fff;white-space:nowrap}
     #avg-view .avg-flag.ok{background:#facc15;color:#14532d}
     #avg-view .avg-flag.bad{background:#fecaca;color:#7f1d1d}
-    #avg-view .avg-grid{display:grid;grid-template-columns:270px minmax(0,1fr) 330px;gap:10px;align-items:start}
+    #avg-view .avg-grid{display:grid;grid-template-columns:400px minmax(0,1fr) 340px;gap:10px;align-items:start}
     #avg-view .avg-panel{background:#fff;border:1px solid #dbe3ef;border-radius:12px;box-shadow:0 2px 8px rgba(15,23,42,.06);overflow:hidden}
     #avg-view .avg-panel + .avg-panel{margin-top:10px}
     #avg-view .avg-ph{background:#1e40af;color:#fff;font-weight:700;font-size:13px;padding:8px 12px}
@@ -2699,6 +2699,13 @@ body.legacy-active .content-area { display: none !important; }
     #avg-view .avg-file small{display:block;font-weight:500;color:#64748b}
     #avg-view .avg-in{display:grid;grid-template-columns:78px minmax(0,1fr);gap:6px 8px;align-items:center}
     #avg-view .avg-in input{width:100%;box-sizing:border-box;text-align:right;font:700 15px 'IBM Plex Mono',monospace;padding:6px 8px;border:1px solid #cbd5e1;border-radius:7px;background:#fff;color:#0f172a}
+    #avg-view .avg-fx{display:grid;grid-template-columns:58px minmax(0,1.25fr) 74px minmax(0,.9fr) minmax(0,1.05fr);gap:6px 5px;align-items:start;font-size:12px}
+    #avg-view .avg-fx .h{font-weight:700;color:#475569;text-align:center;font-size:11px}
+    #avg-view .avg-fx label{padding-top:7px;font-weight:600}
+    #avg-view .avg-fx input,#avg-view .avg-fx select{width:100%;box-sizing:border-box;font:700 12.5px 'IBM Plex Mono',monospace;padding:6px 5px;border:1px solid #cbd5e1;border-radius:7px;background:#fff;color:#0f172a}
+    #avg-view .avg-fx input{text-align:right}
+    #avg-view .avg-fx input[readonly]{background:#eff6ff;border-color:#bfdbfe}
+    #avg-view .avg-fx .avg-cur-o{margin-top:4px;text-align:center;text-transform:uppercase}
     #avg-view .avg-sum{display:flex;justify-content:space-between;background:#fef3c7;border-radius:8px;padding:8px 10px;margin-top:8px;font-weight:800;font-size:15px;color:#0f172a}
     #avg-view .avg-btn{width:100%;margin-top:10px;justify-content:center}
     #avg-view table{width:100%;border-collapse:collapse;font-size:13px}
@@ -2736,12 +2743,25 @@ body.legacy-active .content-area { display: none !important; }
       <div class="avg-panel">
         <div class="avg-ph">กรอกยอดรวมที่ต้องการ</div>
         <div class="avg-pb">
-          <div class="avg-in">
-            <label for="avgT0">F/W_OTH</label><input id="avgT0" inputmode="decimal" autocomplete="off" oninput="avgTargetChanged()" disabled>
-            <label for="avgT1">Frg_OTH</label><input id="avgT1" inputmode="decimal" autocomplete="off" oninput="avgTargetChanged()" disabled>
-            <label for="avgT2">Ins_OTH</label><input id="avgT2" inputmode="decimal" autocomplete="off" oninput="avgTargetChanged()" disabled>
+          <div class="avg-fx">
+            <div class="h">รายการ</div><div class="h">ไทย (THB)</div><div class="h">สกุลเงิน</div><div class="h">อัตรา</div><div class="h">ต่างประเทศ</div>
+            <label for="avgT0">F/W_OTH</label>
+            <input id="avgT0" inputmode="decimal" autocomplete="off" oninput="avgTargetChanged()" disabled>
+            <div><select id="avgCur0" onchange="avgFxChanged()" disabled><option value="">เลือก</option><option>USD</option><option>EUR</option><option>CNY</option><option>JPY</option><option>OTHER</option></select><input id="avgCurO0" class="avg-cur-o" maxlength="5" placeholder="รหัส" autocomplete="off" oninput="avgFxChanged()" style="display:none" disabled></div>
+            <input id="avgRate0" inputmode="decimal" autocomplete="off" placeholder="0.00" oninput="avgFxChanged()" disabled>
+            <input id="avgF0" readonly tabindex="-1">
+            <label for="avgT1">Frg_OTH</label>
+            <input id="avgT1" inputmode="decimal" autocomplete="off" oninput="avgTargetChanged()" disabled>
+            <div><select id="avgCur1" onchange="avgFxChanged()" disabled><option value="">เลือก</option><option>USD</option><option>EUR</option><option>CNY</option><option>JPY</option><option>OTHER</option></select><input id="avgCurO1" class="avg-cur-o" maxlength="5" placeholder="รหัส" autocomplete="off" oninput="avgFxChanged()" style="display:none" disabled></div>
+            <input id="avgRate1" inputmode="decimal" autocomplete="off" placeholder="0.00" oninput="avgFxChanged()" disabled>
+            <input id="avgF1" readonly tabindex="-1">
+            <label for="avgT2">Ins_OTH</label>
+            <input id="avgT2" inputmode="decimal" autocomplete="off" oninput="avgTargetChanged()" disabled>
+            <div><select id="avgCur2" onchange="avgFxChanged()" disabled><option value="">เลือก</option><option>USD</option><option>EUR</option><option>CNY</option><option>JPY</option><option>OTHER</option></select><input id="avgCurO2" class="avg-cur-o" maxlength="5" placeholder="รหัส" autocomplete="off" oninput="avgFxChanged()" style="display:none" disabled></div>
+            <input id="avgRate2" inputmode="decimal" autocomplete="off" placeholder="0.00" oninput="avgFxChanged()" disabled>
+            <input id="avgF2" readonly tabindex="-1">
           </div>
-          <div class="avg-sum"><span>รวมทั้งหมด</span><span id="avgTSum">-</span></div>
+          <div class="avg-sum"><span>รวมไทย</span><span id="avgTSum">-</span></div>
           <button class="btn btn-primary avg-btn" id="avgCalcBtn" onclick="avgCalc()" disabled>🧮 คำนวณเฉลี่ย</button>
         </div>
       </div>
@@ -2752,7 +2772,7 @@ body.legacy-active .content-area { display: none !important; }
       <div class="avg-pager" id="avgPager"></div>
       <div class="avg-acts">
         <button class="btn btn-success" id="avgExpChanged" onclick="avgExportChanged()" disabled>📤 Export Excel (รายการที่เปลี่ยน)</button>
-        <button class="btn btn-primary" id="avgExpAll" onclick="avgExportAll()" disabled>📤 Export Excel (ข้อมูลทั้งหมด)</button>
+        <button class="btn btn-primary" id="avgExpAll" onclick="avgExportAll()" disabled>📤 Export Excel ตามไฟล์ต้นฉบับ</button>
       </div>
     </div>
     <div>
@@ -2811,15 +2831,37 @@ function avgClearResult(){
 function avgTargetChanged(){
   let sum = 0, ok = true;
   for(let j = 0; j < 3; j++){ const p = avgToCents(avgEl('avgT' + j).value); if(p.bad || p.blank || p.c < 0) ok = false; else sum += p.c; }
-  avgEl('avgTSum').textContent = ok ? avgFmt(sum) : '-';
+  avgEl('avgTSum').textContent = ok ? avgFmt(sum) + ' THB' : '-';
+  avgFxFields();
   if(avgS && avgS.res) avgClearResult();          // แก้ยอดหลังคำนวณ → ต้องคำนวณใหม่ก่อน Export
 }
+/* ══ [472] สกุลเงิน + อัตราแลกเปลี่ยน แยกอิสระทีละหัวข้อ (F/W_OTH · Frg_OTH · Ins_OTH) ══
+   ยอดต่างประเทศ = ยอดไทย ÷ อัตราของหัวข้อนั้น (ไม่มีสูตรคูณ · ไม่เรียก API อัตราแลกเปลี่ยน · ไม่ใช้ค่าของหัวข้ออื่นแทน · ไม่รวมยอดต่างสกุลเงิน)
+   ไม่กระทบสูตรเฉลี่ย / กลุ่ม 20 รายการแรก / ยอดฝั่งไทย — ใช้เฉพาะการแสดงผลและไฟล์รายการที่เปลี่ยน */
+function avgFx(j){
+  const sel = avgEl('avgCur' + j).value, code = (sel === 'OTHER' ? avgEl('avgCurO' + j).value : sel).trim().toUpperCase();
+  const t = avgEl('avgRate' + j).value.replace(/,/g, '').trim(), rate = /^\d+(\.\d+)?$/.test(t) ? Number(t) : NaN;
+  const okCode = /^[A-Z0-9]{1,5}$/.test(code), okRate = rate > 0 && isFinite(rate);
+  return { code: okCode ? code : '', rate: okRate ? rate : null, ok: okCode && okRate };
+}
+function avgFor(c, rate){ return Math.round(c / rate + 1e-9); }                       // สตางค์ไทย ÷ อัตรา → หน่วยย่อยของสกุลต่างประเทศ (2 ตำแหน่ง)
+function avgFxMissing(){ return [0, 1, 2].filter(j => !avgFx(j).ok).map(j => 'กรุณากรอกสกุลเงินและอัตราแลกเปลี่ยนของ ' + AVG_COLS[j].head); }
+function avgFxFields(){
+  for(let j = 0; j < 3; j++){
+    const o = avgEl('avgCurO' + j), other = avgEl('avgCur' + j).value === 'OTHER';
+    o.style.display = other ? '' : 'none';
+    const p = avgToCents(avgEl('avgT' + j).value), fx = avgFx(j);
+    avgEl('avgF' + j).value = (fx.ok && !p.bad && !p.blank && p.c >= 0) ? avgFmt(avgFor(p.c, fx.rate)) : '';
+  }
+}
+function avgFxChanged(){ avgFxFields(); if(avgS && avgS.res) avgRender(); }             // เปลี่ยนสกุลเงิน / อัตรา → คำนวณยอดต่างประเทศใหม่ทันที (ยอดไทยไม่เปลี่ยน)
+function avgFxEnable(on){ for(let j = 0; j < 3; j++) ['avgCur', 'avgCurO', 'avgRate'].forEach(k => { avgEl(k + j).disabled = !on; }); }
 async function avgHandleFile(files){
   const f = files && files[0];
   if(!f) return;
   avgS = null; avgClearResult();
   for(let j = 0; j < 3; j++){ avgEl('avgT' + j).value = ''; avgEl('avgT' + j).disabled = true; }
-  avgEl('avgTSum').textContent = '-'; avgEl('avgCalcBtn').disabled = true;
+  avgEl('avgTSum').textContent = '-'; avgEl('avgCalcBtn').disabled = true; avgFxEnable(false); avgFxFields();
   const showFile = (ok, sub) => { avgEl('avgFile').innerHTML = '<span>' + (ok ? '✅' : '❌') + '</span><span>' + avgEsc(f.name) + '<small>' + avgEsc(sub) + '</small></span>'; };
   try{
     if(!/\.xlsx$/i.test(f.name)) throw { list:['รองรับเฉพาะไฟล์ .xlsx'] };
@@ -2850,7 +2892,7 @@ async function avgHandleFile(files){
     avgS = { name:f.name, base:f.name.replace(/\.xlsx$/i, ''), buf, rows, amount: amountOk ? amount : null, res:null, page:0 };
     showFile(true, rows.length.toLocaleString('en-US') + ' รายการ');
     for(let j = 0; j < 3; j++){ avgEl('avgT' + j).disabled = false; avgEl('avgT' + j).value = avgFmt(rows.reduce((s, x) => s + x.v[j], 0)); }
-    avgEl('avgCalcBtn').disabled = false; avgTargetChanged();
+    avgEl('avgCalcBtn').disabled = false; avgFxEnable(true); avgTargetChanged();
   }catch(e){
     showFile(false, 'ใช้ไฟล์นี้ไม่ได้');
     avgFail('ไฟล์ไม่ผ่านการตรวจสอบ — ยังไม่ได้ประมวลผล', e && e.list ? e.list : ['อ่านไฟล์ Excel ไม่สำเร็จ']);
@@ -2907,9 +2949,12 @@ function avgRenderTable(){
   const R = avgS.res, n = R.changed.length, pages = Math.max(1, Math.ceil(n / AVG_PAGE)), p = avgS.page;
   avgEl('avgCount').textContent = '— ' + n.toLocaleString('en-US') + ' รายการ';
   if(!n){ avgEl('avgTable').innerHTML = '<div class="avg-empty">ไม่มีรายการที่เปลี่ยนแปลง</div>'; avgEl('avgPager').innerHTML = ''; return; }
-  let h = '<table id="avgTbl"><thead><tr><th>Item</th><th class="n">F/W_OTH</th><th class="n">Frg_OTH</th><th class="n">Ins_OTH</th></tr></thead><tbody>';
+  const fx = [0, 1, 2].map(avgFx);
+  let h = '<table id="avgTbl"><thead><tr><th rowspan="2">Item</th><th colspan="3">ไทย (THB)</th><th colspan="3">ต่างประเทศ</th></tr><tr>'
+        + AVG_COLS.map(c => '<th class="n">' + c.head + '</th>').join('') + AVG_COLS.map((c, j) => '<th class="n">' + c.head + ' (' + avgEsc(fx[j].code || '—') + ')</th>').join('') + '</tr></thead><tbody>';
   for(const i of R.changed.slice(p * AVG_PAGE, (p + 1) * AVG_PAGE))
-    h += '<tr><td class="c">' + avgEsc(avgS.rows[i].item) + '</td>' + R.out[i].map(c => '<td class="n">' + avgFmt(c) + '</td>').join('') + '</tr>';
+    h += '<tr><td class="c">' + avgEsc(avgS.rows[i].item) + '</td>' + R.out[i].map(c => '<td class="n">' + avgFmt(c) + '</td>').join('')
+       + R.out[i].map((c, j) => '<td class="n">' + (fx[j].ok ? avgFmt(avgFor(c, fx[j].rate)) : '') + '</td>').join('') + '</tr>';
   avgEl('avgTable').innerHTML = h + '</tbody></table>';
   avgEl('avgPager').innerHTML = '<span>แสดง ' + (p * AVG_PAGE + 1) + '–' + Math.min(n, (p + 1) * AVG_PAGE) + ' จาก ' + n + ' รายการ</span>'
     + '<button class="btn btn-ghost" id="avgPrev" onclick="avgGo(' + (p - 1) + ')"' + (p <= 0 ? ' disabled' : '') + '>◀ ก่อนหน้า</button>'
@@ -2920,11 +2965,13 @@ function avgRender(){
   const R = avgS.res, rows = avgS.rows;
   avgRenderTable();
   const tSum = R.T.reduce((a, b) => a + b, 0), bSum = R.cols.reduce((s, c) => s + c.before, 0), aSum = R.after.reduce((a, b) => a + b, 0);
-  let h = '<table id="avgSumTbl"><thead><tr><th>รายการ</th><th class="n">ยอดรวมเป้าหมาย</th></tr></thead><tbody>';
-  AVG_COLS.forEach((c, j) => { h += '<tr><td>' + c.head + '</td><td class="n">' + avgFmt(R.T[j]) + '</td></tr>'; });
-  h += '<tr class="tot"><td>รวมทั้งหมด</td><td class="n">' + avgFmt(tSum) + '</td></tr></tbody></table>';
-  h += R.ok ? '<div class="avg-ok" id="avgCheck">✓ ยอดรวมตรงกัน — พร้อม Export Excel</div>'
-            : '<div class="avg-bad" id="avgCheck">✗ ยอดรวมไม่ผ่านการตรวจสอบ — ปิดการ Export<ul>' + R.chk.map(x => '<li>' + avgEsc(x) + '</li>').join('') + '</ul></div>';
+  const fx = [0, 1, 2].map(avgFx), fxMiss = avgFxMissing(), ready = R.ok && !fxMiss.length;
+  let h = '<table id="avgSumTbl"><thead><tr><th>รายการ</th><th class="n">ไทย (THB)</th><th class="n">ต่างประเทศ</th></tr></thead><tbody>';
+  AVG_COLS.forEach((c, j) => { h += '<tr><td>' + c.head + '</td><td class="n">' + avgFmt(R.T[j]) + ' THB</td><td class="n">' + (fx[j].ok ? avgFmt(avgFor(R.T[j], fx[j].rate)) + ' ' + avgEsc(fx[j].code) : '—') + '</td></tr>'; });
+  h += '<tr class="tot"><td>รวมไทย</td><td class="n">' + avgFmt(tSum) + ' THB</td><td class="n">—</td></tr></tbody></table>';   // ไม่มี "รวมต่างประเทศ" — ไม่รวมยอดต่างสกุลเงิน
+  h += !R.ok ? '<div class="avg-bad" id="avgCheck">✗ ยอดรวมไม่ผ่านการตรวจสอบ — ปิดการ Export<ul>' + R.chk.map(x => '<li>' + avgEsc(x) + '</li>').join('') + '</ul></div>'
+     : fxMiss.length ? '<div class="avg-bad" id="avgCheck">✗ ยังไม่พร้อม Export — ข้อมูลสกุลเงินไม่ครบ<ul>' + fxMiss.map(x => '<li>' + avgEsc(x) + '</li>').join('') + '</ul></div>'
+     : '<div class="avg-ok" id="avgCheck">✓ ยอดรวมตรงกัน — พร้อม Export Excel</div>';
   h += '<table id="avgDiffTbl"><thead><tr><th>รายการ</th><th class="n">ก่อนเฉลี่ย</th><th class="n">หลังเฉลี่ย</th><th class="n">ส่วนต่างสุทธิ</th></tr></thead><tbody>';
   AVG_COLS.forEach((c, j) => { h += '<tr><td>' + c.head + '</td><td class="n">' + avgFmt(R.cols[j].before) + '</td><td class="n">' + avgFmt(R.after[j]) + '</td><td class="n">' + avgSigned(R.cols[j].net) + '</td></tr>'; });
   h += '<tr class="tot"><td>รวม</td><td class="n">' + avgFmt(bSum) + '</td><td class="n">' + avgFmt(aSum) + '</td><td class="n">' + avgSigned(aSum - bSum) + '</td></tr></tbody></table>';
@@ -2939,19 +2986,25 @@ function avgRender(){
   info += '<li><span>ส่วนต่างสุทธิ (ยอดเป้าหมาย − ยอดในไฟล์เดิม)</span><b id="avgNet">' + avgSigned(net) + '</b></li></ul>';
   if(net !== 0) info += '<div style="margin-top:6px;font-size:12px;color:#92400e">ยอดเป้าหมาย' + (net > 0 ? 'สูง' : 'ต่ำ') + 'กว่ายอดในไฟล์เดิม ' + avgFmt(Math.abs(net)) + ' — ปรับยอดสุทธิให้ตรงกับยอดที่กรอกแล้ว (แยกจากยอดที่โยกภายใน)</div>';
   avgEl('avgInfo').innerHTML = info;
-  avgSetFlag(R.ok ? '✓ ยอดรวมตรงกัน' : 'ยอดรวมไม่ตรง', R.ok ? 'ok' : 'bad');
-  avgEl('avgExpChanged').disabled = !R.ok; avgEl('avgExpAll').disabled = !R.ok;
+  avgSetFlag(!R.ok ? 'ยอดรวมไม่ตรง' : ready ? '✓ ยอดรวมตรงกัน' : 'กรอกสกุลเงิน / อัตรา ให้ครบ', ready ? 'ok' : 'bad');
+  avgEl('avgExpChanged').disabled = !ready; avgEl('avgExpAll').disabled = !ready;
 }
 function avgExportChanged(){
-  if(!avgS || !avgS.res || !avgS.res.ok) return;
-  const R = avgS.res, ws = {}; let r = 1;
-  ['Item', 'F/W_OTH', 'Frg_OTH', 'Ins_OTH'].forEach((t, c) => { ws[XLSX.utils.encode_cell({ r:0, c })] = { t:'s', v:t }; });
-  for(const i of R.changed){                                    // ครบทุกหน้า · ค่าชุดเดียวกับ Preview
+  if(!avgS || !avgS.res || !avgS.res.ok || avgFxMissing().length) return;
+  const R = avgS.res, fx = [0, 1, 2].map(avgFx), ws = {}; let r = 1;
+  /* A = Item · B–D = ไทย (THB) · E–G = ต่างประเทศ (สกุลของแต่ละหัวข้อ) · H–J = อัตราแลกเปลี่ยนของแต่ละหัวข้อ */
+  ['Item'].concat(AVG_COLS.map(c => c.head + ' THB'), AVG_COLS.map((c, j) => c.head + ' ' + fx[j].code), AVG_COLS.map((c, j) => 'อัตรา ' + c.head + ' (' + fx[j].code + ')'))
+    .forEach((t, c) => { ws[XLSX.utils.encode_cell({ r:0, c })] = { t:'s', v:t }; });
+  for(const i of R.changed){                                    // ครบทุกหน้า · ลำดับและเลข Item ตามไฟล์ Upload · ค่าชุดเดียวกับ Preview
     ws['A' + (r + 1)] = { t:'s', v:avgS.rows[i].item, z:'@' };
-    R.out[i].forEach((c, j) => { ws[XLSX.utils.encode_cell({ r, c:j + 1 })] = { t:'n', v:c / 100, z:'0.00' }; });
+    R.out[i].forEach((c, j) => {
+      ws[XLSX.utils.encode_cell({ r, c:j + 1 })] = { t:'n', v:c / 100, z:'0.00' };
+      ws[XLSX.utils.encode_cell({ r, c:j + 4 })] = { t:'n', v:avgFor(c, fx[j].rate) / 100, z:'0.00' };
+      ws[XLSX.utils.encode_cell({ r, c:j + 7 })] = { t:'n', v:fx[j].rate, z:'0.00####' };
+    });
     r++;
   }
-  ws['!ref'] = 'A1:D' + r; ws['!cols'] = [{ wch:12 }, { wch:16 }, { wch:16 }, { wch:16 }];
+  ws['!ref'] = 'A1:J' + r; ws['!cols'] = [{ wch:10 }].concat(Array(6).fill({ wch:15 }), Array(3).fill({ wch:20 }));
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'CHANGED ITEMS');
   XLSX.writeFile(wb, 'CHANGED_ITEMS_' + avgS.base + '.xlsx');
 }
@@ -2996,7 +3049,7 @@ async function avgPatchXlsx(buf, rows, out){
   return zip.generateAsync({ type:'uint8array', compression:'DEFLATE' });
 }
 async function avgExportAll(){
-  if(!avgS || !avgS.res || !avgS.res.ok) return;
+  if(!avgS || !avgS.res || !avgS.res.ok || avgFxMissing().length) return;
   const btn = avgEl('avgExpAll'); btn.disabled = true;
   try{
     const R = avgS.res, bytes = await avgPatchXlsx(avgS.buf, avgS.rows, R.out);
@@ -27281,7 +27334,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local471';
+const DEPLOY_VERSION = 'local472';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
