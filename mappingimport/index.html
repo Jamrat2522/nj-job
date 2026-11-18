@@ -7662,6 +7662,7 @@ function stFinish(){
   stSetStatus('AI อ่าน Invoice PDF สำเร็จ · ' + S.invoices + ' Invoice · ' + S.items + ' รายการ · TOTAL QTY ' + S.qty.toLocaleString() +
               ' · TOTAL AMT ' + S.amt.toLocaleString(undefined, { minimumFractionDigits:2, maximumFractionDigits:2 }) +
               (cachedAll ? ' · ใช้ผลเดิมจาก Cache (ไม่เสียค่า API เพิ่ม)' : ' · ค่า API $' + cost.toFixed(4)) +
+              (S.all.some(r => r._tcb) ? ' · รูปแบบ TCB BEARING (COMMERCIAL INVOICE) ' + S.all.filter(r => r._tcb).length + ' ใบ' : '') +
               (S.warn.length ? '\n⚠ มีข้อมูลที่อ่านไม่พบ ' + S.warn.length + ' จุด — ดูรายละเอียดใน Preview' : ''),
               S.warn.length ? '' : 'ok');
   stRenderPreview(true);
@@ -7716,7 +7717,10 @@ function stToResults(pdf){
   const str = v => (v == null ? '' : String(v).trim());
   for(const iv of R.invoices){
     if(!iv) continue;
-    const invoice_number = str(iv.doc_no), invoice_date = str(iv.doc_date);
+    /* [465] เอกสารรูปแบบ TCB BEARING (COMMERCIAL INVOICE) — AI ระบุรูปแบบมาใน doc_type · ใช้ Mapping เดิมของ Techno ทุกช่อง
+       ต่างจากรูปแบบเดิมเฉพาะ "รูปแบบการพิมพ์" 2 จุด: วันที่ YYYY/MM/DD → DD.MM.YYYY (รูปแบบวันที่เดิมของ Mapping) · หน่วย PCS = PC */
+    const isTcb = stIsTcb(iv);
+    const invoice_number = str(iv.doc_no), invoice_date = isTcb ? stTcbDate(iv.doc_date) : str(iv.doc_date);
     const currency = str(iv.cur).toUpperCase(), incoterm = str(iv.incoterm).toUpperCase().slice(0, 3);
     const items = [];
     for(const it of (iv.items || [])){
@@ -7730,7 +7734,7 @@ function stToResults(pdf){
       items.push({
         no: isNaN(noNum) ? '' : String(noNum), invoice_no: invoice_number, invoice_date,
         product_code, english_description: stEngDesc(invoice_number, it),
-        quantity: isNaN(qn) ? 0 : qn, unit: raw_unit === 'PC' ? 'C62' : raw_unit,
+        quantity: isNaN(qn) ? 0 : qn, unit: (raw_unit === 'PC' || (isTcb && raw_unit === 'PCS')) ? 'C62' : raw_unit,
         /* [464] Unit Price = Value ÷ Quantity (ความละเอียดเต็ม · ไม่ปัดก่อนตรวจ) · Total Price = Value จาก PDF โดยตรง */
         unit_price: stUnitPrice(qn, it.value), total_price: toNumberCommon(it.value),
         _chk: stPriceCheck(qn, it.value, it.price, it.per),
@@ -7742,9 +7746,20 @@ function stToResults(pdf){
       });
     }
     out.push({ customer:'SCHAEFFLER TECHNO', invoice_number, invoice_date, currency: currency || '', incoterm, items,
-               _amount: toNumberCommon(iv.amount), _file: pdf.name });
+               _amount: toNumberCommon(iv.amount), _file: pdf.name, _tcb: isTcb });
   }
   return out;
+}
+/* [465] ตัวตรวจรูปแบบเอกสาร TCB BEARING + แปลงวันที่ที่พิมพ์แบบ YYYY/MM/DD ให้เป็นรูปแบบวันที่เดิมของ Mapping (DD.MM.YYYY)
+   วันที่ที่ไม่ใช่รูปแบบนี้ = คงค่าที่พิมพ์ไว้ตามเดิม (ไม่เดา) */
+function stIsTcb(iv){ return String((iv && iv.doc_type) || '').trim().toUpperCase() === 'TCB_COMMERCIAL_INVOICE'; }
+function stTcbDate(v){
+  const t = String(v == null ? '' : v).trim();
+  const m = t.match(/^(\d{4})[\/.\-](\d{1,2})[\/.\-](\d{1,2})$/);
+  if(!m) return t;
+  const mo = +m[2], d = +m[3];
+  if(mo < 1 || mo > 12 || d < 1 || d > 31) return t;
+  return String(d).padStart(2, '0') + '.' + String(mo).padStart(2, '0') + '.' + m[1];
 }
 /* [462] English Description — เฉพาะ Invoice 180165544 (ตามคำสั่ง · ไม่ใช้กับ Invoice อื่น)
    Designation (ชื่อในบรรทัด Designation) + Dimensions (บรรทัดถัดลงมา) ของ "รายการเดียวกัน" เท่านั้น
@@ -26613,7 +26628,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local464';
+const DEPLOY_VERSION = 'local465';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
