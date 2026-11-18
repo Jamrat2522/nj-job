@@ -966,6 +966,50 @@ body.legacy-active .content-area { display: none !important; }
       <div class="page-sub" id="page-sub">วาง PDF + Excel 3 ไฟล์ในหน้าเดียว → Export MAPPING_CELESTICA.xlsx</div>
     </div>
 
+
+    <!-- [471] Schaeffler Techno — ตัวเลือกโหมด + โหมดน้ำหนัก (DN) · แสดงเฉพาะหน้า Mapping Schaeffler Techno -->
+    <style>
+      body.stw-on .content-area > .upload-grid, body.stw-on .content-area > .preview-card, body.stw-on .content-area > #st-ai-status, body.stw-on .content-area > .actions-row, body.stw-on .content-area > .po-card{display:none !important}
+      #stw-box{margin:0}
+      #stw-box .stw-modes{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+      #stw-box .stw-mode{padding:8px 14px;border-radius:9px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-weight:700;font-size:13px;cursor:pointer}
+      #stw-box .stw-mode.on{background:#1d4ed8;border-color:#1d4ed8;color:#fff}
+      #stw-panel{background:#fff;border:1px solid #dbe3ef;border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(15,23,42,.06)}
+      #stw-drop{border:2px dashed #94a3b8;border-radius:12px;padding:22px;text-align:center;background:#f8fafc;cursor:pointer}
+      #stw-drop.drag{border-color:#1d4ed8;background:#eff6ff}
+      #stw-drop .t{font-size:15px;font-weight:800;color:#0f172a}
+      #stw-drop .h{font-size:12px;color:#64748b;margin-top:4px}
+      #stw-status{margin:10px 0 0;font-size:12.5px;font-weight:700;color:#334155;white-space:pre-line}
+      #stw-status.ok{color:#047857} #stw-status.err{color:#b91c1c}
+      #stw-table{overflow:auto;margin-top:10px}
+      #stw-table table{width:100%;border-collapse:collapse;font-size:13px;min-width:560px}
+      #stw-table th{background:#1e40af;color:#fff;padding:7px 10px;text-align:left;white-space:nowrap}
+      #stw-table td{padding:6px 10px;border-bottom:1px solid #e2e8f0;color:#0f172a}
+      #stw-table .n{text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600}
+      #stw-table .ok{color:#047857;font-weight:700} #stw-table .bad{color:#b91c1c;font-weight:700}
+      #stw-table tr.bad td{background:#fef2f2}
+      #stw-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    </style>
+    <div id="stw-box" style="display:none">
+      <div class="stw-modes">
+        <button type="button" class="stw-mode on" id="stw-mode-inv" onclick="stwSetMode(false)">โหมด Mapping Invoice</button>
+        <button type="button" class="stw-mode" id="stw-mode-dn" onclick="stwSetMode(true)">โหมดน้ำหนัก — DN</button>
+      </div>
+      <div id="stw-panel" style="display:none">
+        <div id="stw-drop" onclick="document.getElementById('stw-input').click()">
+          <div class="t">📄 วางไฟล์ DELIVERY NOTE (DN)</div>
+          <div class="h">PDF หลายไฟล์พร้อมกันได้ · อ่านเฉพาะหน้าแรกของแต่ละไฟล์ · อ่านเสร็จแล้ว Export Excel อัตโนมัติ</div>
+          <input id="stw-input" type="file" accept=".pdf,application/pdf" multiple style="display:none" onchange="stwHandle(this.files); this.value=''">
+        </div>
+        <div id="stw-status"></div>
+        <div id="stw-table"></div>
+        <div id="stw-acts">
+          <button class="btn btn-primary" id="stw-export" onclick="stwExport()" disabled>📤 EXPORT EXCEL</button>
+          <button class="btn btn-ghost" id="stw-clear" onclick="stwClear()">ล้าง</button>
+        </div>
+      </div>
+    </div>
+
     <div class="upload-grid" id="upload-grid"></div>
 
     <div class="po-card" id="po-card" style="display:none">
@@ -7915,7 +7959,126 @@ function stSetStatus(msg, cls){
   el.style.borderColor = cls === 'err' ? 'rgba(220,38,38,.45)' : cls === 'ok' ? 'rgba(22,163,74,.45)' : 'rgba(148,163,184,.4)';
 }
 /* ปุ่ม: ปิด EXPORT ระหว่าง AI อ่าน และเมื่อยังอ่านไม่ครบ/ล้มเหลว · เปลี่ยนโหมด = ซ่อนสถานะ */
+/* ══ [471] Schaeffler Techno — โหมดน้ำหนัก (DN) ══
+   • แยกจากโหมด Mapping Invoice: ไม่ใช้ slotData / AI / OCR — อ่านข้อความจาก PDF โดยตรงด้วย pdf.js
+   • อ่าน "เฉพาะหน้าแรก" ของแต่ละไฟล์ (getPage(1) ครั้งเดียว) · 1 ไฟล์ = 1 แถว · เรียงตามลำดับที่แนบ
+   • อ่าน 3 ค่า: Lieferschein-Nr./Delivery Note No. · Netto/Net · Brutto/Gross (ตัวเลขแบบเยอรมัน . = หลักพัน , = ทศนิยม)
+   • อ่านไม่พบ = เว้นว่าง + แจ้งสีแดง (ไม่เดา · ไม่ใช้ชื่อไฟล์แทน) */
+let stwMode = false, stwRows = [], stwBusy = false, stwRound = 0;
+const STW_FILE = 'SCHAEFFLER_TECHNO_DN_WEIGHT.xlsx';
+function stwApply(){
+  const box = document.getElementById('stw-box'); if(!box) return;
+  const t = activeCustomer === 'schaeffler_techno', on = t && stwMode;
+  box.style.display = t ? '' : 'none';
+  document.body.classList.toggle('stw-on', on);
+  const p = document.getElementById('stw-panel'); if(p) p.style.display = on ? '' : 'none';
+  const a = document.getElementById('stw-mode-inv'), b = document.getElementById('stw-mode-dn');
+  if(a) a.classList.toggle('on', !stwMode); if(b) b.classList.toggle('on', stwMode);
+}
+function stwSetMode(on){ stwMode = !!on; stwApply(); }
+/* ตัวเลขเยอรมัน "1.253,0" → { v:1253, d:1 } · รูปแบบอื่น = null (ไม่เดา) */
+function stwNum(t){
+  const m = String(t == null ? '' : t).trim().match(/^(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d+))?$/);
+  if(!m) return null;
+  const d = m[2] || '';
+  return { v: Number(m[1].replace(/\./g, '') + (d ? '.' + d : '')), d: d.length };
+}
+function stwShow(n){ return n ? n.v.toFixed(n.d) : ''; }
+/* หาค่าน้ำหนักที่อยู่ "บรรทัดเดียวกันทางขวา" ของป้ายกำกับ */
+function stwWeightAt(items, lab){
+  const line = items.filter(i => Math.abs(i.y - lab.y) <= 3 && i.x > lab.x).sort((a, b) => a.x - b.x).map(i => i.s).join(' ');
+  const m = line.match(/(\d{1,3}(?:\.\d{3})+|\d+)(?:,\d+)?\s*KG\b/i);
+  return m ? stwNum(m[0].replace(/\s*KG$/i, '')) : null;
+}
+function stwParse(items){
+  const r = { dn:'', nw:null, gw:null };
+  /* Delivery Note No: ตัวเลขที่อยู่ใต้ป้าย "Lieferschein-Nr./ Delivery Note No." (ช่อง 3) — หัวกระดาษด้านบนไม่มีตัวเลขอยู่ใต้ป้ายในระยะนี้ */
+  const labs = items.filter(i => /Lieferschein-Nr/i.test(i.s));
+  let best = null;
+  for(const n of items){ if(!/^\d{6,12}$/.test(n.s)) continue;
+    for(const L of labs){ const dy = L.y - n.y, dx = n.x - L.x; if(dy > 0 && dy <= 40 && dx >= -10 && dx <= 160){ const k = dy + Math.abs(dx) / 10; if(!best || k < best.k) best = { k, s:n.s }; } } }
+  if(best) r.dn = best.s;
+  const gl = items.find(i => /^Gross\b/i.test(i.s)) || items.find(i => /Brutto/i.test(i.s));
+  const nl = items.find(i => /Netto\s*\/\s*Net\b/i.test(i.s)) || items.find(i => /^Netto/i.test(i.s));
+  if(gl){ r.gw = stwWeightAt(items, gl); if(!r.gw){ const b = items.find(i => /Brutto/i.test(i.s)); if(b && b !== gl) r.gw = stwWeightAt(items, b); } }
+  if(nl) r.nw = stwWeightAt(items, nl);
+  return r;
+}
+async function stwReadDn(file){
+  const row = { file:file.name, dn:'', nw:null, gw:null, pages:0, miss:[], err:'' };
+  try{
+    if(!/\.pdf$/i.test(file.name)) throw new Error('ไม่ใช่ไฟล์ PDF');
+    const pdf = await pdfjsLib.getDocument({ data:new Uint8Array(await file.arrayBuffer()) }).promise;
+    row.pages = pdf.numPages;
+    const tc = await (await pdf.getPage(1)).getTextContent();            // หน้าแรกเท่านั้น
+    const items = tc.items.map(i => ({ s:String(i.str || '').trim(), x:i.transform[4], y:i.transform[5] })).filter(i => i.s);
+    try{ pdf.destroy(); }catch(_){}
+    if(!items.length) throw new Error('หน้าแรกไม่มีข้อความให้อ่านโดยตรง (ไฟล์สแกน) — โหมดนี้ไม่ใช้ AI / OCR');
+    const r = stwParse(items); row.dn = r.dn; row.nw = r.nw; row.gw = r.gw;
+    if(!row.dn) row.miss.push('Delivery Note No'); if(!row.nw) row.miss.push('Total NW'); if(!row.gw) row.miss.push('Total GW');
+  }catch(e){ row.err = String((e && e.message) || e || 'อ่านไฟล์ไม่สำเร็จ'); }
+  row.ok = !row.err && !row.miss.length;
+  row.msg = row.ok ? 'อ่านสำเร็จ' : row.err ? 'อ่านไม่สำเร็จ: ' + row.err : 'ไม่พบ ' + row.miss.join(', ') + (row.dn ? ' ใน Delivery Note ' + row.dn : ' ในไฟล์ ' + row.file);
+  return row;
+}
+function stwExportable(){ return stwRows.filter(r => r.dn || r.nw || r.gw); }
+function stwRender(note){
+  const e = escapeHtml, st = document.getElementById('stw-status'), tb = document.getElementById('stw-table');
+  if(!stwRows.length && !stwBusy){ st.textContent = ''; st.className = ''; tb.innerHTML = ''; document.getElementById('stw-export').disabled = true; return; }
+  let h = '<table id="stw-tbl"><thead><tr><th>Delivery Note No</th><th class="n">Total NW</th><th class="n">Total GW</th><th>สถานะ</th><th>หมายเหตุ</th></tr></thead><tbody>';
+  for(const r of stwRows)
+    h += '<tr class="' + (r.ok ? '' : 'bad') + '"><td>' + e(r.dn) + '</td><td class="n">' + stwShow(r.nw) + '</td><td class="n">' + stwShow(r.gw) + '</td><td class="' + (r.ok ? 'ok' : 'bad') + '">' + e(r.msg) + '</td><td>' + e(r.file) + (r.pages > 1 ? ' (อ่านหน้า 1 จาก ' + r.pages + ' หน้า)' : '') + '</td></tr>';
+  tb.innerHTML = h + '</tbody></table>';
+  const bad = stwRows.filter(r => !r.ok).length;
+  st.textContent = note || ''; st.className = stwBusy ? '' : bad ? 'err' : 'ok';
+  document.getElementById('stw-export').disabled = stwBusy || !stwExportable().length;
+}
+async function stwHandle(files){
+  const list = Array.from(files || []); if(!list.length || stwBusy) return;
+  const round = ++stwRound; stwBusy = true; stwRows = [];
+  for(let i = 0; i < list.length; i++){
+    stwRender('กำลังอ่าน DN ' + (i + 1) + ' / ' + list.length + ' …');
+    const row = await stwReadDn(list[i]); if(round !== stwRound) return;
+    stwRows.push(row);
+  }
+  stwBusy = false;
+  const bad = stwRows.filter(r => !r.ok).length, n = stwExportable().length;
+  stwRender('อ่าน DN ' + stwRows.length + ' ไฟล์ · สำเร็จ ' + (stwRows.length - bad) + (bad ? ' · อ่านไม่ครบ ' + bad + ' ไฟล์ (ช่องที่ไม่พบเว้นว่าง)' : '') + (n ? ' · Export ' + STW_FILE + ' แล้ว' : ' · ไม่มีข้อมูลให้ Export'));
+  if(n) await stwExport();                                              // Export อัตโนมัติ 1 ครั้งต่อรอบ
+}
+function stwClear(){ stwRound++; stwBusy = false; stwRows = []; stwRender(''); }
+async function stwExport(){
+  const rows = stwExportable(); if(!rows.length || stwBusy) return;
+  const fmt = n => n.d ? '0.' + '0'.repeat(n.d) : '0';
+  const save = (data) => { const url = URL.createObjectURL(new Blob([data], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    const a = document.createElement('a'); a.href = url; a.download = STW_FILE; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000); };
+  try{
+    if(typeof ExcelJS === 'undefined') throw new Error('no-exceljs');
+    const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet('DN WEIGHT', { views:[{ state:'frozen', ySplit:1 }] });
+    ws.addRow(['Delivery Note No', 'Total NW', 'Total GW']);
+    for(const r of rows){ const x = ws.addRow([r.dn || null, r.nw ? r.nw.v : null, r.gw ? r.gw.v : null]);
+      if(r.nw) x.getCell(2).numFmt = fmt(r.nw); if(r.gw) x.getCell(3).numFmt = fmt(r.gw); x.getCell(1).numFmt = '@'; }
+    ws.getRow(1).eachCell(c => { c.font = { bold:true, color:{ argb:'FFFFFFFF' } }; c.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF1E40AF' } }; c.alignment = { horizontal:'center', vertical:'middle' }; });
+    ws.getRow(1).height = 22; [22, 16, 16].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    ws.getColumn(2).alignment = { horizontal:'right' }; ws.getColumn(3).alignment = { horizontal:'right' };
+    ws.getRow(1).eachCell(c => { c.alignment = { horizontal:'center', vertical:'middle' }; });
+    ws.autoFilter = 'A1:C' + (rows.length + 1);
+    save(await wb.xlsx.writeBuffer());
+  }catch(_e){                                                           // สำรอง: ไม่มี ExcelJS → SheetJS (ข้อมูล / ชนิดเซลล์ / Filter เหมือนกัน)
+    const ws = { A1:{ t:'s', v:'Delivery Note No' }, B1:{ t:'s', v:'Total NW' }, C1:{ t:'s', v:'Total GW' } };
+    rows.forEach((r, i) => { const n = i + 2; if(r.dn) ws['A' + n] = { t:'s', v:r.dn }; if(r.nw) ws['B' + n] = { t:'n', v:r.nw.v, z:fmt(r.nw) }; if(r.gw) ws['C' + n] = { t:'n', v:r.gw.v, z:fmt(r.gw) }; });
+    ws['!ref'] = 'A1:C' + (rows.length + 1); ws['!cols'] = [{ wch:22 }, { wch:16 }, { wch:16 }]; ws['!autofilter'] = { ref: ws['!ref'] };
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'DN WEIGHT');
+    save(XLSX.write(wb, { bookType:'xlsx', type:'array' }));
+  }
+}
+(function(){ const d = document.getElementById('stw-drop'); if(!d) return;
+  ['dragenter', 'dragover'].forEach(ev => d.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); d.classList.add('drag'); }));
+  ['dragleave', 'drop'].forEach(ev => d.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); d.classList.remove('drag'); }));
+  d.addEventListener('drop', e => { stwHandle(e.dataTransfer && e.dataTransfer.files); });
+})();
 function stGate(){
+  try{ stwApply(); }catch(_){}
   const el = document.getElementById('st-ai-status');
   /* [460] Schaeffler Automotive / Techno / India: ซ่อนชื่อหน้าซ้ำ + ข้อความแนะนำ + Debug Panel (โหมดอื่นแสดงตามเดิม) */
   try{ document.body.classList.toggle('sch-clean', ['schaeffler_auto','schaeffler_techno','schaeffler_india'].indexOf(activeCustomer) >= 0); }catch(_){}
@@ -27118,7 +27281,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local470';
+const DEPLOY_VERSION = 'local471';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
