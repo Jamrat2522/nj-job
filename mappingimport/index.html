@@ -7805,8 +7805,27 @@ function stTcbDate(v){
    • ชื่อเดียวกัน (ไม่แยกตัวพิมพ์ใหญ่-เล็ก · ตัดช่องว่างส่วนเกิน) → ใช้ Designation ค่าเดียว ตามตัวสะกดใน PDF
    • ชื่อต่างกัน → Designation + เว้นวรรค 1 ครั้ง + Dimensions · ไม่มี Dimensions → Designation */
 const ST_DESC_MERGE_INVOICES = ['180165544'];
+/* [468] บรรทัด Dimensions แบบสองภาษา "<English>/Teljesítés dátuma" (Invoice ของ Schaeffler Savaria · ฮังการี)
+   → คืนเฉพาะข้อความภาษาอังกฤษ "ก่อน" เครื่องหมาย / · ข้อความฮังการีหลัง / ไม่ถูกนำมาใช้
+   null = บรรทัดนี้ไม่ใช่รูปแบบดังกล่าว (เช่น ขนาด 75,000X160,000X68,300 MM) → ใช้กฎเดิมทุกประการ */
+function stDimEnglish(dim){
+  const t = cleanTextCommon(dim), k = t.indexOf('/');
+  if(k < 0) return null;
+  const tail = t.slice(k + 1).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  if(tail !== 'teljesites datuma') return null;
+  const head = t.slice(0, k).replace(/\s+/g, ' ').trim();
+  if(/^(teljes|delivery|date of delivery|net value|order|commodity code|country of origin)/i.test(head)) return '';
+  return head;
+}
 function stEngDesc(invoiceNo, it){
   const d = cleanTextCommon(it && it.desc);
+  const e = stDimEnglish(it && it.dim);
+  if(e !== null){
+    if(!d || !e) return d;               // ไม่มี Designation = อ่านไม่พบ → คงค่าว่าง + คำเตือนเดิม (ไม่เติมค่าแทน)
+    const dl = d.replace(/\s+/g, ' ').toLowerCase(), el = e.toLowerCase();
+    if(dl === el || (' ' + dl + ' ').indexOf(' ' + el + ' ') >= 0) return d;      // ข้อความซ้ำ (ไม่แยกตัวพิมพ์ใหญ่-เล็ก) → เก็บครั้งเดียว
+    return d + ' ' + e.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');   // ต่อกันตามลำดับใน PDF · Title Case
+  }
   if(ST_DESC_MERGE_INVOICES.indexOf(String(invoiceNo || '').trim()) < 0) return d;
   const m = cleanTextCommon(it && it.dim);
   if(!m) return d;
@@ -26717,7 +26736,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local467';
+const DEPLOY_VERSION = 'local468';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
