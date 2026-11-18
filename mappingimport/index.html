@@ -7684,6 +7684,31 @@ function stCountry(raw){
    กฎ Mapping เดิมทุกข้อ: No = เลข Item ตัดศูนย์นำหน้า · Product Code = Material No. (มีขีด) ·
    Material No = Cust. Material No. (ถ้าใบนี้ไม่พิมพ์ → Product Code ตัดขีด เหมือนรูปแบบ Intercompany เดิม) ·
    Unit PC → C62 · Unit Price / Total Price = ค่าที่พิมพ์ในบรรทัด Net Value · Origin = รหัสประเทศ · Page # = หน้าที่พบรายการ */
+/* [464] Unit Price ของ Schaeffler Techno
+   Unit Price = Value ÷ Quantity — ห้ามนำราคาที่พิมพ์ (เช่น 1,236.89 / 100 PC) มาใส่ตรง ๆ
+   Quantity ว่างหรือเป็นศูนย์ / ไม่มี Value → ว่าง + คำเตือน (ห้ามหาร) */
+function stUnitPrice(qty, value){
+  const q = Number(qty), v = toNumberCommon(value);
+  if(!isFinite(q) || q <= 0 || v === '') return '';
+  return v / q;
+}
+/* ตรวจซ้ำกับราคาที่พิมพ์ใน PDF: ราคาอ้างอิงต่อหน่วย = Price ÷ Price Unit ( / 100 PC → ÷100 · / 1 PC → ไม่หาร )
+   ผ่านเมื่อ ROUND(Quantity × Unit Price, 2) = Value และ ROUND(Quantity × ราคาอ้างอิง, 2) = Value
+   ไม่ผ่าน = แจ้งเตือนเท่านั้น — ยังยึด Unit Price = Value ÷ Quantity */
+function stPriceCheck(qty, value, price, per){
+  const q = Number(qty), v = toNumberCommon(value), p = toNumberCommon(price);
+  const r2 = x => Math.round((x + Number.EPSILON) * 100) / 100;
+  if(!isFinite(q) || q <= 0) return { ok:false, why:'Quantity ว่างหรือเป็นศูนย์ — ไม่คำนวณ Unit Price' };
+  if(v === '') return { ok:false, why:'ไม่พบ Value ของรายการ — ไม่คำนวณ Unit Price' };
+  const up = v / q;
+  if(Math.abs(r2(q * up) - v) > 0.0001) return { ok:false, why:'Quantity × Unit Price ไม่เท่ากับ Value' };
+  const perN = parseInt(String(per == null ? '' : per).replace(/[^\d]/g, ''), 10);
+  if(p === '' || !isFinite(perN) || perN <= 0) return { ok:true, ref:'', why:'' };          // ไม่พบ Price / Price Unit → ใช้ Value ÷ Quantity
+  const ref = p / perN, calc = r2(q * ref);
+  if(Math.abs(calc - v) > 0.0001)
+    return { ok:false, ref, why:'ราคาใน PDF ' + p + ' / ' + perN + ' × Quantity ' + q + ' = ' + calc.toFixed(2) + ' ไม่เท่ากับ Value ' + Number(v).toFixed(2) };
+  return { ok:true, ref, why:'' };
+}
 function stToResults(pdf){
   const out = [];
   const R = pdf && pdf._ai && pdf._ai.result;
@@ -7706,7 +7731,9 @@ function stToResults(pdf){
         no: isNaN(noNum) ? '' : String(noNum), invoice_no: invoice_number, invoice_date,
         product_code, english_description: stEngDesc(invoice_number, it),
         quantity: isNaN(qn) ? 0 : qn, unit: raw_unit === 'PC' ? 'C62' : raw_unit,
-        unit_price: toNumberCommon(it.price), total_price: toNumberCommon(it.value),
+        /* [464] Unit Price = Value ÷ Quantity (ความละเอียดเต็ม · ไม่ปัดก่อนตรวจ) · Total Price = Value จาก PDF โดยตรง */
+        unit_price: stUnitPrice(qn, it.value), total_price: toNumberCommon(it.value),
+        _chk: stPriceCheck(qn, it.value, it.price, it.per),
         currency, origin: stCountry(it.coo), incoterm,
         desc2: cleanTextCommon(it.desig), material_no, article: '',
         net_weight: '', gross_weight: '',
@@ -7756,6 +7783,7 @@ function stSummary(){
       if(!it.no) miss.push('No'); if(!it.product_code) miss.push('Product Code');
       if(!it.english_description) miss.push('English Description'); if(!it.quantity) miss.push('Quantity');
       if(!it.unit) miss.push('Unit'); if(it.unit_price === '') miss.push('Unit Price');
+      if(it._chk && !it._chk.ok && it._chk.why) warn.push(tag + ' รายการ ' + (it.no || '?') + ' [' + (it.product_code || '-') + ']: ตรวจ Unit Price — ' + it._chk.why);
       if(it.total_price === '') miss.push('Total Price'); if(!it.origin) miss.push('Origin');
       if(!it.desc2) miss.push('Desc 2'); if(!it.page_no) miss.push('Page #');
       if(miss.length) warn.push(tag + ' รายการ ' + (it.no || '?') + ' [' + (it.product_code || '-') + ']: อ่านไม่พบ ' + miss.join(', ') +
@@ -7792,13 +7820,13 @@ function stRenderPreview(show){
          '<b>⚠ ข้อมูลที่ต้องตรวจสอบ</b><br>' + S.warn.slice(0, 60).map(w => '• ' + e(w)).join('<br>') +
          (S.warn.length > 60 ? '<br>… รวม ' + S.warn.length + ' จุด' : '') + '</div>';
   h += '<div style="overflow:auto;max-height:420px"><table style="border-collapse:collapse;font-size:11.5px;min-width:980px"><thead><tr>' +
-       ['No','Invoice No.','Invoice Date','Product Code','English Description','Quantity','Unit','Unit Price','Total Price','Currency','Origin','Incoterm','Desc 2','Material No','Page #']
+       ['No','Invoice No.','Invoice Date','Product Code','English Description','Quantity','Unit','Unit Price','Total Price','Currency','Origin','Incoterm','Desc 2','Material No','Page #','ตรวจ Unit Price']
          .map(t => '<th style="text-align:left;padding:4px 8px;border-bottom:2px solid #94a3b8;white-space:nowrap">' + t + '</th>').join('') + '</tr></thead><tbody>';
   const td = v => '<td style="padding:3px 8px;border-bottom:1px solid rgba(148,163,184,.35);white-space:nowrap">' + e(v == null ? '' : String(v)) + '</td>';
   for(const it of rows)
     h += '<tr>' + td(it.no) + td(it.invoice_no) + td(it.invoice_date) + td(it.product_code) + td(it.english_description) + td(it.quantity) +
-         td(it.unit || 'C62') + td(it.unit_price) + td(it.total_price) + td(it.currency || 'USD') + td(it.origin) + td(it.incoterm) +
-         td(String(it.desc2 || '').split('#')[0].replace(/\/\s*$/, '').trim()) + td(it.material_no) + td(it.page_no) + '</tr>';
+         td(it.unit || 'C62') + td(it.unit_price === '' ? '' : Number(it.unit_price).toFixed(4)) + td(it.total_price) + td(it.currency || 'USD') + td(it.origin) + td(it.incoterm) +
+         td(String(it.desc2 || '').split('#')[0].replace(/\/\s*$/, '').trim()) + td(it.material_no) + td(it.page_no) + td(!it._chk ? '' : it._chk.ok ? 'ผ่าน' : 'ไม่ผ่าน') + '</tr>';
   h += '</tbody></table></div></div>';
   try{ document.getElementById('preview-title').textContent = 'Preview — ' + CUSTOMERS.schaeffler_techno.title + ' (AI อ่านจาก Invoice PDF)'; }catch(_){}
   body.innerHTML = h;
@@ -8132,7 +8160,16 @@ function doExportSCHAEFFLERTECHNO(){
   const allResults = stAllResults();
   if(!allResults.length){ toast('ไม่ได้ข้อมูลจาก PDF', 'err'); return; }
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, buildSheetSchaefflerTechno(allResults), 'SCHAEFFLER_TECHNO');
+  const wsT = buildSheetSchaefflerTechno(allResults);
+  /* [464] Unit Price (คอลัมน์ H): เก็บเป็นตัวเลขเต็มความละเอียด · แสดง 4 ตำแหน่ง — ไม่แตะคอลัมน์/รูปแบบอื่น */
+  try{
+    const rg = XLSX.utils.decode_range(wsT['!ref']);
+    for(let r = 1; r < rg.e.r; r++){
+      const c = wsT[XLSX.utils.encode_cell({ r, c: 7 })];
+      if(c && c.t === 'n'){ c.z = '0.0000'; c.s = Object.assign({}, c.s || {}, { numFmt: '0.0000' }); }
+    }
+  }catch(_){}
+  XLSX.utils.book_append_sheet(wb, wsT, 'SCHAEFFLER_TECHNO');
   XLSX.writeFile(wb, 'MAPPING_SCHAEFFLER_TECHNO.xlsx', {bookSST:false, type:'binary', cellStyles:true});
   toast(`✓ Export: MAPPING_SCHAEFFLER_TECHNO.xlsx (${allResults.reduce((a,r)=>a+(r.items?.length||0),0)} items)`, 'ok');
 }
@@ -12205,7 +12242,7 @@ function txRenderResult(){
     if(H.none) warn.push('• ' + esc(HS_MSG_NONE) + ' — กด "เลือกไฟล์ HS CODE" ที่กรอบ HS CODE MASTER ระบบจะอ่านและจับคู่ให้ทันที');
     h += '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px;margin-bottom:8px;font-size:11px">' +
          warn.slice(0, 50).join('<br>') + (warn.length > 50 ? '<br>… รวม ' + warn.length + ' รายการ' : '') +
-         '<div style="margin-top:6px;font-weight:700">ปุ่ม EXPORT EXCEL ถูกปิดไว้จนกว่าจะพบข้อมูลครบทุก Product Code และ Tariff Code</div></div>';
+         '<div style="margin-top:6px;font-weight:700">ยัง EXPORT EXCEL ได้ — ช่องที่ไม่พบจะถูกส่งออกเป็นค่าว่าง และระบบจะให้ยืนยันก่อน EXPORT</div></div>';
   }
   const A = _txMstActive;
   h += '<div style="font-size:10.5px;color:#64748b;margin-bottom:8px">MASTER ที่ใช้: ' +
@@ -12447,7 +12484,7 @@ async function txMatch(){
       why.push('ข้อมูลไม่ครบ ' + fld.bad.length + ' รายการ — ' + fld.bad.slice(0, 3).map(x =>
         'รายการ ' + x.no + ' [' + (x.pcode || '-') + '] Tariff ' + (x.tariff || '-') + ' ขาด ' + x.miss.join(', ')).join(' · ') +
         (fld.bad.length > 3 ? ' …' : ''));
-    txSetStatus((mstOK ? '✓ ' + TX_MST_MSG_OK : '⚠ EXPORT ยังปิดอยู่: ' + why.join(' · ')) +
+    txSetStatus((mstOK ? '✓ ' + TX_MST_MSG_OK : '⚠ ข้อมูล Mapping ไม่ครบ (EXPORT ได้หลังยืนยัน): ' + why.join(' · ')) +
       ' · ' + list.length + ' Invoice · ' + rows + ' รายการ' +
       (A0.bad ? ' · ⚠ อ่านไม่สำเร็จ ' + A0.bad + ' ไฟล์' : '') +
       (errs.length ? ' · ⚠ เลขคณิตไม่ตรง ' + errs.length + ' Invoice' : ''),
@@ -12577,9 +12614,11 @@ function txCheckReady(){
   const Hq = txState.res && txState.res.hs;
   /* [446] ข้อ 12 — Export เปิดเมื่อ: MASTER ครบ + HS CODE ACTIVE + จับ Tariff Code ครบทุกรายการ */
   const Fq = txState.res && txState.res.fld;
-  const mstOK = !!M && M.miss === 0 && M.blur === 0 && !!Hq && Hq.miss === 0 && !Hq.none && (!Fq || Fq.bad.length === 0);
-  if(b) b.disabled = !(txState.res && txState.res.list && txState.res.list.length)
-                     || busy || bad || _txRunning || _txMatching || !mstOK || !txMstReady() || !hsReady();
+  /* [463] Mapping ไม่ครบ (ไม่พบใน MASTER / HS CODE) ไม่ปิดปุ่มอีกต่อไป — เตือน + ให้ยืนยันตอนกด EXPORT
+     ปิดเฉพาะ: AI กำลังอ่าน · กำลัง Lookup · ไม่มี PDF/รายการ · อ่าน PDF ล้มเหลว · ไม่มี MASTER สำหรับ Lookup · Lookup ยังไม่เสร็จ */
+  const lookupDone = !!M && !!Hq && !!Fq;
+  const hasRows = !!(txState.res && txState.res.list && txState.res.list.length && Fq && Fq.total > 0);
+  if(b) b.disabled = !hasRows || busy || bad || _txRunning || _txMatching || !lookupDone || !txMstReady();
 }
 function txReset(){
   _txAutoWait++;                                 // [447] ยกเลิกคิวอ่านอัตโนมัติที่ค้างอยู่
@@ -13498,24 +13537,34 @@ async function txBuildBook(list){
     else if(/(Description\s*:|Boxes\s*:|COO\s|Customer\s*P\.?\s*O|\d{4}\.\d{2}\.\d{2})/i.test(row.cells.DESC1.v))
       bad.push(at + 'คอลัมน์ "' + TX_KEY_LABEL.DESC1 + '" มีข้อความอื่นปะปน (Description:/HTS/COO/Customer P.O./Boxes)');
     /* [440] ข้อ 7 — Validate 5 ช่องที่มาจาก MASTER · ไม่พบ/ไม่ครบ = ห้าม Export ห้ามเดาเลขเอง */
-    const m = row.src.mst;
-    if(!row.src.pcode){ bad.push(at + TX_MST_MSG_BLUR); return; }
-    if(!m){ bad.push(at + TX_MST_MSG_ROW(row.src.pcode)); return; }
-    if(row.cells.TARIFF.t !== 's' || row.cells.TARIFF.v !== m[1] || !/^\d{8}$/.test(row.cells.TARIFF.v))
-      bad.push(at + 'คอลัมน์ "' + TX_KEY_LABEL.TARIFF + '" ต้องตรง MASTER และเป็นตัวเลข 8 หลัก (ได้ "' + row.cells.TARIFF.v + '")');
-    /* [446] Stat · Traff Seq · Privilege ต้องตรงกับ HS CODE MASTER และห้ามว่าง (ข้อ 12) */
-    const hv = row.src.hs;
-    if(!hv){ bad.push(at + HS_MSG_ROW(row.src.hkey || row.cells.TARIFF.v)); return; }
-    if(row.cells.STAT.t !== 's' || row.cells.STAT.v !== hv[2] || !/^\d{3}$/.test(row.cells.STAT.v))
-      bad.push(at + 'คอลัมน์ "' + TX_KEY_LABEL.STAT + '" ต้องตรง HS CODE MASTER และเป็นตัวเลข 3 หลัก (ได้ "' + row.cells.STAT.v + '")');
-    if(row.cells.TSEQ.t !== 's' || row.cells.TSEQ.v !== hv[4] || !/^\d{5}$/.test(row.cells.TSEQ.v))
-      bad.push(at + 'คอลัมน์ "' + TX_KEY_LABEL.TSEQ + '" ต้องตรง HS CODE MASTER และเป็นตัวเลข 5 หลัก (ได้ "' + row.cells.TSEQ.v + '")');
-    if(row.cells.PRIV.t !== 's' || row.cells.PRIV.v !== hv[3] || !/^\d{3}$/.test(row.cells.PRIV.v))
-      bad.push(at + 'คอลัมน์ "' + TX_KEY_LABEL.PRIV + '" ต้องตรง HS CODE MASTER และเป็นตัวเลข 3 หลัก (ได้ "' + row.cells.PRIV.v + '")');
+    /* [463] ไม่พบใน MASTER / HS CODE = ไม่ห้าม Export แล้ว — แต่ช่องนั้น "ต้องว่างจริง" (ห้ามมีค่า · ห้าม 0 · ห้ามค่าจากรายการอื่น)
+       พบข้อมูล = ค่าที่ Export ต้องตรงกับ MASTER / HS CODE ทุกตัวอักษร (กฎเดิม) */
+    const m = row.src.mst, hv = row.src.hs;
+    const isEmp = c => !!c && c.t === 'e' && (c.v === '' || c.v == null);
+    const sameS = (c, v) => { const t = String(v == null ? '' : v); return t === '' ? isEmp(c) || (c.t === 's' && c.v === v) : (c.t === 's' && c.v === v); };
+    if(!m){
+      for(const k of ['TH3', 'TARIFF', 'STAT', 'TSEQ', 'PRIV']) if(!isEmp(row.cells[k]))
+        bad.push(at + 'คอลัมน์ "' + TX_KEY_LABEL[k] + '" ต้องว่าง เพราะไม่พบ Product Code ใน MASTER');
+      return;
+    }
+    if(!sameS(row.cells.TARIFF, m[1]))
+      bad.push(at + 'คอลัมน์ "' + TX_KEY_LABEL.TARIFF + '" ไม่ตรงกับ MASTER (ได้ "' + row.cells.TARIFF.v + '")');
+    if(!sameS(row.cells.TH3, m[0]))
+      bad.push(at + 'คอลัมน์ "' + TX_KEY_LABEL.TH3 + '" ไม่ตรงกับ MASTER');
+    /* Stat · Traff Seq · Privilege มาจาก HS CODE MASTER เท่านั้น */
+    if(!hv){
+      for(const k of ['STAT', 'TSEQ', 'PRIV']) if(!isEmp(row.cells[k]))
+        bad.push(at + 'คอลัมน์ "' + TX_KEY_LABEL[k] + '" ต้องว่าง เพราะไม่พบ Tariff Code ใน HS CODE');
+      return;
+    }
+    if(!sameS(row.cells.STAT, hv[2]))
+      bad.push(at + 'คอลัมน์ "' + TX_KEY_LABEL.STAT + '" ไม่ตรงกับ HS CODE MASTER (ได้ "' + row.cells.STAT.v + '")');
+    if(!sameS(row.cells.TSEQ, hv[4]))
+      bad.push(at + 'คอลัมน์ "' + TX_KEY_LABEL.TSEQ + '" ไม่ตรงกับ HS CODE MASTER (ได้ "' + row.cells.TSEQ.v + '")');
+    if(!sameS(row.cells.PRIV, hv[3]))
+      bad.push(at + 'คอลัมน์ "' + TX_KEY_LABEL.PRIV + '" ไม่ตรงกับ HS CODE MASTER (ได้ "' + row.cells.PRIV.v + '")');
     if(hv[0] !== row.cells.TARIFF.v)
       bad.push(at + 'Tariff Code ที่ใช้จับ HS CODE ไม่ตรงกับค่าที่ Export');
-    if(row.cells.TH3.t !== 's' || row.cells.TH3.v !== m[0])
-      bad.push(at + 'คอลัมน์ "' + TX_KEY_LABEL.TH3 + '" ไม่ตรงกับ MASTER');
   });
   if(bad.length) throw new Error('ไม่สามารถ Export ได้:\n' + bad.slice(0, 20).join('\n') + (bad.length > 20 ? '\n… รวม ' + bad.length + ' รายการ' : ''));
 
@@ -13567,6 +13616,36 @@ async function txBuildBook(list){
 
 /* ── EXPORT EXCEL — ใช้ผลที่ AI อ่านและจับคู่ MASTER/HS CODE ไว้แล้วเท่านั้น
    ★ Mapping / Template / รูปแบบไฟล์ ใช้ txBuildBook() เดิม 100% ไม่แก้แม้แต่คอลัมน์เดียว ── */
+/* [463] กล่องยืนยันก่อน EXPORT เมื่อ Mapping ไม่ครบ — ปุ่ม "ยกเลิก" / "ยืนยัน EXPORT" */
+function txConfirmExport(n){
+  return new Promise(resolve => {
+    const old = document.getElementById('tx-confirm-export'); if(old) old.remove();
+    const ov = document.createElement('div');
+    ov.id = 'tx-confirm-export';
+    ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:99990;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#fff;color:#0f172a;border-radius:14px;max-width:460px;width:100%;padding:20px 20px 16px;box-shadow:0 20px 50px rgba(0,0,0,.35);font-size:14px;line-height:1.6';
+    const msg = document.createElement('div');
+    msg.id = 'tx-confirm-msg';
+    msg.style.cssText = 'font-weight:600;margin-bottom:16px';
+    msg.textContent = 'พบข้อมูล Mapping ไม่ครบ ' + n + ' รายการ ช่องที่ไม่พบจะถูกส่งออกเป็นค่าว่าง คุณต้องการ EXPORT EXCEL ต่อหรือไม่';
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap';
+    const bNo = document.createElement('button'), bYes = document.createElement('button');
+    bNo.type = 'button'; bNo.id = 'tx-confirm-no'; bNo.textContent = 'ยกเลิก';
+    bNo.style.cssText = 'padding:9px 18px;border-radius:9px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;font-weight:600;cursor:pointer;font-size:14px';
+    bYes.type = 'button'; bYes.id = 'tx-confirm-yes'; bYes.textContent = 'ยืนยัน EXPORT';
+    bYes.style.cssText = 'padding:9px 18px;border-radius:9px;border:1px solid #15803d;background:#16a34a;color:#fff;font-weight:700;cursor:pointer;font-size:14px';
+    const done = v => { try{ document.removeEventListener('keydown', onKey, true); ov.remove(); }catch(_){} resolve(v); };
+    const onKey = e => { if(e.key === 'Escape'){ e.preventDefault(); done(false); } };
+    bNo.onclick = () => done(false); bYes.onclick = () => done(true);
+    document.addEventListener('keydown', onKey, true);
+    row.appendChild(bNo); row.appendChild(bYes); box.appendChild(msg); box.appendChild(row); ov.appendChild(box);
+    document.body.appendChild(ov);
+    try{ bNo.focus(); }catch(_){}
+  });
+}
 async function txDownload(){
   const btn = document.getElementById('tx-btn-export');
   if(btn) btn.disabled = true;
@@ -13582,16 +13661,16 @@ async function txDownload(){
     const M = (txState.res && txState.res.mst) || null;
     if(!txMstReady()) throw new Error(TX_MST_MSG_NONE);
     if(!M) throw new Error('ยังจับคู่ MASTER ไม่เสร็จ กรุณารอสักครู่');
-    if(M.blur) throw new Error(TX_MST_MSG_BLUR);
-    if(M.miss) throw new Error(TX_MST_MSG_NG(M.miss) + '\n' +
-      M.missList.slice(0, 10).map(c => '• ' + TX_MST_MSG_ROW(c)).join('\n') +
-      (M.missList.length > 10 ? '\n… รวม ' + M.missList.length + ' รหัส' : ''));
-    /* [446] ข้อ 12 — ไม่มี HS CODE ACTIVE หรือจับ Tariff Code ไม่ครบ = ห้าม Export */
-    if(!hsReady()) throw new Error(HS_MSG_NONE);
     const HX = (txState.res && txState.res.hs) || null;
-    if(!HX || HX.none) throw new Error('ยังจับคู่ HS CODE ไม่เสร็จ กรุณารอสักครู่');
-    if(HX.miss) throw new Error(HX.missList.slice(0, 10).map(c => HS_MSG_ROW(c)).join('\n') +
-      (HX.missList.length > 10 ? '\n… รวม ' + HX.missList.length + ' รหัส' : ''));
+    const FX = (txState.res && txState.res.fld) || null;
+    if(!HX || !FX) throw new Error('ยังจับคู่ HS CODE ไม่เสร็จ กรุณารอสักครู่');
+    /* [463] Mapping ไม่ครบ = ไม่ห้าม Export อีกต่อไป — เตือนและให้ผู้ใช้ยืนยันก่อน
+       ช่องที่ไม่พบส่งออกเป็นค่าว่าง (ไม่เดา · ไม่ใส่ 0 · ไม่คัดลอกจากรายการอื่น) · Export ครบทุกรายการตาม Invoice */
+    const nBad = FX.bad.length;
+    if(nBad > 0){
+      const go = await txConfirmExport(nBad);
+      if(!go){ txCheckReady(); return; }
+    }
 
     txSetStatus('กำลังสร้าง Excel …');
     const buf  = await txBuildBook(list);
@@ -13603,7 +13682,8 @@ async function txDownload(){
     a.download = name;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    txSetStatus('✓ สำเร็จ: ' + name + ' · ' + list.length + ' Invoice · ' + rows + ' รายการ', 'ok');
+    txSetStatus('✓ สำเร็จ: ' + name + ' · ' + list.length + ' Invoice · ' + rows + ' รายการ' +
+      (nBad > 0 ? ' · ⚠ ข้อมูล Mapping ไม่ครบ ' + nBad + ' รายการ (ช่องที่ไม่พบส่งออกเป็นค่าว่าง)' : ''), nBad > 0 ? '' : 'ok');
   }catch(e){
     console.error('[TX]', e);
     txSetStatus('✗ ' + (e && e.message ? e.message : e), 'err');
@@ -26533,7 +26613,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local462';
+const DEPLOY_VERSION = 'local464';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
