@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <!-- Build Metadata (local316): เลข Version ของ Build นี้ — กำหนดที่บรรทัดนี้ที่เดียว ใช้ทั้งเว็บไซต์ (ป้ายมุมขวาบนอ่านจากที่นี่) -->
-<meta name="nj-build" content="local318">
+<meta name="nj-build" content="local323">
 <title>Mapping Export Hi-Tech HTML</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -5455,10 +5455,13 @@ async function doExportGROHE(){
   if(typeof groheAiExportBegin !== 'function'){ toast('ระบบ AI ของ GROHE SIAM ยังไม่พร้อม — รีโหลดหน้าเว็บ', 'err'); return; }
   if(!groheAiExportBegin()){ toast('กำลังประมวลผล EXPORT อยู่ — ใช้งานเดิม ไม่สร้างงาน AI ซ้ำ', 'warn'); return; }
   let ok = false;
-  try{ const r = await _doExportGROHERun(); ok = (r === true || r === 'partial') ? r : false; }
+  try{ const r = await _doExportGROHERun(); ok = (r === true || r === 'partial' || r === 'warn') ? r : false; }
   catch(e){ console.error('doExportGROHE:', e); toast('Export ไม่สำเร็จ: ' + ((e && e.message) || e), 'err'); }
   finally { groheAiExportDone(ok); }
 }
+/* local320 — กฎแหล่งข้อมูล EN DESC. ของ GROHE SIAM: ใช้ Description ที่ AI อ่านจาก PDF Invoice ตรงตัวอักษร
+ *   ไม่ย่อ ไม่รวม ไม่แปลงตัวพิมพ์ ไม่เติมจาก MASTER · ค่าว่าง = เว้นว่าง (ระบบแจ้งเตือนและส่งอ่านซ้ำเฉพาะรายการนั้นแล้ว) */
+function _groheDescPdf(v){ return v == null ? '' : String(v); }
 async function _doExportGROHERun(){
   const _ai = await groheAiExport();
   if(!_ai.ok){ toast(_ai.msg, 'err'); return false; }
@@ -5508,23 +5511,26 @@ async function _doExportGROHERun(){
     const invNo = /^\d{1,15}$/.test(m.invoiceNo) ? Number(m.invoiceNo) : m.invoiceNo;
     const dOK = /^\d{4}-\d{2}-\d{2}$/.test(m.date);
     const [yy, mm, dd] = dOK ? m.date.split('-').map(Number) : [null, null, null];
-    const prod = /^\d{1,15}$/.test(_groheTxt(it.product)) ? Number(it.product) : _groheTxt(it.product);
+    // local319: รหัสสินค้าที่ขึ้นต้นด้วย 0 (เช่น 01207031) หรือมีอักขระอื่น = เก็บเป็นข้อความตามที่พิมพ์ใน PDF — ไม่ตัดเลข 0 นำหน้า
+    const _pt = _groheTxt(it.product);
+    const prod = (/^\d{1,15}$/.test(_pt) && !/^0\d/.test(_pt)) ? Number(_pt) : _pt;
     aoa.push([
       invNo,                                   // A INVOICE NO. — PDF
       dOK ? new Date(yy, mm - 1, dd) : '',     // B INVOICE DATE — PDF (ไม่พบ = เว้นว่าง)
       idx + 1,                                 // C ITEMS — ลำดับที่ส่งออก
-      prod,                                    // D PRODUCT — PDF (เลขล้วน = ตัวเลข · มีตัวอักษร = ข้อความ)
-      ms.en || '', ms.th || '',                // E/F EN DESC. · TH DESC. — MASTER (ไม่พบ = เว้นว่าง)
+      prod,                                    // D PRODUCT — PDF (เลขล้วน = ตัวเลข · ขึ้นต้นด้วย 0 / มีตัวอักษร = ข้อความ)
+      _groheDescPdf(it.desc),                  // E EN DESC. — Description จาก PDF Invoice เท่านั้น ทุกแถว (local320) · ห้ามใช้ MASTER แทน/ทับ · อ่านไม่ได้ = เว้นว่าง + แจ้งเตือน
+      ms.th || '',                             // F TH DESC. — MASTER (ไม่พบ = เว้นว่าง)
       i.qty,                                   // G Qty — PDF
       'C62',                                   // H หน่วย — FIX
-      i.unitPrice,                             // I Unit price = Amount ÷ Qty
+      i.unitPrice == null ? '' : i.unitPrice,  // I Unit price — ค่าที่พิมพ์ในช่อง Price ของ PDF (local319: ไม่คำนวณ Amount ÷ Qty · อ่านไม่ได้ = เว้นว่าง)
       i.amount,                                // J Amount — PDF
       m.currency,                              // K Currency — PDF
       '', '',                                  // L/M หีบห่อ — ไม่มีข้อมูล
-      _groheNum(nw.nw),                        // N NET WEIGHT — XLSX คอลัมน์ Z
+      (i.nwKg != null ? i.nwKg : _groheNum(nw.nw)),   // N NET WEIGHT (KG) — XLSX คอลัมน์ Net weight (local322: หน่วย G แปลงเป็น KG ตามที่ผู้ใช้สั่ง)
       '',                                      // O GROSS WEIGHT — ไม่มีข้อมูล
-      nw.delivery ? nw.delivery + ' Address' : '',  // P MARK (Shipping mark) — Delivery จาก XLSX (ไม่พบ = เว้นว่าง)
-      nw.country || '',                        // Q Purchase Country — XLSX
+      nw.delivery ? String(nw.delivery).trim() + ' Address' : '',  // P MARK (Shipping mark) — "<Delivery จาก XLSX> Address" ตามไฟล์ตัวอย่าง (local321: ผู้ใช้ยืนยันให้ยึดไฟล์ตัวอย่าง · ไม่พบ = เว้นว่าง)
+      m.purchase || '',                        // Q Purchase Country — ประเทศผู้ซื้อจาก PDF (local323) · XLSX ใช้เทียบเท่านั้น ไม่ตรง = แจ้งเตือน · อ่านไม่ได้ = เว้นว่าง
       _groheTxt(it.coo),                       // R COO — PDF
       dOK ? yy : '',                           // S Product Year — ปีของ Invoice Date
       ms.tariff || '', ms.stat || '', ms.brand || '', ms.boi || '', ms.lic || '', ms.lic2 || '', ms.org || '', ms.issued || '', ms.preview || '',   // T–AB MASTER (ไม่พบ = เว้นว่าง)
@@ -5564,7 +5570,7 @@ async function _doExportGROHERun(){
   a.href = url; a.download = CUSTOMERS.grohe.exportName;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  if(_ai.partial || _ai.warned){ toast(`${_ai.msg} · ${CUSTOMERS.grohe.exportName} (${aoa.length - 1} รายการ)${_ai.partial ? ' — ดูรายการที่ข้ามในสรุปบนหน้าจอ' : ''}`, 'warn'); return 'partial'; }
+  if(_ai.partial || _ai.warned){ toast(`${_ai.msg} · ${CUSTOMERS.grohe.exportName} (${aoa.length - 1} รายการ)${_ai.partial ? ' — ดูรายการที่ข้ามในสรุปบนหน้าจอ' : ''}`, 'warn'); return (_ai.partial || _ai.incomplete) ? 'partial' : 'warn'; }   // local319: มีคำเตือนแต่อ่านครบ ≠ สำเร็จบางส่วน
   toast(`✓ Export: ${CUSTOMERS.grohe.exportName} (${_ai.exported.length} Invoice · ${aoa.length - 1} รายการ)`, 'ok');
   return true;
 }
@@ -10187,6 +10193,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     aiMode:'auto',                          // AUTO (ค่าเริ่มต้น) | sonnet | opus — เปลี่ยนได้ก่อนเริ่มประมวลผลเท่านั้น
     usage:{ sonnet:{ calls:0, in:0, out:0, cost:0, priced:true }, opus:{ calls:0, in:0, out:0, cost:0, priced:true } },
     ai:null, rechecked:new Set(), extra:new Map(),   // extra = รายการที่ Opus พบว่าตกหล่น (เก็บแยกเพื่อไม่ให้หายเมื่อรวมผลใหม่)            // ai = สรุปผลรอบล่าสุด · rechecked = ลายเซ็นคำถามที่ตรวจซ้ำไปแล้ว (กดซ้ำไม่เรียกซ้ำ)
+    check:null,                             // local319: ผลตรวจความครบก่อน EXPORT (หน้า · Item · ยอดรวม · N.W./MARK · MASTER)
     lic:null,                               // local317: ผลตรวจ MASTER พิกัดใบอนุญาต (แจ้งเตือนอย่างเดียว — ไม่บล็อก EXPORT)
   };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -10206,7 +10213,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   window.groheAiExportDone = function(ok){
     G.exporting = false;
     if(ok){ G.lastOk = true; if(G.pend) G.report = G.pend; setPhase('ดาวน์โหลดสำเร็จ');
-      const b = document.getElementById('u-btn-grohe'); if(b) b.textContent = ok === 'partial' ? '⚠ สำเร็จบางส่วน' : '✓ ดาวน์โหลดสำเร็จ';
+      const b = document.getElementById('u-btn-grohe'); if(b) b.textContent = ok === 'partial' ? '⚠ สำเร็จบางส่วน' : ok === 'warn' ? '⚠ ดาวน์โหลดแล้ว — มีคำเตือน' : '✓ ดาวน์โหลดสำเร็จ';
       setTimeout(() => { if(!G.exporting) setPhase(''); }, 4000); }
     else setPhase('');
     G.pend = null; render();
@@ -10230,7 +10237,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   window.groheAiReset = function(){
     if(G.exporting){ toast_('กำลังประมวลผล EXPORT — รอให้เสร็จก่อน', 'warn'); return; }
     G.files.forEach(f => { if(f.url) try{ URL.revokeObjectURL(f.url); } catch(e){} });
-    G.files = []; G.report = null; G.pend = null; G.lastOk = false; G.ai = null; G.lic = null; G.extra = new Map(); G.rechecked = new Set(); totalsClear(); render();
+    G.files = []; G.report = null; G.pend = null; G.lastOk = false; G.ai = null; G.lic = null; G.check = null; G.extra = new Map(); G.rechecked = new Set(); totalsClear(); render();
   };
 
   /* ── API ─────────────────────────────────────────────── */
@@ -10275,14 +10282,22 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   async function sha256(buf){ const d = await crypto.subtle.digest('SHA-256', buf); return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2,'0')).join(''); }
   async function pageCount(buf){ const doc = await pdfjsLib.getDocument({ data:new Uint8Array(buf.slice(0)) }).promise; const n = doc.numPages; try{ doc.destroy(); } catch(e){} return n; }
   // แบ่ง PDF ที่ใหญ่เกิน 8 MB เป็นช่วงหน้าต่อเนื่อง (ไม่ข้ามหน้า ไม่สลับลำดับ) — ผลอ่านจะถูกรวมกลับตาม Invoice
+  // local319: สร้างไฟล์ช่วงหน้าแบบ "ไบต์คงที่" — pdf-lib ใส่วันเวลาปัจจุบันลง Metadata ทุกครั้ง ทำให้ SHA-256 ของช่วงหน้าเดิมเปลี่ยนทุกรอบ
+  //           → Cache กลางที่ Server ไม่เคยตรง และถูกคิดค่า AI ซ้ำทุกครั้งที่กด (พบจริงใน nj_ai_jobs) · ตรึง Metadata ไว้ = SHA เดิม = ใช้ Cache ได้
+  const FIXED_DATE = new Date(Date.UTC(2000, 0, 1));
+  async function newDoc(){
+    const d = await PDFLib.PDFDocument.create({ updateMetadata:false });
+    try{ d.setCreationDate(FIXED_DATE); d.setModificationDate(FIXED_DATE); d.setProducer('NJ MAPPING'); d.setCreator('NJ MAPPING'); } catch(e){}
+    return d;
+  }
   async function splitPdf(buf, pages){
-    const src = await PDFLib.PDFDocument.load(buf, { ignoreEncryption:true });
+    const src = await PDFLib.PDFDocument.load(buf, { ignoreEncryption:true, updateMetadata:false });
     const per = Math.max(1, Math.floor(pages / Math.ceil(buf.byteLength / CHUNK_TARGET)));
     const parts = []; let from = 0;
     while(from < pages){
       let take = Math.min(per, pages - from), bytes = null;
       while(take >= 1){
-        const doc = await PDFLib.PDFDocument.create();
+        const doc = await newDoc();
         const idx = []; for(let i = 0; i < take; i++) idx.push(from + i);
         const cp = await doc.copyPages(src, idx); cp.forEach(p => doc.addPage(p));
         bytes = await doc.save();
@@ -10349,21 +10364,31 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       const { j } = await api({ action:'job_status', job_id:jobId });
       if(j && j.pending){ wait = j.poll_after_ms; continue; }
       if(j && j.success){ p.result = j.result; p.cached = !!j.cached; p.status = ST.OK; addUsage(p.model === 'opus' ? 'opus' : 'sonnet', j.usage); jobForget(p.sha); return; }
+      if(noInvoiceLegacy(p, j)){ jobForget(p.sha); return; }
       p.status = ST.FAIL; p.msg = (j && j.msg) || 'อ่าน PDF ไม่สำเร็จ'; if(j && j.error !== 'network') jobForget(p.sha); return;
     }
     p.status = ST.FAIL; p.msg = 'รอผลนานเกินกำหนด — กด EXPORT EXCEL อีกครั้ง';
   }
+  // Server รุ่นก่อน local319 ตอบ error "ไม่พบเลข Invoice" กับช่วงหน้าที่มีแต่ Packing List / เอกสารประกอบ — ถือเป็น "ช่วงที่ไม่มีหน้า Invoice" (ไม่ใช่อ่านล้มเหลว)
+  function noInvoiceLegacy(p, j){
+    if(!p.multi || !j || j.error !== 'incomplete' || !/ไม่พบเลข Invoice/.test(String(j.msg || ''))) return false;
+    p.result = { invoices:[], pages:[], no_invoice:true, legacy:true }; p.status = ST.OK; p.cached = false; return true;
+  }
   async function readPart(f, p){
     p.status = ST.AI; f.status = ST.AI; f.msg = f.parts.length > 1 ? `กำลังอ่านหน้า ${p.from}–${p.to} ด้วย AI` : 'กำลังอ่านข้อมูลด้วย AI'; render();
-    p.model = mainModel();
-    const { status, j } = await api({ name:`${f.name} (p${p.from}-${p.to}).pdf`, mime:'application/pdf', pdf:b64Of(p.bytes), idempotency_key:p.sha, model:p.model }, 180000);
+    p.model = mainModel(); p.multi = f.parts.length > 1;
+    const { status, j } = await api({ name:`${f.name} (p${p.from}-${p.to}).pdf`, mime:'application/pdf', pdf:b64Of(p.bytes), idempotency_key:p.sha, model:p.model, part:p.multi }, 180000);
     if(status === 200 && j && j.success){ p.result = j.result; p.cached = !!j.cached; p.status = ST.OK; addUsage(p.model === 'opus' ? 'opus' : 'sonnet', j.usage); return; }
     if(status === 202 && j && j.job_id){ jobRemember(p.sha, j.job_id, f.name); render(); await pollJob(p, j.job_id, j.poll_after_ms); return; }
+    if(noInvoiceLegacy(p, j)) return;
     p.status = ST.FAIL; p.msg = (j && j.msg) || 'ไม่สามารถเชื่อมต่อระบบ AI ได้';
   }
   async function readOne(f){
     for(const p of f.parts){ if(p.result) continue; await readPart(f, p); if(p.status === ST.FAIL){ f.status = ST.FAIL; f.msg = p.msg + (f.parts.length > 1 ? ` (หน้า ${p.from}–${p.to})` : ''); return; } }
-    f.status = ST.OK; f.msg = f.parts.every(p => p.cached) ? 'พบไฟล์ซ้ำ ใช้ข้อมูลเดิมจาก Cache' : 'อ่านข้อมูลสำเร็จ';
+    // local319: ไฟล์ผ่านเมื่อมีหน้า Invoice อย่างน้อย 1 ใบ · ช่วงที่มีแต่ Packing List / เอกสารประกอบ ไม่นับเป็นความล้มเหลว
+    if(!f.parts.some(p => p.result && Array.isArray(p.result.invoices) && p.result.invoices.length)){ f.status = ST.FAIL; f.noInv = true; f.msg = 'ไม่พบหน้า Invoice ในไฟล์นี้ (พบเฉพาะ Packing List / เอกสารประกอบ)'; return; }
+    const nCache = f.parts.filter(p => p.cached).length;
+    f.status = ST.OK; f.msg = nCache === f.parts.length ? 'พบไฟล์ซ้ำ ใช้ข้อมูลเดิมจาก Cache' : nCache ? `อ่านข้อมูลสำเร็จ (ใช้ Cache ${nCache}/${f.parts.length} ช่วงหน้า)` : 'อ่านข้อมูลสำเร็จ';
   }
   async function retryFile(id){
     const f = G.files.find(x => x.id === id); if(!f || f.busy) return;
@@ -10394,6 +10419,32 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
 
   /* ── MODEL: รวมผลทุกช่วงหน้า → Invoice (น้อย→มาก) → รายการตามลำดับใน PDF ── */
   // รวมผลข้ามช่วงหน้า: Invoice เดียวกันที่ถูกแบ่งคนละช่วง = Invoice เดียว · รายการต่อกันตามลำดับหน้า · ไม่ซ้ำรายการเดิม
+  /* local323: Purchase Country (คอลัมน์ Q) — ใช้ "ประเทศของผู้ซื้อ" ที่พิมพ์ใน PDF เป็นหลัก แล้วเทียบกับ XLSX (Paese Partner Ship to) · ไม่ตรง = ฟ้อง
+   *  PDF พิมพ์เป็นชื่อประเทศ (เช่น GERMANY) → แปลงเป็นรหัส 2 ตัวอักษรตามมาตรฐาน ISO ด้วยรายชื่อประเทศของเบราว์เซอร์ (ไม่เดา: แปลงไม่ได้ = เว้นว่าง + แจ้งเตือน) */
+  const C_ALIAS = { 'USA':'US', 'UNITED STATES OF AMERICA':'US', 'UK':'GB', 'GREAT BRITAIN':'GB', 'ENGLAND':'GB', 'UAE':'AE', 'KOREA':'KR', 'REPUBLIC OF KOREA':'KR', 'VIET NAM':'VN',
+    'RUSSIAN FEDERATION':'RU', 'CZECH REPUBLIC':'CZ', 'TURKEY':'TR', 'TURKIYE':'TR', 'HOLLAND':'NL', 'THE NETHERLANDS':'NL', 'PR CHINA':'CN', 'PEOPLES REPUBLIC OF CHINA':'CN',
+    'HONG KONG':'HK', 'MACAU':'MO', 'MACAO':'MO', 'BURMA':'MM', 'MYANMAR':'MM', 'IVORY COAST':'CI', 'LAOS':'LA', 'BRUNEI':'BN', 'SYRIA':'SY', 'IRAN':'IR', 'TANZANIA':'TZ', 'BOLIVIA':'BO', 'VENEZUELA':'VE', 'MOLDOVA':'MD' };
+  let C_MAP = null;
+  const cNorm = v => String(v == null ? '' : v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[.,'’()]/g, '').replace(/\s+/g, ' ').trim();
+  function countryIso(name){
+    const t = cNorm(name); if(!t) return '';
+    if(!C_MAP){ C_MAP = new Map(); const codes = new Set();
+      try{ const dn = new Intl.DisplayNames(['en'], { type:'region' }), A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        for(const a of A) for(const b of A){ const c = a + b; let n = ''; try{ n = dn.of(c); } catch(e){ n = ''; }
+          if(n && n !== c && !/^Unknown/i.test(n)){ codes.add(c); C_MAP.set(cNorm(n), c); } }
+      } catch(e){}
+      Object.keys(C_ALIAS).forEach(k => C_MAP.set(k, C_ALIAS[k])); C_MAP.codes = codes; }
+    if(/^[A-Z]{2}$/.test(t) && (C_MAP.codes.has(t) || !C_MAP.codes.size)) return t;      // PDF พิมพ์เป็นรหัสอยู่แล้ว
+    return C_MAP.get(t) || '';
+  }
+  window.groheCountryIso = countryIso;
+  const HEAD_KEYS = ['document_no', 'date', 'date_text', 'currency', 'buyer_country', 'ship_to_country', 'total_fob', 'freight', 'vat', 'total_amount'];
+  // ชนิดของแต่ละหน้าในไฟล์จริง (Invoice / Packing List / เอกสารประกอบ) จากผล AI — ใช้บอก "หน้า PDF" ในรายงาน
+  function pageMap(f){
+    const out = [];
+    (f.parts || []).forEach(p => ((p.result && p.result.pages) || []).forEach(x => { if(x && Number.isInteger(x.pg)) out.push({ pg:x.pg + (p.from - 1), kind:x.kind, invoice_no:String(x.invoice_no || ''), x:x.page_x, y:x.page_y }); }));
+    return out.sort((a, b) => a.pg - b.pg);
+  }
   function mergeInvoices(){
     const out = [];
     const addExtra = (f, m2) => { const list = G.extra.get(`${f.sha}|${String(m2.iv.invoice_no || '')}`) || [];
@@ -10404,7 +10455,11 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       r.invoices.forEach(iv => {
         const no = String(iv.invoice_no || '');
         let m = out.find(x => x.f === f && String(x.iv.invoice_no || '') === no);
-        if(!m){ m = { f, iv:{ ...iv, items:[] }, keys:new Set() }; out.push(m); }
+        if(!m){ m = { f, iv:{ ...iv, items:[], printed_pages_seen:[] }, keys:new Set() }; out.push(m); }
+        else HEAD_KEYS.forEach(k => { if((m.iv[k] == null || m.iv[k] === '') && iv[k] != null && iv[k] !== '') m.iv[k] = iv[k]; });   // หัว/ยอดรวมอาจอยู่คนละช่วงหน้า
+        if(Number.isInteger(iv.printed_pages_total) && iv.printed_pages_total > (m.iv.printed_pages_total || 0)) m.iv.printed_pages_total = iv.printed_pages_total;
+        (iv.printed_pages_seen || []).forEach(x => { if(Number.isInteger(x) && m.iv.printed_pages_seen.indexOf(x) < 0) m.iv.printed_pages_seen.push(x); });
+        (iv.delivery_refs || []).forEach(x => { m.iv.delivery_refs = m.iv.delivery_refs || []; if(m.iv.delivery_refs.indexOf(x) < 0) m.iv.delivery_refs.push(x); });
         (iv.items || []).forEach(it => {
           const k = [String(it.item_no || ''), String(it.product || ''), String(it.qty || ''), String(it.amount || '')].join('|');
           if(m.keys.has(k)) return;                       // ช่วงหน้าทับกัน / Packing List ซ้ำ = ไม่เพิ่มซ้ำ
@@ -10464,17 +10519,27 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
         // อ่านจาก PDF ไม่ได้ = ข้ามเฉพาะรายการนั้น (ไม่เดา) · อย่างอื่นเป็นคำเตือน
         [['Product', it.product], ['Quantity', it.qty], ['Amount', it.amount]].forEach(([k, v]) => { if(v == null || v === '') i.errs.push(`ไม่สามารถอ่าน ${k} จาก PDF (รายการที่ ${i.seq} หน้า ${it.pg || '?'})${it.note ? ' — ' + it.note : ''}`); });
         i.qty = num(it.qty); i.amount = num(it.amount);
-        i.unitPrice = (i.qty && i.amount != null && i.qty !== 0) ? i.amount / i.qty : null;
+        // local319: Unit price = ค่าที่พิมพ์ในช่อง Price ของ PDF เท่านั้น — ไม่คำนวณ Amount ÷ Qty มาทับ · อ่านไม่ได้ = เว้นว่าง + แจ้งเตือน
+        i.unitPrice = num(it.unit_price);
+        if(i.unitPrice == null) i.warns.push(`ไม่สามารถอ่าน Unit Price จาก PDF (Item ${it.item_no || i.seq} หน้า ${it.gpg || it.pg || '?'}) — ช่อง Unit price เว้นว่าง`);
+        if(it.desc == null || String(it.desc).trim() === '') i.warns.push(`ไม่สามารถอ่าน Description จาก PDF (Item ${it.item_no || i.seq} หน้า ${it.gpg || it.pg || '?'})`);
         // N.W. / MARK: ต้องเป็นแถวที่ Material ตรงกับ Product ของรายการนี้เท่านั้น — ไม่ใช้ค่าของรายการอื่น ไม่บวกรวม
-        i.nw = null;
+        i.nw = null; i.nwKg = null;
         if(g){
           const free = pool.map((r, k) => ({ r, k })).filter(x => !taken.has(x.k) && key8(x.r.material) === key8(it.product));
           const exact = free.filter(x => eq(num(x.r.qty), i.qty));
-          const pick = exact[0] || free[0] || null;
+          // local319: PDF พิมพ์เลข Delivery note ของแต่ละรายการ → เลือกแถว XLSX ที่ Delivery ตรงกันก่อน (สินค้า/จำนวนซ้ำกันหลาย Delivery จะไม่สลับ MARK)
+          const dn = String(it.delivery_ref || '').trim();
+          const sameDn = x => dn && String(x.r.delivery == null ? '' : x.r.delivery).trim() === dn;
+          const pick = exact.find(sameDn) || free.find(sameDn) || exact[0] || free[0] || null;
+          if(pick && dn && String(pick.r.delivery || '').trim() && !sameDn(pick)) i.warns.push(`Delivery ใน XLSX (${pick.r.delivery}) ไม่ตรงกับ Delivery note ใน PDF (${dn}) — Item ${it.item_no || i.seq} · ใช้ MARK จาก XLSX แถว ${pick.r.srcRow}`);
           if(pick){ taken.add(pick.k); i.nw = pick.r;
             if(!exact.length) i.warns.push(`จำนวนใน XLSX (${fmt(num(pick.r.qty),0)}) ไม่ตรงกับ PDF (${fmt(i.qty,0)}) แถว ${pick.r.srcRow} — ใช้ N.W. ของ Product เดียวกัน`);
             if(num(pick.r.nw) == null) i.warns.push(`XLSX แถว ${pick.r.srcRow} ไม่มีค่า Net weight — N.W. เว้นว่าง`);
-            if(pick.r.unit && U(pick.r.unit) !== 'KG') i.warns.push(`หน่วยน้ำหนักใน XLSX ไม่ใช่ KG (${pick.r.unit}) แถว ${pick.r.srcRow}`);
+            // local319: N.W. ของ MAPPING เป็น KG — XLSX ระบุหน่วย G = แปลงหน่วยตรงตัว (÷1000) · หน่วยอื่นคงค่าเดิมและแจ้งเตือน (ไม่เดา)
+            i.nwKg = num(pick.r.nw);
+            if(i.nwKg != null && U(pick.r.unit || '') === 'G'){ i.nwKg = Math.round(i.nwKg * 1000) / 1e6; i.warns.push(`XLSX แถว ${pick.r.srcRow} ระบุ Net weight ${fmt(num(pick.r.nw), 3)} G — แปลงเป็น ${i.nwKg} KG`); }
+            else if(pick.r.unit && U(pick.r.unit) !== 'KG') i.warns.push(`หน่วยน้ำหนักใน XLSX ไม่ใช่ KG (${pick.r.unit}) แถว ${pick.r.srcRow}`);
             if(!String(pick.r.delivery || '').trim()) i.warns.push(`XLSX แถว ${pick.r.srcRow} ไม่มี Delivery — MARK เว้นว่าง`); }
           else i.warns.push(`ไม่พบ Product ${it.product || '?'} ใน Billing Document ${g} ของ XLSX — N.W. / MARK เว้นว่าง`);
         }
@@ -10489,9 +10554,44 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       if(m.items.length && m.items.every(i => i.errs.length)) m.errs.push('อ่านรายการสินค้าจาก PDF ไม่ได้ทั้งใบ');
       if(!/^\d{4}-\d{2}-\d{2}$/.test(m.date)) m.warns.push('ไม่พบ Invoice Date ใน PDF — ช่องวันที่และปีสินค้าเว้นว่าง');
       if(!m.currency) m.warns.push('ไม่พบสกุลเงินใน PDF — ช่อง Currency เว้นว่าง');
-      const tot = num(m.iv.total_amount), sum = m.items.filter(i => !i.errs.length).reduce((s, i) => s + (i.amount || 0), 0);
-      m.sum = Math.round(sum * 100) / 100; m.total = tot;
-      if(tot != null && Math.abs(m.sum - tot) > 0.05) m.warns.push(`ยอดรวมรายการ ${fmt(sum)} ไม่ตรงกับ TOTAL ใน PDF ${fmt(tot)} — ตรวจสอบ`);
+      // ── local323: Purchase Country = ประเทศผู้ซื้อจาก PDF · เทียบกับ XLSX ──
+      { const raw = String(m.iv.buyer_country == null ? '' : m.iv.buyer_country).trim();
+        m.purchaseText = raw; m.purchase = countryIso(raw);
+        if(!raw) m.warns.push('ไม่สามารถอ่าน Purchase Country (ประเทศผู้ซื้อ) จาก PDF — ช่อง Purchase Country เว้นว่าง (ไม่นำค่า XLSX มาแทน)');
+        else if(!m.purchase) m.warns.push(`Purchase Country ใน PDF "${raw}" แปลงเป็นรหัสประเทศไม่ได้ — ช่อง Purchase Country เว้นว่าง`);
+        const xs = new Map();
+        m.items.forEach(i => { const c = i.nw ? String(i.nw.country || '').trim().toUpperCase() : ''; if(c){ if(!xs.has(c)) xs.set(c, []); xs.get(c).push(i.nw.srcRow); } });
+        m.purchaseXlsx = [...xs.keys()];
+        if(m.purchase) xs.forEach((rows, c) => { if(c !== m.purchase) m.warns.push(`Purchase Country ไม่ตรงกัน: PDF = ${m.purchase} (${raw}) แต่ XLSX = ${c} (${rows.length} แถว เช่นแถว ${rows.slice(0, 3).join(', ')}) — ใช้ค่าจาก PDF`); });
+        if(m.purchase && !xs.size && m.items.some(i => i.nw)) m.warns.push('XLSX ไม่มีข้อมูลประเทศ (Paese Partner Ship to) ให้เทียบกับ Purchase Country ของ PDF');
+      }
+      // ── local319: ตรวจความครบของ Invoice (หน้า · ลำดับ Position · ยอดรวม) ──
+      const tot = num(m.iv.total_amount), fob = num(m.iv.total_fob), frt = num(m.iv.freight), vat = num(m.iv.vat);
+      const sum = m.items.filter(i => !i.errs.length).reduce((s, i) => s + (i.amount || 0), 0);
+      m.sum = Math.round(sum * 100) / 100; m.total = tot; m.fob = fob; m.freight = frt; m.vat = vat;
+      m.partial = false; m.sumBad = false;
+      // (ก) จำนวนหน้า Invoice ตาม Page X / Y
+      const pm = pageMap(m.f).filter(x => x.kind === 'invoice' && x.invoice_no === m.invoiceNo);
+      const N = Number.isInteger(m.iv.printed_pages_total) ? m.iv.printed_pages_total : (pm.reduce((a, x) => Math.max(a, x.y || 0), 0) || null);
+      const seen = new Set([...(m.iv.printed_pages_seen || []), ...pm.map(x => x.x).filter(Number.isInteger)].filter(x => N == null || (x >= 1 && x <= N)));
+      m.pagesTotal = N; m.pagesSeen = [...seen].sort((a, b) => a - b); m.pdfPages = pm.map(x => x.pg);
+      m.pagesMissing = [];
+      if(N != null){ for(let x = 1; x <= N; x++) if(!seen.has(x)) m.pagesMissing.push(x); }
+      if(m.pagesMissing.length){ m.partial = true;
+        m.warns.push(`ข้อมูลบางส่วน: อ่านหน้า Invoice ได้ ${seen.size}/${N} หน้า — ขาดหน้า ${m.pagesMissing.join(', ')}${m.pdfPages.length ? ` (หน้า PDF ที่พบ: ${m.pdfPages.join(', ')})` : ''} · รายการอาจไม่ครบ`); }
+      // (ข) ลำดับ Position ต้องเรียงขึ้นและไม่ซ้ำ
+      const pos = m.items.map(i => ({ n:num(String(i.it.item_no == null ? '' : i.it.item_no).replace(/^0+(?=\d)/, '')), i })).filter(x => x.n != null);
+      m.posBad = [];
+      for(let k = 1; k < pos.length; k++) if(pos[k].n <= pos[k - 1].n) m.posBad.push(pos[k].i);
+      if(m.posBad.length) m.warns.push(`ลำดับ Position ไม่เรียงต่อเนื่อง/ซ้ำ ที่ Item ${m.posBad.map(i => `${i.it.item_no || i.seq} (หน้า ${i.it.gpg || i.it.pg || '?'})`).join(', ')} — ตรวจสอบรายการซ้ำหรือสลับลำดับ`);
+      // (ค) ยอดรวมรายการ เทียบ Total FOB (แยก Freight และภาษี)
+      if(fob != null){
+        if(Math.abs(m.sum - fob) > 0.05){ m.sumBad = true; m.partial = true; m.warns.push(`ข้อมูลบางส่วน: ยอดรวมรายการ ${fmt(sum)} ไม่ตรงกับ Total FOB ใน PDF ${fmt(fob)} (ต่าง ${fmt(m.sum - fob)}) — อาจมีรายการตกหล่นหรืออ่าน Amount ผิด`); }
+        if(tot != null && Math.abs((fob + (frt || 0) + (vat || 0)) - tot) > 0.05) m.warns.push(`Total FOB ${fmt(fob)} + Freight ${fmt(frt || 0)} + VAT ${fmt(vat || 0)} ไม่เท่ากับ Total Amount ${fmt(tot)} — ตรวจสอบยอดใน PDF`);
+      } else if(tot != null){
+        // ผลจาก Server รุ่นก่อน (ไม่มี Total FOB แยก): TOTAL ใน PDF อาจรวม Freight แล้ว — ฟ้องเฉพาะเมื่อยอดรายการ "มากกว่า" TOTAL
+        if(m.sum - tot > 0.05){ m.sumBad = true; m.warns.push(`ยอดรวมรายการ ${fmt(sum)} มากกว่า Total Amount ใน PDF ${fmt(tot)} — ตรวจสอบ`); }
+      } else if(!m.pagesMissing.length) m.warns.push('ไม่พบยอด Total FOB / Total Amount ใน PDF — ตรวจยอดรวมไม่ได้');
     });
     return { model, nw:rows, master:M };
   }
@@ -10506,7 +10606,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       const w = [...m.warns, ...good.flatMap(i => i.warns)];
       if(w.length || m.bad.length) warned.push({ no:m.invoiceNo || '?', file:m.f.name, why:[...w, ...m.bad.flatMap(i => i.errs)] });
     });
-    G.files.forEach(f => { if(!f.parts.length || !f.parts.every(p => p.result)) skipped.push({ t:'file', file:f.name, why:[f.status === ST.FAIL ? (f.msg || 'อ่านไม่สำเร็จ') : 'ยังไม่ได้อ่านด้วย AI'] }); });
+    G.files.forEach(f => { if(!f.parts.length || !f.parts.every(p => p.result) || f.noInv) skipped.push({ t:'file', file:f.name, why:[f.status === ST.FAIL ? (f.msg || 'อ่านไม่สำเร็จ') : 'ยังไม่ได้อ่านด้วย AI'] }); });
     return { pass, skipped, warned };
   }
   const skipInvN = sk => sk.filter(x => x.t === 'inv').length;
@@ -10530,10 +10630,18 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
         if(fields.length) out.push({ id:`${m.invoiceNo || '?'}#${i.seq}`, f:m.f, pg:it.gpg || it.pg || 1, invoice:m.invoiceNo, item_no:it.item_no || String(i.seq),
           product:it.product || '', qty:it.qty || '', amount:it.amount || '', fields, why:why.join(' · '), m, i });
       });
+      // local319: ยอดรวมรายการไม่ตรง Total FOB / หน้า Invoice ไม่ครบ → อ่านซ้ำ "เฉพาะหน้าของ Invoice นี้" (ไม่อ่านซ้ำทั้งไฟล์)
+      if((m.sumBad || (m.pagesMissing && m.pagesMissing.length)) && m.pdfPages && m.pdfPages.length && !out.some(s => s.m === m && s.scan)){
+        if(m.sumBad) m.items.forEach(i => { if(out.some(s => s.i === i)) return;
+          out.push({ id:`${m.invoiceNo || '?'}#${i.seq}`, f:m.f, pg:i.it.gpg || i.it.pg || 1, invoice:m.invoiceNo, item_no:i.it.item_no || String(i.seq),
+            product:i.it.product || '', qty:i.it.qty || '', amount:i.it.amount || '', fields:['qty', 'amount'], why:'ยอดรวมรายการไม่ตรงกับ Total FOB', m, i }); });
+        m.pdfPages.forEach((pg, k) => out.push({ id:`${m.invoiceNo || '?'}#page${pg}`, f:m.f, pg, invoice:m.invoiceNo, item_no:'-', product:'', qty:'', amount:'', fields:['missing'], scan:k === 0, scanPage:true,
+          why:m.sumBad ? 'ยอดรวมรายการไม่ตรงกับ Total FOB — ตรวจรายการตกหล่น' : `อ่านหน้า Invoice ได้ไม่ครบ (ขาดหน้า ${m.pagesMissing.join(', ')})`, m }));
+      }
       // จำนวนรายการอาจตกหล่น: แถวใน XLSX ของกลุ่มนี้มากกว่ารายการที่อ่านได้ → ตรวจซ้ำ 'ทั้งหน้า' ของ Invoice นี้
       if(m.nwDoc){
         const rows = (slotData.grohe.NW_XLSX.rows || []).filter(r => String(r.billing).trim() === m.nwDoc).length;
-        if(rows > m.items.length) out.push({ id:`${m.invoiceNo || '?'}#rows`, f:m.f, pg:(m.items[0] && (m.items[0].it.gpg || m.items[0].it.pg)) || 1, invoice:m.invoiceNo,
+        if(rows > m.items.length && !out.some(s => s.m === m && s.scan)) out.push({ id:`${m.invoiceNo || '?'}#rows`, f:m.f, pg:(m.items[0] && (m.items[0].it.gpg || m.items[0].it.pg)) || 1, invoice:m.invoiceNo,
           item_no:'-', product:'', qty:'', amount:'', fields:['missing'], scan:true, why:`XLSX มี ${rows} แถว แต่อ่านได้ ${m.items.length} รายการ — อาจมีรายการตกหล่น`, m });
       }
     });
@@ -10549,8 +10657,8 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       const sig = f.sha.slice(0, 12) + '|' + list.map(s => `${s.id}:${s.fields.join(',')}:${s.product}:${s.qty}:${s.amount}`).join(';');
       if(G.rechecked.has(sig)){ res.notes.push(`${f.name}: ตรวจซ้ำไปแล้วในรอบก่อน (ไม่เรียก AI ซ้ำ)`); res.asked += list.length; res.pages += pages.length; continue; }
       let bytes;
-      try{ const src = await PDFLib.PDFDocument.load(await f.file.arrayBuffer(), { ignoreEncryption:true });
-        const doc = await PDFLib.PDFDocument.create();
+      try{ const src = await PDFLib.PDFDocument.load(await f.file.arrayBuffer(), { ignoreEncryption:true, updateMetadata:false });
+        const doc = await newDoc();
         const cp = await doc.copyPages(src, pages.map(n => n - 1)); cp.forEach(pp => doc.addPage(pp));
         bytes = await doc.save(); }
       catch(e){ res.notes.push(`${f.name}: ตัดหน้าเพื่อตรวจซ้ำไม่สำเร็จ — คงคำเตือนไว้`); continue; }
@@ -10568,6 +10676,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       const ans = new Map((j.result.answers || []).map(a => [String(a.id), a]));
       list.forEach(s => {
         const a = ans.get(s.id);
+        if(!s.i) return;                                   // คำถามระดับหน้า (ตรวจรายการตกหล่น) — ผลอยู่ใน missing_items
         if(!a || a.legible !== true){ s.i && (s.i.opus = 'unreadable'); res.unresolved++; return; }
         let changed = false;
         s.fields.forEach(fd => { if(fd === 'missing') return; const v = a[fd];
@@ -10670,6 +10779,73 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   }
   window.groheAiLicense = function(){ return G.lic; };
 
+  /* ── ตรวจความครบก่อน EXPORT (local319) ──────────────────────────────────────
+   *  ต่อ Invoice: หน้า Invoice ตาม Page X/Y · จำนวน Item + ลำดับ Position · ยอดรายการเทียบ Total FOB (แยก Freight/ภาษี) · N.W./MARK · MASTER
+   *  + รายการ "จุดที่อ่านไม่ครบ" ระบุ Invoice / หน้า PDF / Item / หัวข้อ เป็นภาษาไทย */
+  function topicOf(t){
+    if(/Purchase Country/.test(t)) return 'Purchase Country';
+    if(/ไม่พบ Product .* ใน MASTER/.test(t)) return 'MASTER';
+    if(/Unit Price/.test(t)) return 'Unit Price';
+    if(/ยอดรวม|Total FOB|Total Amount/.test(t)) return 'ยอดรวม';
+    if(/หน้า Invoice/.test(t)) return 'จำนวนหน้า Invoice';
+    if(/Position/.test(t)) return 'ลำดับ Position';
+    if(/Description/.test(t)) return 'Description';
+    if(/Delivery ใน XLSX|ไม่มี Delivery/.test(t)) return 'MARK';
+    if(/N\.W\.|Net weight|หน่วยน้ำหนัก|จำนวนใน XLSX|Billing Document|XLSX/.test(t)) return 'N.W. / MARK';
+    if(/Quantity/.test(t)) return 'Qty.';
+    if(/Amount/.test(t)) return 'Amount';
+    if(/Product/.test(t)) return 'Product';
+    if(/Invoice Date|วันที่/.test(t)) return 'Invoice Date';
+    if(/สกุลเงิน|Currency/.test(t)) return 'Currency';
+    if(/MASTER/.test(t)) return 'MASTER';
+    return 'อื่น ๆ';
+  }
+  function makeCheck(built){
+    const rows = [], issues = [];
+    built.model.forEach(m => {
+      const items = m.items, okItems = items.filter(i => !i.errs.length);
+      rows.push({ invoice:m.invoiceNo || '?', docNo:String(m.iv.document_no || ''), pagesSeen:(m.pagesSeen || []).length, pagesTotal:m.pagesTotal, pagesMissing:m.pagesMissing || [], pdfPages:m.pdfPages || [],
+        items:items.length, itemsOk:okItems.length, posOk:!(m.posBad || []).length, sum:m.sum, fob:m.fob, freight:m.freight, vat:m.vat, total:m.total, sumOk:!m.sumBad && (m.fob != null || m.total != null),
+        nw:items.filter(i => i.nw && num(i.nw.nw) != null).length, mark:items.filter(i => i.nw && String(i.nw.delivery || '').trim()).length, master:items.filter(i => i.ms).length,
+        priced:items.filter(i => i.unitPrice != null).length, partial:!!m.partial, bad:!!(m.errs || []).length });
+      const pgTxt = (m.pdfPages || []).join(', ');
+      [...(m.errs || []), ...(m.warns || [])].forEach(t => issues.push({ invoice:m.invoiceNo || '?', pg:pgTxt, item:'-', topic:topicOf(t), text:t, level:(m.errs || []).indexOf(t) >= 0 ? 'err' : 'warn' }));
+      items.forEach(i => [...i.errs.map(t => [t, 'err']), ...i.warns.map(t => [t, 'warn'])].forEach(([t, lv]) =>
+        issues.push({ invoice:m.invoiceNo || '?', pg:String(i.it.gpg || i.it.pg || ''), item:String(i.it.item_no || i.seq), topic:topicOf(t), text:t, level:lv })));
+    });
+    const kinds = { invoice:0, packing_list:0, other:0, unknown:0 };
+    G.files.forEach(f => { const pm = pageMap(f); pm.forEach(x => { kinds[x.kind] = (kinds[x.kind] || 0) + 1; }); kinds.unknown += Math.max(0, (f.pages || 0) - pm.length); });
+    return { rows, issues, kinds, pages:G.files.reduce((a, f) => a + (f.pages || 0), 0) };
+  }
+  window.groheAiCheck = function(){ return G.check; };
+  function checkHtml(){
+    const C = G.check; if(!C || !C.rows.length) return '';
+    const n2 = v => v == null ? '<span class="sai-msg">ไม่พบ</span>' : fmt(v);
+    const okc = (c, t) => `<span class="sai-pill ${c ? 'sai-ok' : 'sai-warn'}">${t}</span>`;
+    const body = C.rows.map(r => `<tr data-partial="${r.partial ? 1 : 0}"><td class="sai-mono">${esc(r.invoice)}</td><td class="sai-mono">${esc(r.docNo)}</td>
+      <td>${r.pagesTotal == null ? '<span class="sai-msg">ไม่พบ Page X/Y</span>' : okc(!r.pagesMissing.length, `${r.pagesSeen}/${r.pagesTotal}`)}${r.pagesMissing.length ? ` <span class="sai-msg">ขาดหน้า ${esc(r.pagesMissing.join(', '))}</span>` : ''}</td>
+      <td class="sai-mono">${esc(r.pdfPages.join(', '))}</td>
+      <td>${okc(r.itemsOk === r.items && r.posOk, `${r.itemsOk}/${r.items}`)}${r.posOk ? '' : ' <span class="sai-msg">Position ไม่เรียง</span>'}</td>
+      <td>${okc(r.priced === r.items, `${r.priced}/${r.items}`)}</td>
+      <td class="sai-num">${fmt(r.sum)}</td><td class="sai-num">${n2(r.fob)}</td><td class="sai-num">${n2(r.freight)}</td><td class="sai-num">${n2(r.total)}</td>
+      <td>${r.fob == null && r.total == null ? '<span class="sai-msg">ตรวจไม่ได้</span>' : okc(r.sumOk, r.sumOk ? 'ตรง' : 'ไม่ตรง')}</td>
+      <td>${okc(r.nw === r.items, `${r.nw}/${r.items}`)}</td><td>${okc(r.mark === r.items, `${r.mark}/${r.items}`)}</td><td>${okc(r.master === r.items, `${r.master}/${r.items}`)}</td>
+      <td>${r.bad ? '<span class="sai-pill sai-bad">ไม่ผ่าน</span>' : r.partial ? '<span class="sai-pill sai-bad">ข้อมูลบางส่วน</span>' : okc(true, 'อ่านครบ')}</td></tr>`).join('');
+    const k = C.kinds, kindTxt = (k.invoice + k.packing_list + k.other) ? `แยกชนิดหน้า PDF ${C.pages} หน้า: Invoice ${k.invoice} · Packing List ${k.packing_list} · เอกสารประกอบ ${k.other}${k.unknown ? ` · ไม่ได้จำแนก ${k.unknown}` : ''}` : `PDF ${C.pages} หน้า`;
+    const iss = C.issues;
+    const issTbl = iss.length ? `<div class="sai-repl"><b>จุดที่อ่านไม่ครบ / ต้องตรวจ ${iss.length} จุด</b></div>
+      <div class="sai-scroll"><table class="sai-tbl" id="gai-iss-tbl"><thead><tr><th>Invoice</th><th>หน้า PDF</th><th>Item</th><th>หัวข้อ</th><th>รายละเอียด</th></tr></thead><tbody>
+      ${iss.slice(0, 150).map(x => `<tr data-lv="${x.level}"><td class="sai-mono">${esc(x.invoice)}</td><td class="sai-mono">${esc(x.pg)}</td><td class="sai-mono">${esc(x.item)}</td><td>${esc(x.topic)}</td><td class="sai-msg">${esc(x.text)}</td></tr>`).join('')}
+      </tbody></table></div>${iss.length > 150 ? `<div class="sai-msg">… อีก ${iss.length - 150} จุด</div>` : ''}` : '';
+    const anyPart = C.rows.some(r => r.partial || r.bad);
+    return `<div class="sai-rep ${anyPart ? 'sai-repwarn' : 'sai-repok'}" id="gai-check" data-partial="${anyPart ? 1 : 0}">
+      <b>${anyPart ? '⚠ ตรวจความครบก่อน EXPORT — มี Invoice ที่อ่านได้ไม่ครบ (ข้อมูลบางส่วน)' : '✓ ตรวจความครบก่อน EXPORT — อ่านหน้า Invoice ครบทุกใบ'}</b>
+      <div class="sai-msg">${esc(kindTxt)} · PDF เป็นข้อมูลหลักของ Invoice / Date / Product / Description / Qty. / Unit Price / Amount · XLSX ใช้เฉพาะ N.W. และ MARK</div>
+      <div class="sai-scroll"><table class="sai-tbl" id="gai-check-tbl"><thead><tr><th>Invoice</th><th>Document no.</th><th>หน้า Invoice</th><th>หน้า PDF</th><th>Item</th><th>Unit Price</th>
+        <th>ยอดรายการ</th><th>Total FOB</th><th>Freight</th><th>Total Amount</th><th>ยอดรวม</th><th>N.W.</th><th>MARK</th><th>MASTER</th><th>สถานะ</th></tr></thead><tbody>${body}</tbody></table></div>
+      ${issTbl}</div>`;
+  }
+
   window.groheAiExport = async function(){
     G.pend = null;
     if(prepping.size){ setPhase('กำลังเตรียมไฟล์ PDF...'); await Promise.all([...prepping]); }
@@ -10677,7 +10853,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     const nwD = slotData.grohe && slotData.grohe.NW_XLSX, msD = slotData.grohe && slotData.grohe.MASTER;
     if(!nwD || !(nwD.rows || []).length) return { ok:false, msg:'กรุณาแนบไฟล์ XLSX — NET WEIGHT (N.W.) ก่อน' };
     if(!msD || !(msD.rows || []).length) return { ok:false, msg:'กรุณาแนบ MASTER (.xlsx) หรือกด Save ไว้ก่อน' };
-    G.report = null; G.lic = null; totalsClear();
+    G.report = null; G.lic = null; G.check = null; totalsClear();
     const sig0 = filesSig();
     if(!G.authMode) return { ok:false, msg:'ยังไม่ได้เข้าสู่ระบบ' };
     setPhase('กำลังตรวจสอบ AI...');
@@ -10706,14 +10882,17 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       heavy:rc && pagesAll ? (rc.pages / pagesAll) > 0.10 : false };
     setPhase('กำลังจับคู่ N.W. / MASTER...'); await sleep(0);
     const ev = evaluate(built);
+    G.check = makeCheck(built);                              // local319: ตารางตรวจความครบ (แสดงทุกกรณี รวมกรณีไม่ผ่าน)
     const nSkip = skipInvN(ev.skipped), nFile = skipFileN(ev.skipped);
     if(!ev.pass.length){
       G.report = { kind:'none', exported:[], skipped:ev.skipped }; render();
       return { ok:false, msg:`ไม่ Export — ไม่มี Invoice ที่ผ่านการตรวจ (ไม่ผ่าน ${nSkip} Invoice${nFile ? ` · อ่านไม่สำเร็จ ${nFile} ไฟล์` : ''}) · ดูสาเหตุในสรุปด้านล่าง` };
     }
     const nWarn = ev.warned.length;
+    const nPart = ev.pass.filter(m => m.partial).length;     // Invoice ที่อ่านหน้าได้ไม่ครบ = ข้อมูลบางส่วน (ห้ามแสดงว่าครบ)
     const partial = ev.skipped.length > 0;
     const msg = partial ? `EXPORT สำเร็จบางส่วน — ส่งออก ${ev.pass.length} Invoice / ข้าม ${nSkip} Invoice${nFile ? ` · อ่านไม่สำเร็จ ${nFile} ไฟล์` : ''}`
+              : nPart ? `⚠ ข้อมูลบางส่วน — อ่าน Invoice ได้ไม่ครบทุกหน้า ${nPart} ใบ (ดูตารางตรวจความครบ) · ยัง EXPORT EXCEL ได้ เฉพาะรายการที่อ่านได้ (ส่งออก ${ev.pass.length} Invoice · มีคำเตือน ${nWarn} Invoice)`
               : nWarn ? `⚠ พบข้อมูลไม่ครบ — สามารถ EXPORT EXCEL ได้ โดยช่องที่ไม่พบข้อมูลจะเว้นว่าง (ส่งออก ${ev.pass.length} Invoice · มีคำเตือน ${nWarn} Invoice)`
                       : `EXPORT สำเร็จ — ส่งออก ${ev.pass.length} Invoice ครบทุกรายการ`;
     // local317: ตรวจใบอนุญาตหลังจับคู่ MASTER แล้ว — แจ้งเตือนอย่างเดียว ไม่บล็อก EXPORT
@@ -10724,7 +10903,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     ev.pass.forEach(m => m.good.forEach(i => rows.push({ m, i })));     // ส่งออกทุกรายการที่อ่านจาก PDF ได้ (คำเตือนไม่บล็อก)
     G.pend = { kind:partial ? 'partial' : (nWarn ? 'warn' : 'full'), msg, exported:ev.pass.map(m => m.invoiceNo), skipped:ev.skipped, warned:ev.warned, rows:rows.length, lic:G.lic };
     setPhase('กำลังสร้าง Excel...'); render();
-    return { ok:true, rows, partial, warned:nWarn > 0, msg, exported:G.pend.exported, skipped:ev.skipped, lic:G.lic };
+    return { ok:true, rows, partial, incomplete:nPart > 0, warned:nWarn > 0, msg, exported:G.pend.exported, skipped:ev.skipped, lic:G.lic };
   };
 
   /* ── TOTAL (ใช้ตัวคำนวณชุดเดียวกับ THE SHELL · แสดงในกรอบของ GROHE) ── */
@@ -10876,6 +11055,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
         <div class="sai-actions"><button type="button" class="btn btn-ghost" data-act="clear" ${lock}>ล้าง PDF</button></div>`;
     html += aiResultHtml();
     html += reportHtml();
+    html += checkHtml();
     html += licenseHtml();
     if(built && built.model.length) html += previewHtml(built);
     p.style.display = html ? '' : 'none';
