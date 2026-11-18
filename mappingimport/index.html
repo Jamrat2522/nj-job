@@ -2680,124 +2680,152 @@ body.legacy-active .content-area { display: none !important; }
   </div>
 </div>
 
-<!-- ══════════ [469] เฉลี่ยยอดเงิน Excel — Upload Excel → เฉลี่ยเติมช่องว่าง (V / W / X) → Preview → Export (browser-only · ไม่บันทึกฐานข้อมูล) ══════════ -->
+<!-- ══════════ [469][473] เฉลี่ยยอดเงิน Excel — Upload Excel → เฉลี่ยเติมช่องว่าง (V / W / X) → แปลงสกุลเงินรายหัวข้อ → Export ══════════ -->
 <div class="doa-view" id="avg-view">
   <style>
     #avg-view{gap:10px}
-    #avg-view .avg-head{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#1e3a8a,#1d4ed8);color:#fff;border-radius:12px;padding:12px 16px}
+    #avg-view .avg-head{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#1e3a8a,#1d4ed8);color:#fff;border-radius:12px;padding:10px 16px}
     #avg-view .avg-head h2{font-size:18px;font-weight:800;margin:0;color:#fff}
     #avg-view .avg-head .sub{font-size:12px;opacity:.9}
     #avg-view .avg-flag{margin-left:auto;padding:8px 14px;border-radius:9px;font-weight:800;font-size:13px;background:rgba(255,255,255,.16);color:#fff;white-space:nowrap}
     #avg-view .avg-flag.ok{background:#facc15;color:#14532d}
     #avg-view .avg-flag.bad{background:#fecaca;color:#7f1d1d}
-    #avg-view .avg-grid{display:grid;grid-template-columns:400px minmax(0,1fr) 340px;gap:10px;align-items:start}
-    #avg-view .avg-panel{background:#fff;border:1px solid #dbe3ef;border-radius:12px;box-shadow:0 2px 8px rgba(15,23,42,.06);overflow:hidden}
-    #avg-view .avg-panel + .avg-panel{margin-top:10px}
-    #avg-view .avg-ph{background:#1e40af;color:#fff;font-weight:700;font-size:13px;padding:8px 12px}
-    #avg-view .avg-pb{padding:10px 12px;font-size:13px;color:#172033}
-    #avg-view .avg-file{display:flex;align-items:center;gap:8px;font-weight:700;word-break:break-all}
-    #avg-view .avg-file small{display:block;font-weight:500;color:#64748b}
-    #avg-view .avg-in{display:grid;grid-template-columns:78px minmax(0,1fr);gap:6px 8px;align-items:center}
-    #avg-view .avg-in input{width:100%;box-sizing:border-box;text-align:right;font:700 15px 'IBM Plex Mono',monospace;padding:6px 8px;border:1px solid #cbd5e1;border-radius:7px;background:#fff;color:#0f172a}
-    #avg-view .avg-fx{display:grid;grid-template-columns:58px minmax(0,1.25fr) 74px minmax(0,.9fr) minmax(0,1.05fr);gap:6px 5px;align-items:start;font-size:12px}
-    #avg-view .avg-fx .h{font-weight:700;color:#475569;text-align:center;font-size:11px}
-    #avg-view .avg-fx label{padding-top:7px;font-weight:600}
-    #avg-view .avg-fx input,#avg-view .avg-fx select{width:100%;box-sizing:border-box;font:700 12.5px 'IBM Plex Mono',monospace;padding:6px 5px;border:1px solid #cbd5e1;border-radius:7px;background:#fff;color:#0f172a}
-    #avg-view .avg-fx input{text-align:right}
-    #avg-view .avg-fx input[readonly]{background:#eff6ff;border-color:#bfdbfe}
-    #avg-view .avg-fx .avg-cur-o{margin-top:4px;text-align:center;text-transform:uppercase}
-    #avg-view .avg-sum{display:flex;justify-content:space-between;background:#fef3c7;border-radius:8px;padding:8px 10px;margin-top:8px;font-weight:800;font-size:15px;color:#0f172a}
-    #avg-view .avg-btn{width:100%;margin-top:10px;justify-content:center}
-    #avg-view table{width:100%;border-collapse:collapse;font-size:13px}
-    #avg-view th{background:#1e40af;color:#fff;padding:7px 10px;font-weight:700;border:1px solid #1e3a8a}
-    #avg-view td{padding:6px 10px;border:1px solid #dbe3ef;color:#0f172a}
+    #avg-view .avg-panel{background:#fff;border:1px solid #dbe3ef;border-radius:12px;box-shadow:0 2px 8px rgba(15,23,42,.06);overflow:hidden;min-width:0}
+    #avg-view .avg-ph{background:#1e40af;color:#fff;font-weight:700;font-size:13.5px;padding:7px 12px}
+    #avg-view .avg-tg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(190px,.8fr);gap:10px;padding:10px}
+    #avg-view .avg-card{border:1px solid #dbe3ef;border-radius:10px;overflow:hidden;min-width:0}
+    #avg-view .avg-card h3{margin:0;padding:6px 10px;background:#eaf1fb;color:#0f172a;font-size:14px;font-weight:800}
+    #avg-view .avg-card .b{padding:8px 10px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.8fr) minmax(0,1.25fr);gap:4px 6px}
+    #avg-view .avg-card label{font-size:11px;font-weight:700;color:#475569}
+    #avg-view .avg-card .w{grid-column:1 / -1}
+    #avg-view .avg-card input{width:100%;box-sizing:border-box;font:700 14px 'IBM Plex Mono',monospace;padding:6px 7px;border:1px solid #cbd5e1;border-radius:7px;background:#fff;color:#0f172a;text-align:right}
+    #avg-view .avg-card input.cur{text-align:center;text-transform:uppercase}
+    #avg-view .avg-card input.thb{font-size:16px;text-align:left}
+    #avg-view .avg-card input[readonly]{background:#dbeafe;border-color:#bfdbfe}
+    #avg-view .avg-side{display:flex;flex-direction:column;gap:8px;min-width:0}
+    #avg-view .avg-sum{background:#fef3c7;border-radius:10px;padding:10px 12px;flex:1;display:flex;flex-direction:column;justify-content:center}
+    #avg-view .avg-sum span{font-weight:700;font-size:13px;color:#0f172a}
+    #avg-view .avg-sum b{font:800 20px 'IBM Plex Mono',monospace;color:#0f172a}
+    #avg-view .avg-btn{width:100%;justify-content:center}
+    #avg-view .avg-files{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:stretch}
+    #avg-view .avg-files .avg-panel{display:flex;flex-direction:column}
+    #avg-view .avg-frow{display:flex;align-items:center;gap:8px;padding:8px 12px;flex:1;flex-wrap:wrap;font-size:13px;color:#0f172a}
+    #avg-view .avg-frow .info{flex:1;min-width:0;font-weight:700;word-break:break-all}
+    #avg-view .avg-frow .info small{font-weight:600;color:#1d4ed8;margin-left:6px}
+    #avg-view .avg-frow.drag{background:#eff6ff}
+    #avg-view .avg-pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:800;background:#e2e8f0;color:#334155;margin-right:6px;white-space:nowrap}
+    #avg-view .avg-pill.ok{background:#16a34a;color:#fff}
+    #avg-view .avg-pill.new{background:#f59e0b;color:#fff}
+    #avg-view .avg-pill.bad{background:#dc2626;color:#fff}
+    #avg-view .avg-sbtn{padding:6px 12px;border-radius:8px;font-weight:800;font-size:12.5px;cursor:pointer;border:1px solid #1d4ed8;background:#fff;color:#1d4ed8}
+    #avg-view .avg-sbtn.save{background:#16a34a;border-color:#16a34a;color:#fff}
+    #avg-view .avg-sbtn.del{border-color:#dc2626;color:#dc2626}
+    #avg-view .avg-sbtn:disabled{opacity:.45;cursor:not-allowed}
+    #avg-view #avgFxMsg{padding:0 12px 8px;font-size:12px;font-weight:700;white-space:pre-line}
+    #avg-view #avgFxMsg.ok{color:#047857} #avg-view #avgFxMsg.err{color:#b91c1c}
+    #avg-view .avg-scroll{max-height:56vh;overflow:auto}
+    #avg-view table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+    #avg-view thead th{position:sticky;background:#1e40af;color:#fff;padding:6px 10px;font-weight:700;border-right:1px solid #1e3a8a;border-bottom:1px solid #1e3a8a;z-index:2}
+    #avg-view thead tr:first-child th{top:0}
+    #avg-view thead tr:nth-child(2) th{top:29px}
+    #avg-view td{padding:5px 10px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;color:#0f172a;background:#fff}
     #avg-view td.n,#avg-view th.n{text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600}
     #avg-view td.c{text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:700}
-    #avg-view tbody tr:nth-child(even) td{background:#f1f5f9}
-    #avg-view tr.tot td{background:#fef3c7;font-weight:800}
-    #avg-view .avg-pager{display:flex;align-items:center;gap:8px;justify-content:flex-end;padding:8px 12px;font-size:12px;color:#475569}
-    #avg-view .avg-acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;padding:0 12px 12px}
-    #avg-view .avg-ok{margin:10px 12px;padding:10px;border:1px solid rgba(16,185,129,.5);background:rgba(16,185,129,.1);color:#047857;border-radius:8px;font-weight:800}
-    #avg-view .avg-bad{margin:10px 12px;padding:10px;border:1px solid rgba(239,68,68,.5);background:rgba(239,68,68,.08);color:#b91c1c;border-radius:8px;font-weight:700;font-size:12.5px}
-    #avg-view .avg-bad ul{margin:6px 0 0 18px;font-weight:600}
-    #avg-view .avg-info{list-style:none;margin:0;padding:0;font-size:12.5px}
-    #avg-view .avg-info li{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px dashed #e2e8f0}
-    #avg-view .avg-info li b{font-family:'IBM Plex Mono',monospace}
-    #avg-view .avg-empty{padding:26px;text-align:center;color:#64748b}
-    @media(max-width:1100px){#avg-view .avg-grid{grid-template-columns:1fr}}
+    #avg-view tbody tr:nth-child(even) td{background:#f3f7fd}
+    #avg-view tbody td.y{background:#fff2cc !important}
+    #avg-view td.g,#avg-view th.g{border-left:2px solid #1e3a8a}
+    #avg-view .avg-note{font:600 10px/1.2 inherit;color:#b45309;font-family:inherit}
+    #avg-view .avg-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px}
+    #avg-view .avg-pager{display:flex;align-items:center;gap:8px;font-size:12px;color:#475569;flex:1;flex-wrap:wrap}
+    #avg-view .avg-ok{margin:8px 12px;padding:8px 10px;border:1px solid rgba(16,185,129,.5);background:rgba(16,185,129,.1);color:#047857;border-radius:8px;font-weight:800;font-size:13px}
+    #avg-view .avg-bad{margin:8px 12px;padding:8px 10px;border:1px solid rgba(239,68,68,.5);background:rgba(239,68,68,.08);color:#b91c1c;border-radius:8px;font-weight:700;font-size:12.5px}
+    #avg-view .avg-bad ul{margin:4px 0 0 18px;font-weight:600}
+    #avg-view .avg-info{margin:0 12px 8px;font-size:12px;color:#92400e;font-weight:600}
+    #avg-view .avg-empty{padding:22px;text-align:center;color:#64748b}
+    @media(max-width:1100px){#avg-view .avg-tg{grid-template-columns:1fr 1fr}#avg-view .avg-files{grid-template-columns:1fr}}
   </style>
   <div class="avg-head">
     <div><h2>เฉลี่ยยอดเงิน Excel</h2><div class="sub">แสดงเฉพาะรายการที่มีการเปลี่ยนแปลง</div></div>
     <div class="avg-flag" id="avgFlag">ยังไม่ได้คำนวณ</div>
   </div>
-  <div class="avg-grid">
-    <div>
-      <div class="avg-panel">
-        <div class="avg-ph">ไฟล์ข้อมูล</div>
-        <div class="avg-pb">
-          <div class="avg-file" id="avgFile"><span style="color:#64748b;font-weight:500">ยังไม่ได้เลือกไฟล์</span></div>
-          <button class="btn btn-ghost avg-btn" id="avgUploadBtn" onclick="document.getElementById('avgInput').click()">📂 Upload Excel</button>
-          <input id="avgInput" type="file" accept=".xlsx" style="display:none" onchange="avgHandleFile(this.files)">
-        </div>
+  <div class="avg-panel">
+    <div class="avg-ph">กรอกยอดรวมที่ต้องการ</div>
+    <div class="avg-tg" id="avgTargets">
+      <div class="avg-card"><h3>F/W_OTH</h3><div class="b">
+        <label class="w" for="avgT0">ยอดไทย (THB)</label><input class="w thb" id="avgT0" inputmode="decimal" autocomplete="off" oninput="avgTargetChanged()" disabled>
+        <label for="avgCur0">สกุลเงิน</label><label for="avgRate0">อัตรา</label><label for="avgF0">ยอดต่างประเทศ</label>
+        <input class="cur" id="avgCur0" list="avgCurList" autocomplete="off" placeholder="ค้นหา" oninput="avgCurChanged(0)" disabled>
+        <input id="avgRate0" inputmode="decimal" autocomplete="off" oninput="avgFxChanged()" disabled>
+        <input id="avgF0" readonly tabindex="-1">
+      </div></div>
+      <div class="avg-card"><h3>Frg_OTH</h3><div class="b">
+        <label class="w" for="avgT1">ยอดไทย (THB)</label><input class="w thb" id="avgT1" inputmode="decimal" autocomplete="off" oninput="avgTargetChanged()" disabled>
+        <label for="avgCur1">สกุลเงิน</label><label for="avgRate1">อัตรา</label><label for="avgF1">ยอดต่างประเทศ</label>
+        <input class="cur" id="avgCur1" list="avgCurList" autocomplete="off" placeholder="ค้นหา" oninput="avgCurChanged(1)" disabled>
+        <input id="avgRate1" inputmode="decimal" autocomplete="off" oninput="avgFxChanged()" disabled>
+        <input id="avgF1" readonly tabindex="-1">
+      </div></div>
+      <div class="avg-card"><h3>Ins_OTH</h3><div class="b">
+        <label class="w" for="avgT2">ยอดไทย (THB)</label><input class="w thb" id="avgT2" inputmode="decimal" autocomplete="off" oninput="avgTargetChanged()" disabled>
+        <label for="avgCur2">สกุลเงิน</label><label for="avgRate2">อัตรา</label><label for="avgF2">ยอดต่างประเทศ</label>
+        <input class="cur" id="avgCur2" list="avgCurList" autocomplete="off" placeholder="ค้นหา" oninput="avgCurChanged(2)" disabled>
+        <input id="avgRate2" inputmode="decimal" autocomplete="off" oninput="avgFxChanged()" disabled>
+        <input id="avgF2" readonly tabindex="-1">
+      </div></div>
+      <div class="avg-side">
+        <div class="avg-sum"><span>รวมยอดไทย</span><b id="avgTSum">-</b></div>
+        <button class="btn btn-primary avg-btn" id="avgCalcBtn" onclick="avgCalc()" disabled>🧮 คำนวณเฉลี่ย</button>
       </div>
-      <div class="avg-panel">
-        <div class="avg-ph">กรอกยอดรวมที่ต้องการ</div>
-        <div class="avg-pb">
-          <div class="avg-fx">
-            <div class="h">รายการ</div><div class="h">ไทย (THB)</div><div class="h">สกุลเงิน</div><div class="h">อัตรา</div><div class="h">ต่างประเทศ</div>
-            <label for="avgT0">F/W_OTH</label>
-            <input id="avgT0" inputmode="decimal" autocomplete="off" oninput="avgTargetChanged()" disabled>
-            <div><select id="avgCur0" onchange="avgFxChanged()" disabled><option value="">เลือก</option><option>USD</option><option>EUR</option><option>CNY</option><option>JPY</option><option>OTHER</option></select><input id="avgCurO0" class="avg-cur-o" maxlength="5" placeholder="รหัส" autocomplete="off" oninput="avgFxChanged()" style="display:none" disabled></div>
-            <input id="avgRate0" inputmode="decimal" autocomplete="off" placeholder="0.00" oninput="avgFxChanged()" disabled>
-            <input id="avgF0" readonly tabindex="-1">
-            <label for="avgT1">Frg_OTH</label>
-            <input id="avgT1" inputmode="decimal" autocomplete="off" oninput="avgTargetChanged()" disabled>
-            <div><select id="avgCur1" onchange="avgFxChanged()" disabled><option value="">เลือก</option><option>USD</option><option>EUR</option><option>CNY</option><option>JPY</option><option>OTHER</option></select><input id="avgCurO1" class="avg-cur-o" maxlength="5" placeholder="รหัส" autocomplete="off" oninput="avgFxChanged()" style="display:none" disabled></div>
-            <input id="avgRate1" inputmode="decimal" autocomplete="off" placeholder="0.00" oninput="avgFxChanged()" disabled>
-            <input id="avgF1" readonly tabindex="-1">
-            <label for="avgT2">Ins_OTH</label>
-            <input id="avgT2" inputmode="decimal" autocomplete="off" oninput="avgTargetChanged()" disabled>
-            <div><select id="avgCur2" onchange="avgFxChanged()" disabled><option value="">เลือก</option><option>USD</option><option>EUR</option><option>CNY</option><option>JPY</option><option>OTHER</option></select><input id="avgCurO2" class="avg-cur-o" maxlength="5" placeholder="รหัส" autocomplete="off" oninput="avgFxChanged()" style="display:none" disabled></div>
-            <input id="avgRate2" inputmode="decimal" autocomplete="off" placeholder="0.00" oninput="avgFxChanged()" disabled>
-            <input id="avgF2" readonly tabindex="-1">
-          </div>
-          <div class="avg-sum"><span>รวมไทย</span><span id="avgTSum">-</span></div>
-          <button class="btn btn-primary avg-btn" id="avgCalcBtn" onclick="avgCalc()" disabled>🧮 คำนวณเฉลี่ย</button>
-        </div>
+    </div>
+    <datalist id="avgCurList"></datalist>
+  </div>
+  <div class="avg-files">
+    <div class="avg-panel">
+      <div class="avg-ph">ไฟล์ข้อมูล</div>
+      <div class="avg-frow">
+        <div class="info" id="avgFile"><span style="color:#64748b;font-weight:500">ยังไม่ได้เลือกไฟล์</span></div>
+        <button class="avg-sbtn" id="avgUploadBtn" onclick="document.getElementById('avgInput').click()">📂 Upload Excel</button>
+        <input id="avgInput" type="file" accept=".xlsx" style="display:none" onchange="avgHandleFile(this.files)">
       </div>
     </div>
     <div class="avg-panel">
-      <div class="avg-ph">รายการที่เปลี่ยนแปลง (หลังเฉลี่ยยอด) <span id="avgCount"></span></div>
-      <div id="avgTable"><div class="avg-empty">Upload Excel → กรอกยอดรวม 3 ช่อง → กด “คำนวณเฉลี่ย”</div></div>
-      <div class="avg-pager" id="avgPager"></div>
-      <div class="avg-acts">
-        <button class="btn btn-success" id="avgExpChanged" onclick="avgExportChanged()" disabled>📤 Export Excel (รายการที่เปลี่ยน)</button>
-        <button class="btn btn-primary" id="avgExpAll" onclick="avgExportAll()" disabled>📤 Export Excel ตามไฟล์ต้นฉบับ</button>
+      <div class="avg-ph">ไฟล์อัตราแลกเปลี่ยน</div>
+      <div class="avg-frow" id="avgFxDrop">
+        <div class="info" id="avgFxInfo"><span class="avg-pill">กำลังตรวจสอบ</span></div>
+        <button class="avg-sbtn" id="avgFxPick" onclick="document.getElementById('avgFxInput').click()">เลือกไฟล์</button>
+        <button class="avg-sbtn save" id="avgFxSave" onclick="avgFxSaveClick()" disabled>SAVE</button>
+        <button class="avg-sbtn del" id="avgFxDel" onclick="avgFxDeleteClick()" disabled>ลบ</button>
+        <input id="avgFxInput" type="file" accept=".xlsx,.xls" style="display:none" onchange="avgFxPickFile(this.files); this.value=''">
       </div>
+      <div id="avgFxMsg"></div>
     </div>
-    <div>
-      <div class="avg-panel">
-        <div class="avg-ph">สรุปผลหลังเฉลี่ย</div>
-        <div id="avgSummary"><div class="avg-empty">-</div></div>
-      </div>
-      <div class="avg-panel">
-        <div class="avg-ph">สรุปข้อมูลการปรับปรุง</div>
-        <div class="avg-pb" id="avgInfo"><div class="avg-empty" style="padding:8px">-</div></div>
-      </div>
+  </div>
+  <div class="avg-panel">
+    <div class="avg-ph">รายการที่เปลี่ยนแปลง (หลังเฉลี่ยยอด) <span id="avgCount"></span></div>
+    <div id="avgCheck"></div>
+    <div id="avgTable" class="avg-scroll"><div class="avg-empty">Upload Excel → กรอกยอดรวม 3 หัวข้อ → กด “คำนวณเฉลี่ย”</div></div>
+    <div class="avg-foot">
+      <div class="avg-pager" id="avgPager"></div>
+      <button class="btn btn-success" id="avgExpChanged" onclick="avgExportChanged()" disabled>📤 Export Excel (รายการที่เปลี่ยน)</button>
+      <button class="btn btn-primary" id="avgExpAll" onclick="avgExportAll()" disabled>📤 Export Excel ตามไฟล์ต้นฉบับ</button>
     </div>
   </div>
 </div>
 <script>
-/* ══ [469] เฉลี่ยยอดเงิน Excel ══
-   • ใช้คอลัมน์ B (Item No.) · V (F/W_OTH) · W (Frg_OTH) · X (Ins_OTH) · AK (Amount — อ่านอย่างเดียว) ของ Sheet แรก · ตรวจ Header ก่อนประมวลผล
-   • กลุ่มปรับยอด = 20 รายการแรก "ตามลำดับในไฟล์" (ไม่เลือกจาก Amount) · คำนวณแยกอิสระทีละคอลัมน์ · หน่วยสตางค์ (จำนวนเต็ม)
-   • ช่องว่าง / 0.00 ทุกรายการในไฟล์ → เติม 0.01 · หัก/เติมส่วนที่เหลือเฉพาะรายการในกลุ่มที่มียอดอยู่ (ค่า 0.00 ไม่เป็นแหล่งหัก)
-   • รายการนอกกลุ่มที่มียอดอยู่แล้วไม่ถูกแตะ · ไม่มีค่าติดลบ · เงินในกลุ่มไม่พอ = แจ้งข้อผิดพลาด (ไม่แก้รายการอื่น)
-   • Export (ข้อมูลทั้งหมด) แก้เฉพาะเซลล์ V / W / X ใน XML ของไฟล์ต้นฉบับ — ส่วนอื่นของไฟล์คงเดิมทุกเซลล์ */
+/* ══ [469][472][473] เฉลี่ยยอดเงิน Excel ══
+   • ไฟล์ข้อมูล: คอลัมน์ B (Item No.) · V (F/W_OTH) · W (Frg_OTH) · X (Ins_OTH) · AK (Amount — อ่านอย่างเดียว) ของ Sheet แรก · ตรวจ Header ก่อนประมวลผล
+   • สูตรเฉลี่ยฝั่งไทย (avgSolve) = ของเดิม local469 ทุกบรรทัด: กลุ่มปรับยอด = 20 รายการแรกตามลำดับไฟล์ · แยกอิสระทีละคอลัมน์ · หน่วยสตางค์
+   • [473] สกุลเงิน / อัตราการนำเข้า มาจาก "ไฟล์อัตราแลกเปลี่ยน" ที่ SAVE ไว้บน Server (ใช้ร่วมทุกเครื่อง) — ไม่มีรายชื่อสกุลเงินฝังในโค้ด · ไม่เรียก API อัตราแลกเปลี่ยน / AI / OCR
+   • ยอดต่างประเทศ = ยอดไทย ÷ อัตราของหัวข้อนั้น (HALF-UP 2 ตำแหน่ง · เลขจำนวนเต็ม BigInt) · ยอดไทย > 0 ต้องได้ไม่น้อยกว่า 0.01 · รักษายอดรวมต่างประเทศรายหัวข้อ
+   • รายการที่เปลี่ยน = ค่าฝั่งไทยหลังเฉลี่ย ≠ ค่าเดิมในไฟล์ (ใช้เลขแถวต้นฉบับเป็น Key) — สกุลเงิน / อัตรา / การปรับขั้นต่ำ ไม่ทำให้ Item เพิ่มเข้ารายงาน */
 const AVG_COLS = [{ col:'V', head:'F/W_OTH' }, { col:'W', head:'Frg_OTH' }, { col:'X', head:'Ins_OTH' }];
 const AVG_HEADERS = { B1:'Item No.', V1:'F/W_OTH', W1:'Frg_OTH', X1:'Ins_OTH', AK1:'Amount' };
-const AVG_GROUP_N = 20, AVG_PAGE = 20;
-let avgS = null;   // { name, base, buf, rows:[{r,item,v:[3],blank:[3]}], amount, res, page }
+const AVG_GROUP_N = 20, AVG_PAGE = 20, AVG_FX_MAX = 5 * 1024 * 1024;
+const AVG_MIN_NOTE = 'ปรับขั้นต่ำเป็น 0.01';
+let avgS = null;            // { name, base, buf, rows:[{r,item,v:[3],blank:[3]}], amount, res, page }
+let avgFxActive = null;     // ไฟล์อัตราแลกเปลี่ยน ACTIVE จาก Server: { file_name, cur_count, currencies:[{code,name,rate}], ... }
+let avgFxPending = null;    // ไฟล์ที่เลือกแล้วแต่ยังไม่ SAVE: { name, size, sha, rows:[{code,name,rate}] }
+let avgFxBusy = false, avgFxState = 'loading';
 const avgEl = id => document.getElementById(id);
 const avgEsc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
 function avgFmt(c){ return (c < 0 ? '-' : '') + (Math.abs(c) / 100).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
@@ -2814,17 +2842,16 @@ function avgToCents(x){
   return { c };
 }
 function avgSetFlag(text, cls){ const f = avgEl('avgFlag'); f.textContent = text; f.className = 'avg-flag' + (cls ? ' ' + cls : ''); }
+function avgBox(cls, title, list){ return '<div class="' + cls + '" id="avgCheckBox">' + avgEsc(title) + (list && list.length ? '<ul>' + list.slice(0, 12).map(x => '<li>' + avgEsc(x) + '</li>').join('') + '</ul>' : '') + '</div>'; }
 function avgFail(title, list){
-  avgEl('avgSummary').innerHTML = '<div class="avg-bad">✗ ' + avgEsc(title) + (list && list.length ? '<ul>' + list.slice(0, 12).map(x => '<li>' + avgEsc(x) + '</li>').join('') + '</ul>' : '') + '</div>';
+  avgEl('avgCheck').innerHTML = avgBox('avg-bad', '✗ ' + title, list);
   avgSetFlag('ไม่ผ่าน', 'bad');
   avgEl('avgExpChanged').disabled = true; avgEl('avgExpAll').disabled = true;
 }
 function avgClearResult(){
   if(avgS) avgS.res = null;
-  avgEl('avgTable').innerHTML = '<div class="avg-empty">Upload Excel → กรอกยอดรวม 3 ช่อง → กด “คำนวณเฉลี่ย”</div>';
-  avgEl('avgPager').innerHTML = ''; avgEl('avgCount').textContent = '';
-  avgEl('avgSummary').innerHTML = '<div class="avg-empty">-</div>';
-  avgEl('avgInfo').innerHTML = '<div class="avg-empty" style="padding:8px">-</div>';
+  avgEl('avgTable').innerHTML = '<div class="avg-empty">Upload Excel → กรอกยอดรวม 3 หัวข้อ → กด “คำนวณเฉลี่ย”</div>';
+  avgEl('avgPager').innerHTML = ''; avgEl('avgCount').textContent = ''; avgEl('avgCheck').innerHTML = '';
   avgEl('avgExpChanged').disabled = true; avgEl('avgExpAll').disabled = true;
   avgSetFlag('ยังไม่ได้คำนวณ', '');
 }
@@ -2833,36 +2860,65 @@ function avgTargetChanged(){
   for(let j = 0; j < 3; j++){ const p = avgToCents(avgEl('avgT' + j).value); if(p.bad || p.blank || p.c < 0) ok = false; else sum += p.c; }
   avgEl('avgTSum').textContent = ok ? avgFmt(sum) + ' THB' : '-';
   avgFxFields();
-  if(avgS && avgS.res) avgClearResult();          // แก้ยอดหลังคำนวณ → ต้องคำนวณใหม่ก่อน Export
+  if(avgS && avgS.res) avgClearResult();          // แก้ยอดไทยหลังคำนวณ → ต้องคำนวณใหม่ก่อน Export
 }
-/* ══ [472] สกุลเงิน + อัตราแลกเปลี่ยน แยกอิสระทีละหัวข้อ (F/W_OTH · Frg_OTH · Ins_OTH) ══
-   ยอดต่างประเทศ = ยอดไทย ÷ อัตราของหัวข้อนั้น (ไม่มีสูตรคูณ · ไม่เรียก API อัตราแลกเปลี่ยน · ไม่ใช้ค่าของหัวข้ออื่นแทน · ไม่รวมยอดต่างสกุลเงิน)
-   ไม่กระทบสูตรเฉลี่ย / กลุ่ม 20 รายการแรก / ยอดฝั่งไทย — ใช้เฉพาะการแสดงผลและไฟล์รายการที่เปลี่ยน */
+
+/* ───────── สกุลเงิน + อัตราการนำเข้า (แยกอิสระทีละหัวข้อ) ───────── */
+/* อัตรา (ข้อความ) → เลขจำนวนเต็ม R กับจำนวนทศนิยม k · ไม่ถูกต้อง / ไม่มากกว่า 0 = null */
+function avgRateParse(t){
+  t = String(t == null ? '' : t).replace(/,/g, '').trim();
+  if(!/^\d{1,12}(\.\d{1,12})?$/.test(t)) return null;
+  const p = t.split('.'), k = (p[1] || '').length, R = BigInt(p[0] + (p[1] || ''));
+  return R > 0n ? { R, k, num:Number(t), text:t } : null;
+}
+/* สตางค์ไทย ÷ อัตรา → หน่วยย่อยของสกุลต่างประเทศ (2 ตำแหน่ง · HALF-UP · ไม่มีสูตรคูณกับอัตรา) */
+function avgDiv(c, rp){ const n = BigInt(c) * (10n ** BigInt(rp.k)); return Number((2n * n + rp.R) / (2n * rp.R)); }
+function avgFxCodes(){ return avgFxActive && Array.isArray(avgFxActive.currencies) ? avgFxActive.currencies : []; }
 function avgFx(j){
-  const sel = avgEl('avgCur' + j).value, code = (sel === 'OTHER' ? avgEl('avgCurO' + j).value : sel).trim().toUpperCase();
-  const t = avgEl('avgRate' + j).value.replace(/,/g, '').trim(), rate = /^\d+(\.\d+)?$/.test(t) ? Number(t) : NaN;
-  const okCode = /^[A-Z0-9]{1,5}$/.test(code), okRate = rate > 0 && isFinite(rate);
-  return { code: okCode ? code : '', rate: okRate ? rate : null, ok: okCode && okRate };
+  const code = avgEl('avgCur' + j).value.trim().toUpperCase();
+  const hit = avgFxCodes().find(x => String(x.code).toUpperCase() === code) || null;      // ต้องเป็นสกุลเงินจากไฟล์ที่ SAVE เท่านั้น
+  const rp = avgRateParse(avgEl('avgRate' + j).value);
+  return { code: hit ? String(hit.code) : '', rp, ok: !!hit && !!rp };
 }
-function avgFor(c, rate){ return Math.round(c / rate + 1e-9); }                       // สตางค์ไทย ÷ อัตรา → หน่วยย่อยของสกุลต่างประเทศ (2 ตำแหน่ง)
 function avgFxMissing(){ return [0, 1, 2].filter(j => !avgFx(j).ok).map(j => 'กรุณากรอกสกุลเงินและอัตราแลกเปลี่ยนของ ' + AVG_COLS[j].head); }
 function avgFxFields(){
   for(let j = 0; j < 3; j++){
-    const o = avgEl('avgCurO' + j), other = avgEl('avgCur' + j).value === 'OTHER';
-    o.style.display = other ? '' : 'none';
     const p = avgToCents(avgEl('avgT' + j).value), fx = avgFx(j);
-    avgEl('avgF' + j).value = (fx.ok && !p.bad && !p.blank && p.c >= 0) ? avgFmt(avgFor(p.c, fx.rate)) : '';
+    avgEl('avgF' + j).value = (fx.ok && !p.bad && !p.blank && p.c >= 0) ? avgFmt(avgDiv(p.c, fx.rp)) + ' ' + fx.code : '';
   }
 }
+/* เลือกสกุลเงินของหัวข้อ j → ดึงค่า "การนำเข้า" ของสกุลนั้นมาใส่ช่องอัตราทันที (หัวข้ออื่นไม่ถูกแตะ) */
+function avgCurChanged(j){
+  const code = avgEl('avgCur' + j).value.trim().toUpperCase();
+  const hit = avgFxCodes().find(x => String(x.code).toUpperCase() === code);
+  if(hit){ avgEl('avgCur' + j).value = String(hit.code); avgEl('avgRate' + j).value = String(hit.rate); }
+  avgFxChanged();
+}
 function avgFxChanged(){ avgFxFields(); if(avgS && avgS.res) avgRender(); }             // เปลี่ยนสกุลเงิน / อัตรา → คำนวณยอดต่างประเทศใหม่ทันที (ยอดไทยไม่เปลี่ยน)
-function avgFxEnable(on){ for(let j = 0; j < 3; j++) ['avgCur', 'avgCurO', 'avgRate'].forEach(k => { avgEl(k + j).disabled = !on; }); }
+function avgFxEnable(on){ for(let j = 0; j < 3; j++) ['avgCur', 'avgRate'].forEach(k => { avgEl(k + j).disabled = !on; }); }
+/* ยอดต่างประเทศของหัวข้อ j ครบทุกรายการ: ขั้นต่ำ 0.01 + รักษายอดรวม (ชดเชยเฉพาะ Item ที่เปลี่ยนจากการเฉลี่ย · ไม่ข้ามหัวข้อ / สกุลเงิน) */
+function avgForeign(j, R, rp){
+  const f = [], bump = [];
+  for(let i = 0; i < R.out.length; i++){ const c = R.out[i][j], q = c > 0 ? avgDiv(c, rp) : 0; bump.push(c > 0 && q < 1); f.push(c > 0 ? Math.max(q, 1) : 0); }
+  const target = avgDiv(R.T[j], rp);
+  let diff = f.reduce((a, b) => a + b, 0) - target, guard = 0;
+  const cand = R.changed;
+  const top = min => { let b = -1; for(const i of cand) if(f[i] > min && (b < 0 || f[i] > f[b])) b = i; return b; };
+  while(diff !== 0 && cand.length && guard++ < 100000){
+    if(diff > 0){ const i = top(1); if(i < 0) return { err:'ไม่สามารถเฉลี่ยยอด ' + AVG_COLS[j].head + ' ได้ เนื่องจากยอดรวมต่างประเทศไม่เพียงพอสำหรับขั้นต่ำ 0.01 ต่อรายการ' }; f[i]--; diff--; }
+    else { const i = top(0); if(i < 0) break; f[i]++; diff++; }
+  }
+  return { f, bump, target };
+}
+
+/* ───────── ไฟล์ข้อมูล ───────── */
 async function avgHandleFile(files){
   const f = files && files[0];
   if(!f) return;
   avgS = null; avgClearResult();
   for(let j = 0; j < 3; j++){ avgEl('avgT' + j).value = ''; avgEl('avgT' + j).disabled = true; }
   avgEl('avgTSum').textContent = '-'; avgEl('avgCalcBtn').disabled = true; avgFxEnable(false); avgFxFields();
-  const showFile = (ok, sub) => { avgEl('avgFile').innerHTML = '<span>' + (ok ? '✅' : '❌') + '</span><span>' + avgEsc(f.name) + '<small>' + avgEsc(sub) + '</small></span>'; };
+  const showFile = (ok, sub) => { avgEl('avgFile').innerHTML = '<span>' + (ok ? '✅' : '❌') + '</span> ' + avgEsc(f.name) + '<small>' + avgEsc(sub) + '</small>'; };
   try{
     if(!/\.xlsx$/i.test(f.name)) throw { list:['รองรับเฉพาะไฟล์ .xlsx'] };
     const buf = await f.arrayBuffer();
@@ -2872,20 +2928,19 @@ async function avgHandleFile(files){
     const bad = [];
     for(const a in AVG_HEADERS){ const got = ws[a] ? String(ws[a].v == null ? '' : ws[a].v).trim() : ''; if(got !== AVG_HEADERS[a]) bad.push('หัวคอลัมน์ ' + a.replace(/\d+$/, '') + ' ต้องเป็น "' + AVG_HEADERS[a] + '" แต่พบ "' + got + '"'); }
     if(bad.length) throw { list:bad };
-    const last = XLSX.utils.decode_range(ws['!ref']).e.r + 1, rows = [], seen = new Set(), err = [];
+    const last = XLSX.utils.decode_range(ws['!ref']).e.r + 1, rows = [], err = [];
     let amount = 0, amountOk = true;
     for(let r = 2; r <= last; r++){
       const b = ws['B' + r];
-      const item = b ? String(typeof b.v === 'number' ? (b.w != null ? b.w : b.v) : (b.v == null ? '' : b.v)).trim() : '';
+      const item = b ? String(typeof b.v === 'number' ? (b.w != null ? b.w : b.v) : (b.v == null ? '' : b.v)).trim() : '';   // Item เป็นข้อความ · คงเลขศูนย์นำหน้า
       const v = [], blank = []; let any = false;
       for(const c of AVG_COLS){ const cell = ws[c.col + r], p = avgToCents(cell ? cell.v : null); if(!p.blank) any = true;
         if(p.bad) err.push('แถว ' + r + ' คอลัมน์ ' + c.col + ' (' + c.head + '): ค่า "' + (cell ? cell.v : '') + '" ไม่ใช่ตัวเลขทศนิยมไม่เกิน 2 ตำแหน่ง');
         else if(p.c < 0) err.push('แถว ' + r + ' คอลัมน์ ' + c.col + ' (' + c.head + '): ค่าติดลบ');
         v.push(p.bad ? 0 : p.c); blank.push(!!p.blank); }
       if(!item){ if(any) err.push('แถว ' + r + ': มียอดเงินแต่ไม่มี Item No.'); continue; }
-      if(seen.has(item)) err.push('Item No. ซ้ำ: ' + item); seen.add(item);
       const am = avgToCents(ws['AK' + r] ? ws['AK' + r].v : null); if(am.bad || am.blank) amountOk = false; else amount += am.c;
-      rows.push({ r, item, v, blank });
+      rows.push({ r, item, v, blank });                         // Item ซ้ำคนละแถว = คนละรายการ (Key = เลขแถวต้นฉบับ)
     }
     if(!rows.length) err.push('ไม่พบรายการ (Item No.) ในไฟล์');
     if(err.length) throw { list:err };
@@ -2896,7 +2951,8 @@ async function avgHandleFile(files){
   }catch(e){
     showFile(false, 'ใช้ไฟล์นี้ไม่ได้');
     avgFail('ไฟล์ไม่ผ่านการตรวจสอบ — ยังไม่ได้ประมวลผล', e && e.list ? e.list : ['อ่านไฟล์ Excel ไม่สำเร็จ']);
-  }  avgEl('avgInput').value = '';      // เลือกไฟล์เดิมซ้ำได้
+  }
+  avgEl('avgInput').value = '';      // เลือกไฟล์เดิมซ้ำได้
 }
 /* เฉลี่ย 1 คอลัมน์ · v = ยอดเดิม (สตางค์) ทุกรายการตามลำดับไฟล์ · T = ยอดรวมเป้าหมาย */
 function avgSolve(v, T){
@@ -2933,28 +2989,38 @@ function avgCalc(){
   for(let j = 0; j < 3; j++){ const s = avgSolve(rows.map(x => x.v[j]), T[j]); if(s.err) errs.push(AVG_COLS[j].head + ': ' + s.err); cols.push(s); }
   if(errs.length){ avgClearResult(); return avgFail('เงินในกลุ่ม ' + AVG_GROUP_N + ' รายการแรกไม่เพียงพอ — ไม่ได้แก้ไขรายการใด', errs); }
   const out = rows.map((x, i) => [cols[0].out[i], cols[1].out[i], cols[2].out[i]]);
-  const changed = []; for(let i = 0; i < rows.length; i++) if(out[i].some((c, j) => c !== rows[i].v[j] || rows[i].blank[j])) changed.push(i);
-  /* ตรวจยอดรวมจากผลจริงครบทุกรายการ */
+  /* เซลล์ที่เปลี่ยน = ค่าหลังเฉลี่ย ≠ ค่าเดิม (ว่าง → 0.01 = เปลี่ยน · 0 กับ 0.00 / 1 กับ 1.00 = ไม่เปลี่ยน เพราะเทียบเป็นสตางค์) */
+  const chg = rows.map((x, i) => out[i].map((c, j) => c !== x.v[j] || (x.blank[j] && c !== 0)));
+  const changed = []; for(let i = 0; i < rows.length; i++) if(chg[i].some(Boolean)) changed.push(i);
   const after = [0, 1, 2].map(j => out.reduce((s, o) => s + o[j], 0)), chk = [];
   for(let j = 0; j < 3; j++) if(after[j] !== T[j]) chk.push(AVG_COLS[j].head + ': ยอดรวมหลังเฉลี่ย ' + avgFmt(after[j]) + ' ไม่ตรงยอดที่กรอก ' + avgFmt(T[j]));
   if(out.some(o => o.some(c => c < 0))) chk.push('พบค่าติดลบ');
   if(out.some(o => o.some(c => !(c >= 1)))) chk.push('ยังมีช่องว่าง / 0.00');
-  if(new Set(rows.map(x => x.item)).size !== rows.length) chk.push('Item No. ซ้ำหรือหาย');
-  avgS.res = { T, out, changed, cols, after, ok: chk.length === 0, chk };
+  avgS.res = { T, out, chg, changed, cols, after, ok: chk.length === 0, chk };
   avgS.page = 0;
   avgRender();
 }
 function avgGo(p){ if(!avgS || !avgS.res) return; const n = Math.max(1, Math.ceil(avgS.res.changed.length / AVG_PAGE)); avgS.page = Math.min(n - 1, Math.max(0, p)); avgRenderTable(); }
-function avgRenderTable(){
+/* ยอดต่างประเทศของทั้ง 3 หัวข้อ ตามสกุลเงิน / อัตราที่กรอกอยู่ตอนนี้ */
+function avgFxView(){
+  const R = avgS.res, fx = [0, 1, 2].map(avgFx);
+  const fr = fx.map((x, j) => x.ok ? avgForeign(j, R, x.rp) : null);
+  return { fx, fr, miss: avgFxMissing(), errs: fr.filter(x => x && x.err).map(x => x.err) };
+}
+function avgRenderTable(V){
   const R = avgS.res, n = R.changed.length, pages = Math.max(1, Math.ceil(n / AVG_PAGE)), p = avgS.page;
+  V = V || avgFxView();
   avgEl('avgCount').textContent = '— ' + n.toLocaleString('en-US') + ' รายการ';
-  if(!n){ avgEl('avgTable').innerHTML = '<div class="avg-empty">ไม่มีรายการที่เปลี่ยนแปลง</div>'; avgEl('avgPager').innerHTML = ''; return; }
-  const fx = [0, 1, 2].map(avgFx);
-  let h = '<table id="avgTbl"><thead><tr><th rowspan="2">Item</th><th colspan="3">ไทย (THB)</th><th colspan="3">ต่างประเทศ</th></tr><tr>'
-        + AVG_COLS.map(c => '<th class="n">' + c.head + '</th>').join('') + AVG_COLS.map((c, j) => '<th class="n">' + c.head + ' (' + avgEsc(fx[j].code || '—') + ')</th>').join('') + '</tr></thead><tbody>';
-  for(const i of R.changed.slice(p * AVG_PAGE, (p + 1) * AVG_PAGE))
-    h += '<tr><td class="c">' + avgEsc(avgS.rows[i].item) + '</td>' + R.out[i].map(c => '<td class="n">' + avgFmt(c) + '</td>').join('')
-       + R.out[i].map((c, j) => '<td class="n">' + (fx[j].ok ? avgFmt(avgFor(c, fx[j].rate)) : '') + '</td>').join('') + '</tr>';
+  if(!n){ avgEl('avgTable').innerHTML = '<div class="avg-empty" id="avgNone">ไม่พบรายการที่มีการเปลี่ยนแปลง</div>'; avgEl('avgPager').innerHTML = ''; return; }
+  let h = '<table id="avgTbl"><thead><tr><th rowspan="2">Item</th><th colspan="3" class="g">ไทย (THB)</th><th colspan="3" class="g">ต่างประเทศ</th></tr><tr>'
+        + AVG_COLS.map((c, j) => '<th class="n' + (j ? '' : ' g') + '">' + c.head + '</th>').join('')
+        + AVG_COLS.map((c, j) => '<th class="n' + (j ? '' : ' g') + '">' + c.head + ' (' + avgEsc(V.fx[j].code || '—') + ')</th>').join('') + '</tr></thead><tbody>';
+  for(const i of R.changed.slice(p * AVG_PAGE, (p + 1) * AVG_PAGE)){
+    h += '<tr><td class="c">' + avgEsc(avgS.rows[i].item) + '</td>'
+       + R.out[i].map((c, j) => '<td class="n' + (j ? '' : ' g') + (R.chg[i][j] ? ' y' : '') + '">' + avgFmt(c) + '</td>').join('')
+       + [0, 1, 2].map(j => { const r = V.fr[j], ok = r && !r.err;
+           return '<td class="n' + (j ? '' : ' g') + (ok && R.chg[i][j] ? ' y' : '') + '">' + (ok ? avgFmt(r.f[i]) + (r.bump[i] ? '<div class="avg-note">' + AVG_MIN_NOTE + '</div>' : '') : '') + '</td>'; }).join('') + '</tr>';
+  }
   avgEl('avgTable').innerHTML = h + '</tbody></table>';
   avgEl('avgPager').innerHTML = '<span>แสดง ' + (p * AVG_PAGE + 1) + '–' + Math.min(n, (p + 1) * AVG_PAGE) + ' จาก ' + n + ' รายการ</span>'
     + '<button class="btn btn-ghost" id="avgPrev" onclick="avgGo(' + (p - 1) + ')"' + (p <= 0 ? ' disabled' : '') + '>◀ ก่อนหน้า</button>'
@@ -2962,75 +3028,222 @@ function avgRenderTable(){
     + '<button class="btn btn-ghost" id="avgNext" onclick="avgGo(' + (p + 1) + ')"' + (p >= pages - 1 ? ' disabled' : '') + '>ถัดไป ▶</button>';
 }
 function avgRender(){
-  const R = avgS.res, rows = avgS.rows;
-  avgRenderTable();
-  const tSum = R.T.reduce((a, b) => a + b, 0), bSum = R.cols.reduce((s, c) => s + c.before, 0), aSum = R.after.reduce((a, b) => a + b, 0);
-  const fx = [0, 1, 2].map(avgFx), fxMiss = avgFxMissing(), ready = R.ok && !fxMiss.length;
-  let h = '<table id="avgSumTbl"><thead><tr><th>รายการ</th><th class="n">ไทย (THB)</th><th class="n">ต่างประเทศ</th></tr></thead><tbody>';
-  AVG_COLS.forEach((c, j) => { h += '<tr><td>' + c.head + '</td><td class="n">' + avgFmt(R.T[j]) + ' THB</td><td class="n">' + (fx[j].ok ? avgFmt(avgFor(R.T[j], fx[j].rate)) + ' ' + avgEsc(fx[j].code) : '—') + '</td></tr>'; });
-  h += '<tr class="tot"><td>รวมไทย</td><td class="n">' + avgFmt(tSum) + ' THB</td><td class="n">—</td></tr></tbody></table>';   // ไม่มี "รวมต่างประเทศ" — ไม่รวมยอดต่างสกุลเงิน
-  h += !R.ok ? '<div class="avg-bad" id="avgCheck">✗ ยอดรวมไม่ผ่านการตรวจสอบ — ปิดการ Export<ul>' + R.chk.map(x => '<li>' + avgEsc(x) + '</li>').join('') + '</ul></div>'
-     : fxMiss.length ? '<div class="avg-bad" id="avgCheck">✗ ยังไม่พร้อม Export — ข้อมูลสกุลเงินไม่ครบ<ul>' + fxMiss.map(x => '<li>' + avgEsc(x) + '</li>').join('') + '</ul></div>'
-     : '<div class="avg-ok" id="avgCheck">✓ ยอดรวมตรงกัน — พร้อม Export Excel</div>';
-  h += '<table id="avgDiffTbl"><thead><tr><th>รายการ</th><th class="n">ก่อนเฉลี่ย</th><th class="n">หลังเฉลี่ย</th><th class="n">ส่วนต่างสุทธิ</th></tr></thead><tbody>';
-  AVG_COLS.forEach((c, j) => { h += '<tr><td>' + c.head + '</td><td class="n">' + avgFmt(R.cols[j].before) + '</td><td class="n">' + avgFmt(R.after[j]) + '</td><td class="n">' + avgSigned(R.cols[j].net) + '</td></tr>'; });
-  h += '<tr class="tot"><td>รวม</td><td class="n">' + avgFmt(bSum) + '</td><td class="n">' + avgFmt(aSum) + '</td><td class="n">' + avgSigned(aSum - bSum) + '</td></tr></tbody></table>';
-  avgEl('avgSummary').innerHTML = h;
-  const g = rows.slice(0, AVG_GROUP_N), net = aSum - bSum;
-  let info = '<ul class="avg-info">'
-    + '<li><span>จำนวนรายการในไฟล์</span><b>' + rows.length.toLocaleString('en-US') + ' รายการ</b></li>'
-    + '<li><span>จำนวนรายการที่เปลี่ยนแปลง</span><b id="avgChangedN">' + R.changed.length.toLocaleString('en-US') + ' รายการ</b></li>'
-    + '<li><span>กลุ่มปรับยอด</span><b>' + g.length + ' รายการแรก (' + avgEsc(g[0].item) + '–' + avgEsc(g[g.length - 1].item) + ')</b></li>'
-    + (avgS.amount != null ? '<li><span>Amount รวม (ไม่แก้ไข)</span><b>' + avgFmt(avgS.amount) + '</b></li>' : '');
-  AVG_COLS.forEach((c, j) => { info += '<li><span>' + c.head + ': เติมช่องว่าง ' + R.cols[j].filled + ' รายการ · โยกภายในจากกลุ่ม</span><b>' + avgFmt(R.cols[j].moved) + '</b></li>'; });
-  info += '<li><span>ส่วนต่างสุทธิ (ยอดเป้าหมาย − ยอดในไฟล์เดิม)</span><b id="avgNet">' + avgSigned(net) + '</b></li></ul>';
-  if(net !== 0) info += '<div style="margin-top:6px;font-size:12px;color:#92400e">ยอดเป้าหมาย' + (net > 0 ? 'สูง' : 'ต่ำ') + 'กว่ายอดในไฟล์เดิม ' + avgFmt(Math.abs(net)) + ' — ปรับยอดสุทธิให้ตรงกับยอดที่กรอกแล้ว (แยกจากยอดที่โยกภายใน)</div>';
-  avgEl('avgInfo').innerHTML = info;
-  avgSetFlag(!R.ok ? 'ยอดรวมไม่ตรง' : ready ? '✓ ยอดรวมตรงกัน' : 'กรอกสกุลเงิน / อัตรา ให้ครบ', ready ? 'ok' : 'bad');
-  avgEl('avgExpChanged').disabled = !ready; avgEl('avgExpAll').disabled = !ready;
+  const R = avgS.res, V = avgFxView();
+  avgRenderTable(V);
+  const fxReady = !V.miss.length && !V.errs.length;
+  let h = !R.ok ? avgBox('avg-bad', '✗ ยอดรวมไม่ผ่านการตรวจสอบ — ปิดการ Export', R.chk)
+        : V.errs.length ? avgBox('avg-bad', '✗ ยอดต่างประเทศไม่ผ่านการตรวจสอบ', V.errs)
+        : V.miss.length ? avgBox('avg-bad', '✗ ยังไม่พร้อม Export รายการที่เปลี่ยน — ข้อมูลสกุลเงินไม่ครบ', V.miss)
+        : avgBox('avg-ok', '✓ ยอดรวมตรงกัน — พร้อม Export Excel');
+  const bS = R.cols.reduce((s, c) => s + c.before, 0), aS = R.after.reduce((a, b) => a + b, 0);
+  if(aS !== bS) h += '<div class="avg-info" id="avgNet">ยอดไทยในไฟล์เดิม ' + avgFmt(bS) + ' → หลังเฉลี่ย ' + avgFmt(aS) + ' THB (ส่วนต่างสุทธิ ' + avgSigned(aS - bS) + ' จากยอดที่กรอก — แยกจากยอดที่โยกภายในกลุ่ม ' + AVG_GROUP_N + ' รายการแรก)</div>';
+  avgEl('avgCheck').innerHTML = h;
+  avgSetFlag(!R.ok ? 'ยอดรวมไม่ตรง' : fxReady ? '✓ ยอดรวมตรงกัน' : V.errs.length ? 'ยอดต่างประเทศไม่ผ่าน' : 'กรอกสกุลเงิน / อัตรา ให้ครบ', R.ok && fxReady ? 'ok' : 'bad');
+  avgEl('avgExpChanged').disabled = !(R.ok && fxReady && R.changed.length > 0);
+  avgEl('avgExpAll').disabled = !R.ok;                           // ไฟล์ตามต้นฉบับมีเฉพาะค่าฝั่งไทย — ไม่ขึ้นกับสกุลเงิน
 }
-function avgExportChanged(){
-  if(!avgS || !avgS.res || !avgS.res.ok || avgFxMissing().length) return;
-  const R = avgS.res, fx = [0, 1, 2].map(avgFx), ws = {}; let r = 1;
-  /* A = Item · B–D = ไทย (THB) · E–G = ต่างประเทศ (สกุลของแต่ละหัวข้อ) · H–J = อัตราแลกเปลี่ยนของแต่ละหัวข้อ */
-  ['Item'].concat(AVG_COLS.map(c => c.head + ' THB'), AVG_COLS.map((c, j) => c.head + ' ' + fx[j].code), AVG_COLS.map((c, j) => 'อัตรา ' + c.head + ' (' + fx[j].code + ')'))
-    .forEach((t, c) => { ws[XLSX.utils.encode_cell({ r:0, c })] = { t:'s', v:t }; });
-  for(const i of R.changed){                                    // ครบทุกหน้า · ลำดับและเลข Item ตามไฟล์ Upload · ค่าชุดเดียวกับ Preview
-    ws['A' + (r + 1)] = { t:'s', v:avgS.rows[i].item, z:'@' };
-    R.out[i].forEach((c, j) => {
-      ws[XLSX.utils.encode_cell({ r, c:j + 1 })] = { t:'n', v:c / 100, z:'0.00' };
-      ws[XLSX.utils.encode_cell({ r, c:j + 4 })] = { t:'n', v:avgFor(c, fx[j].rate) / 100, z:'0.00' };
-      ws[XLSX.utils.encode_cell({ r, c:j + 7 })] = { t:'n', v:fx[j].rate, z:'0.00####' };
-    });
-    r++;
+
+/* ───────── ไฟล์อัตราแลกเปลี่ยน (อ่านในเบราว์เซอร์ · บันทึก ACTIVE บน Server ผ่าน RPC nj_fxr_*) ───────── */
+function avgFxNorm(h){ return String(h == null ? '' : h).replace(/[\r\n ]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase(); }
+const AVG_FX_CODE1 = ['รหัสสกุลเงิน', 'currency code'], AVG_FX_CODE2 = ['สกุลเงิน', 'currency'], AVG_FX_RATE = ['การนำเข้า', 'import', 'import rate'];
+function avgFxParseBook(wb){
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const NOCOL = 'ไม่สามารถบันทึกไฟล์อัตราแลกเปลี่ยนได้ เนื่องจากไม่พบคอลัมน์สกุลเงินหรือการนำเข้า';
+  if(!ws || !ws['!ref']) return { err:[NOCOL] };
+  const aoa = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:null, blankrows:true });
+  let hr = -1, cc = -1, nc = -1, rc = -1;
+  for(let r = 0; r < Math.min(aoa.length, 20) && hr < 0; r++){
+    const hs = (aoa[r] || []).map(avgFxNorm), find = list => hs.findIndex(x => list.indexOf(x) >= 0);
+    const r1 = find(AVG_FX_RATE), c1 = find(AVG_FX_CODE1), c2 = find(AVG_FX_CODE2);
+    if(r1 >= 0 && (c1 >= 0 || c2 >= 0)){ hr = r; rc = r1; cc = c1 >= 0 ? c1 : c2; nc = c1 >= 0 ? c2 : -1; }     // มี "รหัสสกุลเงิน" → ใช้เป็นรหัส · "สกุลเงิน" = ชื่อ
   }
-  ws['!ref'] = 'A1:J' + r; ws['!cols'] = [{ wch:10 }].concat(Array(6).fill({ wch:15 }), Array(3).fill({ wch:20 }));
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'CHANGED ITEMS');
-  XLSX.writeFile(wb, 'CHANGED_ITEMS_' + avgS.base + '.xlsx');
+  if(hr < 0) return { err:[NOCOL] };
+  const seen = new Map(), rows = [], bad = [], clash = [];
+  for(let r = hr + 1; r < aoa.length; r++){
+    const a = aoa[r] || [], code = String(a[cc] == null ? '' : a[cc]).replace(/\s+/g, ' ').trim().toUpperCase();
+    const rv = a[rc], rt = rv == null ? '' : (typeof rv === 'number' ? String(rv) : String(rv).replace(/,/g, '').trim());
+    if(!code && rt === '') continue;
+    if(!code){ bad.push('แถว ' + (r + 1) + ': มีอัตราแต่ไม่มีสกุลเงิน'); continue; }
+    if(code.length > 40){ bad.push('แถว ' + (r + 1) + ': ชื่อสกุลเงินยาวเกินไป'); continue; }
+    const rp = avgRateParse(/e/i.test(rt) && isFinite(Number(rt)) ? Number(rt).toFixed(10).replace(/0+$/, '').replace(/\.$/, '') : rt);
+    if(!rp){ bad.push('แถว ' + (r + 1) + ' (' + code + '): อัตราการนำเข้า "' + rt + '" ไม่ใช่ตัวเลขที่มากกว่า 0'); continue; }
+    const name = nc >= 0 ? String(a[nc] == null ? '' : a[nc]).replace(/\s+/g, ' ').trim().slice(0, 80) : '';
+    if(seen.has(code)){ const o = seen.get(code); if(o.rp.R * (10n ** BigInt(rp.k)) !== rp.R * (10n ** BigInt(o.rp.k))) clash.push(code + ': แถว ' + o.row + ' = ' + o.rp.text + ' · แถว ' + (r + 1) + ' = ' + rp.text); continue; }   // ซ้ำ + อัตราเท่ากัน = เก็บครั้งเดียว
+    seen.set(code, { rp, row:r + 1 }); rows.push({ code, name, rate:rp.text });
+  }
+  if(clash.length) return { err:['พบสกุลเงินซ้ำแต่ค่าอัตราการนำเข้าไม่ตรงกัน กรุณาแก้ไขไฟล์ก่อนบันทึก'].concat(clash) };
+  if(bad.length) return { err:['ไม่สามารถบันทึกไฟล์อัตราแลกเปลี่ยนได้ — พบแถวที่ข้อมูลไม่ถูกต้อง'].concat(bad) };
+  if(!rows.length) return { err:['ไม่สามารถบันทึกไฟล์อัตราแลกเปลี่ยนได้ — ไม่พบรายการสกุลเงินในไฟล์'] };
+  if(rows.length > 500) return { err:['ไม่สามารถบันทึกไฟล์อัตราแลกเปลี่ยนได้ — มีสกุลเงินเกิน 500 รายการ'] };
+  return { rows };
+}
+function avgFxMsg(text, cls){ const m = avgEl('avgFxMsg'); m.textContent = text || ''; m.className = cls || ''; }
+function avgFxRenderInfo(){
+  const info = avgEl('avgFxInfo'); let h;
+  if(avgFxPending) h = '<span class="avg-pill new">ไฟล์ใหม่ — ยังไม่ SAVE</span>' + avgEsc(avgFxPending.name) + '<small>' + avgFxPending.rows.length + ' สกุลเงิน</small>';
+  else if(avgFxActive) h = '<span class="avg-pill ok">✓ พร้อมใช้งาน</span>' + avgEsc(avgFxActive.file_name) + '<small>' + avgFxCodes().length + ' สกุลเงิน</small>';
+  else if(avgFxState === 'loading') h = '<span class="avg-pill">กำลังตรวจสอบ</span>';
+  else if(avgFxState === 'error') h = '<span class="avg-pill bad">เชื่อมต่อไม่ได้</span><span style="font-weight:500;color:#64748b">อ่านไฟล์อัตราแลกเปลี่ยนจาก Server ไม่สำเร็จ</span>';
+  else h = '<span class="avg-pill">ยังไม่มีไฟล์</span><span style="font-weight:500;color:#64748b">เลือกไฟล์อัตราแลกเปลี่ยน แล้วกด SAVE</span>';
+  info.innerHTML = h;
+  avgEl('avgFxSave').disabled = avgFxBusy || !avgFxPending;
+  avgEl('avgFxDel').disabled = avgFxBusy || !avgFxActive;
+  avgEl('avgFxPick').disabled = avgFxBusy;
+  avgEl('avgCurList').innerHTML = avgFxCodes().map(x => '<option value="' + avgEsc(x.code) + '">' + avgEsc((x.name ? x.name + ' · ' : '') + 'นำเข้า ' + x.rate) + '</option>').join('');   // เรียงตามลำดับในไฟล์
+}
+async function avgSha256(buf){ const d = await crypto.subtle.digest('SHA-256', buf); return Array.from(new Uint8Array(d)).map(b => b.toString(16).padStart(2, '0')).join(''); }
+async function avgFxLoad(){
+  try{ const j = await txDbRpc('nj_fxr_active', {}); avgFxActive = j.active || null; avgFxState = 'ready'; }
+  catch(e){ avgFxActive = null; avgFxState = 'error'; }
+  avgFxRenderInfo(); avgFxFields(); if(avgS && avgS.res) avgRender();
+  return avgFxActive;
+}
+/* เลือก / วางไฟล์ → อ่านทันที (ยังไม่แทนที่ ACTIVE จนกว่า SAVE สำเร็จ) */
+async function avgFxPickFile(files){
+  const list = Array.from(files || []); if(!list.length || avgFxBusy) return;
+  avgFxPending = null;
+  try{
+    if(list.length !== 1) throw new Error('เลือกไฟล์อัตราแลกเปลี่ยนได้ครั้งละ 1 ไฟล์');
+    const f = list[0];
+    if(!/\.(xlsx|xls)$/i.test(f.name)) throw new Error('รองรับเฉพาะไฟล์ Excel (.xlsx / .xls) — ไม่รองรับ PDF, CSV, รูปภาพ หรือไฟล์ชนิดอื่น');
+    if(!f.size || f.size > AVG_FX_MAX) throw new Error('ขนาดไฟล์ต้องไม่เกิน 5 MB');
+    const buf = await f.arrayBuffer(), u8 = new Uint8Array(buf);
+    const zip = u8[0] === 0x50 && u8[1] === 0x4B, ole = u8[0] === 0xD0 && u8[1] === 0xCF && u8[2] === 0x11 && u8[3] === 0xE0;
+    if(!zip && !ole) throw new Error('เนื้อไฟล์ไม่ใช่ Excel (.xlsx / .xls)');
+    let wb; try{ wb = XLSX.read(u8, { type:'array' }); }catch(_){ throw new Error('อ่านไฟล์ Excel ไม่สำเร็จ'); }
+    const p = avgFxParseBook(wb);
+    if(p.err){ avgFxRenderInfo(); avgFxMsg(p.err.join('\n• '), 'err'); return; }
+    avgFxPending = { name:f.name, size:f.size, sha:await avgSha256(buf), rows:p.rows };
+    avgFxRenderInfo(); avgFxMsg('อ่านไฟล์แล้ว ' + p.rows.length + ' สกุลเงิน — กด SAVE เพื่อบันทึกและเริ่มใช้งาน' + (avgFxActive ? ' (ตอนนี้ยังใช้ไฟล์เดิมอยู่)' : ''), '');
+  }catch(e){ avgFxRenderInfo(); avgFxMsg(String((e && e.message) || e), 'err'); }
+}
+async function avgFxSaveClick(){
+  if(!avgFxPending || avgFxBusy) return;
+  avgFxBusy = true; avgFxRenderInfo(); avgFxMsg('กำลังบันทึก…', '');
+  const p = avgFxPending;
+  try{
+    await txDbRpc('nj_fxr_save', { p_file_name:p.name, p_sha256:p.sha, p_file_size:p.size, p_rows:p.rows.map(x => [x.code, x.name, x.rate]) });
+    avgFxPending = null; avgFxBusy = false;
+    await avgFxLoad();
+    avgFxMsg('บันทึกไฟล์อัตราแลกเปลี่ยนสำเร็จ พร้อมใช้งาน ' + avgFxCodes().length + ' สกุลเงิน', 'ok');
+  }catch(e){ avgFxBusy = false; avgFxRenderInfo(); avgFxMsg('SAVE ไม่สำเร็จ — ยังใช้ไฟล์อัตราแลกเปลี่ยนเดิม\n' + String((e && e.message) || e), 'err'); }   // ล้มเหลว = ACTIVE เดิมไม่ถูกแตะ
+}
+async function avgFxDeleteClick(){
+  if(!avgFxActive || avgFxBusy) return;
+  if(!confirm('ยืนยันลบไฟล์อัตราแลกเปลี่ยนที่บันทึกไว้หรือไม่')) return;
+  avgFxBusy = true; avgFxRenderInfo();
+  try{
+    await txDbRpc('nj_fxr_delete', {});
+    avgFxBusy = false; avgFxActive = null; avgFxState = 'ready';
+    for(let j = 0; j < 3; j++){ avgEl('avgCur' + j).value = ''; avgEl('avgRate' + j).value = ''; }     // ล้างรายการ + อัตราที่มาจากไฟล์ · ไม่ล้างยอดไทย / ไฟล์ข้อมูล
+    avgFxRenderInfo(); avgFxFields(); if(avgS && avgS.res) avgRender();
+    avgFxMsg('ลบไฟล์อัตราแลกเปลี่ยนสำเร็จ', 'ok');
+  }catch(e){ avgFxBusy = false; avgFxRenderInfo(); avgFxMsg('ลบไม่สำเร็จ\n' + String((e && e.message) || e), 'err'); }
+}
+(function(){ const d = avgEl('avgFxDrop'); if(!d) return;
+  ['dragenter', 'dragover'].forEach(ev => d.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); d.classList.add('drag'); }));
+  ['dragleave', 'drop'].forEach(ev => d.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); d.classList.remove('drag'); }));
+  d.addEventListener('drop', e => { avgFxPickFile(e.dataTransfer && e.dataTransfer.files); });
+})();
+
+/* ───────── Export Excel (รายการที่เปลี่ยน) — รูปแบบรายงาน ───────── */
+function avgSaveBlob(data, name){
+  const url = URL.createObjectURL(new Blob([data], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+async function avgExportChanged(){
+  if(!avgS || !avgS.res || !avgS.res.ok || !avgS.res.changed.length) return;
+  const R = avgS.res, V = avgFxView(); if(V.miss.length || V.errs.length) return;
+  try{
+    if(typeof ExcelJS === 'undefined') throw new Error('โหลดตัวสร้างไฟล์ Excel (ExcelJS) ไม่สำเร็จ กรุณาโหลดหน้าเว็บใหม่');
+    const NAVY = 'FF1F3864', BLUE = 'FF1E40AF', LINE = 'FFB4C6E7', ZEBRA = 'FFEAF2FB', YEL = 'FFFFF2CC', GOLD = 'FFBF9000', WHITE = 'FFFFFFFF';
+    const fill = c => ({ type:'pattern', pattern:'solid', fgColor:{ argb:c } }), thin = c => ({ style:'thin', color:{ argb:c } }), med = c => ({ style:'medium', color:{ argb:c } });
+    const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet('CHANGED ITEMS', { views:[{ state:'frozen', ySplit:5 }] });
+    ws.columns = [{ width:12 }, { width:17 }, { width:17 }, { width:17 }, { width:19 }, { width:19 }, { width:19 }];
+    ws.mergeCells('A1:G1'); const t = ws.getCell('A1'); t.value = 'รายการที่เปลี่ยนแปลง (หลังเฉลี่ยยอด)';
+    t.font = { bold:true, size:16, color:{ argb:WHITE } }; t.fill = fill(NAVY); t.alignment = { horizontal:'center', vertical:'middle' }; ws.getRow(1).height = 30;
+    const now = new Date(), p2 = n => String(n).padStart(2, '0');
+    const stamp = p2(now.getDate()) + '/' + p2(now.getMonth() + 1) + '/' + now.getFullYear() + ' ' + p2(now.getHours()) + ':' + p2(now.getMinutes());
+    [['A2:C2', 'ไฟล์ข้อมูล: ' + avgS.name], ['D2:E2', 'ไฟล์อัตราแลกเปลี่ยน: ' + (avgFxActive ? avgFxActive.file_name : '-')], ['F2:G2', 'วันที่ส่งออก: ' + stamp]].forEach(([rg, tx]) => {
+      ws.mergeCells(rg); const c = ws.getCell(rg.split(':')[0]); c.value = tx; c.font = { bold:true, size:10 }; c.fill = fill(ZEBRA); c.alignment = { vertical:'middle', wrapText:true }; });
+    ws.getRow(2).height = 30;
+    ws.mergeCells('A4:A5'); ws.mergeCells('B4:D4'); ws.mergeCells('E4:G4');
+    ws.getCell('A4').value = 'Item'; ws.getCell('B4').value = 'ไทย (THB)'; ws.getCell('E4').value = 'ต่างประเทศ';
+    AVG_COLS.forEach((c, j) => { ws.getCell(5, 2 + j).value = c.head; ws.getCell(5, 5 + j).value = c.head + ' (' + V.fx[j].code + ')'; });
+    for(let r = 4; r <= 5; r++) for(let c = 1; c <= 7; c++){ const x = ws.getCell(r, c); x.font = { bold:true, color:{ argb:WHITE } }; x.fill = fill(BLUE); x.alignment = { horizontal:'center', vertical:'middle', wrapText:true }; }
+    ws.getRow(4).height = 20; ws.getRow(5).height = 20;
+    let r = 6;
+    for(const i of R.changed){                                  // เฉพาะ Item ที่แสดงในหน้าต่าง · ลำดับตามไฟล์ Upload · Item เป็นข้อความ
+      const a = ws.getCell(r, 1); a.value = String(avgS.rows[i].item); a.numFmt = '@'; a.alignment = { horizontal:'center' }; a.font = { bold:true };
+      for(let j = 0; j < 3; j++){
+        const th = ws.getCell(r, 2 + j), fo = ws.getCell(r, 5 + j);
+        th.value = R.out[i][j] / 100; fo.value = V.fr[j].f[i] / 100;
+        if(V.fr[j].bump[i]) fo.note = AVG_MIN_NOTE;
+        [th, fo].forEach(x => { x.numFmt = '#,##0.00'; x.alignment = { horizontal:'right' }; });
+      }
+      for(let c = 1; c <= 7; c++){ const x = ws.getCell(r, c), j = c >= 5 ? c - 5 : c - 2, y = c > 1 && R.chg[i][j];
+        if(y) x.fill = fill(YEL); else if((r - 6) % 2 === 1) x.fill = fill(ZEBRA); }      // สีเหลืองเฉพาะเซลล์ที่เปลี่ยน — ไม่ลงสีทั้งแถว
+      r++;
+    }
+    const last = r - 1;
+    for(let rr = 4; rr <= last; rr++) for(let c = 1; c <= 7; c++){
+      const x = ws.getCell(rr, c), j = c >= 5 ? c - 5 : c - 2, y = rr >= 6 && c > 1 && R.chg[R.changed[rr - 6]][j], e = y ? thin(GOLD) : thin(LINE);
+      if(rr === 4 || (rr === 5 && c === 1)) continue;             // เซลล์หัวที่ Merge ใช้รูปแบบร่วมกัน → กำหนดกรอบที่ช่วง Merge ด้านล่าง
+      x.border = { top: e, bottom: rr === last ? med(NAVY) : (rr === 5 ? med(NAVY) : e), left: c === 1 ? med(NAVY) : ((c === 2 || c === 5) ? med(NAVY) : e), right: c === 7 ? med(NAVY) : e };
+    }
+    ws.getCell('A4').border = { top:med(NAVY), bottom:med(NAVY), left:med(NAVY), right:thin(LINE) };
+    ws.getCell('B4').border = { top:med(NAVY), bottom:thin(LINE), left:med(NAVY), right:thin(LINE) };
+    ws.getCell('E4').border = { top:med(NAVY), bottom:thin(LINE), left:med(NAVY), right:med(NAVY) };
+    ws.autoFilter = { from:{ row:5, column:1 }, to:{ row:last, column:7 } };
+    /* สรุปอัตราแลกเปลี่ยน — ไม่มียอดรวมต่างประเทศ (ไม่รวมยอดต่างสกุลเงิน) */
+    let s = last + 2; ws.mergeCells(s, 1, s, 5); const st = ws.getCell(s, 1); st.value = 'สรุปอัตราแลกเปลี่ยน'; st.font = { bold:true, size:12, color:{ argb:WHITE } }; st.fill = fill(NAVY); st.alignment = { vertical:'middle' };
+    ['รายการ', 'ยอดไทย', 'สกุลเงิน', 'อัตราการนำเข้า', 'ยอดต่างประเทศ'].forEach((tx, c) => { const x = ws.getCell(s + 1, c + 1); x.value = tx; x.font = { bold:true, color:{ argb:WHITE } }; x.fill = fill(BLUE); x.alignment = { horizontal:'center' }; });
+    AVG_COLS.forEach((c, j) => { const rr = s + 2 + j, code = V.fx[j].code.replace(/"/g, '');
+      ws.getCell(rr, 1).value = c.head; ws.getCell(rr, 1).font = { bold:true }; ws.getCell(rr, 1).alignment = { horizontal:'center' };
+      const a = ws.getCell(rr, 2); a.value = R.T[j] / 100; a.numFmt = '#,##0.00" THB"'; a.alignment = { horizontal:'right' };
+      const b = ws.getCell(rr, 3); b.value = V.fx[j].code; b.alignment = { horizontal:'center' }; b.font = { bold:true };
+      const d = ws.getCell(rr, 4); d.value = V.fx[j].rp.num; d.numFmt = '0.00########'; d.alignment = { horizontal:'right' };
+      const f = ws.getCell(rr, 5); f.value = V.fr[j].target / 100; f.numFmt = '#,##0.00" ' + code + '"'; f.alignment = { horizontal:'right' }; });
+    const tr = s + 5; ws.getCell(tr, 1).value = 'รวมไทย'; const tv = ws.getCell(tr, 2); tv.value = R.T.reduce((a, b) => a + b, 0) / 100; tv.numFmt = '#,##0.00" THB"'; tv.alignment = { horizontal:'right' };
+    for(let c = 1; c <= 5; c++){ const x = ws.getCell(tr, c); x.fill = fill(YEL.replace('F2CC', 'F3C7')); x.font = { bold:true }; if(c === 1) x.alignment = { horizontal:'center' }; }
+    for(let rr = s + 1; rr <= tr; rr++) for(let c = 1; c <= 5; c++) ws.getCell(rr, c).border = { top: rr === s + 1 ? med(NAVY) : thin(LINE), bottom: rr === tr ? med(NAVY) : thin(LINE), left: c === 1 ? med(NAVY) : thin(LINE), right: c === 5 ? med(NAVY) : thin(LINE) };
+    const lg = ws.getCell(s + 2, 7); lg.value = 'สีเหลือง = ค่าที่ระบบเปลี่ยน'; lg.fill = fill(YEL); lg.border = { top:thin(GOLD), bottom:thin(GOLD), left:thin(GOLD), right:thin(GOLD) }; lg.alignment = { horizontal:'center', vertical:'middle', wrapText:true }; lg.font = { bold:true, size:10 };
+    ws.pageSetup = { paperSize:9, orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0, printArea:'A1:G' + tr, printTitlesRow:'4:5',
+                     margins:{ left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.2, footer:0.2 }, horizontalCentered:true };
+    avgSaveBlob(await wb.xlsx.writeBuffer(), 'CHANGED_ITEMS_' + avgS.base + '.xlsx');
+  }catch(e){ avgFail('Export รายการที่เปลี่ยนไม่สำเร็จ', [String((e && e.message) || e)]); }
 }
 function avgColNum(s){ let n = 0; for(const ch of s) n = n * 26 + (ch.charCodeAt(0) - 64); return n; }
-/* แก้เฉพาะเซลล์ V / W / X ของแถวรายการใน XML ต้นฉบับ (+ เพิ่มรูปแบบตัวเลข 0.00 ให้ 3 คอลัมน์นี้) — ส่วนอื่นของไฟล์ไม่ถูกเขียนใหม่ */
-async function avgPatchXlsx(buf, rows, out){
+/* [473] แก้ "เฉพาะเซลล์ที่เปลี่ยน" (V / W / X) ใน XML ของ Sheet แรก + ลงสีเหลือง #FFF2CC · เซลล์อื่น / Sheet อื่น / สูตร / Merge / Filter / Freeze / Print Area ไม่ถูกเขียนใหม่ */
+async function avgPatchXlsx(buf, rows, out, chg){
   const zip = await JSZip.loadAsync(buf);
   const need = p => { const f = zip.file(p); if(!f) throw new Error('ไม่พบ ' + p + ' ในไฟล์ต้นฉบับ'); return f.async('string'); };
+  if(!chg.some(x => x.some(Boolean))) return zip.generateAsync({ type:'uint8array', compression:'DEFLATE' });      // ไม่มีรายการเปลี่ยน → เนื้อหาเดิมทั้งหมด
   const wbXml = await need('xl/workbook.xml'), rels = await need('xl/_rels/workbook.xml.rels');
   const sh = wbXml.match(/<sheet\b[^>]*>/); const rid = sh && (sh[0].match(/\br:id="([^"]+)"/) || [])[1];
   let target = null; for(const m of (rels.match(/<Relationship\b[^>]*>/g) || [])) if((m.match(/\bId="([^"]+)"/) || [])[1] === rid) target = (m.match(/\bTarget="([^"]+)"/) || [])[1];
   if(!target) throw new Error('หาไฟล์ Sheet แรกในไฟล์ต้นฉบับไม่พบ');
   const path = target.charAt(0) === '/' ? target.slice(1) : 'xl/' + target;
   const xml = await need(path); let st = await need('xl/styles.xml');
+  const fm = st.match(/<fills\b[^>]*>([\s\S]*?)<\/fills>/); if(!fm) throw new Error('ไม่พบรูปแบบสีพื้น (fills) ในไฟล์ต้นฉบับ');
+  const fills = fm[1].match(/<fill\s*\/>|<fill(?:\s[^>]*)?>[\s\S]*?<\/fill>/g) || [];
+  const fillId = fills.length; fills.push('<fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/><bgColor indexed="64"/></patternFill></fill>');
+  st = st.replace(fm[0], '<fills count="' + fills.length + '">' + fills.join('') + '</fills>');
   const xm = st.match(/<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/); if(!xm) throw new Error('ไม่พบรูปแบบเซลล์ (cellXfs) ในไฟล์ต้นฉบับ');
   const xfs = xm[1].match(/<xf\b[^>]*?\/>|<xf\b[^>]*>[\s\S]*?<\/xf>/g) || []; if(!xfs.length) throw new Error('ไม่พบรูปแบบเซลล์ในไฟล์ต้นฉบับ');
   const sMap = {};
   const style2 = s => { if(sMap[s] != null) return sMap[s]; const base = xfs[s] || xfs[0];
-    xfs.push(base.replace(/\snumFmtId="[^"]*"/, '').replace(/\sapplyNumberFormat="[^"]*"/, '').replace(/^<xf\b/, '<xf numFmtId="2" applyNumberFormat="1"')); return (sMap[s] = xfs.length - 1); };
+    xfs.push(base.replace(/\snumFmtId="[^"]*"/, '').replace(/\sapplyNumberFormat="[^"]*"/, '').replace(/\sfillId="[^"]*"/, '').replace(/\sapplyFill="[^"]*"/, '')
+                 .replace(/^<xf\b/, '<xf numFmtId="2" applyNumberFormat="1" fillId="' + fillId + '" applyFill="1"')); return (sMap[s] = xfs.length - 1); };
   const parts = []; let pos = 0;
   for(let i = 0; i < rows.length; i++){
+    if(!chg[i].some(Boolean)) continue;                         // Item ที่ไม่เปลี่ยน = ไม่แตะแถวนั้นเลย
     const R = rows[i].r, re = new RegExp('<row\\b[^>]*\\br="' + R + '"[^>]*>', 'g'); re.lastIndex = pos;
     const m = re.exec(xml); if(!m || /\/>$/.test(m[0])) throw new Error('ไม่พบแถว ' + R + ' ในไฟล์ต้นฉบับ');
     const end = xml.indexOf('</row>', m.index); if(end < 0) throw new Error('โครงสร้างแถว ' + R + ' ไม่สมบูรณ์');
     let row = xml.slice(m.index, end);
     AVG_COLS.forEach((c, j) => {
+      if(!chg[i][j]) return;                                    // เซลล์ที่ไม่เปลี่ยนคงค่าและรูปแบบเดิม
       const val = (out[i][j] / 100).toFixed(2);
       const cre = new RegExp('<c\\b[^>]*\\br="' + c.col + R + '"[^>]*?(?:/>|>[\\s\\S]*?</c>)'), cm = cre.exec(row);
       if(cm){ const s = +((cm[0].match(/^<c\b[^>]*?\bs="(\d+)"/) || [])[1] || 0);
@@ -3049,26 +3262,28 @@ async function avgPatchXlsx(buf, rows, out){
   return zip.generateAsync({ type:'uint8array', compression:'DEFLATE' });
 }
 async function avgExportAll(){
-  if(!avgS || !avgS.res || !avgS.res.ok || avgFxMissing().length) return;
+  if(!avgS || !avgS.res || !avgS.res.ok) return;
   const btn = avgEl('avgExpAll'); btn.disabled = true;
   try{
-    const R = avgS.res, bytes = await avgPatchXlsx(avgS.buf, avgS.rows, R.out);
-    /* ตรวจไฟล์ที่จะส่งออกก่อนดาวน์โหลด: V / W / X = ผลเฉลี่ย · ยอดรวมตรง · เซลล์อื่นทุกเซลล์เท่าต้นฉบับ */
+    const R = avgS.res, bytes = await avgPatchXlsx(avgS.buf, avgS.rows, R.out, R.chg);
+    /* ตรวจไฟล์ก่อนดาวน์โหลด: ทุก Sheet อยู่ครบ · เซลล์ที่เปลี่ยน = ผลเฉลี่ย · ยอดรวม V / W / X ตรง · เซลล์อื่นทุกเซลล์เท่าต้นฉบับ */
     const a = XLSX.read(new Uint8Array(avgS.buf), { type:'array' }), b = XLSX.read(bytes, { type:'array' });
-    const wa = a.Sheets[a.SheetNames[0]], wb2 = b.Sheets[b.SheetNames[0]], bad = [];
-    if(a.SheetNames.join('\n') !== b.SheetNames.join('\n') || wa['!ref'] !== wb2['!ref']) bad.push('โครงสร้าง Sheet เปลี่ยน');
-    const mine = new Set(); avgS.rows.forEach(x => AVG_COLS.forEach(c => mine.add(c.col + x.r)));
+    const bad = [];
+    if(a.SheetNames.join('\n') !== b.SheetNames.join('\n')) bad.push('จำนวน / ชื่อ Sheet เปลี่ยน');
+    const wa = a.Sheets[a.SheetNames[0]], wb2 = b.Sheets[b.SheetNames[0]];
+    if(wa['!ref'] !== wb2['!ref']) bad.push('ช่วงข้อมูลของ Sheet เปลี่ยน');
+    const mine = new Map(); avgS.rows.forEach((x, i) => AVG_COLS.forEach((c, j) => { if(R.chg[i][j]) mine.set(c.col + x.r, R.out[i][j]); }));
+    for(const [k, v] of mine){ const cell = wb2[k], p = avgToCents(cell && cell.t === 'n' ? cell.v : 'x'); if(p.bad || p.c !== v){ bad.push('ค่า ' + k + ' ไม่ตรงผลเฉลี่ย'); if(bad.length > 8) break; } }
     const sum = [0, 0, 0];
-    avgS.rows.forEach((x, i) => AVG_COLS.forEach((c, j) => { const cell = wb2[c.col + x.r], p = avgToCents(cell && cell.t === 'n' ? cell.v : 'x'); if(p.bad || p.c !== R.out[i][j]) bad.push('ค่า ' + c.col + x.r + ' ไม่ตรงผลเฉลี่ย'); else sum[j] += p.c; }));
+    avgS.rows.forEach(x => AVG_COLS.forEach((c, j) => { const cell = wb2[c.col + x.r], p = avgToCents(cell ? cell.v : null); if(!p.bad) sum[j] += p.c; }));
     for(let j = 0; j < 3; j++) if(sum[j] !== R.T[j]) bad.push(AVG_COLS[j].head + ': ยอดรวมในไฟล์ไม่ตรงยอดที่กรอก');
     for(const k in wa){ if(k.charAt(0) === '!' || mine.has(k)) continue; const y = wb2[k]; if(!y || y.t !== wa[k].t || y.v !== wa[k].v){ bad.push('เซลล์ ' + k + ' เปลี่ยนจากต้นฉบับ'); if(bad.length > 8) break; } }
     for(const k in wb2){ if(k.charAt(0) !== '!' && !mine.has(k) && !wa[k]){ bad.push('มีเซลล์เกิน ' + k); break; } }
+    for(let n = 1; n < a.SheetNames.length; n++){ const x = a.Sheets[a.SheetNames[n]], y = b.Sheets[b.SheetNames[n]]; for(const k in x){ if(k.charAt(0) === '!') continue; if(!y[k] || y[k].v !== x[k].v){ bad.push('Sheet ' + a.SheetNames[n] + ' เปลี่ยนจากต้นฉบับ'); break; } } }
     if(bad.length){ avgFail('ไฟล์ส่งออกไม่ผ่านการตรวจสอบ — ยกเลิกการ Export', bad); return; }
-    const url = URL.createObjectURL(new Blob([bytes], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
-    const link = document.createElement('a'); link.href = url; link.download = 'AVERAGED_' + avgS.base + '.xlsx';
-    document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+    avgSaveBlob(bytes, 'AVERAGED_' + avgS.base + '.xlsx');
     btn.disabled = false;
-  }catch(e){ avgFail('Export ข้อมูลทั้งหมดไม่สำเร็จ', [String(e && e.message || e)]); }
+  }catch(e){ avgFail('Export ตามไฟล์ต้นฉบับไม่สำเร็จ', [String((e && e.message) || e)]); }
 }
 </script>
 
@@ -3305,6 +3520,7 @@ function switchCustomer(key){
     const av = document.getElementById('avg-view'); if(av) av.classList.add('active');
     const tt = document.getElementById('topbar-title'); if(tt) tt.textContent = 'เฉลี่ยยอดเงิน Excel';
     const tb = document.getElementById('topbar-badge'); if(tb){ tb.textContent = 'EXCEL · AVERAGE'; tb.className = 'topbar-badge'; }
+    try{ avgFxLoad(); }catch(_){}   /* [473] ทุกครั้งที่เข้าโหมด: ดึงไฟล์อัตราแลกเปลี่ยน ACTIVE ล่าสุดจาก Server */
     return;
   }
   // ── HIGAS (Drop PDF → Auto Export Excel) ──
@@ -27334,7 +27550,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local472';
+const DEPLOY_VERSION = 'local473';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
