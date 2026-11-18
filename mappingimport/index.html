@@ -986,7 +986,9 @@ body.legacy-active .content-area { display: none !important; }
       <div class="preview-body" id="preview-body"></div>
     </div>
 
-    <div id="st-ai-status" style="display:none;margin:0 0 10px;padding:9px 12px;border-radius:10px;font-size:12.5px;font-weight:600;line-height:1.5;white-space:pre-line;border:1px solid rgba(148,163,184,.4);background:rgba(148,163,184,.10)"></div>
+    <style>body.sch-clean .content-area > .page-header, body.sch-clean .content-area > .debug-card{display:none !important}</style>
+    <div id="sx-ai-status" style="display:none;margin:0 0 10px;padding:9px 12px;border-radius:10px;font-size:12.5px;font-weight:600;line-height:1.5;white-space:pre-line;border:1px solid rgba(148,163,184,.4);background:rgba(148,163,184,.10)"></div>
+    <div id="st-ai-status" style="""display:none;margin:0 0 10px;padding:9px 12px;border-radius:10px;font-size:12.5px;font-weight:600;line-height:1.5;white-space:pre-line;border:1px solid rgba(148,163,184,.4);background:rgba(148,163,184,.10)"></div>
     <div class="actions-row">
       <button class="btn btn-primary" id="btn-export" onclick="doExport()" disabled>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -3398,6 +3400,7 @@ function removeTechnoPdf(idx){
   if(typeof toast === 'function') toast(`ลบ ${removed.name||'ไฟล์'}`, 'ok');
   renderSlots();
   if(activeCustomer === 'schaeffler_techno'){ try{ refreshButtons(); stRenderPreview(false); }catch(_){} }
+  if(sxCfg(activeCustomer)){ try{ refreshButtons(); sxAfterChange(activeCustomer); }catch(_){} }
   if(typeof refreshDebug === 'function') refreshDebug();
 }
 
@@ -3462,7 +3465,8 @@ async function processFiles(files, key){
       }
       try{
         /* [459] Schaeffler Techno: ไม่อ่านข้อความจาก PDF ฝั่งหน้าเว็บ — เก็บไฟล์ไว้ส่งให้ AI อ่านเท่านั้น */
-        const info = (activeCustomer === 'schaeffler_techno' && key === 'PDF') ? await stReadMeta(f) : await readPDF(f);
+        /* [461] Schaeffler Automotive / India: เช่นเดียวกัน — ไม่อ่านข้อความจาก PDF ฝั่งหน้าเว็บ */
+        const info = ((activeCustomer === 'schaeffler_techno' || sxCfg(activeCustomer)) && key === 'PDF') ? await stReadMeta(f) : await readPDF(f);
         arr.push(info);
         added++;
       } catch(err){
@@ -3475,6 +3479,10 @@ async function processFiles(files, key){
     /* [459] Schaeffler Techno — แนบ PDF แล้ว AI เริ่มอ่านเองทันที (ไม่ต้องกดปุ่มใด) */
     if(activeCustomer === 'schaeffler_techno' && key === 'PDF' && added){
       stAiRun();
+    }
+    /* [461] Schaeffler Automotive / India — แนบ PDF แล้ว AI เริ่มอ่านเองทันที */
+    if(sxCfg(activeCustomer) && key === 'PDF' && added){
+      sxAiRun(activeCustomer);
     }
     // Mapping Word — auto-fill INVOICE slot จาก PDF ที่อัพโหลด (ทดแทนการอัพโหลด .xlsx)
     if(activeCustomer === 'word' && key === 'PDF'){
@@ -4021,6 +4029,7 @@ function refreshButtons(){
   document.getElementById('btn-export').disabled  = !any;
   document.getElementById('btn-preview').disabled = !any;
   try{ stGate(); }catch(_){}   /* [459] Schaeffler Techno: ปิด EXPORT ระหว่าง AI อ่าน / เมื่อ AI ล้มเหลว */
+  try{ sxGate(); }catch(_){}   /* [461] Schaeffler Automotive / India: เช่นเดียวกัน */
 }
 
 /* ═══ Build Mapping — รักษา logic ของ CELESTICA จากโค้ดเดิม ═══ */
@@ -4121,6 +4130,7 @@ function escapeHtml(s){
 
 function doPreview(){
   if(activeCustomer === 'schaeffler_techno') return stRenderPreview(true);   /* [459] Preview จากผลที่ AI อ่าน */
+  if(sxCfg(activeCustomer)) return sxRenderPreview(true);                    /* [461] Automotive / India */
   const d = slotData[activeCustomer];
   const cfg = CUSTOMERS[activeCustomer];
   let html = '';
@@ -7550,6 +7560,8 @@ function stSetStatus(msg, cls){
 /* ปุ่ม: ปิด EXPORT ระหว่าง AI อ่าน และเมื่อยังอ่านไม่ครบ/ล้มเหลว · เปลี่ยนโหมด = ซ่อนสถานะ */
 function stGate(){
   const el = document.getElementById('st-ai-status');
+  /* [460] Schaeffler Automotive / Techno / India: ซ่อนชื่อหน้าซ้ำ + ข้อความแนะนำ + Debug Panel (โหมดอื่นแสดงตามเดิม) */
+  try{ document.body.classList.toggle('sch-clean', ['schaeffler_auto','schaeffler_techno','schaeffler_india'].indexOf(activeCustomer) >= 0); }catch(_){}
   if(activeCustomer !== 'schaeffler_techno'){ if(el) el.style.display = 'none'; return; }
   const ok = stReady();
   const be = document.getElementById('btn-export'), bp = document.getElementById('btn-preview');
@@ -7692,7 +7704,7 @@ function stToResults(pdf){
       const qn = parseInt(str(it.qty).replace(/,/g, ''), 10);
       items.push({
         no: isNaN(noNum) ? '' : String(noNum), invoice_no: invoice_number, invoice_date,
-        product_code, english_description: cleanTextCommon(it.desc),
+        product_code, english_description: stEngDesc(invoice_number, it),
         quantity: isNaN(qn) ? 0 : qn, unit: raw_unit === 'PC' ? 'C62' : raw_unit,
         unit_price: toNumberCommon(it.price), total_price: toNumberCommon(it.value),
         currency, origin: stCountry(it.coo), incoterm,
@@ -7706,6 +7718,20 @@ function stToResults(pdf){
                _amount: toNumberCommon(iv.amount), _file: pdf.name });
   }
   return out;
+}
+/* [462] English Description — เฉพาะ Invoice 180165544 (ตามคำสั่ง · ไม่ใช้กับ Invoice อื่น)
+   Designation (ชื่อในบรรทัด Designation) + Dimensions (บรรทัดถัดลงมา) ของ "รายการเดียวกัน" เท่านั้น
+   • ชื่อเดียวกัน (ไม่แยกตัวพิมพ์ใหญ่-เล็ก · ตัดช่องว่างส่วนเกิน) → ใช้ Designation ค่าเดียว ตามตัวสะกดใน PDF
+   • ชื่อต่างกัน → Designation + เว้นวรรค 1 ครั้ง + Dimensions · ไม่มี Dimensions → Designation */
+const ST_DESC_MERGE_INVOICES = ['180165544'];
+function stEngDesc(invoiceNo, it){
+  const d = cleanTextCommon(it && it.desc);
+  if(ST_DESC_MERGE_INVOICES.indexOf(String(invoiceNo || '').trim()) < 0) return d;
+  const m = cleanTextCommon(it && it.dim);
+  if(!m) return d;
+  if(!d) return d;                       // ไม่มี Designation = อ่านไม่พบ → คงค่าว่าง + คำเตือนเดิม (ไม่เติมค่าแทน)
+  if(d.toLowerCase() === m.toLowerCase()) return d;
+  return d + ' ' + m;
 }
 function stAllResults(){
   const all = [];
@@ -7779,6 +7805,309 @@ function stRenderPreview(show){
   card.classList.add('show');
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   [461] MAPPING SCHAEFFLER AUTOMOTIVE + SCHAEFFLER INDIA — AI อ่าน Invoice PDF
+   • แยกกันเด็ดขาด 2 โหมด: Edge Function · mode · mapping_ver · Tool Schema · ตัวแปลงผล → Mapping เดิมของโหมดนั้น
+       schaeffler_auto  → nj-invoice-ai-schaeffler-automotive (mode schaeffler_automotive) → buildSheetSchaefflerAutomotive
+       schaeffler_india → nj-invoice-ai-schaeffler-india      (mode schaeffler_india)      → buildSheetSchaefflerIndia
+   • ไม่แตะโมดูลของ Schaeffler Techno (st…) — ใช้ร่วมเฉพาะตัวช่วยกลาง (stReadMeta / stB64 / txSiteAuth)
+   • แนบ PDF → AI เริ่มอ่านเอง · ใช้ Login เดิมของเว็บไซต์ · ไม่อ่านข้อความจาก PDF ฝั่งหน้าเว็บ · ไม่มี Fallback
+   • AI ส่ง "ค่าที่พิมพ์ใน PDF" เท่านั้น → Mapping / ค่าคงที่ / TOTAL / รูปแบบ Excel ใช้โค้ดเดิมของแต่ละโหมดทุกอย่าง
+   ══════════════════════════════════════════════════════════════════════════ */
+const SX_AI_FAIL  = 'AI อ่าน Invoice PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+const SX_AI_MAXMS = 8 * 60 * 1000;
+const SX_MODES = {
+  schaeffler_auto:  { fn:'nj-invoice-ai-schaeffler-automotive', mode:'schaeffler_automotive', mver:'sch-auto-m1',
+                      toResults: p => sxAutoToResults(p),  sheet: all => buildSheetSchaefflerAutomotive(all) },
+  schaeffler_india: { fn:'nj-invoice-ai-schaeffler-india',      mode:'schaeffler_india',      mver:'sch-india-m1',
+                      toResults: p => sxIndiaToResults(p), sheet: all => buildSheetSchaefflerIndia(all) }
+};
+const _sxRun = { schaeffler_auto:false, schaeffler_india:false };
+const _sxMsg = { schaeffler_auto:{ t:'', c:'' }, schaeffler_india:{ t:'', c:'' } };
+function sxCfg(cust){ return Object.prototype.hasOwnProperty.call(SX_MODES, cust) ? SX_MODES[cust] : null; }
+function sxPdfs(cust){ return (slotData[cust] && slotData[cust].PDF) || []; }
+function sxReady(cust){
+  const a = sxPdfs(cust);
+  return !!sxCfg(cust) && !_sxRun[cust] && a.length > 0 && a.every(p => p._aiStat === 'ok') && sxAllResults(cust).some(r => r.items.length > 0);
+}
+function sxSetStatus(cust, msg, cls){
+  if(_sxMsg[cust]){ _sxMsg[cust].t = msg || ''; _sxMsg[cust].c = cls || ''; }
+  sxShowStatus();
+}
+function sxShowStatus(){
+  const el = document.getElementById('sx-ai-status'); if(!el) return;
+  const m = _sxMsg[activeCustomer];
+  if(!m || !m.t){ el.style.display = 'none'; el.textContent = ''; el.dataset.state = ''; return; }
+  const cls = m.c;
+  el.style.display = ''; el.textContent = m.t; el.dataset.state = cls; el.dataset.mode = activeCustomer;
+  el.style.color       = cls === 'err' ? '#b91c1c' : cls === 'ok' ? '#166534' : '';
+  el.style.background  = cls === 'err' ? 'rgba(220,38,38,.08)' : cls === 'ok' ? 'rgba(22,163,74,.08)' : 'rgba(148,163,184,.10)';
+  el.style.borderColor = cls === 'err' ? 'rgba(220,38,38,.45)' : cls === 'ok' ? 'rgba(22,163,74,.45)' : 'rgba(148,163,184,.4)';
+}
+/* ปุ่ม: ปิด EXPORT ระหว่าง AI อ่าน / ยังอ่านไม่ครบ / ล้มเหลว · แต่ละโหมดเก็บสถานะของตัวเอง */
+function sxGate(){
+  const c = activeCustomer;
+  if(sxCfg(c)){
+    const ok = sxReady(c);
+    const be = document.getElementById('btn-export'), bp = document.getElementById('btn-preview');
+    if(be) be.disabled = !ok;
+    if(bp) bp.disabled = !ok;
+    if(!sxPdfs(c).length && !_sxRun[c]){ _sxMsg[c].t = ''; _sxMsg[c].c = ''; }
+  }
+  sxShowStatus();
+}
+async function sxAiPost(cust, body){
+  const cfg = sxCfg(cust);
+  const a = await txSiteAuth();           // Login เดิมของเว็บไซต์
+  const r = await fetch(SUPABASE_URL + '/functions/v1/' + cfg.fn, {
+    method:'POST',
+    headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json' },
+    body: JSON.stringify(Object.assign({ access_token:a.jwt||undefined, session:a.session||undefined }, body))
+  });
+  let j = null; try{ j = await r.json(); }catch(e){}
+  if(!j) throw new Error('เซิร์ฟเวอร์ตอบข้อมูลไม่ถูกต้อง (HTTP ' + r.status + ')');
+  return j;
+}
+async function sxAiRead(cust, pdf, onTick){
+  const cfg = sxCfg(cust);
+  let j = await sxAiPost(cust, { name:pdf.name, mime:'application/pdf', pdf: stB64(pdf._buf) });
+  const t0 = Date.now();
+  while(j && j.success && j.pending && j.job_id){
+    if(Date.now() - t0 > SX_AI_MAXMS) throw new Error('ใช้เวลานานเกินกำหนด');
+    if(onTick) onTick(Math.round((Date.now() - t0) / 1000));
+    await new Promise(res => setTimeout(res, j.poll_after_ms || 2000));
+    j = await sxAiPost(cust, { action:'job_status', job_id:j.job_id });
+  }
+  if(!j || !j.success) throw new Error((j && j.msg) || 'ไม่ทราบสาเหตุ');
+  if(!j.result || !Array.isArray(j.result.invoices)) throw new Error('AI ไม่ได้ส่งผลแบบมีโครงสร้าง');
+  /* ผล (รวมผลจาก Cache) ต้องเป็นของโหมดนี้และ Mapping รุ่นนี้เท่านั้น — กันผลข้ามโหมด */
+  if(j.mode !== cfg.mode || j.mapping_ver !== cfg.mver) throw new Error('ผลที่ได้ไม่ใช่ของโหมดนี้ (mode / mapping_ver ไม่ตรง)');
+  return j;
+}
+async function sxAiRun(cust){
+  if(!sxCfg(cust) || _sxRun[cust]) return;
+  _sxRun[cust] = true;
+  try{ refreshButtons(); }catch(_){}
+  try{
+    for(;;){
+      const list = sxPdfs(cust);
+      const pdf = list.find(p => p._aiStat === 'wait');
+      if(!pdf) break;
+      const idx = list.indexOf(pdf) + 1;
+      pdf._aiStat = 'preparing';
+      sxSetStatus(cust, 'กำลังตรวจลักษณะ PDF… (' + idx + '/' + list.length + ') ' + pdf.name);
+      try{
+        if(!pdf._buf || !pdf._buf.byteLength) throw new Error('อ่านไฟล์ไม่ได้');
+        if(pdf._size > 8 * 1024 * 1024) throw new Error('ไฟล์ใหญ่เกิน 8 MB');
+        const j = await sxAiRead(cust, pdf, sec => { pdf._aiStat = 'reading';
+          sxSetStatus(cust, 'กำลังอ่าน Invoice PDF… (' + idx + '/' + list.length + ') ' + pdf.name + ' · ' + sec + ' วินาที'); });
+        pdf._ai = { result: j.result, cached: !!j.cached, usage: j.usage || {}, model: j.model || '', mode: j.mode };
+        pdf._aiStat = 'ok'; pdf._aiErr = '';
+      }catch(e){
+        pdf._ai = null; pdf._aiStat = 'err';
+        pdf._aiErr = (e && e.message) ? e.message : String(e);
+        try{ console.warn('[Schaeffler ' + cust + '] AI อ่านไม่สำเร็จ', pdf.name, pdf._aiErr); }catch(_){}
+      }
+    }
+  }finally{ _sxRun[cust] = false; }
+  sxFinish(cust);
+}
+function sxFinish(cust){
+  const list = sxPdfs(cust);
+  if(!list.length){ sxSetStatus(cust, ''); try{ refreshButtons(); }catch(_){} return; }
+  const bad = list.filter(p => p._aiStat === 'err');
+  if(bad.length){
+    sxSetStatus(cust, SX_AI_FAIL + '\n' + bad.map(p => '• ' + p.name + ' — ' + (p._aiErr || 'ไม่ทราบสาเหตุ')).join('\n') +
+                '\nยังไม่เปิด EXPORT EXCEL — กด "ล้าง" แล้วแนบไฟล์ใหม่อีกครั้ง', 'err');
+    try{ refreshButtons(); }catch(_){}
+    if(activeCustomer === cust){ try{ document.getElementById('preview-card').classList.remove('show'); }catch(_){} }
+    return;
+  }
+  const S = sxSummary(cust);
+  if(!S.items){
+    sxSetStatus(cust, SX_AI_FAIL + '\nไม่พบรายการสินค้าของ Invoice ในไฟล์ที่แนบ' + (S.warn.length ? '\n' + S.warn.slice(0, 5).map(w => '• ' + w).join('\n') : ''), 'err');
+    try{ refreshButtons(); }catch(_){}
+    if(activeCustomer === cust){ try{ document.getElementById('preview-card').classList.remove('show'); }catch(_){} }
+    return;
+  }
+  const cachedAll = list.every(p => p._ai && p._ai.cached);
+  const cost = list.reduce((v, p) => v + Number((p._ai && p._ai.usage && p._ai.usage.cost_usd_est) || 0), 0);
+  sxSetStatus(cust, 'AI อ่าน Invoice PDF สำเร็จ · ' + S.invoices + ' Invoice · ' + S.items + ' รายการ · TOTAL QTY ' + S.qty.toLocaleString() +
+              ' · TOTAL AMT ' + S.amt.toLocaleString(undefined, { minimumFractionDigits:2, maximumFractionDigits:2 }) +
+              (cachedAll ? ' · ใช้ผลเดิมจาก Cache (ไม่เสียค่า API เพิ่ม)' : ' · ค่า API $' + cost.toFixed(4)) +
+              (S.warn.length ? '\n⚠ มีข้อมูลที่ต้องตรวจสอบ ' + S.warn.length + ' จุด — ดูรายละเอียดใน Preview' : ''),
+              S.warn.length ? '' : 'ok');
+  try{ refreshButtons(); }catch(_){}
+  if(activeCustomer === cust) sxRenderPreview(true);
+}
+function sxAfterChange(cust){
+  if(_sxRun[cust]) return;
+  if(!sxPdfs(cust).length){ sxSetStatus(cust, ''); try{ document.getElementById('preview-card').classList.remove('show'); }catch(_){} return; }
+  sxFinish(cust);
+}
+/* ── ตัวแปลงของ AUTOMOTIVE เท่านั้น ─────────────────────────────────────────
+   ผล AI → โครงสร้างเดิมที่ parseSchaefflerAutomotive คืน (ช่องที่ buildSheetSchaefflerAutomotive ใช้)
+   Product Code = Customer article no. (ตัดขีด) · English Description = Article description ·
+   Unit / Unit Price / Total Price = ค่าที่พิมพ์ในบรรทัดรายการ · Currency = THB (ค่าคงที่เดิม) ·
+   Origin = รหัสประเทศจากตัวแปลงเดิมของโหมดนี้ · Incoterm = คำแรกของข้อความหลัง "Incoterms:" (ตัดใน buildSheet เดิม) */
+const _sxAutoCoo = new Map();
+function sxAutoCountry(raw){
+  const k = String(raw == null ? '' : raw).trim();
+  if(!k) return '';
+  if(_sxAutoCoo.has(k)) return _sxAutoCoo.get(k);
+  let code = '';
+  try{
+    const r = parseSchaefflerAutomotive(['000001 1234567890 E000000001 1 PC 1.00 1.00 1', 'X 40 00000 00000 0 000000000000000', 'Preference status: N Country of origin: ' + k]);
+    code = (r && r.items && r.items[0] && r.items[0].origin_code) || '';
+  }catch(_){ code = ''; }
+  _sxAutoCoo.set(k, code);
+  return code;
+}
+function sxAutoToResults(pdf){
+  const out = [];
+  const R = pdf && pdf._ai && pdf._ai.result;
+  if(!R || !Array.isArray(R.invoices) || pdf._ai.mode !== 'schaeffler_automotive') return out;
+  const str = v => (v == null ? '' : String(v).trim());
+  for(const iv of R.invoices){
+    if(!iv) continue;
+    const invoice_no = str(iv.inv_no), invoice_date = str(iv.inv_date), incoterm = cleanTextCommon(iv.incoterm);
+    const items = [];
+    for(const it of (iv.items || [])){
+      if(!it) continue;
+      const noNum = parseInt(str(it.item), 10);
+      const q = str(it.qty).replace(/,/g, '');
+      const quantity = /\./.test(q) ? (parseFloat(q) || '') : (parseInt(q, 10) || '');
+      items.push({
+        item_no: isNaN(noNum) ? '' : String(noNum), invoice_no, invoice_date,
+        article_no: '', batch_no: '', product_code: str(it.cust).replace(/-/g, ''),
+        description: cleanTextCommon(it.desc), hs_code: '', quantity, unit: str(it.unit).toUpperCase(),
+        unit_price_thb: toNumberCommon(it.price), amount_thb: toNumberCommon(it.amount), currency: 'THB',
+        activity_date: '', preference_status: '', country_of_origin: str(it.coo), origin_code: sxAutoCountry(it.coo),
+        tax_code: '', dispatch_type: '', incoterm, net_weight_total: '', gross_weight_total: '', packages_total: '',
+        page_no: (it.pg == null || it.pg === '') ? '' : String(it.pg), _note: str(it.note)
+      });
+    }
+    out.push({ customer:'SCHAEFFLER AUTOMOTIVE', invoice_number: invoice_no, invoice_no, invoice_date, dispatch_type:'', incoterm,
+               total_amount_thb: toNumberCommon(iv.total_amount), exchange_rate:'', payment_conditions:'',
+               net_weight_total:'', gross_weight_total:'', packages_total:'', items, _file: pdf.name });
+  }
+  return out;
+}
+/* ── ตัวแปลงของ INDIA เท่านั้น ───────────────────────────────────────────────
+   ผล AI → โครงสร้างเดิมที่ parseSchaefflerIndia คืน (กฎเดิมทุกข้อ)
+   Product Code / Material No = Material · EN desc2 = รหัสแรกในบรรทัด PO Pos (ตัดที่ช่องว่างหรือ #) ·
+   English Description = ข้อความระหว่าง HSN Code กับป้ายถัดไป (+ นำหน้าด้วยข้อความหลัง "#X " ของ PO Pos เมื่อมี) ·
+   Cust Part No. = เลข 14–16 หลักหลัง "Cust Part No." · Unit = C62 · Currency = USD (ค่าคงที่เดิม) ·
+   Origin = mapCountryCodeCommon (ตัวแปลงเดิม) · Net / Gross Weight = น้ำหนักของ Case ที่รายการอยู่ */
+function sxIndiaToResults(pdf){
+  const out = [];
+  const R = pdf && pdf._ai && pdf._ai.result;
+  if(!R || !Array.isArray(R.invoices) || pdf._ai.mode !== 'schaeffler_india') return out;
+  const str = v => (v == null ? '' : String(v).trim());
+  let rowNo = 1;
+  for(const iv of R.invoices){
+    if(!iv) continue;
+    const invoice_no = str(iv.inv_no), invoice_date = str(iv.inv_date), incoterm = str(iv.incoterm).toUpperCase().slice(0, 3);
+    const items = [];
+    for(const it of (iv.items || [])){
+      if(!it) continue;
+      const po = cleanTextCommon(it.po_text);
+      const article = po ? po.split(/[\s#]/)[0].trim() : '';
+      const aftM = po.match(/#[A-Z]\s+(.+)$/i);
+      const poDescAfterHash = aftM ? aftM[1].trim() : '';
+      let english_description = cleanTextCommon(it.desc);
+      if(poDescAfterHash && english_description && !english_description.toLowerCase().startsWith(poDescAfterHash.toLowerCase()))
+        english_description = poDescAfterHash + ' ' + english_description;
+      const cust = str(it.cust), material_no = /^[0-9]{14,16}$/.test(cust) ? cust : '';
+      const qn = parseInt(str(it.qty).replace(/,/g, ''), 10);
+      items.push({
+        no: rowNo++, invoice_no, invoice_date,
+        product_code: str(it.mat), english_description, quantity: isNaN(qn) ? '' : qn,
+        unit: 'C62', unit_price: toNumberCommon(it.price), total_price: toNumberCommon(it.value),
+        currency: 'USD', origin: str(it.coo) ? mapCountryCodeCommon(str(it.coo)) : '',
+        incoterm, article, material_no,
+        desc2: material_no, net_weight: toNumberCommon(it.net), gross_weight: toNumberCommon(it.gross),
+        page_no: '',   /* คงผลเดิมของโหมดนี้: คอลัมน์ Page # ว่าง (ตัวอ่านเดิมไม่เคยได้เลขหน้าจากเอกสารรูปแบบนี้ — ตรงกับไฟล์อ้างอิง) */
+        _pg: (it.pg == null || it.pg === '') ? '' : String(it.pg), _note: str(it.note), _per: str(it.per)
+      });
+    }
+    out.push({ customer:'SCHAEFFLER INDIA', invoice_number: invoice_no, invoice_no, invoice_date, incoterm, items,
+               _total_qty: toNumberCommon(iv.total_qty), _total_amount: toNumberCommon(iv.total_amount), _file: pdf.name });
+  }
+  return out;
+}
+function sxAllResults(cust){
+  const cfg = sxCfg(cust), all = [];
+  if(!cfg) return all;
+  for(const p of sxPdfs(cust)) if(p._aiStat === 'ok') for(const r of cfg.toResults(p)) all.push(r);
+  return all;
+}
+/* จำนวน / TOTAL / ช่องที่อ่านไม่พบ (แจ้งเป็นภาษาไทย · ไม่เติมค่าแทน) — ตรวจตาม Mapping ของโหมดนั้น */
+function sxSummary(cust){
+  const all = sxAllResults(cust), india = cust === 'schaeffler_india';
+  let items = 0, qty = 0, amt = 0; const warn = [];
+  for(const p of sxPdfs(cust)){
+    if(p._aiStat !== 'ok') continue;
+    const rs = sxCfg(cust).toResults(p);
+    if(!rs.length || !rs.some(r => r.items.length)) warn.push('ไฟล์ ' + p.name + ': ไม่พบ Invoice / รายการสินค้าของโหมดนี้ — ไม่นำไฟล์นี้ไป Export');
+  }
+  for(const r of all){
+    if(!r.items.length) continue;
+    const tag = 'Invoice ' + (r.invoice_no || '(ไม่พบเลข)');
+    if(!r.invoice_no)   warn.push('ไฟล์ ' + r._file + ': ไม่พบเลข Invoice');
+    if(!r.invoice_date) warn.push(tag + ': ไม่พบวันที่ Invoice');
+    if(!r.incoterm)     warn.push(tag + ': ไม่พบ Incoterm');
+    let sumA = 0, sumQ = 0;
+    r.items.forEach((it, i) => {
+      const q = Number(it.quantity) || 0, a = Number(india ? it.total_price : it.amount_thb) || 0;
+      items++; qty += q; amt += a; sumA += a; sumQ += q;
+      const miss = [];
+      if(!it.product_code) miss.push('Product Code');
+      if(!it.quantity) miss.push('Quantity');
+      if((india ? it.unit_price : it.unit_price_thb) === '') miss.push('Unit Price');
+      if((india ? it.total_price : it.amount_thb) === '') miss.push('Total Price');
+      if(!(india ? it.origin : it.origin_code)) miss.push('Origin');
+      if(india){ if(!it.article) miss.push('EN desc2'); if(it.net_weight === '') miss.push('Net Weight'); if(it.gross_weight === '') miss.push('Gross Weight'); }
+      else { if(!it.description) miss.push('English Description'); if(!it.unit) miss.push('Unit'); }
+      if(miss.length) warn.push(tag + ' รายการลำดับ ' + (i + 1) + ' [' + (it.product_code || '-') + ']: อ่านไม่พบ ' + miss.join(', ') + (it._note ? ' (' + it._note + ')' : ''));
+    });
+    const tA = india ? r._total_amount : r.total_amount_thb;
+    if(tA !== '' && tA != null && Math.abs(Number(tA) - sumA) > 0.005)
+      warn.push(tag + ': ผลรวม Total Price ' + sumA.toFixed(2) + ' ไม่ตรงกับยอดรวมที่พิมพ์ใน PDF ' + Number(tA).toFixed(2));
+    if(india && r._total_qty !== '' && r._total_qty != null && Number(r._total_qty) !== sumQ)
+      warn.push(tag + ': ผลรวม Quantity ' + sumQ + ' ไม่ตรงกับยอดรวมที่พิมพ์ใน PDF ' + Number(r._total_qty));
+  }
+  return { invoices: all.filter(r => r.items.length).length, items, qty, amt: Math.round(amt * 100) / 100, warn, all };
+}
+/* Preview = ตารางเดียวกับที่จะ Export (สร้างจาก buildSheet เดิมของโหมดนั้น → ลำดับ/ค่า/TOTAL ตรงกับไฟล์ Excel) */
+function sxRenderPreview(show){
+  const cust = activeCustomer, cfg = sxCfg(cust);
+  const card = document.getElementById('preview-card'), body = document.getElementById('preview-body');
+  if(!cfg || !card || !body) return;
+  if(!sxReady(cust)){ if(!show) card.classList.remove('show'); return; }
+  const S = sxSummary(cust), e = escapeHtml;
+  let aoa = [];
+  try{ aoa = XLSX.utils.sheet_to_json(cfg.sheet(S.all), { header:1, defval:'', raw:true }); }catch(_){ aoa = []; }
+  let h = '<div id="sx-preview" data-mode="' + cust + '" style="white-space:normal">' +
+    '<div style="font-weight:700;margin-bottom:6px">ไฟล์ PDF: ' + sxPdfs(cust).length + ' · Invoice: ' + S.invoices + ' · รายการ: ' + S.items +
+    ' · TOTAL QTY: ' + S.qty.toLocaleString() + ' · TOTAL AMT: ' + S.amt.toLocaleString(undefined, { minimumFractionDigits:2, maximumFractionDigits:2 }) + '</div>';
+  if(S.warn.length)
+    h += '<div id="sx-warn" style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:8px;padding:8px;margin-bottom:8px;font-size:12px">' +
+         '<b>⚠ ข้อมูลที่ต้องตรวจสอบ</b><br>' + S.warn.slice(0, 60).map(w => '• ' + e(w)).join('<br>') +
+         (S.warn.length > 60 ? '<br>… รวม ' + S.warn.length + ' จุด' : '') + '</div>';
+  h += '<div style="overflow:auto;max-height:420px"><table style="border-collapse:collapse;font-size:11.5px"><thead><tr>' +
+       (aoa[0] || []).map(t => '<th style="text-align:left;padding:4px 8px;border-bottom:2px solid #94a3b8;white-space:nowrap">' + e(String(t)) + '</th>').join('') + '</tr></thead><tbody>';
+  for(let i = 1; i < aoa.length; i++){
+    const tot = i === aoa.length - 1;
+    h += '<tr' + (tot ? ' style="font-weight:700"' : '') + '>' + aoa[i].map(v => '<td style="padding:3px 8px;border-bottom:1px solid rgba(148,163,184,.35);white-space:nowrap">' +
+         e(v == null ? '' : (tot && typeof v === 'number' ? String(Math.round(v * 100) / 100) : String(v))) + '</td>').join('') + '</tr>';
+  }
+  h += '</tbody></table></div></div>';
+  try{ document.getElementById('preview-title').textContent = 'Preview — ' + CUSTOMERS[cust].title + ' (AI อ่านจาก Invoice PDF)'; }catch(_){}
+  body.innerHTML = h;
+  card.classList.add('show');
+}
+
 /* ═══ Dispatch doExport ตามลูกค้า ═══ */
 function doExport(){
   const cust = activeCustomer;
@@ -7812,13 +8141,9 @@ function doExportSCHAEFFLERTECHNO(){
 function doExportSCHAEFFLERAUTO(){
   const d = slotData.schaeffler_auto;
   if(!d.PDF.length){ toast('ต้องอัพโหลด PDF อย่างน้อย 1 ไฟล์', 'warn'); return; }
-  const allResults = [];
-  for(const pdf of d.PDF){
-    try{
-      const r = parseSchaefflerAutomotive(_pdfToLines(pdf));
-      if(r) allResults.push(r);
-    } catch(e){ console.error('parseSchaefflerAutomotive error', pdf.name, e); }
-  }
+  /* [461] ข้อมูลมาจาก AI ที่อ่าน Invoice PDF เท่านั้น — ไม่อ่านข้อความจาก PDF ฝั่งหน้าเว็บ และไม่มี Fallback */
+  if(!sxReady('schaeffler_auto')){ toast(_sxRun.schaeffler_auto ? 'AI กำลังอ่าน Invoice PDF กรุณารอสักครู่' : SX_AI_FAIL, 'warn'); return; }
+  const allResults = sxAllResults('schaeffler_auto');
   if(!allResults.length){ toast('ไม่ได้ข้อมูลจาก PDF', 'err'); return; }
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, buildSheetSchaefflerAutomotive(allResults), 'SCHAEFFLER_AUTO');
@@ -7830,13 +8155,9 @@ function doExportSCHAEFFLERAUTO(){
 function doExportSCHAEFFLERINDIA(){
   const d = slotData.schaeffler_india;
   if(!d.PDF.length){ toast('ต้องอัพโหลด PDF อย่างน้อย 1 ไฟล์', 'warn'); return; }
-  const allResults = [];
-  for(const pdf of d.PDF){
-    try{
-      const r = parseSchaefflerIndia(_pdfToLines(pdf));
-      if(r) allResults.push(r);
-    } catch(e){ console.error('parseSchaefflerIndia error', pdf.name, e); }
-  }
+  /* [461] ข้อมูลมาจาก AI ที่อ่าน Invoice PDF เท่านั้น — ไม่อ่านข้อความจาก PDF ฝั่งหน้าเว็บ และไม่มี Fallback */
+  if(!sxReady('schaeffler_india')){ toast(_sxRun.schaeffler_india ? 'AI กำลังอ่าน Invoice PDF กรุณารอสักครู่' : SX_AI_FAIL, 'warn'); return; }
+  const allResults = sxAllResults('schaeffler_india');
   if(!allResults.length){ toast('ไม่ได้ข้อมูลจาก PDF', 'err'); return; }
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, buildSheetSchaefflerIndia(allResults), 'SCHAEFFLER_INDIA');
@@ -26212,7 +26533,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local459';
+const DEPLOY_VERSION = 'local462';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
