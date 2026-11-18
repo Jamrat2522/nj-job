@@ -986,6 +986,7 @@ body.legacy-active .content-area { display: none !important; }
       <div class="preview-body" id="preview-body"></div>
     </div>
 
+    <div id="st-ai-status" style="display:none;margin:0 0 10px;padding:9px 12px;border-radius:10px;font-size:12.5px;font-weight:600;line-height:1.5;white-space:pre-line;border:1px solid rgba(148,163,184,.4);background:rgba(148,163,184,.10)"></div>
     <div class="actions-row">
       <button class="btn btn-primary" id="btn-export" onclick="doExport()" disabled>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -3396,6 +3397,7 @@ function removeTechnoPdf(idx){
   const removed = arr.splice(idx, 1)[0];
   if(typeof toast === 'function') toast(`ลบ ${removed.name||'ไฟล์'}`, 'ok');
   renderSlots();
+  if(activeCustomer === 'schaeffler_techno'){ try{ refreshButtons(); stRenderPreview(false); }catch(_){} }
   if(typeof refreshDebug === 'function') refreshDebug();
 }
 
@@ -3459,7 +3461,8 @@ async function processFiles(files, key){
         toast(`ข้าม ${f.name}: ไม่ใช่ .pdf`, 'warn'); continue;
       }
       try{
-        const info = await readPDF(f);
+        /* [459] Schaeffler Techno: ไม่อ่านข้อความจาก PDF ฝั่งหน้าเว็บ — เก็บไฟล์ไว้ส่งให้ AI อ่านเท่านั้น */
+        const info = (activeCustomer === 'schaeffler_techno' && key === 'PDF') ? await stReadMeta(f) : await readPDF(f);
         arr.push(info);
         added++;
       } catch(err){
@@ -3469,6 +3472,10 @@ async function processFiles(files, key){
     slotData[activeCustomer][key] = arr;
     if(added) toast(`PDF: เพิ่ม ${added} ไฟล์`, 'ok');
 
+    /* [459] Schaeffler Techno — แนบ PDF แล้ว AI เริ่มอ่านเองทันที (ไม่ต้องกดปุ่มใด) */
+    if(activeCustomer === 'schaeffler_techno' && key === 'PDF' && added){
+      stAiRun();
+    }
     // Mapping Word — auto-fill INVOICE slot จาก PDF ที่อัพโหลด (ทดแทนการอัพโหลด .xlsx)
     if(activeCustomer === 'word' && key === 'PDF'){
       autoFillWordInvoice();
@@ -4013,6 +4020,7 @@ function refreshButtons(){
   const any = d.PDF.length>0 || (d.PLPDF && d.PLPDF.length>0) || d.INVOICE || d.NWGW || d.MASTER;
   document.getElementById('btn-export').disabled  = !any;
   document.getElementById('btn-preview').disabled = !any;
+  try{ stGate(); }catch(_){}   /* [459] Schaeffler Techno: ปิด EXPORT ระหว่าง AI อ่าน / เมื่อ AI ล้มเหลว */
 }
 
 /* ═══ Build Mapping — รักษา logic ของ CELESTICA จากโค้ดเดิม ═══ */
@@ -4112,6 +4120,7 @@ function escapeHtml(s){
 }
 
 function doPreview(){
+  if(activeCustomer === 'schaeffler_techno') return stRenderPreview(true);   /* [459] Preview จากผลที่ AI อ่าน */
   const d = slotData[activeCustomer];
   const cfg = CUSTOMERS[activeCustomer];
   let html = '';
@@ -7512,6 +7521,264 @@ function renderResultsSchaefflerIndia(allResults){
   return html+'</tbody></table>';
 }
 
+
+/* ══════════════════════════════════════════════════════════════════════════
+   [459] MAPPING SCHAEFFLER TECHNO — AI อ่าน Invoice PDF (Edge Function nj-invoice-ai-schaeffler)
+   • แนบ PDF → AI เริ่มอ่านเอง · ใช้ Login เดิมของเว็บไซต์ (ไม่มีหน้า Login / ปุ่มเชื่อมต่อ AI เพิ่ม)
+   • AI ส่ง "ค่าที่พิมพ์ใน PDF" เท่านั้น → โค้ดเดิมทำ Mapping / ค่าคงที่ / TOTAL / Excel ตามเดิมทุกอย่าง
+   • ไม่อ่านข้อความจาก PDF ฝั่งหน้าเว็บ · ไม่มี Fallback · AI ล้มเหลว = ไม่มีข้อมูล และ EXPORT ปิด
+   • ไม่มี API Key ในหน้าเว็บ — Key อยู่ที่ Supabase Secrets ของ Edge Function เท่านั้น
+   ══════════════════════════════════════════════════════════════════════════ */
+const ST_AI_FN   = 'nj-invoice-ai-schaeffler';
+const ST_AI_FAIL = 'AI อ่าน Invoice PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+const ST_AI_MAXMS = 8 * 60 * 1000;
+let _stRunning = false, _stSeq = 0;
+function stPdfs(){ return (slotData.schaeffler_techno && slotData.schaeffler_techno.PDF) || []; }
+function stReady(){ const a = stPdfs(); return !_stRunning && a.length > 0 && a.every(p => p._aiStat === 'ok'); }
+function stSetStatus(msg, cls){
+  const el = document.getElementById('st-ai-status'); if(!el) return;
+  const on = activeCustomer === 'schaeffler_techno' && !!msg;
+  el.style.display = on ? '' : 'none';
+  if(!msg) el.textContent = '';
+  if(!on) return;
+  el.textContent = msg;
+  el.dataset.state = cls || '';
+  el.style.color       = cls === 'err' ? '#b91c1c' : cls === 'ok' ? '#166534' : '';
+  el.style.background  = cls === 'err' ? 'rgba(220,38,38,.08)' : cls === 'ok' ? 'rgba(22,163,74,.08)' : 'rgba(148,163,184,.10)';
+  el.style.borderColor = cls === 'err' ? 'rgba(220,38,38,.45)' : cls === 'ok' ? 'rgba(22,163,74,.45)' : 'rgba(148,163,184,.4)';
+}
+/* ปุ่ม: ปิด EXPORT ระหว่าง AI อ่าน และเมื่อยังอ่านไม่ครบ/ล้มเหลว · เปลี่ยนโหมด = ซ่อนสถานะ */
+function stGate(){
+  const el = document.getElementById('st-ai-status');
+  if(activeCustomer !== 'schaeffler_techno'){ if(el) el.style.display = 'none'; return; }
+  const ok = stReady();
+  const be = document.getElementById('btn-export'), bp = document.getElementById('btn-preview');
+  if(be) be.disabled = !ok;
+  if(bp) bp.disabled = !ok;
+  if(!stPdfs().length){ stSetStatus(''); }
+  else if(el && el.style.display === 'none' && el.textContent) el.style.display = '';
+}
+/* เก็บไฟล์ไว้ส่งให้ AI — ใช้ pdf.js เพียงนับจำนวนหน้า (ไม่อ่านข้อความในหน้า) */
+function stReadMeta(file){
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = async ev => {
+      try{
+        const buf = ev.target.result;
+        let pages = 0;
+        try{ const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf.slice(0)) }).promise; pages = pdf.numPages || 0; }catch(_){ pages = 0; }
+        res({ name:file.name, pages, text:'', lines:[], _buf: buf, _size: file.size, _ai:null, _aiStat:'wait', _aiErr:'' });
+      }catch(e){ rej(e); }
+    };
+    r.onerror = () => rej(new Error('read error'));
+    r.readAsArrayBuffer(file);
+  });
+}
+function stB64(buf){ const u = new Uint8Array(buf); let t = ''; const CH = 0x8000;
+  for(let i = 0; i < u.length; i += CH) t += String.fromCharCode.apply(null, u.subarray(i, i + CH));
+  return btoa(t); }
+async function stAiPost(body){
+  const a = await txSiteAuth();           // Login เดิมของเว็บไซต์ (JWT ของ Supabase Auth หรือ Session ของบัญชี Local)
+  const r = await fetch(SUPABASE_URL + '/functions/v1/' + ST_AI_FN, {
+    method:'POST',
+    headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json' },
+    body: JSON.stringify(Object.assign({ access_token:a.jwt||undefined, session:a.session||undefined }, body))
+  });
+  let j = null; try{ j = await r.json(); }catch(e){}
+  if(!j) throw new Error('เซิร์ฟเวอร์ตอบข้อมูลไม่ถูกต้อง (HTTP ' + r.status + ')');
+  return j;
+}
+async function stAiRead(pdf, onTick){
+  let j = await stAiPost({ name:pdf.name, mime:'application/pdf', pdf: stB64(pdf._buf) });
+  const t0 = Date.now();
+  while(j && j.success && j.pending && j.job_id){
+    if(Date.now() - t0 > ST_AI_MAXMS) throw new Error('ใช้เวลานานเกินกำหนด');
+    if(onTick) onTick(Math.round((Date.now() - t0) / 1000));
+    await new Promise(res => setTimeout(res, j.poll_after_ms || 2000));
+    j = await stAiPost({ action:'job_status', job_id:j.job_id });
+  }
+  if(!j || !j.success) throw new Error((j && j.msg) || 'ไม่ทราบสาเหตุ');
+  if(!j.result || !Array.isArray(j.result.invoices)) throw new Error('AI ไม่ได้ส่งผลแบบมีโครงสร้าง');
+  return j;
+}
+/* แนบ PDF → AI อ่านทีละไฟล์ตามลำดับที่แนบ (ไฟล์ที่อ่านสำเร็จแล้วไม่อ่านซ้ำ) */
+async function stAiRun(){
+  const seq = ++_stSeq;
+  if(_stRunning) return;
+  _stRunning = true;
+  try{ refreshButtons(); }catch(_){}
+  try{
+    for(;;){
+      const list = stPdfs();
+      const pdf = list.find(p => p._aiStat === 'wait');
+      if(!pdf) break;
+      const idx = list.indexOf(pdf) + 1;
+      stSetStatus('กำลังตรวจลักษณะ PDF… (' + idx + '/' + list.length + ') ' + pdf.name);
+      pdf._aiStat = 'run';
+      try{
+        if(!pdf._buf || !pdf._buf.byteLength) throw new Error('อ่านไฟล์ไม่ได้');
+        if(pdf._size > 8 * 1024 * 1024) throw new Error('ไฟล์ใหญ่เกิน 8 MB');
+        const j = await stAiRead(pdf, sec => stSetStatus('AI กำลังอ่าน Invoice PDF… (' + idx + '/' + list.length + ') ' + pdf.name + ' · ' + sec + ' วินาที'));
+        pdf._ai = { result: j.result, cached: !!j.cached, usage: j.usage || {}, model: j.model || '' };
+        pdf._aiStat = 'ok'; pdf._aiErr = '';
+      }catch(e){
+        pdf._ai = null; pdf._aiStat = 'err';
+        pdf._aiErr = (e && e.message) ? e.message : String(e);
+        try{ console.warn('[Schaeffler Techno] AI อ่านไม่สำเร็จ', pdf.name, pdf._aiErr); }catch(_){}
+      }
+    }
+  }finally{
+    _stRunning = false;
+  }
+  stFinish();
+}
+/* สรุปผลหลัง AI อ่านเสร็จ: Preview + จำนวน Invoice / รายการ + TOTAL · ล้มเหลว = แจ้งสาเหตุ และ EXPORT ปิด */
+function stFinish(){
+  const list = stPdfs();
+  try{ refreshButtons(); }catch(_){}
+  if(!list.length){ stSetStatus(''); return; }
+  const bad = list.filter(p => p._aiStat === 'err');
+  if(bad.length){
+    stSetStatus(ST_AI_FAIL + '\n' + bad.map(p => '• ' + p.name + ' — ' + (p._aiErr || 'ไม่ทราบสาเหตุ')).join('\n') +
+                '\nยังไม่เปิด EXPORT EXCEL — กด "ล้าง" แล้วแนบไฟล์ใหม่อีกครั้ง', 'err');
+    try{ document.getElementById('preview-card').classList.remove('show'); }catch(_){}
+    return;
+  }
+  const S = stSummary();
+  const cachedAll = list.every(p => p._ai && p._ai.cached);
+  const cost = list.reduce((v, p) => v + Number((p._ai && p._ai.usage && p._ai.usage.cost_usd_est) || 0), 0);
+  stSetStatus('AI อ่าน Invoice PDF สำเร็จ · ' + S.invoices + ' Invoice · ' + S.items + ' รายการ · TOTAL QTY ' + S.qty.toLocaleString() +
+              ' · TOTAL AMT ' + S.amt.toLocaleString(undefined, { minimumFractionDigits:2, maximumFractionDigits:2 }) +
+              (cachedAll ? ' · ใช้ผลเดิมจาก Cache (ไม่เสียค่า API เพิ่ม)' : ' · ค่า API $' + cost.toFixed(4)) +
+              (S.warn.length ? '\n⚠ มีข้อมูลที่อ่านไม่พบ ' + S.warn.length + ' จุด — ดูรายละเอียดใน Preview' : ''),
+              S.warn.length ? '' : 'ok');
+  stRenderPreview(true);
+}
+/* แปลงชื่อประเทศ → รหัสประเทศ ด้วยตัวแปลงเดิมของโหมดนี้ (อยู่ใน parseSchaefflerTechno) — ไม่เขียนกฎใหม่ */
+const _stCooCache = new Map();
+function stCountry(raw){
+  const k = String(raw == null ? '' : raw).trim();
+  if(!k) return '';
+  if(_stCooCache.has(k)) return _stCooCache.get(k);
+  let code = '';
+  try{
+    const r = parseSchaefflerTechno(['000001 000000000-0000-00 1 PC', 'Net Value 1 / 1 PC 1', 'Country of origin: ' + k]);
+    code = (r && r.items && r.items[0] && r.items[0].origin) || '';
+  }catch(_){ code = ''; }
+  _stCooCache.set(k, code);
+  return code;
+}
+/* ผล AI ของ 1 ไฟล์ → โครงสร้างผลลัพธ์เดิมของโหมดนี้ (รูปเดียวกับที่ parseSchaefflerTechno คืน)
+   กฎ Mapping เดิมทุกข้อ: No = เลข Item ตัดศูนย์นำหน้า · Product Code = Material No. (มีขีด) ·
+   Material No = Cust. Material No. (ถ้าใบนี้ไม่พิมพ์ → Product Code ตัดขีด เหมือนรูปแบบ Intercompany เดิม) ·
+   Unit PC → C62 · Unit Price / Total Price = ค่าที่พิมพ์ในบรรทัด Net Value · Origin = รหัสประเทศ · Page # = หน้าที่พบรายการ */
+function stToResults(pdf){
+  const out = [];
+  const R = pdf && pdf._ai && pdf._ai.result;
+  if(!R || !Array.isArray(R.invoices)) return out;
+  const str = v => (v == null ? '' : String(v).trim());
+  for(const iv of R.invoices){
+    if(!iv) continue;
+    const invoice_number = str(iv.doc_no), invoice_date = str(iv.doc_date);
+    const currency = str(iv.cur).toUpperCase(), incoterm = str(iv.incoterm).toUpperCase().slice(0, 3);
+    const items = [];
+    for(const it of (iv.items || [])){
+      if(!it) continue;
+      const product_code = str(it.mat);
+      const cust = str(it.cust);
+      const material_no = cust || product_code.replace(/-/g, '');
+      const noNum = parseInt(str(it.item), 10);
+      const raw_unit = str(it.unit).toUpperCase();
+      const qn = parseInt(str(it.qty).replace(/,/g, ''), 10);
+      items.push({
+        no: isNaN(noNum) ? '' : String(noNum), invoice_no: invoice_number, invoice_date,
+        product_code, english_description: cleanTextCommon(it.desc),
+        quantity: isNaN(qn) ? 0 : qn, unit: raw_unit === 'PC' ? 'C62' : raw_unit,
+        unit_price: toNumberCommon(it.price), total_price: toNumberCommon(it.value),
+        currency, origin: stCountry(it.coo), incoterm,
+        desc2: cleanTextCommon(it.desig), material_no, article: '',
+        net_weight: '', gross_weight: '',
+        page_no: (it.pg == null || it.pg === '') ? '' : String(it.pg),
+        _note: str(it.note), _coo_raw: str(it.coo), _per: str(it.per)
+      });
+    }
+    out.push({ customer:'SCHAEFFLER TECHNO', invoice_number, invoice_date, currency: currency || '', incoterm, items,
+               _amount: toNumberCommon(iv.amount), _file: pdf.name });
+  }
+  return out;
+}
+function stAllResults(){
+  const all = [];
+  for(const p of stPdfs()) if(p._aiStat === 'ok') for(const r of stToResults(p)) all.push(r);
+  return all;
+}
+/* จำนวน / TOTAL / รายการช่องที่อ่านไม่พบ (แจ้งเป็นภาษาไทย · ไม่เติมค่าแทน) */
+function stSummary(){
+  const all = stAllResults();
+  let items = 0, qty = 0, amt = 0; const warn = [];
+  for(const r of all){
+    const tag = 'Invoice ' + (r.invoice_number || '(ไม่พบเลข)');
+    if(!r.invoice_number) warn.push('ไฟล์ ' + r._file + ': ไม่พบ Document No.');
+    if(!r.invoice_date)   warn.push(tag + ': ไม่พบวันที่เอกสาร');
+    if(!r.currency)       warn.push(tag + ': ไม่พบ Currency');
+    if(!r.incoterm)       warn.push(tag + ': ไม่พบ Incoterm (Delivery conditions)');
+    if(!r.items.length)   warn.push(tag + ': ไม่พบรายการสินค้า');
+    let sum = 0;
+    for(const it of r.items){
+      items++; qty += Number(it.quantity) || 0; amt += Number(it.total_price) || 0; sum += Number(it.total_price) || 0;
+      const miss = [];
+      if(!it.no) miss.push('No'); if(!it.product_code) miss.push('Product Code');
+      if(!it.english_description) miss.push('English Description'); if(!it.quantity) miss.push('Quantity');
+      if(!it.unit) miss.push('Unit'); if(it.unit_price === '') miss.push('Unit Price');
+      if(it.total_price === '') miss.push('Total Price'); if(!it.origin) miss.push('Origin');
+      if(!it.desc2) miss.push('Desc 2'); if(!it.page_no) miss.push('Page #');
+      if(miss.length) warn.push(tag + ' รายการ ' + (it.no || '?') + ' [' + (it.product_code || '-') + ']: อ่านไม่พบ ' + miss.join(', ') +
+                                (it._note ? ' (' + it._note + ')' : ''));
+    }
+    if(r._amount !== '' && Math.abs(Number(r._amount) - sum) > 0.005)
+      warn.push(tag + ': ผลรวม Total Price ' + sum.toFixed(2) + ' ไม่ตรงกับ Invoiced Amount ที่พิมพ์ใน PDF ' + Number(r._amount).toFixed(2));
+  }
+  return { invoices: all.length, items, qty, amt: Math.round(amt * 100) / 100, warn, all };
+}
+/* Preview: เรียงแบบเดียวกับไฟล์ Export (Invoice No. แล้วตาม No) */
+function stRenderPreview(show){
+  const card = document.getElementById('preview-card'), body = document.getElementById('preview-body');
+  if(!card || !body) return;
+  if(!stReady()){ if(!show) card.classList.remove('show'); return; }
+  const S = stSummary();
+  const rows = [];
+  for(const r of S.all) for(const it of r.items) rows.push(it);
+  rows.sort((a, b) => {
+    const ai = String(a.invoice_no || ''), bi = String(b.invoice_no || '');
+    const aN = parseFloat(ai.replace(/[^\d.]/g,'')), bN = parseFloat(bi.replace(/[^\d.]/g,''));
+    if(!isNaN(aN) && !isNaN(bN) && aN !== bN) return aN - bN;
+    if(ai !== bi) return ai.localeCompare(bi);
+    const a0 = parseFloat(String(a.no || '').replace(/[^\d.]/g,'')), b0 = parseFloat(String(b.no || '').replace(/[^\d.]/g,''));
+    if(!isNaN(a0) && !isNaN(b0)) return a0 - b0;
+    return 0;
+  });
+  const e = escapeHtml, nf = (v, d) => (v === '' || v == null) ? '' : Number(v).toLocaleString(undefined, { minimumFractionDigits:d, maximumFractionDigits:d });
+  let h = '<div id="st-preview" style="white-space:normal">' +
+    '<div style="font-weight:700;margin-bottom:6px">ไฟล์ PDF: ' + stPdfs().length + ' · Invoice: ' + S.invoices + ' · รายการ: ' + S.items +
+    ' · TOTAL QTY: ' + S.qty.toLocaleString() + ' · TOTAL AMT: ' + nf(S.amt, 2) + '</div>';
+  if(S.warn.length)
+    h += '<div id="st-warn" style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:8px;padding:8px;margin-bottom:8px;font-size:12px">' +
+         '<b>⚠ ข้อมูลที่ต้องตรวจสอบ</b><br>' + S.warn.slice(0, 60).map(w => '• ' + e(w)).join('<br>') +
+         (S.warn.length > 60 ? '<br>… รวม ' + S.warn.length + ' จุด' : '') + '</div>';
+  h += '<div style="overflow:auto;max-height:420px"><table style="border-collapse:collapse;font-size:11.5px;min-width:980px"><thead><tr>' +
+       ['No','Invoice No.','Invoice Date','Product Code','English Description','Quantity','Unit','Unit Price','Total Price','Currency','Origin','Incoterm','Desc 2','Material No','Page #']
+         .map(t => '<th style="text-align:left;padding:4px 8px;border-bottom:2px solid #94a3b8;white-space:nowrap">' + t + '</th>').join('') + '</tr></thead><tbody>';
+  const td = v => '<td style="padding:3px 8px;border-bottom:1px solid rgba(148,163,184,.35);white-space:nowrap">' + e(v == null ? '' : String(v)) + '</td>';
+  for(const it of rows)
+    h += '<tr>' + td(it.no) + td(it.invoice_no) + td(it.invoice_date) + td(it.product_code) + td(it.english_description) + td(it.quantity) +
+         td(it.unit || 'C62') + td(it.unit_price) + td(it.total_price) + td(it.currency || 'USD') + td(it.origin) + td(it.incoterm) +
+         td(String(it.desc2 || '').split('#')[0].replace(/\/\s*$/, '').trim()) + td(it.material_no) + td(it.page_no) + '</tr>';
+  h += '</tbody></table></div></div>';
+  try{ document.getElementById('preview-title').textContent = 'Preview — ' + CUSTOMERS.schaeffler_techno.title + ' (AI อ่านจาก Invoice PDF)'; }catch(_){}
+  body.innerHTML = h;
+  card.classList.add('show');
+}
+
 /* ═══ Dispatch doExport ตามลูกค้า ═══ */
 function doExport(){
   const cust = activeCustomer;
@@ -7531,13 +7798,9 @@ function doExport(){
 function doExportSCHAEFFLERTECHNO(){
   const d = slotData.schaeffler_techno;
   if(!d.PDF.length){ toast('ต้องอัพโหลด PDF อย่างน้อย 1 ไฟล์', 'warn'); return; }
-  const allResults = [];
-  for(const pdf of d.PDF){
-    try{
-      const r = parseSchaefflerTechno(_pdfToLines(pdf));
-      if(r) allResults.push(r);
-    } catch(e){ console.error('parseSchaefflerTechno error', pdf.name, e); }
-  }
+  /* [459] ข้อมูลมาจาก AI ที่อ่าน Invoice PDF เท่านั้น — ไม่อ่านข้อความจาก PDF ฝั่งหน้าเว็บ และไม่มี Fallback */
+  if(!stReady()){ toast(_stRunning ? 'AI กำลังอ่าน Invoice PDF กรุณารอสักครู่' : ST_AI_FAIL, 'warn'); return; }
+  const allResults = stAllResults();
   if(!allResults.length){ toast('ไม่ได้ข้อมูลจาก PDF', 'err'); return; }
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, buildSheetSchaefflerTechno(allResults), 'SCHAEFFLER_TECHNO');
@@ -25949,7 +26212,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local458';
+const DEPLOY_VERSION = 'local459';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
