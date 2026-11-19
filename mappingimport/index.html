@@ -2751,6 +2751,10 @@ body.legacy-active .content-area { display: none !important; }
     #avg-view .avg-ok{margin:8px 12px;padding:8px 10px;border:1px solid rgba(16,185,129,.5);background:rgba(16,185,129,.1);color:#047857;border-radius:8px;font-weight:800;font-size:13px}
     #avg-view .avg-bad{margin:8px 12px;padding:8px 10px;border:1px solid rgba(239,68,68,.5);background:rgba(239,68,68,.08);color:#b91c1c;border-radius:8px;font-weight:700;font-size:12.5px}
     #avg-view .avg-bad ul{margin:4px 0 0 18px;font-weight:600}
+    #avg-view .avg-opt{margin:8px 12px;padding:10px;border:1px solid rgba(217,119,6,.5);background:rgba(245,158,11,.10);color:#92400e;border-radius:8px;font-weight:700;font-size:12.5px}
+    #avg-view .avg-opt .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    #avg-view .avg-obtn{padding:7px 12px;border-radius:8px;border:1px solid #b45309;background:#fff;color:#92400e;font-weight:800;font-size:12.5px;cursor:pointer}
+    #avg-view .avg-obtn:hover{background:#fffbeb}
     #avg-view .avg-info{margin:0 12px 8px;font-size:12px;color:#92400e;font-weight:600}
     #avg-view .avg-empty{padding:22px;text-align:center;color:#64748b}
     @media(max-width:1500px){#avg-view .avg-tg{gap:10px;padding:10px}#avg-view .avg-card .b{padding:7px 7px;gap:4px 4px}#avg-view .avg-card input{font-size:12px;padding:6px 4px}#avg-view .avg-card input.thb{font-size:14px}#avg-view .avg-card h3{padding:6px 8px}#avg-view .avg-card.avg-total .sum{padding:8px}#avg-view .avg-card.avg-total .act{padding:8px}}
@@ -2907,14 +2911,16 @@ function avgCurChanged(j){
 }
 function avgFxChanged(){ avgFxFields(); if(avgS && avgS.res) avgRender(); }             // เปลี่ยนสกุลเงิน / อัตรา → คำนวณยอดต่างประเทศใหม่ทันที (ยอดไทยไม่เปลี่ยน)
 function avgFxEnable(on){ for(let j = 0; j < 3; j++) ['avgCur', 'avgRate'].forEach(k => { avgEl(k + j).disabled = !on; }); }
-/* [476] ยอดต่างประเทศของหัวข้อ j ครบทุกรายการ (หน่วย 0.01 ของสกุลนั้น) — ไม่กระทบยอดฝั่งไทย / อัตรา / ยอดรวม
-   • ค่าตั้งต้น = ยอดไทย ÷ อัตรา (HALF-UP) · ทุกรายการต้องไม่น้อยกว่า 0.10 · ไม่จำกัดค่าสูงสุด · ยอดรวม = ยอดรวมไทย ÷ อัตรา ตรง 100%
-   • รายการที่ต่ำกว่า 0.10 = "รายการรับ": ได้ 0.10 + ส่วนเพิ่มตามสัดส่วน Amount (คอลัมน์ AK) ของรายการนั้น → ตัวเลขหลากหลาย ไม่เติม 0.10 ตายตัว
-     ค่าที่ยังซ้ำกันถูกขยับทีละ 0.01 เท่าที่งบเฉลี่ยมี (ไม่สุ่ม — เรียงตาม Amount แล้วตามลำดับไฟล์) · งบไม่พอ = ยอมให้ซ้ำ
-   • แหล่งเงิน = 20 รายการแรกที่มียอดเกิน 0.10 · ไม่พอ → ใช้ทุกรายการในไฟล์ที่มียอดเกิน 0.10 โดยอัตโนมัติ · หักตามสัดส่วนส่วนเกิน และเหลือไม่ต่ำกว่า 0.10
-   • ยอดรวมเป้าหมายน้อยกว่า 0.10 × จำนวนรายการ = เป็นไปไม่ได้ทางคณิตศาสตร์ → แจ้งข้อผิดพลาด (ไม่สร้างค่าติดลบ / ค่าต่ำกว่าขั้นต่ำ) */
-const AVG_FMIN = 10, AVG_FVAR = 40;
-function avgShare(total, idx, weight){          // แบ่ง total ตามสัดส่วน weight (เศษที่เหลือให้รายการที่เศษมากสุดก่อน · เท่ากันเรียงตามไฟล์) · ไม่เกิน cap เมื่อกำหนด
+/* ══ [480] ยอดต่างประเทศของหัวข้อ j (หน่วย 0.01 ของสกุลนั้น) — AUTO BALANCE ไม่จำกัดจำนวนรายการ ══
+   • คิดแยกทีละคอลัมน์ · ห้ามนำเงินข้ามคอลัมน์ · ไม่ใช้สูตร Amount ÷ Amount รวม คำนวณใหม่ทั้งไฟล์
+   • ค่าตั้งต้น = ยอดไทย ÷ อัตรา (HALF-UP) · ขั้นต่ำ 0.10 ต่อรายการ · ไม่จำกัดค่าสูงสุด · ไม่ติดลบ · ยอดรวมตรงเป้าหมายทุกสตางค์
+   • เงินส่วนที่เกินขั้นต่ำ (slack) แบ่งตาม "ยอดเงินของรายการในคอลัมน์นั้น" โดยจัดอันดับจากมากไปน้อย
+     รายการยอดสูงทั้งไฟล์เป็นแหล่งเงินให้รายการยอดต่ำ / ช่องว่างโดยอัตโนมัติ (ไม่จำกัดเฉพาะ 20 รายการแรก)
+     รายการที่ยอดถึงขั้นต่ำอยู่แล้วและไม่ต้องใช้เงินของมัน จะคงค่าเดิมทุกสตางค์
+   • ค่าซ้ำถูกขยับทีละ 0.01 เท่าที่งบมี (ไม่สุ่ม) · งบไม่พอ = ยอมให้ซ้ำตามความจำเป็นทางคณิตศาสตร์
+   • ยอดรวมไม่พอจริงหลังตรวจทั้งไฟล์ = ไม่ลดขั้นต่ำเอง ไม่เพิ่มยอด ไม่แก้อัตรา → ส่งทางเลือกให้ผู้ใช้ยืนยันก่อน */
+const AVG_FMIN = 10;
+function avgShare(total, idx, weight){          // แบ่ง total ตามสัดส่วน weight (เศษที่เหลือให้รายการที่เศษมากสุดก่อน · เท่ากันเรียงตามไฟล์)
   const W = idx.reduce((s, i) => s + weight(i), 0), out = new Map(); if(!idx.length || total <= 0) return out;
   const parts = idx.map(i => { const x = W > 0 ? total * weight(i) : total; return W > 0 ? { i, q: Math.floor(x / W), r: x % W } : { i, q: Math.floor(total / idx.length), r: 0 }; });
   let left = total - parts.reduce((s, p) => s + p.q, 0);
@@ -2922,44 +2928,62 @@ function avgShare(total, idx, weight){          // แบ่ง total ตาม�
   for(let k = 0; left > 0; k = (k + 1) % parts.length){ parts[k].q++; left--; }
   parts.forEach(p => out.set(p.i, p.q)); return out;
 }
-function avgForeign(j, R, rp){
-  const n = R.out.length, nat = R.out.map(o => avgDiv(o[j], rp)), target = avgDiv(R.T[j], rp), natSum = nat.reduce((a, b) => a + b, 0);
-  if(target < AVG_FMIN * n)
-    return { err:'ไม่สามารถเฉลี่ยยอด ' + AVG_COLS[j].head + ' ได้ เนื่องจากยอดรวมต่างประเทศ ' + avgFmt(target) + ' ไม่เพียงพอสำหรับขั้นต่ำ 0.10 ต่อรายการ (' + n + ' รายการ ต้องมียอดรวมอย่างน้อย ' + avgFmt(AVG_FMIN * n) + ')' };
-  const f = nat.slice(), recv = [], src = [];
-  for(let i = 0; i < n; i++) (nat[i] < AVG_FMIN ? recv : src).push(i);
-  const cap = i => nat[i] - AVG_FMIN, sum = (a, fn) => a.reduce((s, i) => s + fn(i), 0);
-  const g20 = src.filter(i => i < AVG_GROUP_N), cap20 = sum(g20, cap), capAll = sum(src, cap);
-  const am = i => (avgS.rows[i] && avgS.rows[i].am) || 0, amMax = recv.reduce((m, i) => Math.max(m, am(i)), 0);
-  const plan = K => recv.map(i => AVG_FMIN + (K && amMax > 0 ? Math.round(K * am(i) / amMax) : 0));
-  const dedOf = vals => natSum - target + vals.reduce((s, v, k) => s + v - nat[recv[k]], 0);     // > 0 = ต้องหักจากแหล่งเงิน · < 0 = ต้องเติมคืน
-  const base = dedOf(plan(0)), lim = Math.max(cap20, Math.floor(capAll / 2), base);             // base ≤ capAll เสมอ เมื่อ target ≥ 0.10 × n
-  let vals = plan(0);
-  for(let k = AVG_FVAR; k > 0; k--){ const v = plan(k); if(dedOf(v) <= lim){ vals = v; break; } }
-  let ded = dedOf(vals);
-  if(recv.length > 1){                                                                          // ลดค่าซ้ำในกลุ่มรายการรับ
-    const used = new Set(), ord = recv.map((_, k) => k).sort((a, b) => vals[a] - vals[b] || am(recv[a]) - am(recv[b]) || a - b);
-    for(const k of ord){ let v = vals[k]; while(used.has(v) && ded < lim){ v++; ded++; } vals[k] = v; used.add(v); }
+function avgForeign(j, R, rp, opt){
+  const n = R.out.length, nat = R.out.map(o => avgDiv(o[j], rp)), target = avgDiv(R.T[j], rp), head = AVG_COLS[j].head;
+  let min = AVG_FMIN, act = null;                                                   // act = รายการที่ได้รับเงิน (null = ทุกรายการ)
+  if(target < AVG_FMIN * n){                                                        // ยอดรวมทั้งไฟล์ไม่พอสำหรับขั้นต่ำ 0.10 ทุกรายการ
+    const maxMin = Math.floor(target / n), k = Math.min(n, Math.floor(target / AVG_FMIN));
+    if(opt && opt.min >= 1 && opt.min * n <= target) min = opt.min;                 // ผู้ใช้ยืนยัน: ลดขั้นต่ำเฉพาะคอลัมน์นี้
+    else if(opt && opt.zero && k >= 1) act = nat.map((v, i) => i).sort((a, b) => nat[b] - nat[a] || a - b).slice(0, k);   // ผู้ใช้ยืนยัน: บางรายการเป็น 0.00
+    else return { err:'ไม่สามารถเฉลี่ยยอด ' + head + ' ได้ เนื่องจากยอดรวมต่างประเทศ ' + avgFmt(target) + ' ไม่เพียงพอสำหรับขั้นต่ำ 0.10 ต่อรายการ (' + n + ' รายการ ต้องมียอดรวมอย่างน้อย ' + avgFmt(AVG_FMIN * n) + ')',
+                  opt:{ j, head, target, n, maxMin, k } };
+  }
+  const idx = act || nat.map((v, i) => i), m = idx.length, f = nat.map(() => 0), slack = target - min * m;
+  const recv = [], src = [];
+  for(const i of idx) (nat[i] < min ? recv : src).push(i);                          // รายการต่ำกว่าขั้นต่ำ / ช่องว่าง = ผู้รับ · ที่เหลือ = แหล่งเงิน
+  const w = i => nat[i] + 1, sum = (a, fn) => a.reduce((s, i) => s + fn(i), 0);
+  let E = recv.length ? (src.length ? Math.min(slack, Math.round(slack * sum(recv, w) / sum(idx, w))) : slack) : 0;
+  const vals = [], got = avgShare(E, recv, w);
+  recv.forEach(i => vals.push(min + (got.get(i) || 0)));                            // ผู้รับ = ขั้นต่ำ + ส่วนแบ่งตามยอดเงินของตัวเอง (ไม่เติมเท่ากันทุกรายการ)
+  if(recv.length > 1){                                                              // กระจายให้ค่าต่างกันแบบไล่ระดับตามอันดับยอดเงินของคอลัมน์นั้น (ไม่สุ่ม · ไม่เติม 0.10 เท่ากันทุกรายการ)
+    const ord = recv.map((_, k) => k).sort((a, b) => nat[recv[a]] - nat[recv[b]] || recv[a] - recv[b]), rank = new Map();
+    ord.forEach((k, r) => rank.set(recv[k], r));
+    const budget = Math.floor((slack - E) / 2);                                     // ดึงเพิ่มได้ไม่เกินครึ่งของเงินส่วนเกินที่เหลือของแหล่งเงิน
+    const add = avgShare(budget, recv, i => rank.get(i));
+    recv.forEach((i, k) => { const q = add.get(i) || 0; vals[k] += q; E += q; });
   }
   recv.forEach((i, k) => { f[i] = vals[k]; });
-  if(ded > 0){
-    const pool = cap20 >= ded ? g20 : src;                                                      // 20 รายการแรกไม่พอ → ค้นหาจากทั้งไฟล์
-    const take = avgShare(ded, pool.filter(i => cap(i) > 0), cap);
-    take.forEach((q, i) => { f[i] -= q; });
-    let over = 0; pool.forEach(i => { if(f[i] < AVG_FMIN){ over += AVG_FMIN - f[i]; f[i] = AVG_FMIN; } });   // กันเศษปัดเกินส่วนเกินของรายการ
-    for(const i of pool.slice().sort((a, b) => f[b] - f[a] || a - b)){ if(over <= 0) break; const t = Math.min(over, f[i] - AVG_FMIN); f[i] -= t; over -= t; }
-  } else if(ded < 0){
-    const pool = g20.length ? g20 : (src.length ? src : recv);
-    avgShare(-ded, pool, i => nat[i]).forEach((q, i) => { f[i] += q; });
-  }
-  return { f, adj: f.map((v, i) => v !== nat[i]), rebal: recv.length > 0, target, nat };   // rebal = มีการเฉลี่ยเพื่อขั้นต่ำ 0.10 (ไม่ใช่แค่ปรับเศษปัดของยอดรวม)
+  const rest = avgShare(slack - E, src, i => nat[i] - min);                         // แหล่งเงิน = ขั้นต่ำ + ส่วนเกินที่เหลือตามสัดส่วนยอดของตัวเอง
+  src.forEach(i => { f[i] = min + (rest.get(i) || 0); });
+  return { f, adj: f.map((v, i) => v !== nat[i]), rebal: recv.length > 0 || !!act || min !== AVG_FMIN, target, nat, min, zero: act ? n - m : 0 };
 }
+/* ทางเลือกเมื่อยอดรวมไม่พอจริง — ต้องกดยืนยันทุกครั้ง · ไม่ลดขั้นต่ำเอง · ไม่แตะยอดรวม / อัตราแลกเปลี่ยน */
+let avgFOpt = [null, null, null];
+function avgOptHtml(opts){
+  return opts.map(o => '<div class="avg-opt" id="avgOpt' + o.j + '">⚠ ยอดรวมต่างประเทศของ ' + avgEsc(o.head) + ' ไม่เพียงพอจริง (ตรวจครบทุกรายการในไฟล์แล้ว) — เลือกวิธีดำเนินการ แล้วยืนยัน'
+    + '<div class="row">'
+    + (o.maxMin >= 1 ? '<button class="avg-obtn" id="avgOptMin' + o.j + '" onclick="avgFixMin(' + o.j + ')">ลดขั้นต่ำเฉพาะ ' + avgEsc(o.head) + ' เป็น ' + avgFmt(o.maxMin) + '</button>' : '')
+    + (o.k >= 1 ? '<button class="avg-obtn" id="avgOptZero' + o.j + '" onclick="avgFixZero(' + o.j + ')">ให้ ' + o.k + ' รายการได้ 0.10 ขึ้นไป · อีก ' + (o.n - o.k) + ' รายการเป็น 0.00</button>' : '')
+    + (o.maxMin < 1 && o.k < 1 ? '<span>ยอดรวมน้อยเกินกว่าจะเฉลี่ยได้ — ต้องแก้ยอดไทยหรือสกุลเงิน/อัตราเอง</span>' : '')
+    + '</div></div>').join('');
+}
+function avgFixMin(j){
+  const o = (avgS && avgS.res) ? avgFxView().opts.find(x => x.j === j) : null; if(!o || o.maxMin < 1) return;
+  if(!confirm('ยืนยันลดขั้นต่ำเฉพาะ ' + o.head + ' เป็น ' + avgFmt(o.maxMin) + ' ต่อรายการ?\n\n• ใช้กับคอลัมน์นี้เท่านั้น ไม่กระทบคอลัมน์อื่น\n• ยอดรวมเป้าหมายและอัตราแลกเปลี่ยนไม่เปลี่ยน')) return;
+  avgFOpt[j] = { min:o.maxMin }; avgRender();
+}
+function avgFixZero(j){
+  const o = (avgS && avgS.res) ? avgFxView().opts.find(x => x.j === j) : null; if(!o || o.k < 1) return;
+  if(!confirm('ยืนยันให้บางรายการของ ' + o.head + ' เป็น 0.00?\n\n• ' + o.k + ' รายการที่ยอดสูงสุดได้ขั้นต่ำ 0.10 ขึ้นไป\n• อีก ' + (o.n - o.k) + ' รายการเป็น 0.00\n• ยอดรวมเป้าหมายและอัตราแลกเปลี่ยนไม่เปลี่ยน')) return;
+  avgFOpt[j] = { zero:true }; avgRender();
+}
+function avgFixClear(){ avgFOpt = [null, null, null]; avgRender(); }
 
 /* ───────── ไฟล์ข้อมูล ───────── */
 async function avgHandleFile(files){
   const f = files && files[0];
   if(!f) return;
-  avgS = null; avgClearResult();
+  avgS = null; avgFOpt = [null, null, null]; avgClearResult();
   for(let j = 0; j < 3; j++){ avgEl('avgT' + j).value = ''; avgEl('avgT' + j).disabled = true; }
   avgEl('avgTSum').textContent = '-'; avgEl('avgCalcBtn').disabled = true; avgFxEnable(false); avgFxFields();
   const showFile = (ok, sub) => { avgEl('avgFile').innerHTML = '<span>' + (ok ? '✅' : '❌') + '</span> ' + avgEsc(f.name) + '<small>' + avgEsc(sub) + '</small>'; };
@@ -3004,11 +3028,16 @@ function avgSolve(v, T){
   let filled = 0;
   for(let i = 0; i < v.length; i++) if(v[i] === 0){ out[i] = 1; filled++; }      // ช่องว่าง / 0.00 → 0.01
   const N = filled - D;                                                              // > 0 = ต้องหักจากกลุ่ม · < 0 = ต้องเติมเข้ากลุ่ม
-  const src = []; for(let i = 0; i < Math.min(AVG_GROUP_N, v.length); i++) if(v[i] > 0) src.push(i);
+  let src = []; for(let i = 0; i < Math.min(AVG_GROUP_N, v.length); i++) if(v[i] > 0) src.push(i);
   src.sort((a, b) => v[b] - v[a] || a - b);                                         // ยอดมากก่อน · เท่ากันเรียงตามลำดับไฟล์
+  const capOf = a => a.reduce((s, i) => s + (v[i] - 1), 0);
+  if((N > 0 && capOf(src) < N) || (N < 0 && !src.length)){                          // [480] กลุ่ม 20 รายการแรกไม่พอ → ค้นหาเงินจากทุกรายการในไฟล์ (ไม่หยุดเพียงเพราะกลุ่มเดิมไม่พอ)
+    src = []; for(let i = 0; i < v.length; i++) if(v[i] > 0) src.push(i);
+    src.sort((a, b) => v[b] - v[a] || a - b);
+  }
   if(N > 0){
-    const cap = src.reduce((s, i) => s + (v[i] - 1), 0);                            // หักได้โดยเหลืออย่างน้อย 0.01 ต่อรายการ
-    if(cap < N) return { err:'ต้องหัก ' + avgFmt(N) + ' แต่กลุ่ม ' + AVG_GROUP_N + ' รายการแรกหักได้สูงสุด ' + avgFmt(cap) };
+    const cap = capOf(src);                                                         // หักได้โดยเหลืออย่างน้อย 0.01 ต่อรายการ
+    if(cap < N) return { err:'ต้องหัก ' + avgFmt(N) + ' แต่ทั้งไฟล์หักได้สูงสุด ' + avgFmt(cap) };
     let left = N, act = src.filter(i => out[i] > 1);
     while(left > 0){
       const share = Math.floor(left / act.length);
@@ -3017,7 +3046,7 @@ function avgSolve(v, T){
       act = act.filter(i => out[i] > 1);
     }
   } else if(N < 0){
-    if(!src.length) return { err:'ยอดเป้าหมายสูงกว่ายอดเดิม ' + avgFmt(-N) + ' แต่ไม่มีรายการที่มียอดในกลุ่ม ' + AVG_GROUP_N + ' รายการแรกให้ปรับเพิ่ม' };
+    if(!src.length) return { err:'ยอดเป้าหมายสูงกว่ายอดเดิม ' + avgFmt(-N) + ' แต่ไม่มีรายการที่มียอดในไฟล์ให้ปรับเพิ่ม' };
     const add = -N, share = Math.floor(add / src.length); let rem = add - share * src.length;
     for(const i of src){ out[i] += share + (rem > 0 ? 1 : 0); if(rem > 0) rem--; }
   }
@@ -3025,13 +3054,14 @@ function avgSolve(v, T){
 }
 function avgCalc(){
   if(!avgS) return;
+  avgFOpt = [null, null, null];                                                     // [480] คำนวณใหม่ = เริ่มจากขั้นต่ำ 0.10 เสมอ (ไม่ลดเอง)
   const T = [], bad = [];
   for(let j = 0; j < 3; j++){ const p = avgToCents(avgEl('avgT' + j).value);
     if(p.bad || p.blank || p.c < 0) bad.push(AVG_COLS[j].head + ': กรุณากรอกยอดเป็นตัวเลขไม่ติดลบ ทศนิยมไม่เกิน 2 ตำแหน่ง'); T.push(p.c || 0); }
   if(bad.length){ avgClearResult(); return avgFail('ยอดที่กรอกไม่ถูกต้อง', bad); }
   const rows = avgS.rows, cols = [], errs = [];
   for(let j = 0; j < 3; j++){ const s = avgSolve(rows.map(x => x.v[j]), T[j]); if(s.err) errs.push(AVG_COLS[j].head + ': ' + s.err); cols.push(s); }
-  if(errs.length){ avgClearResult(); return avgFail('เงินในกลุ่ม ' + AVG_GROUP_N + ' รายการแรกไม่เพียงพอ — ไม่ได้แก้ไขรายการใด', errs); }
+  if(errs.length){ avgClearResult(); return avgFail('เงินในไฟล์ไม่เพียงพอ — ไม่ได้แก้ไขรายการใด', errs); }
   const out = rows.map((x, i) => [cols[0].out[i], cols[1].out[i], cols[2].out[i]]);
   /* เซลล์ที่เปลี่ยน = ค่าหลังเฉลี่ย ≠ ค่าเดิม (ว่าง → 0.01 = เปลี่ยน · 0 กับ 0.00 / 1 กับ 1.00 = ไม่เปลี่ยน เพราะเทียบเป็นสตางค์) */
   const chg = rows.map((x, i) => out[i].map((c, j) => c !== x.v[j] || (x.blank[j] && c !== 0)));
@@ -3048,12 +3078,14 @@ function avgGo(p){ if(!avgS || !avgS.res) return; const n = Math.max(1, Math.cei
 /* ยอดต่างประเทศของทั้ง 3 หัวข้อ ตามสกุลเงิน / อัตราที่กรอกอยู่ตอนนี้ */
 function avgFxView(){
   const R = avgS.res, fx = [0, 1, 2].map(avgFx);
-  const fr = fx.map((x, j) => x.ok ? avgForeign(j, R, x.rp) : null);
+  const fr = fx.map((x, j) => x.ok ? avgForeign(j, R, x.rp, avgFOpt[j]) : null);
   /* [476] รายการที่รายงาน = Item ที่ค่าฝั่งไทยเปลี่ยน + Item ที่ยอดต่างประเทศถูกปรับสมดุล (เรียงตามแถวในไฟล์) */
   const okFr = fr.filter(x => x && !x.err), list = [];
   for(let i = 0; i < R.out.length; i++) if(R.chg[i].some(Boolean) || okFr.some(x => x.rebal && x.adj[i])) list.push(i);   // การปรับเศษปัดของยอดรวมอย่างเดียว ไม่ทำให้ Item เพิ่มเข้ารายงาน
   const yF = (i, j) => !!(fr[j] && !fr[j].err && (R.chg[i][j] || (fr[j].rebal && fr[j].adj[i])));
-  return { fx, fr, list, yF, miss: avgFxMissing(), errs: fr.filter(x => x && x.err).map(x => x.err) };
+  return { fx, fr, list, yF, miss: avgFxMissing(), errs: fr.filter(x => x && x.err).map(x => x.err),
+    opts: fr.filter(x => x && x.err && x.opt).map(x => x.opt),
+    used: fr.map((x, j) => x && !x.err && (x.min !== AVG_FMIN || x.zero) ? { j, head:AVG_COLS[j].head, min:x.min, zero:x.zero } : null).filter(Boolean) };
 }
 function avgRenderTable(V){
   V = V || avgFxView();
@@ -3083,6 +3115,10 @@ function avgRender(){
         : V.errs.length ? avgBox('avg-bad', '✗ ยอดต่างประเทศไม่ผ่านการตรวจสอบ', V.errs)
         : V.miss.length ? avgBox('avg-bad', '✗ ยังไม่พร้อม Export รายการที่เปลี่ยน — ข้อมูลสกุลเงินไม่ครบ', V.miss)
         : avgBox('avg-ok', '✓ ยอดรวมตรงกัน — พร้อม Export Excel');
+  if(V.opts.length) h += avgOptHtml(V.opts);                                       // [480] ยอดไม่พอจริง → ทางเลือกที่ต้องยืนยัน
+  if(V.used.length) h += '<div class="avg-info" id="avgOptUsed">ใช้ตัวเลือกที่ยืนยันแล้ว: '
+    + V.used.map(u => u.zero ? avgEsc(u.head) + ' — ' + u.zero + ' รายการเป็น 0.00' : avgEsc(u.head) + ' — ขั้นต่ำ ' + avgFmt(u.min) + ' ต่อรายการ').join(' · ')
+    + ' <button class="avg-obtn" id="avgOptUndo" onclick="avgFixClear()">ยกเลิกตัวเลือก</button></div>';
   const bS = R.cols.reduce((s, c) => s + c.before, 0), aS = R.after.reduce((a, b) => a + b, 0);
   if(aS !== bS) h += '<div class="avg-info" id="avgNet">ยอดไทยในไฟล์เดิม ' + avgFmt(bS) + ' → หลังเฉลี่ย ' + avgFmt(aS) + ' THB (ส่วนต่างสุทธิ ' + avgSigned(aS - bS) + ' จากยอดที่กรอก — แยกจากยอดที่โยกภายในกลุ่ม ' + AVG_GROUP_N + ' รายการแรก)</div>';
   avgEl('avgCheck').innerHTML = h;
@@ -27754,7 +27790,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local479';
+const DEPLOY_VERSION = 'local480';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
