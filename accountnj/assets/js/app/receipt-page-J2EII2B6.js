@@ -146,7 +146,7 @@ import{a as XLS820}from"./chunk-FHYZBT2Q.js";import{css762 as CS762,dd762 as DD7
     </tr></thead><tbody id="rc-tbody"><tr><td colspan="21" class="load-row"><div class="spin"></div></td></tr></tbody>
     </table></div>
     </div>
-    </div>`,ct(t);let e=t.querySelector(".ch-tools");e&&ot(e);(()=>{if(!document.getElementById("rc502-css")){let s=document.createElement("style");s.id="rc502-css";s.textContent=".rc502-hide{display:none!important}.rep-tabs.rc502-tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px}.rep-tabs.rc502-tabs>#rc-new{margin-left:auto}.rc502 [data-colmg]{display:none!important}";document.head.appendChild(s)}let ph=t.querySelector(".page-head"),tb=t.querySelector(".rep-tabs"),nb=t.querySelector("#rc-new");e&&(()=>{/* V.899 : \u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E01\u0E32\u0E23\u0E0B\u0E48\u0E2D\u0E19\u0E1B\u0E38\u0E48\u0E21 MAERSK \u2014 \u0E04\u0E07\u0E0B\u0E48\u0E2D\u0E19\u0E1B\u0E38\u0E48\u0E21\u0E2D\u0E37\u0E48\u0E19\u0E43\u0E19\u0E41\u0E16\u0E1A\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E21\u0E37\u0E2D\u0E15\u0E32\u0E21\u0E40\u0E14\u0E34\u0E21 */let mk899=e.querySelector('.tool-menu [data-menu="maersk"]'),kp899=mk899&&mk899.closest(".tool-menu");if(!kp899){e.classList.add("rc502-hide");return}e.classList.remove("rc502-hide");[...e.children].forEach(c899=>{c899===kp899?c899.classList.remove("rc502-hide"):c899.classList.add("rc502-hide")});kp899.addEventListener("click",ev900=>{ev900.target.closest&&ev900.target.closest('[data-menu="maersk"]')&&setTimeout(()=>UP900(t),0)});UP900(t)/* V.900 */})();ph&&ph.classList.add("rc502-hide");tb&&(tb.classList.add("rc502-tabs"),nb&&tb.appendChild(nb));t.querySelectorAll("#rc-pending,#rc-issued").forEach(x=>x.classList.add("rc502"))})();let r={...g,scope:null,mode:"receipt",importMode:"accounting",filters:{},refresh:()=>{I==="pending"?M(t):o()}};t.dataset.chPage="finance-receipt",NK586(t,()=>t.dataset.chPage==="finance-receipt",()=>r.refresh()),t.__njToolClick&&t.removeEventListener("click",t.__njToolClick),t.__njToolClick=c=>{if(t.dataset.chPage!=="finance-receipt")return;let n=c.target.closest("[data-tool]");if(!n)return;if(n.dataset.tool==="export-soa"){SOA900(t);return}/* V.900 */rt(n.dataset.tool,r)},t.addEventListener("click",t.__njToolClick),t.querySelector(".rep-tabs").addEventListener("click",c=>{let n=c.target.closest("[data-rtab]");!n||n.dataset.rtab===I||(I=n.dataset.rtab,SEL795.clear(),BAD795.clear(),gt(t))});let s=t.querySelector('[data-pf="q"]');s&&(t.querySelector("#rp-go").onclick=()=>{$.q=s.value.trim(),FR678(t,"pf",$),$.page=1,M(t)},XR734(t),UPB820(t),FK678(t.querySelector("#rc-pending .fbar"),"#rp-go")),I==="pending"&&M(t);RT830(t,()=>M(t),()=>I)/* V.826 */;let d=t.querySelector("#rc-new");d&&d.remove();t.__ld811=()=>o();/* V.837 */async function o(){let c=P("receipts");try{let n=await L835({company_group:"NJ",q:b.q||null,customer_id:b.customer||null,from:b.from||null,to:b.to||null,page:b.page,size:b.size,...FP678(b),sort853:"rcp"/* V.859 */})/* V.830 */;if(!q("receipts",c))return;BV800(t);let p=t.querySelector("#rc-tbody"),y=n.rows||[];SM811(t,n),p.innerHTML=y.length?y.map((o849,i849)=>RI811(o849,i849,(b.page-1)*b.size)).join(""):'<tr><td colspan="8" class="empty">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08</td></tr>',B(t.querySelector("#rc-pgn"),{page:b.page,size:b.size,total:n.total||0},({page:l,size:a})=>{b.page=l,b.size=a,o()},{lp:!0}),F(),t.__njCols&&t.__njCols.issued(),SY857(t,n)/* V.859 */}catch(n){if(!q("receipts",c))return;R(n);let p=t.querySelector("#rc-tbody");p&&p.querySelector(".spin")&&(p.innerHTML='<tr><td colspan="21" class="empty">\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 <button type="button" class="btn btn-sm btn-o" data-ld-retry>\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48</button></td></tr>',p.querySelector("[data-ld-retry]").onclick=()=>{p.innerHTML='<tr><td colspan="21" class="load-row"><div class="spin"></div></td></tr>',o()})}}RC762(t)/* V.762 */,AP797(t),OP797(t)/* V.797 */,LS801(t)/* V.801 */,RB811(t),XR811(t)/* V.811 */,XR857(t)/* V.858 */,FK678(t.querySelector("#rc-issued .fbar"),"#rc-go"),t.querySelector("#rc-go").onclick=()=>{t.querySelectorAll("[data-f]").forEach(c=>b[c.dataset.f]=c.value),b.page=1,o()};function h(){let c=t.querySelector("#rp-tbody");z({table:c&&c.closest("table"),modeKey:"FINANCE_RECEIPT_PENDING",host:t.querySelector("#rc-pending .fbar")})}function m(){let c=t.querySelector("#rc-tbody");z({table:c&&c.closest("table"),modeKey:MQ849()?"FINANCE_RECEIPT_ISSUED811":"FINANCE_RECEIPT_ISSUED849"/* V.849 */,host:t.querySelector("#rc-issued .fbar")})}RA795(t,()=>(M(t),OP797(t,!0))),t.__njCols={pending:h,issued:m},h(),m(),t.querySelector("#rc-tbody").addEventListener("click",async c=>{let n=c.target.closest("[data-print]");if(n){G(JSON.parse(n.dataset.print));return}let p=c.target.closest("[data-void]");if(p){let y=await Z("Void \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 "+p.dataset.no+" (\u0E08\u0E30 Void \u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E14\u0E49\u0E27\u0E22)");if(!y)return;try{await U("void-rc-"+p.dataset.void,()=>lt(p.dataset.void,y,H())),k("Void \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E2A\u0E16\u0E32\u0E19\u0E30\u0E0A\u0E33\u0E23\u0E30\u0E02\u0E2D\u0E07 INVOICE \u0E16\u0E39\u0E01\u0E04\u0E33\u0E19\u0E27\u0E13\u0E43\u0E2B\u0E21\u0E48","ok"),o()}catch(l){R(l)}}}),o()}async function M(t){let e=t.querySelector("#rp-tbody");if(!e)return;J=t;let r=P("rc-pending");try{let s=await et({company_group:"NJ",q:$.q||null,customer_id:$.customer||null,page:$.page,size:$.size,...FP678($)});if(!q("rc-pending",r))return;KP530(t,s);RA795(t,()=>(M(t),OP797(t,!0)));let d=s&&s.rows||[];BV800(t),e.innerHTML=d.map(o=>`<tr data-inv="${i(o.invoice_id)}" data-job800="${i(o.job_id||"")}">
+    </div>`,ct(t);let e=t.querySelector(".ch-tools");e&&ot(e);(()=>{if(!document.getElementById("rc502-css")){let s=document.createElement("style");s.id="rc502-css";s.textContent=".rc502-hide{display:none!important}.rep-tabs.rc502-tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px}.rep-tabs.rc502-tabs>#rc-new{margin-left:auto}.rc502 [data-colmg]{display:none!important}";document.head.appendChild(s)}let ph=t.querySelector(".page-head"),tb=t.querySelector(".rep-tabs"),nb=t.querySelector("#rc-new");e&&(()=>{/* V.899 : \u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E01\u0E32\u0E23\u0E0B\u0E48\u0E2D\u0E19\u0E1B\u0E38\u0E48\u0E21 MAERSK \u2014 \u0E04\u0E07\u0E0B\u0E48\u0E2D\u0E19\u0E1B\u0E38\u0E48\u0E21\u0E2D\u0E37\u0E48\u0E19\u0E43\u0E19\u0E41\u0E16\u0E1A\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E21\u0E37\u0E2D\u0E15\u0E32\u0E21\u0E40\u0E14\u0E34\u0E21 */let mk899=e.querySelector('.tool-menu [data-menu="maersk"]'),kp899=mk899&&mk899.closest(".tool-menu");if(!kp899){e.classList.add("rc502-hide");return}e.classList.remove("rc502-hide");[...e.children].forEach(c899=>{c899===kp899?c899.classList.remove("rc502-hide"):c899.classList.add("rc502-hide")});kp899.addEventListener("click",ev900=>{ev900.target.closest&&ev900.target.closest('[data-menu="maersk"]')&&setTimeout(()=>UP900(t),0)});t.addEventListener("change",ev901=>{let x901=ev901.target;x901&&x901.matches&&(x901.matches('select.sel797')||x901.matches('[data-pf^="f678_"]')||x901.matches('[data-f^="f678_"]'))&&setTimeout(()=>UP900(t),0)});t.addEventListener("input",ev901=>{let x901=ev901.target;x901&&x901.matches&&x901.matches('select.sel797')&&setTimeout(()=>UP900(t),0)});UP900(t)/* V.900 · V.901 : อัปเดตสถานะทันทีเมื่อ Dropdown ลูกค้าเปลี่ยน */})();ph&&ph.classList.add("rc502-hide");tb&&(tb.classList.add("rc502-tabs"),nb&&tb.appendChild(nb));t.querySelectorAll("#rc-pending,#rc-issued").forEach(x=>x.classList.add("rc502"))})();let r={...g,scope:null,mode:"receipt",importMode:"accounting",filters:{},refresh:()=>{I==="pending"?M(t):o()}};t.dataset.chPage="finance-receipt",NK586(t,()=>t.dataset.chPage==="finance-receipt",()=>r.refresh()),t.__njToolClick&&t.removeEventListener("click",t.__njToolClick),t.__njToolClick=c=>{if(t.dataset.chPage!=="finance-receipt")return;let n=c.target.closest("[data-tool]");if(!n)return;if(n.dataset.tool==="export-soa"){SOA900(t);return}/* V.900 */rt(n.dataset.tool,r)},t.addEventListener("click",t.__njToolClick),t.querySelector(".rep-tabs").addEventListener("click",c=>{let n=c.target.closest("[data-rtab]");!n||n.dataset.rtab===I||(I=n.dataset.rtab,SEL795.clear(),BAD795.clear(),gt(t))});let s=t.querySelector('[data-pf="q"]');s&&(t.querySelector("#rp-go").onclick=()=>{$.q=s.value.trim(),FR678(t,"pf",$),$.page=1,M(t)},XR734(t),UPB820(t),FK678(t.querySelector("#rc-pending .fbar"),"#rp-go")),I==="pending"&&M(t);RT830(t,()=>M(t),()=>I)/* V.826 */;let d=t.querySelector("#rc-new");d&&d.remove();t.__ld811=()=>o();/* V.837 */async function o(){let c=P("receipts");try{let n=await L835({company_group:"NJ",q:b.q||null,customer_id:b.customer||null,from:b.from||null,to:b.to||null,page:b.page,size:b.size,...FP678(b),sort853:"rcp"/* V.859 */})/* V.830 */;if(!q("receipts",c))return;BV800(t);let p=t.querySelector("#rc-tbody"),y=n.rows||[];SM811(t,n),p.innerHTML=y.length?y.map((o849,i849)=>RI811(o849,i849,(b.page-1)*b.size)).join(""):'<tr><td colspan="8" class="empty">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08</td></tr>',B(t.querySelector("#rc-pgn"),{page:b.page,size:b.size,total:n.total||0},({page:l,size:a})=>{b.page=l,b.size=a,o()},{lp:!0}),F(),t.__njCols&&t.__njCols.issued(),SY857(t,n)/* V.859 */}catch(n){if(!q("receipts",c))return;R(n);let p=t.querySelector("#rc-tbody");p&&p.querySelector(".spin")&&(p.innerHTML='<tr><td colspan="21" class="empty">\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 <button type="button" class="btn btn-sm btn-o" data-ld-retry>\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48</button></td></tr>',p.querySelector("[data-ld-retry]").onclick=()=>{p.innerHTML='<tr><td colspan="21" class="load-row"><div class="spin"></div></td></tr>',o()})}}RC762(t)/* V.762 */,AP797(t),OP797(t)/* V.797 */,LS801(t)/* V.801 */,RB811(t),XR811(t)/* V.811 */,XR857(t)/* V.858 */,FK678(t.querySelector("#rc-issued .fbar"),"#rc-go"),t.querySelector("#rc-go").onclick=()=>{t.querySelectorAll("[data-f]").forEach(c=>b[c.dataset.f]=c.value),b.page=1,o()};function h(){let c=t.querySelector("#rp-tbody");z({table:c&&c.closest("table"),modeKey:"FINANCE_RECEIPT_PENDING",host:t.querySelector("#rc-pending .fbar")})}function m(){let c=t.querySelector("#rc-tbody");z({table:c&&c.closest("table"),modeKey:MQ849()?"FINANCE_RECEIPT_ISSUED811":"FINANCE_RECEIPT_ISSUED849"/* V.849 */,host:t.querySelector("#rc-issued .fbar")})}RA795(t,()=>(M(t),OP797(t,!0))),t.__njCols={pending:h,issued:m},h(),m(),t.querySelector("#rc-tbody").addEventListener("click",async c=>{let n=c.target.closest("[data-print]");if(n){G(JSON.parse(n.dataset.print));return}let p=c.target.closest("[data-void]");if(p){let y=await Z("Void \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 "+p.dataset.no+" (\u0E08\u0E30 Void \u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E14\u0E49\u0E27\u0E22)");if(!y)return;try{await U("void-rc-"+p.dataset.void,()=>lt(p.dataset.void,y,H())),k("Void \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E2A\u0E16\u0E32\u0E19\u0E30\u0E0A\u0E33\u0E23\u0E30\u0E02\u0E2D\u0E07 INVOICE \u0E16\u0E39\u0E01\u0E04\u0E33\u0E19\u0E27\u0E13\u0E43\u0E2B\u0E21\u0E48","ok"),o()}catch(l){R(l)}}}),o()}async function M(t){let e=t.querySelector("#rp-tbody");if(!e)return;J=t;let r=P("rc-pending");try{let s=await et({company_group:"NJ",q:$.q||null,customer_id:$.customer||null,page:$.page,size:$.size,...FP678($)});if(!q("rc-pending",r))return;KP530(t,s);RA795(t,()=>(M(t),OP797(t,!0)));let d=s&&s.rows||[];BV800(t),e.innerHTML=d.map(o=>`<tr data-inv="${i(o.invoice_id)}" data-job800="${i(o.job_id||"")}">
       ${RC795(o)}${RR522(o)}
       ${A()?(o.src823?'<td class="center"><span class="t-3">-</span></td>':`<td class="center"><button type="button" class="btn btn-sm un678" data-backacc
             data-inv="${i(o.invoice_id)}" data-job="${i(o.job_id||"")}" data-no="${i(o.invoice_no||"")}"
@@ -1955,52 +1955,103 @@ function AK820(files, C) {   /* Popup ยืนยันก่อนบันท
    · รอรับชำระ = njacc_export_charges คิว receipt_active (ชุดเดียวกับรายการในแท็บ) · ใบเสร็จที่ออกแล้ว = njacc_rcp795_list (1 แถวต่อ INVOICE)
    · ดึงครบทุกหน้า · ไม่ข้ามแท็บ / ข้ามระบบ / ข้ามลูกค้า · อ่านอย่างเดียว ไม่เขียนข้อมูล ═══ */
 var MKNM900 = "MAERSK LOGISTICS & SERVICES (THAILAND) CO., LTD.", MKCD900 = "MK";
+var MKNM = "Maersk Logistics & Services (Thailand) Co., Ltd.";   /* V.901 : ชื่อเต็มสำหรับแสดงผล */
 function NZ900(v) { return String(v == null ? "" : v).trim().replace(/\s+/g, " ").toUpperCase(); }
-function MK900() {
-  try { return ((L.masters && L.masters.customers) || []).find((c) => NZ900(c.code) === MKCD900 && NZ900(c.name) === MKNM900) || null; } catch (e) { return null; }
+function SC901() { return I === "issued" ? "#rc-issued" : "#rc-pending"; }
+function AT901() { return I === "issued" ? "f" : "pf"; }
+function EL901(k) { try { return document.querySelector(SC901() + ' [data-' + AT901() + '="' + k + '"]'); } catch (e) { return null; } }
+function VL901(k) { let e = EL901(k); return e ? String(e.value || "").trim() : ""; }
+function CU901() {   /* V.901 : ค่าลูกค้าที่เลือกอยู่จริงบนหน้าจอ (อ่านจาก Dropdown โดยตรง — ไม่ใช้ค่าที่ค้างในตัวแปร) */
+  let el = document.querySelector(SC901() + ' select.sel797[data-o797="customers"]') || EL901("f678_customer");
+  let v = el ? String(el.value || "").trim() : "";
+  let nm = "";
+  if (v) {
+    nm = NM797.get(v) || "";
+    if (!nm && el && el.selectedOptions && el.selectedOptions[0]) nm = String(el.selectedOptions[0].textContent || "").trim();
+    if (!nm && v.slice(0, 2) === "n:") nm = v.slice(2);
+  }
+  return { el: el, v: v, nm: String(nm || "").trim() };
 }
-function GT900() {
-  let mk = MK900();
-  if (!mk || !mk.id) return { ok: !1, why: "\u0e44\u0e21\u0e48\u0e1e\u0e1a\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32 Maersk Logistics & Services (Thailand) Co., Ltd. \u0e43\u0e19\u0e10\u0e32\u0e19\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25" };
-  if (SRC837 !== "ACC") return { ok: !1, mk, why: "Export SOA \u0e43\u0e0a\u0e49\u0e44\u0e14\u0e49\u0e40\u0e09\u0e1e\u0e32\u0e30\u0e23\u0e30\u0e1a\u0e1a\u0e43\u0e2b\u0e21\u0e48 (ACCOUNTING) \u2014 \u0e23\u0e32\u0e22\u0e01\u0e32\u0e23 UPLOAD EXCEL \u0e44\u0e21\u0e48\u0e21\u0e35\u0e23\u0e2b\u0e31\u0e2a\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32\u0e43\u0e2b\u0e49\u0e15\u0e23\u0e27\u0e08\u0e2a\u0e2d\u0e1a" };
-  let st = I === "issued" ? b : $, v = String((st && st.f678_customer) || "").trim();
-  if (!v) return { ok: !1, mk, why: "\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e15\u0e31\u0e27\u0e01\u0e23\u0e2d\u0e07\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32\u0e40\u0e1b\u0e47\u0e19 " + mk.name + " \u0e01\u0e48\u0e2d\u0e19 \u0e08\u0e36\u0e07\u0e08\u0e30 Export SOA \u0e44\u0e14\u0e49" };
-  let ids = v.slice(0, 2) === "n:" ? null : v.split(",").map((x) => x.trim()).filter(Boolean);
-  let ok = ids ? ids.length > 0 && ids.every((x) => x === mk.id) : NZ900(v.slice(2)) === MKNM900;
-  return ok ? { ok: !0, mk, tab: I } : { ok: !1, mk, why: "Export SOA \u0e2d\u0e19\u0e38\u0e0d\u0e32\u0e15\u0e40\u0e09\u0e1e\u0e32\u0e30\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32 " + mk.name + " \u0e40\u0e17\u0e48\u0e32\u0e19\u0e31\u0e49\u0e19" };
-}
-function UP900(t) {   /* \u0e1b\u0e38\u0e48\u0e21\u0e40\u0e14\u0e34\u0e21 : \u0e40\u0e1b\u0e34\u0e14/\u0e1b\u0e34\u0e14\u0e15\u0e32\u0e21\u0e40\u0e07\u0e37\u0e48\u0e2d\u0e19\u0e44\u0e02 \u0e1e\u0e23\u0e49\u0e2d\u0e21\u0e41\u0e2a\u0e14\u0e07\u0e2a\u0e32\u0e40\u0e2b\u0e15\u0e38 */
+function MKOPT901() {   /* V.901 : ลูกค้า Maersk ของ "หน้าต่างรายงาน" — เทียบชื่อบริษัทเต็ม แล้วใช้ Customer ID จริงของรายการนั้น */
+  let tab = I === "issued" ? "issued" : "pending", out = { name: MKNM900, ids: [], src: "" };
   try {
-    let bt = t && t.querySelector('[data-drop="maersk"] [data-tool="export-soa"]'); if (!bt) return;
-    let g = GT900();
-    bt.disabled = !g.ok;
-    bt.style.opacity = g.ok ? "" : ".5";
-    bt.style.cursor = g.ok ? "" : "not-allowed";
-    bt.title = g.ok ? "Export SOA (SOA_WK9) \u2014 " + (I === "issued" ? "\u0e43\u0e1a\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e17\u0e35\u0e48\u0e2d\u0e2d\u0e01\u0e41\u0e25\u0e49\u0e27" : "\u0e23\u0e2d\u0e23\u0e31\u0e1a\u0e0a\u0e33\u0e23\u0e30") + " \u00b7 \u0e25\u0e39\u0e01\u0e04\u0e49\u0e32 " + g.mk.name : g.why;
+    let L2 = (O797 && O797[tab] && O797[tab].customers) || [];
+    let hit = L2.find((x) => x && NZ900(x.name) === MKNM900);
+    if (hit) { out.name = hit.name || out.name; out.src = "opts797";
+      out.ids = (Array.isArray(hit.ids) ? hit.ids : []).map((z) => String(z || "")).filter(Boolean); }
   } catch (e) {}
-}
-async function RW900(set) {   /* \u0e41\u0e17\u0e47\u0e1a "\u0e43\u0e1a\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e17\u0e35\u0e48\u0e2d\u0e2d\u0e01\u0e41\u0e25\u0e49\u0e27" : RPC \u0e40\u0e14\u0e34\u0e21 1 \u0e41\u0e16\u0e27\u0e15\u0e48\u0e2d INVOICE \u00b7 \u0e04\u0e23\u0e1a\u0e17\u0e38\u0e01\u0e2b\u0e19\u0e49\u0e32 */
-  let mk = MK900(), out = [], pg = 1, tot = 0;
-  for (;;) {
-    let d = await V("njacc_rcp795_list", { p: { company_group: "NJ", customer_id: mk && mk.id, from: b.from || null, to: b.to || null, q: b.q || null, page: pg, size: 200 } });
-    let rs = (d && d.rows) || []; tot = Number((d && d.total) || tot) || 0;
-    out.push(...rs); set && set(out.length, tot || out.length);
-    if (!rs.length || out.length >= tot || pg >= 200) break;
-    pg += 1;
+  if (!out.ids.length) {
+    try { let m = ((L.masters && L.masters.customers) || []).find((c) => NZ900(c && c.name) === MKNM900);
+      if (m && m.id) { out.ids = [String(m.id)]; out.name = m.name || out.name; out.src = "masters"; } } catch (e) {}
   }
   return out;
 }
-function SOA900(t) {
-  let g = GT900();
-  if (!g.ok) { k(g.why, "err"); return; }
-  let ctx = { charge: "SERVICE", group: "NJ", mode: "receipt", scope: null,
-    queue: I === "issued" ? null : "receipt_active",
-    filters: { customer: g.mk.id, q: String((I === "issued" ? b.q : $.q) || "").trim() || null },
-    cust900: { id: g.mk.id, name: g.mk.name },
-    empty900: "\u0e44\u0e21\u0e48\u0e1e\u0e1a\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25 SOA \u0e02\u0e2d\u0e07\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32 Maersk",
-    refresh: () => {} };
-  if (I === "issued") ctx.rows900 = RW900;
-  rt("export-soa", ctx);
+function GT900() {   /* V.901 : เงื่อนไขการใช้งาน Export SOA — ตรวจจากหน้าจอจริงทุกครั้งที่เรียก */
+  if (SRC837 !== "ACC") return { ok: !1, why: "Export SOA \u0e43\u0e0a\u0e49\u0e44\u0e14\u0e49\u0e40\u0e09\u0e1e\u0e32\u0e30\u0e23\u0e30\u0e1a\u0e1a\u0e43\u0e2b\u0e21\u0e48 (ACCOUNTING) \u2014 \u0e23\u0e32\u0e22\u0e01\u0e32\u0e23 UPLOAD EXCEL \u0e44\u0e21\u0e48\u0e21\u0e35\u0e23\u0e2b\u0e31\u0e2a\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32\u0e43\u0e2b\u0e49\u0e15\u0e23\u0e27\u0e08\u0e2a\u0e2d\u0e1a" };
+  let cu = CU901(), mk = MKOPT901();
+  if (!cu.v) return { ok: !1, why: "\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32 " + MKNM + " \u0e43\u0e19\u0e0a\u0e48\u0e2d\u0e07 \u0e04\u0e49\u0e19\u0e2b\u0e32\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32 \u0e01\u0e48\u0e2d\u0e19 \u0e08\u0e36\u0e07\u0e08\u0e30 Export SOA \u0e44\u0e14\u0e49" };
+  if (NZ900(cu.nm) !== MKNM900) return { ok: !1, why: "Export SOA \u0e2d\u0e19\u0e38\u0e0d\u0e32\u0e15\u0e40\u0e09\u0e1e\u0e32\u0e30\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32 " + MKNM + " \u2014 \u0e02\u0e13\u0e30\u0e19\u0e35\u0e49\u0e40\u0e25\u0e37\u0e2d\u0e01 : " + (cu.nm || "-") };
+  let ids = [];
+  if (cu.v.slice(0, 2) !== "n:") ids = cu.v.split(",").map((x) => x.trim()).filter(Boolean);
+  if (!ids.length) ids = mk.ids.slice();
+  if (!ids.length) return { ok: !1, why: "\u0e44\u0e21\u0e48\u0e1e\u0e1a Customer ID \u0e02\u0e2d\u0e07 " + MKNM + " \u0e43\u0e19\u0e23\u0e32\u0e22\u0e01\u0e32\u0e23\u0e02\u0e2d\u0e07\u0e2b\u0e19\u0e49\u0e32\u0e19\u0e35\u0e49" };
+  return { ok: !0, ids: ids, name: mk.name || cu.nm, tab: I, src: mk.src || "select" };
+}
+function FL901() {   /* V.901 : ตัวกรองทุกช่องของหน้าต่างรายงาน ณ เวลาที่กด (ส่งออกตามผลค้นหาล่าสุด) */
+  let f = {}, q = VL901("q"), inv = VL901("f678_invoice"), cj = VL901("f678_cjob");
+  if (q) f.q = q;
+  if (inv) f.f678_invoice = inv;
+  if (cj) f.f678_cjob = cj;
+  try {
+    let co = document.querySelector(SC901() + ' select.sel797[data-o797="companies"]'), cv = co ? String(co.value || "").trim() : "";
+    if (cv) { if (cv.slice(0, 2) === "n:") f.f678_company = NM797.get(cv) || cv.slice(2);
+      else { let ci = cv.split(",").map((x) => x.trim()).filter(Boolean); if (ci.length) f.company_ids = ci; } }
+  } catch (e) {}
+  if (I === "issued") { let fr = VL901("from"), to = VL901("to"); if (fr) f.from = fr; if (to) f.to = to; }
+  return f;
+}
+function UP900(t) {   /* V.901 : ปุ่มเมนูเดิม — เปิด/ปิดทันทีตามลูกค้าที่เลือก พร้อมเหตุผลจริง (กดได้เสมอเพื่อไม่ให้เงียบ) */
+  try {
+    let bt = (t || document).querySelector('[data-drop="maersk"] [data-tool="export-soa"]'); if (!bt) return;
+    let g = GT900();
+    bt.disabled = !1;
+    bt.dataset.off901 = g.ok ? "" : "1";
+    bt.setAttribute("aria-disabled", g.ok ? "false" : "true");
+    bt.style.opacity = g.ok ? "" : ".45";
+    bt.style.cursor = g.ok ? "" : "not-allowed";
+    bt.title = g.ok ? "Export SOA (SOA_WK9) \u2014 " + (I === "issued" ? "\u0e43\u0e1a\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e17\u0e35\u0e48\u0e2d\u0e2d\u0e01\u0e41\u0e25\u0e49\u0e27" : "\u0e23\u0e2d\u0e23\u0e31\u0e1a\u0e0a\u0e33\u0e23\u0e30") + " \u00b7 " + g.name : g.why;
+  } catch (e) {}
+}
+async function RW900(set, ids) {   /* \u0e43\u0e1a\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e17\u0e35\u0e48\u0e2d\u0e2d\u0e01\u0e41\u0e25\u0e49\u0e27 : RPC \u0e40\u0e14\u0e34\u0e21 1 \u0e41\u0e16\u0e27\u0e15\u0e48\u0e2d INVOICE \u00b7 \u0e04\u0e23\u0e1a\u0e17\u0e38\u0e01\u0e2b\u0e19\u0e49\u0e32 */
+  let out = [], F2 = FL901();
+  for (let ci = 0; ci < (ids || []).length; ci++) {
+    let pg = 1, tot = 0;
+    for (;;) {
+      let d = await V("njacc_rcp795_list", { p: { company_group: "NJ", customer_id: ids[ci], from: F2.from || null, to: F2.to || null, q: F2.q || null, page: pg, size: 200 } });
+      let rs = (d && d.rows) || []; tot = Number((d && d.total) || tot) || 0;
+      out.push(...rs); set && set(out.length, tot || out.length);
+      if (!rs.length || out.length >= tot || pg >= 200) break;
+      pg += 1;
+    }
+  }
+  return out;
+}
+async function SOA900(t) {   /* V.901 : ตรวจซ้ำตอนกด · ส่งตัวกรองล่าสุดของหน้าจอให้ Export SOA เดิม · ล้มเหลวต้องบอกสาเหตุเสมอ */
+  try {
+    let g = GT900();
+    if (!g.ok) { k(g.why, "err"); return; }
+    let f = FL901();
+    if (g.ids.length === 1) f.customer = g.ids[0]; else { f.customer = g.ids[0]; f.customer_ids = g.ids.slice(); }
+    let ctx = { charge: "SERVICE", group: "NJ", mode: "receipt", scope: null,
+      queue: I === "issued" ? null : "receipt_active", filters: f,
+      cust900: { id: g.ids[0], ids: g.ids.slice(), name: g.name },
+      empty900: "\u0e44\u0e21\u0e48\u0e1e\u0e1a\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25 SOA \u0e02\u0e2d\u0e07\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32 Maersk",
+      refresh: () => {} };
+    if (I === "issued") ctx.rows900 = (set) => RW900(set, g.ids);
+    await rt("export-soa", ctx);
+  } catch (e) {
+    try { k("Export SOA \u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08 \u2014 " + String((e && e.message) || e), "err"); } catch (e2) {}
+  }
 }
 function BG823(o) {   /* หน้ารายงาน : ป้ายรายการนำเข้าจาก Excel (คอลัมน์เลขที่งาน) */
   ST823();
