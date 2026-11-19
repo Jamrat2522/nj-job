@@ -999,7 +999,7 @@ body.legacy-active .content-area { display: none !important; }
       <div id="stw-panel" style="display:none">
         <div id="stw-drop" onclick="document.getElementById('stw-input').click()">
           <div class="t">📄 วางไฟล์ DELIVERY NOTE (DN)</div>
-          <div class="h">PDF หลายไฟล์พร้อมกันได้ · DN อ่านเฉพาะหน้าแรก · Export Invoice cum Packing List อ่านเฉพาะหน้าสุดท้าย · อ่านเสร็จแล้ว Export Excel อัตโนมัติ</div>
+          <div class="h">รองรับ PDF หลายไฟล์ · DN เดิมอ่านหน้าแรก · Export Invoice cum Packing List อ่านน้ำหนักหน้าสุดท้าย · อ่านครบแล้ว Export Excel อัตโนมัติ</div>
           <input id="stw-input" type="file" accept=".pdf,application/pdf" multiple style="display:none" onchange="stwHandle(this.files); this.value=''">
         </div>
         <div id="stw-status"></div>
@@ -8380,15 +8380,69 @@ async function stwReadInv(pdf, row){
   row.msg = row.ok ? 'อ่านสำเร็จ · ' + row.ln + ' บรรทัด · Packing ' + row.pk + ' PC' : 'อ่านไม่สำเร็จ: ' + row.err + ' — ไฟล์ ' + row.file;
   return row;
 }
+/* ══ [478] ชุดที่มีไฟล์รูปแบบใหม่: ต้องอ่านสำเร็จ "ครบทุกไฟล์" ก่อน Export ══
+   • ตรวจทุกไฟล์ในชุด รวมไฟล์ที่จำแนกประเภทไม่ได้ (ไม่ใช่ DN และไม่ใช่ Export Invoice cum Packing List)
+   • ล้มเหลวแม้ 1 ไฟล์ = ระงับทั้ง Auto Export และ Manual Export (ตรวจซ้ำในตัว stwExport เอง)
+   • ไม่ส่งออกข้อมูลบางส่วน · ไม่แทนค่าน้ำหนักที่อ่านไม่ได้ด้วย 0 · ชุดที่มีเฉพาะ DN เดิมทำงานตามเดิมทุกกรณี */
+function stwInvBatch(){ return stwRows.some(r => r.kind === 'inv'); }
+function stwBadRows(){ return stwRows.filter(r => !r.ok); }
+function stwBlocked(){ return stwBusy || (stwInvBatch() && stwBadRows().length > 0); }
+function stwBlockNote(){
+  if(stwBusy) return 'กำลังอ่านไฟล์ — ปิดปุ่ม EXPORT EXCEL ชั่วคราว';
+  const b = stwBadRows();
+  return 'อ่าน ' + stwRows.length + ' ไฟล์ · สำเร็จ ' + (stwRows.length - b.length) + ' · อ่านไม่สำเร็จ ' + b.length + ' ไฟล์\n'
+    + 'ระงับ Export ทั้งหมด (Auto Export และปุ่ม EXPORT EXCEL) — ไม่ส่งออกข้อมูลบางส่วน และไม่แทนค่าน้ำหนักด้วย 0\n'
+    + b.map(r => '✗ ' + r.file + ' — ' + (r.err || 'ไม่พบ ' + (r.miss || []).join(', '))).join('\n');
+}
+/* ผลรวม (หน่วย 0.001 KG กันเศษทศนิยม) — ใช้ชุดเดียวกันทั้งหน้าจอและ Excel จึงตรงกัน 100% */
+function stwTotals(rows){
+  let n = 0, g = 0, d = 0;
+  for(const r of rows){ if(r.nw){ n += Math.round(r.nw.v * 1000); d = Math.max(d, r.nw.d); } if(r.gw){ g += Math.round(r.gw.v * 1000); d = Math.max(d, r.gw.d); } }
+  return { nw:n / 1000, gw:g / 1000, d:Math.max(d, 3) };
+}
+/* [478] SheetJS (ตัวสำรอง) ไม่เขียน Style ของเซลล์ → เติม "ตัวหนา + เส้นขอบด้านบน" ให้แถว TOTAL ในไฟล์ที่เขียนเสร็จแล้ว
+   ทำไม่ได้/ผิดพลาด = คืนไฟล์เดิม (ข้อมูลและตัวเลขไม่เสีย) */
+async function stwBoldTotal(buf, rowNo){
+  try{
+    if(typeof JSZip === 'undefined') return buf;
+    const z = await JSZip.loadAsync(buf);
+    let st = await z.file('xl/styles.xml').async('string'), sh = await z.file('xl/worksheets/sheet1.xml').async('string');
+    const add = (tag, el) => {                                          // เติม element ท้ายรายการ + บวกตัวนับ → คืน index ใหม่
+      const m = st.match(new RegExp('<' + tag + ' count="(\\d+)">([\\s\\S]*?)</' + tag + '>'));
+      if(!m) return -1; const i = Number(m[1]);
+      st = st.replace(m[0], '<' + tag + ' count="' + (i + 1) + '">' + m[2] + el + '</' + tag + '>');
+      return i;
+    };
+    const fid = add('fonts', '<font><b/><sz val="12"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>');
+    const bid = add('borders', '<border><left/><right/><top style="thin"><color rgb="FF1E40AF"/></top><bottom/><diagonal/></border>');
+    if(fid < 0 || bid < 0) return buf;
+    const xfs = (st.match(/<cellXfs count="\d+">([\s\S]*?)<\/cellXfs>/) || [])[1];
+    const list = xfs ? (xfs.match(/<xf\b[^>]*\/>/g) || []) : null; if(!list) return buf;
+    for(const col of ['A', 'B', 'C']){
+      const cm = sh.match(new RegExp('<c r="' + col + rowNo + '"[^>]*>')); if(!cm) return buf;
+      const old = Number((cm[0].match(/ s="(\d+)"/) || [0, 0])[1]);
+      const ni = add('cellXfs', (list[old] || '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>')
+        .replace(/ fontId="\d+"/, ' fontId="' + fid + '"').replace(/ borderId="\d+"/, ' borderId="' + bid + '"')
+        .replace('/>', ' applyFont="1" applyBorder="1"/>'));
+      if(ni < 0) return buf;
+      sh = sh.replace(cm[0], / s="\d+"/.test(cm[0]) ? cm[0].replace(/ s="\d+"/, ' s="' + ni + '"') : cm[0].replace('<c r="' + col + rowNo + '"', '<c r="' + col + rowNo + '" s="' + ni + '"'));
+    }
+    z.file('xl/styles.xml', st); z.file('xl/worksheets/sheet1.xml', sh);
+    return await z.generateAsync({ type:'uint8array', compression:'DEFLATE' });
+  }catch(_e){ return buf; }
+}
 /* TOTAL รวมทุกไฟล์ (แสดงเมื่อมีไฟล์ Export Invoice cum Packing List — DN ล้วนแสดงตามเดิม) */
 function stwTotalHtml(){
   const inv = stwRows.filter(r => r.kind === 'inv'); if(!inv.length) return '';
-  let n = 0, g = 0, d = 0, pk = 0, ln = 0;
-  for(const r of stwRows){ if(r.nw){ n += Math.round(r.nw.v * 1000); d = Math.max(d, r.nw.d); } if(r.gw){ g += Math.round(r.gw.v * 1000); d = Math.max(d, r.gw.d); } if(r.kind === 'inv'){ pk += r.pk; ln += r.ln; } }
-  const bad = stwRows.filter(r => !r.ok).length;
-  return '<tfoot><tr id="stw-total"><td>TOTAL (' + stwRows.length + ' ไฟล์)</td><td class="n">' + (n / 1000).toFixed(d) + '</td><td class="n">' + (g / 1000).toFixed(d) + '</td><td class="' + (bad ? 'bad' : 'ok') + '">' + ln + ' บรรทัด · Packing ' + pk + ' PC' + (bad ? ' · ยังไม่รวมไฟล์ที่อ่านไม่ครบ ' + bad + ' ไฟล์' : '') + '</td><td>NW / GW หน่วย KG</td></tr></tfoot>';
+  const t = stwTotals(stwRows); let pk = 0, ln = 0;
+  for(const r of inv){ pk += r.pk; ln += r.ln; }
+  const bad = stwBadRows().length;
+  return '<tfoot><tr id="stw-total"><td>TOTAL (' + stwRows.length + ' ไฟล์)</td><td class="n">' + t.nw.toFixed(t.d) + '</td><td class="n">' + t.gw.toFixed(t.d) + '</td><td class="' + (bad ? 'bad' : 'ok') + '">' + ln + ' บรรทัด · Packing ' + pk + ' PC' + (bad ? ' · ระงับ Export — อ่านไม่สำเร็จ ' + bad + ' ไฟล์' : '') + '</td><td>NW / GW หน่วย KG</td></tr></tfoot>';
 }
-function stwExportable(){ return stwRows.filter(r => r.dn || r.nw || r.gw); }
+function stwExportable(){
+  if(stwInvBatch() && stwBadRows().length) return [];                   // [478] อ่านไม่ครบ = ไม่มีอะไรให้ส่งออก (ห้ามส่งออกบางส่วน)
+  return stwRows.filter(r => r.dn || r.nw || r.gw);
+}
 function stwRender(note){
   const e = escapeHtml, st = document.getElementById('stw-status'), tb = document.getElementById('stw-table');
   if(!stwRows.length && !stwBusy){ st.textContent = ''; st.className = ''; tb.innerHTML = ''; document.getElementById('stw-export').disabled = true; return; }
@@ -8398,7 +8452,7 @@ function stwRender(note){
   tb.innerHTML = h + '</tbody>' + stwTotalHtml() + '</table>';
   const bad = stwRows.filter(r => !r.ok).length;
   st.textContent = note || ''; st.className = stwBusy ? '' : bad ? 'err' : 'ok';
-  document.getElementById('stw-export').disabled = stwBusy || !stwExportable().length;
+  document.getElementById('stw-export').disabled = stwBlocked() || !stwExportable().length;   // [478] ระหว่างอ่าน / อ่านไม่ครบ = ปิดปุ่ม
 }
 async function stwHandle(files){
   const list = Array.from(files || []); if(!list.length || stwBusy) return;
@@ -8410,14 +8464,14 @@ async function stwHandle(files){
   }
   stwBusy = false;
   const bad = stwRows.filter(r => !r.ok).length, n = stwExportable().length;
-  const badInv = stwRows.filter(r => r.kind === 'inv' && !r.ok);        // [477] ไฟล์รูปแบบใหม่อ่านไม่ครบ → แจ้งชื่อไฟล์ก่อน · ไม่ Export อัตโนมัติ
-  if(badInv.length){ stwRender('อ่าน ' + stwRows.length + ' ไฟล์ · สำเร็จ ' + (stwRows.length - bad) + ' · อ่านไม่ครบ ' + bad + ' ไฟล์\nไฟล์ที่มีปัญหา: ' + badInv.map(r => r.file).join(', ') + '\nยังไม่ Export อัตโนมัติ — ตรวจสอบไฟล์ก่อน (ปุ่ม EXPORT EXCEL จะส่งออกเฉพาะไฟล์ที่อ่านครบ)'); return; }
-  stwRender('อ่าน DN ' + stwRows.length + ' ไฟล์ · สำเร็จ ' + (stwRows.length - bad) + (bad ? ' · อ่านไม่ครบ ' + bad + ' ไฟล์ (ช่องที่ไม่พบเว้นว่าง)' : '') + (n ? ' · Export ' + STW_FILE + ' แล้ว' : ' · ไม่มีข้อมูลให้ Export'));
+  if(stwBlocked()){ stwRender(stwBlockNote()); return; }                // [478] ชุดที่มีไฟล์รูปแบบใหม่ + อ่านไม่สำเร็จแม้ 1 ไฟล์ = ไม่ Export อัตโนมัติ และปุ่มถูกปิด
+  stwRender('อ่าน ' + (stwInvBatch() ? '' : 'DN ') + stwRows.length + ' ไฟล์ · สำเร็จ ' + (stwRows.length - bad) + (bad ? ' · อ่านไม่ครบ ' + bad + ' ไฟล์ (ช่องที่ไม่พบเว้นว่าง)' : '') + (n ? ' · Export ' + STW_FILE + ' แล้ว' : ' · ไม่มีข้อมูลให้ Export'));
   if(n) await stwExport();                                              // Export อัตโนมัติ 1 ครั้งต่อรอบ
 }
 function stwClear(){ stwRound++; stwBusy = false; stwRows = []; stwRender(''); }
 async function stwExport(){
-  const rows = stwExportable(); if(!rows.length || stwBusy) return;
+  if(stwBlocked()){ if(!stwBusy) stwRender(stwBlockNote()); return; }   // [478] ตรวจซ้ำในฟังก์ชัน ไม่พึ่งการปิดปุ่มบนหน้าจอ
+  const rows = stwExportable(); if(!rows.length) return;
   const fmt = n => n.d ? '0.' + '0'.repeat(n.d) : '0';
   const save = (data) => { const url = URL.createObjectURL(new Blob([data], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
     const a = document.createElement('a'); a.href = url; a.download = STW_FILE; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000); };
@@ -8431,14 +8485,30 @@ async function stwExport(){
     ws.getRow(1).height = 22; [22, 16, 16].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     ws.getColumn(2).alignment = { horizontal:'right' }; ws.getColumn(3).alignment = { horizontal:'right' };
     ws.getRow(1).eachCell(c => { c.alignment = { horizontal:'center', vertical:'middle' }; });
-    ws.autoFilter = 'A1:C' + (rows.length + 1);
+    if(stwInvBatch()){                                                  // [478] แถว TOTAL ล่างสุด: ตัวหนา + เส้นขอบด้านบน · Number · ทศนิยม 3 ตำแหน่ง
+      const t = stwTotals(rows), x = ws.addRow(['TOTAL', t.nw, t.gw]);
+      x.eachCell(c => { c.font = { bold:true }; c.border = { top:{ style:'thin', color:{ argb:'FF1E40AF' } } }; });
+      x.getCell(1).numFmt = '@'; x.getCell(2).numFmt = '0.000'; x.getCell(3).numFmt = '0.000';
+      x.getCell(2).alignment = { horizontal:'right' }; x.getCell(3).alignment = { horizontal:'right' };
+    }
+    ws.autoFilter = 'A1:C' + (rows.length + 1);                         // TOTAL ไม่อยู่ใน AutoFilter
     save(await wb.xlsx.writeBuffer());
   }catch(_e){                                                           // สำรอง: ไม่มี ExcelJS → SheetJS (ข้อมูล / ชนิดเซลล์ / Filter เหมือนกัน)
     const ws = { A1:{ t:'s', v:'Delivery Note No' }, B1:{ t:'s', v:'Total NW' }, C1:{ t:'s', v:'Total GW' } };
     rows.forEach((r, i) => { const n = i + 2; if(r.dn) ws['A' + n] = { t:'s', v:r.dn }; if(r.nw) ws['B' + n] = { t:'n', v:r.nw.v, z:fmt(r.nw) }; if(r.gw) ws['C' + n] = { t:'n', v:r.gw.v, z:fmt(r.gw) }; });
-    ws['!ref'] = 'A1:C' + (rows.length + 1); ws['!cols'] = [{ wch:22 }, { wch:16 }, { wch:16 }]; ws['!autofilter'] = { ref: ws['!ref'] };
+    const last = rows.length + 1;
+    ws['!ref'] = 'A1:C' + last; ws['!cols'] = [{ wch:22 }, { wch:16 }, { wch:16 }]; ws['!autofilter'] = { ref:'A1:C' + last };   // TOTAL ไม่อยู่ใน AutoFilter
+    if(stwInvBatch()){                                                  // [478] แถว TOTAL (SheetJS)
+      const t = stwTotals(rows), q = last + 1, bd = { top:{ style:'thin' } }, fb = { bold:true };
+      ws['A' + q] = { t:'s', v:'TOTAL', s:{ font:fb, border:bd } };
+      ws['B' + q] = { t:'n', v:t.nw, z:'0.000', s:{ font:fb, border:bd } };
+      ws['C' + q] = { t:'n', v:t.gw, z:'0.000', s:{ font:fb, border:bd } };
+      ws['!ref'] = 'A1:C' + q;
+    }
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'DN WEIGHT');
-    save(XLSX.write(wb, { bookType:'xlsx', type:'array' }));
+    let buf = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+    if(stwInvBatch()) buf = await stwBoldTotal(buf, rows.length + 2);   // [478] แถว TOTAL: ตัวหนา + เส้นขอบด้านบน
+    save(buf);
   }
 }
 (function(){ const d = document.getElementById('stw-drop'); if(!d) return;
@@ -27650,7 +27720,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local477';
+const DEPLOY_VERSION = 'local478';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
