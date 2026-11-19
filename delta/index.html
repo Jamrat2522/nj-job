@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <!-- Build Metadata (local316): เลข Version ของ Build นี้ — กำหนดที่บรรทัดนี้ที่เดียว ใช้ทั้งเว็บไซต์ (ป้ายมุมขวาบนอ่านจากที่นี่) -->
-<meta name="nj-build" content="local323">
+<meta name="nj-build" content="local325">
 <title>Mapping Export Hi-Tech HTML</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -5468,6 +5468,8 @@ async function _doExportGROHERun(){
   // local318: ชุดค่า "ใบอนุญาต/2" ของ GROHE SIAM — ใช้เฉพาะรายการที่ผลตรวจระบุไว้เท่านั้น (ไม่เติมทุกแถว)
   const _licSet = (_ai.lic && _ai.lic.exempt) ? _ai.lic.exempt : null;
   const _EX = (typeof groheAiExempt === 'function') ? groheAiExempt() : null;
+  // local324: V–AB = ค่า FIX ทุกแถว (ไม่ดึงจาก MASTER / PDF) · AA = วันที่ทำ Mapping DD-MM-YYYY · คำนวณครั้งเดียวต่อการ Export ให้ทุกแถวตรงกัน
+  const _FIX = groheAiFixVab(new Date());
   const HEADERS = [
     "INVOICE NO./คีย์ มือแมนนวน จาก INVOICE PDF",
     "INVOICE DATE",
@@ -5502,6 +5504,7 @@ async function _doExportGROHERun(){
     "วันที่ ออก/ 2",
     "พีวิวโชว์/2",
   ];
+  const _invKeys = [];                  // local325: เลข INVOICE (จาก PDF) ของแต่ละแถว — ใช้แยกชีตจากผล Mapping ชุดเดียวกัน
   const SUM_COLS = [6, 9, 13];          // G Qty · J Amount · N NET WEIGHT (ไม่รวม Unit price ที่เป็นอัตรา · ไม่รวม ITEMS / Invoice / Product / Tariff ที่เป็นรหัส)
   const aoa = [HEADERS];
   _ai.rows.forEach((x, idx) => {
@@ -5514,6 +5517,7 @@ async function _doExportGROHERun(){
     // local319: รหัสสินค้าที่ขึ้นต้นด้วย 0 (เช่น 01207031) หรือมีอักขระอื่น = เก็บเป็นข้อความตามที่พิมพ์ใน PDF — ไม่ตัดเลข 0 นำหน้า
     const _pt = _groheTxt(it.product);
     const prod = (/^\d{1,15}$/.test(_pt) && !/^0\d/.test(_pt)) ? Number(_pt) : _pt;
+    _invKeys.push(String(m.invoiceNo == null ? '' : m.invoiceNo).trim());
     aoa.push([
       invNo,                                   // A INVOICE NO. — PDF
       dOK ? new Date(yy, mm - 1, dd) : '',     // B INVOICE DATE — PDF (ไม่พบ = เว้นว่าง)
@@ -5533,18 +5537,35 @@ async function _doExportGROHERun(){
       m.purchase || '',                        // Q Purchase Country — ประเทศผู้ซื้อจาก PDF (local323) · XLSX ใช้เทียบเท่านั้น ไม่ตรง = แจ้งเตือน · อ่านไม่ได้ = เว้นว่าง
       _groheTxt(it.coo),                       // R COO — PDF
       dOK ? yy : '',                           // S Product Year — ปีของ Invoice Date
-      ms.tariff || '', ms.stat || '', ms.brand || '', ms.boi || '', ms.lic || '', ms.lic2 || '', ms.org || '', ms.issued || '', ms.preview || '',   // T–AB MASTER (ไม่พบ = เว้นว่าง)
+      ms.tariff || '', ms.stat || '',          // T/U TARIFF CODE · stat — MASTER (ไม่พบ = เว้นว่าง)
+      _FIX[0], _FIX[1], _FIX[2], _FIX[3], _FIX[4], _FIX[5], _FIX[6],   // V–AB ค่า FIX ทุกแถว (local324) — ข้อความล้วน · ไม่ใช้ค่าจาก MASTER / PDF
       // AC–AF เลขที่ใบอนุญาต/2 · หน่วยงาน/2 · วันที่ ออก/ 2 · พีวิวโชว์/2
       //   MASTER มีค่า = ใช้ค่าจาก MASTER · ไม่มี = เติมชุดที่กำหนด เฉพาะรายการที่ติดเงื่อนไขใบอนุญาตส่งออกของหน่วยงานที่กำหนด · นอกนั้นเว้นว่าง
       //   เก็บเป็นข้อความทุกช่อง (ไม่ตัดเลข 0 นำหน้าของ 0994000159561 และ 01)
       ms.lic2b || (_x ? _EX.lic : ''), ms.org2 || (_x ? _EX.org : ''), ms.issued2 || (_x ? _EX.issued : ''), ms.preview2 || (_x ? _EX.preview : ''),
     ]);
   });
-  const ws = XLSX.utils.aoa_to_sheet(aoa, {cellDates:true});
-  ws['!cols'] = [{wch:14},{wch:12},{wch:7},{wch:12},{wch:34},{wch:34},{wch:10},{wch:10},{wch:12},{wch:12},{wch:9},{wch:9},{wch:9},
+  // local325: ชีตแรก = ALL INVOICE (ทุกรายการ) · ชีตถัดไป = 1 INVOICE ต่อ 1 ชีต ตั้งชื่อตามเลข INVOICE จาก PDF
+  //   ทุกชีตสร้างจากแถวชุดเดียวกัน (aoa) — ไม่อ่าน PDF / ไม่เรียก AI ซ้ำ · หัวคอลัมน์ ความกว้าง และค่าในแถวเหมือนกันทุกชีต
+  const _COLS = [{wch:14},{wch:12},{wch:7},{wch:12},{wch:34},{wch:34},{wch:10},{wch:10},{wch:12},{wch:12},{wch:9},{wch:9},{wch:9},
                  {wch:12},{wch:12},{wch:20},{wch:9},{wch:9},{wch:9},{wch:12},{wch:9},{wch:11},{wch:9},{wch:30},{wch:20},{wch:16},{wch:12},{wch:9},{wch:14},{wch:16},{wch:12},{wch:9}];
+  const _mkSheet = rows => { const s = XLSX.utils.aoa_to_sheet([HEADERS].concat(rows), {cellDates:true}); s['!cols'] = _COLS.map(c => ({wch:c.wch})); return s; };
+  const ALL_NAME = 'ALL INVOICE', LIC_NAME = 'รายการติดใบอนุญาต';
+  const _groups = [], _gIdx = new Map();   // เรียงตามลำดับ INVOICE ที่ปรากฏใน PDF
+  aoa.slice(1).forEach((r, k) => { const key = _invKeys[k]; if(!_gIdx.has(key)){ _gIdx.set(key, _groups.length); _groups.push({ key, rows:[] }); } _groups[_gIdx.get(key)].rows.push(r); });
+  const _used = new Set([ALL_NAME.toLowerCase(), LIC_NAME.toLowerCase()]);
+  _groups.forEach(g => {   // ชื่อชีต = เลข INVOICE จริง · ตัดเฉพาะอักขระที่ Excel ไม่รับ / ยาวเกิน 31 · ชื่อซ้ำเติม (2)
+    let base = (g.key || 'ไม่พบเลข INVOICE').replace(/[\\\/?*\[\]:]/g, '_').replace(/^'+|'+$/g, '').slice(0, 31) || 'INVOICE', nm = base, n = 2;
+    while(_used.has(nm.toLowerCase())){ const suf = ' (' + (n++) + ')'; nm = base.slice(0, 31 - suf.length) + suf; }
+    _used.add(nm.toLowerCase()); g.name = nm; });
+  // ตรวจก่อนส่งออก: จำนวนรายการของชีตรวม = ผลรวมของทุกชีตแยก · ไม่ตกหล่น ไม่ซ้ำ
+  const _split = _groups.reduce((a, g) => a + g.rows.length, 0);
+  if(_split !== aoa.length - 1 || _groups.some(g => g.rows.some(r => String(r[0] == null ? '' : r[0]).trim() !== g.key))){
+    toast('แยกชีตตาม INVOICE ไม่ครบ (' + _split + '/' + (aoa.length - 1) + ' รายการ) — ยกเลิกการ Export', 'err'); return false; }
+  const ws = _mkSheet(aoa.slice(1));
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'MAPPING');
+  XLSX.utils.book_append_sheet(wb, ws, ALL_NAME);
+  _groups.forEach(g => XLSX.utils.book_append_sheet(wb, _mkSheet(g.rows), g.name));
   // local317: ชีตแยก "รายการติดใบอนุญาต" — ไม่เปลี่ยนคอลัมน์/รูปแบบของชีต MAPPING เดิม และไม่นับรวมใน TOTAL
   const _lic = _ai.lic || (typeof groheAiLicense === 'function' ? groheAiLicense() : null);
   if(_lic && _lic.rows && _lic.rows.length){
@@ -5560,10 +5581,10 @@ async function _doExportGROHERun(){
     ]));
     const lws = XLSX.utils.aoa_to_sheet(laoa);
     lws['!cols'] = [{wch:14},{wch:7},{wch:14},{wch:38},{wch:12},{wch:7},{wch:34},{wch:15},{wch:24},{wch:46},{wch:16},{wch:16},{wch:12},{wch:10}];
-    XLSX.utils.book_append_sheet(wb, lws, 'รายการติดใบอนุญาต');
+    XLSX.utils.book_append_sheet(wb, lws, LIC_NAME);
   }
   // TOTAL จากข้อมูลที่เขียนลงไฟล์จริง → แสดงเหนือปุ่ม EXPORT ก่อนดาวน์โหลด
-  if(typeof groheAiTotals === 'function') groheAiTotals([{ file:CUSTOMERS.grohe.exportName, sheet:'MAPPING', headers:HEADERS, rows:aoa.slice(1) }], SUM_COLS);
+  if(typeof groheAiTotals === 'function') groheAiTotals([{ file:CUSTOMERS.grohe.exportName, sheet:ALL_NAME, headers:HEADERS, rows:aoa.slice(1) }], SUM_COLS);   // local325: TOTAL นับจากชีตรวมเท่านั้น (ชีตแยกเป็นแถวชุดเดียวกัน ไม่นับซ้ำ)
   const bin = XLSX.write(wb, {type:'array', bookType:'xlsx', cellDates:true});
   const blob = new Blob([bin], {type:'application/octet-stream'});
   const a = document.createElement('a'); const url = URL.createObjectURL(blob);
@@ -5571,7 +5592,7 @@ async function _doExportGROHERun(){
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   if(_ai.partial || _ai.warned){ toast(`${_ai.msg} · ${CUSTOMERS.grohe.exportName} (${aoa.length - 1} รายการ)${_ai.partial ? ' — ดูรายการที่ข้ามในสรุปบนหน้าจอ' : ''}`, 'warn'); return (_ai.partial || _ai.incomplete) ? 'partial' : 'warn'; }   // local319: มีคำเตือนแต่อ่านครบ ≠ สำเร็จบางส่วน
-  toast(`✓ Export: ${CUSTOMERS.grohe.exportName} (${_ai.exported.length} Invoice · ${aoa.length - 1} รายการ)`, 'ok');
+  toast(`✓ Export: ${CUSTOMERS.grohe.exportName} (${_ai.exported.length} Invoice · ${aoa.length - 1} รายการ · ${ALL_NAME} + ${_groups.length} ชีต)`, 'ok');
   return true;
 }
 
@@ -10714,6 +10735,13 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
    *  ใช้กับรายการที่ตรวจพบเงื่อนไขใบอนุญาต "ส่งออก" ของหน่วยงานนี้เท่านั้น — รายการอื่นเว้นว่าง (ไม่เติมอัตโนมัติจากชื่อหน่วยงานอย่างเดียว)
    *  ยืนยันกับไฟล์ตัวอย่างจริง MAPPING GROHE -INVOICE.xls: 47 แถวที่เติม = 47 รายการที่ติดเงื่อนไขนี้พอดี (84818059/000 46 แถว · 84818099/090 1 แถว) */
   const EXEMPT = { agency:'กรมการค้าต่างประเทศ', lic:'EXEMPT99', org:'0994000159561', issued:'2017-11-13', preview:'01' };
+  /* local324: ชุดค่า FIX ของคอลัมน์ V–AB (GROHE SIAM) — ใช้ทุกแถวทุก Item · ไม่ดึงจาก MASTER / PDF · เก็บเป็นข้อความทุกช่อง
+     AA = วันที่ทำ Mapping (วันที่ของเครื่องขณะ Export) รูปแบบ DD-MM-YYYY */
+  const FIXVAB = { brand:'GROHE', boi:'Y', lic:'244(4)/2549,60-0180-1-00-1-0', lic2:'BOI0105538028665', org:'0994000740964', preview:'01' };
+  const FIXVAB_COLS = [['V','brandName'],['W','สิทธิประโยชน์ BOI'],['X','BOI License No'],['Y','เลขที่ใบอนุญาต'],['Z','หน่วยงาน'],['AA','วันที่ ออก (วันที่ทำ Mapping)'],['AB','พีวิวโชว์']];
+  function fixDate(d){ d = (d instanceof Date && !isNaN(d)) ? d : new Date(); const p = n => String(n).padStart(2, '0'); return p(d.getDate()) + '-' + p(d.getMonth() + 1) + '-' + d.getFullYear(); }
+  function fixVab(d){ return [FIXVAB.brand, FIXVAB.boi, FIXVAB.lic, FIXVAB.lic2, FIXVAB.org, fixDate(d), FIXVAB.preview].map(String); }
+  window.groheAiFixVab = function(d){ return fixVab(d); };
   window.groheAiExempt = function(){ return { agency:EXEMPT.agency, lic:EXEMPT.lic, org:EXEMPT.org, issued:EXEMPT.issued, preview:EXEMPT.preview }; };
 
   function taxNote(r){
@@ -11058,8 +11086,23 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     html += checkHtml();
     html += licenseHtml();
     if(built && built.model.length) html += previewHtml(built);
+    if(G.files.length) html += fixVabHtml(built || { model:[] });
     p.style.display = html ? '' : 'none';
     p.innerHTML = html; bind(p);
+  }
+  /* local324: Preview คอลัมน์ V–AB ก่อน Export — ทุกแถวที่ส่งออกได้ ใช้ค่าชุดเดียวกับที่เขียนลง Excel (fixVab) */
+  function fixVabHtml({ model }){
+    const v = fixVab(), rows = [];
+    model.forEach(m => { if(m.errs.length) return; m.items.forEach(i => { if(i.errs.length) return; rows.push({ m, i }); }); });
+    const vals = `<div class="sai-repl" id="gai-fix-vals">${FIXVAB_COLS.map((c, k) => `<b>${c[0]}</b> ${esc(c[1])} = <span class="sai-mono gai-fv${k}">${esc(v[k])}</span>`).join(' · ')}</div>`;
+    if(!rows.length) return `<div class="sai-rep sai-repok" id="gai-fix" data-rows="0" data-date="${esc(v[5])}"><b>คอลัมน์ V–AB — ค่า FIX ทุกแถว</b>${vals}
+        <div class="sai-repl">ไม่ขึ้นกับ MASTER / PDF · เก็บเป็นข้อความ · AA = วันที่ทำ Mapping · ตารางรายแถวจะแสดงเมื่ออ่าน INVOICE PDF แล้ว</div></div>`;
+    const noTh = rows.filter(x => !String((x.i.ms && x.i.ms.th) || '').trim()).length;
+    return `<div class="sai-rep sai-repok" id="gai-fix" data-rows="${rows.length}" data-date="${esc(v[5])}"><b>✓ คอลัมน์ V–AB — ค่า FIX ทุกแถว (${rows.length} รายการ)</b>${vals}
+        <div class="sai-repl">ไม่ขึ้นกับ MASTER / PDF · เก็บเป็นข้อความ · AA = วันที่ทำ Mapping <b>${esc(v[5])}</b>${noTh ? ` · MASTER ไม่มีคำแปลพิกัด ${noTh} รายการ → TH DESC. เว้นว่าง (V–AB ยังครบ)` : ''}</div>
+        <div class="sai-scroll sai-prev"><table class="sai-tbl" id="gai-fix-tbl"><thead><tr><th>INVOICE</th><th>No.</th><th>Product</th><th>TH DESC. (MASTER)</th>${FIXVAB_COLS.map(c => `<th>${c[0]}<br>${esc(c[1])}</th>`).join('')}</tr></thead><tbody>${
+          rows.map(x => `<tr data-inv="${esc(x.m.invoiceNo)}"><td class="sai-mono">${esc(x.m.invoiceNo)}</td><td>${x.i.seq}</td><td class="sai-mono">${esc(x.i.it.product || '')}</td><td class="gai-th">${esc(String((x.i.ms && x.i.ms.th) || ''))}</td>${
+            v.map((c, k) => `<td class="sai-mono gai-f${k}">${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
   }
   function previewHtml({ model }){
     const items = model.reduce((a, m) => a + m.items.length, 0);
