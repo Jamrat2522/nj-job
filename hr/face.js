@@ -181,6 +181,11 @@
           /* [RUN-216] ติดรหัสจริงไว้กับ Error (ข้อความเดิม) · quiet404 = การถามว่าเซิร์ฟเวอร์มี function ใหม่หรือยัง ไม่ใช่ความผิดพลาด */
           var eR = new Error(msg);
           eR.httpStatus = r.status; eR.pgCode = (j && j.code) ? String(j.code) : '';
+          eR.pgMsg = (j && j.message) ? String(j.message) : '';
+          /* [RUN-218] "ปฏิเสธแน่นอน" = HTTP 4xx ที่มีรหัสผิดพลาดจากฐานข้อมูล/PostgREST จริง (คำสั่งจบด้วย Error = Transaction ถูกยกเลิกทั้งก้อน)
+             5xx / ไม่มีรหัส / ตอบผิดรูปแบบ = ไม่ทราบผล (เช่น 504 จาก Gateway ขณะฐานข้อมูลยังทำงานอยู่) */
+          eR.definite = r.status >= 400 && r.status < 500 &&
+                        /^([0-9A-Z]{5}|PGRST\d+)$/.test(eR.pgCode);
           if (!(quiet404 && r.status === 404)) {
             njfReport('RPC_FAIL', fn, { message: msg },
                       'status=' + r.status + ((j && j.code) ? (' code=' + j.code) : ''));
@@ -1848,6 +1853,9 @@
   function aiWarmInfer() {
     try {
       if (INF.warmed || w.NJHR_FACE_NO_WARM_INFER === true) return;
+      /* [RUN-217] มือถือ/แท็บเล็ต (Android · iPhone · iPad) ปิดเป็นค่าเริ่มต้น จนกว่าจะมีผลวัดจากเครื่องจริง
+         เปิดเองได้ด้วย window.NJHR_FACE_WARM_INFER = true · Desktop เปิดตามผลวัด (ครั้งแรก ~3.3s -> ~0.5s บนเครื่องทดสอบ) */
+      if (w.NJHR_FACE_WARM_INFER !== true && aiWarmIsMobile()) return;
       if (!S.guideReady || !S.recogReady || INF.cur || S.root || d.hidden || infBackendLost()) return;
       var f = w.faceapi;
       if (!f || typeof f.detectAllFaces !== 'function') return;
@@ -1869,6 +1877,14 @@
         try { cv.width = 0; cv.height = 0; } catch (e2) {}
       }, function () { INF.warmMs = -1; });
     } catch (e) {}
+  }
+  function aiWarmIsMobile() {
+    try {
+      var o = deviceInfo().os, ua = navigator.userAgent || '';
+      if (o === 'Android' || o === 'iOS') return true;
+      if (/Android|iPhone|iPad|iPod|Mobile/i.test(ua)) return true;
+      return /Mac/i.test(navigator.platform || '') && (navigator.maxTouchPoints || 0) > 1;      // iPadOS รายงานตัวเป็น Mac
+    } catch (e) { return true; }
   }
   function aiWarmSoon() {
     try {
@@ -4222,6 +4238,8 @@
     closeCam(reason);                         // ปิดกล้อง + cancelAnimationFrame (ดู closeCam)
     G.sid++;                                  // Attempt (GPS) ปัจจุบันหมดสิทธิ์ทันที
     opInvalidate();                           // Attendance Operation หมดอายุทันที
+    lockRelease();                            // [RUN-219] ปล่อยล็อกข้ามแท็บ (ไม่เกี่ยวกับรายการค้าง)
+    LG.id++;                                  // [RUN-219] Face Login รอบที่ค้างอยู่หมดสิทธิ์แตะ State
     enInvalidate();                           // Enrollment Run ปัจจุบันหมดสิทธิ์
     FLOW.kind = ''; FLOW.op = -1; FLOW.carry = null;
     S.attCamRestart = null;             // [ข้อ 5] ปิดหน้าจอ = จบ Punch Flow · Retry นับใหม่
@@ -4247,6 +4265,7 @@
      เดิมมองไม่เห็นเพราะ S.mode ยังไม่ถูกตั้ง
      invalidate เมื่อ: Cancel · Route Change · Logout · Session invalid · Retry */
   var OP = { id: 0 };
+  var LG = { id: 0 };                          // [RUN-219] รอบของ Face Login (กัน Callback รอบเก่าแตะ S.busy / ปิดหน้าจอของรอบใหม่)
   /* [ข้อ 5] Punch Flow — ครอบ Attempt 1..N ของการกด IN/OUT ครั้งเดียวกัน
      ใช้ให้ "จำนวน Retry" นับต่อ Flow ไม่ใช่ต่อ Attempt
      เปลี่ยน kind (IN↔OUT) หรือขึ้น Operation ใหม่ = Flow ใหม่ · รีเซ็ตตัวนับ + Evidence */
@@ -4259,24 +4278,116 @@
   function opAlive(myOp) { return myOp === OP.id && S.mode === 'ATTENDANCE'; }
   function opInvalidate() { OP.id++; }
 
-  function punch(kind, onDone, inheritOp) {
+  /* ---------- [RUN-219] ล็อกข้ามแท็บ (ต่อรหัสพนักงาน) ----------
+     Web Locks API (ถือไว้ตลอด Operation · แท็บปิด/พัง = เบราว์เซอร์ปล่อยให้เอง ไม่มีล็อกค้าง)
+     ไม่มี Web Locks: สัญญาเช่าใน localStorage (ต่ออายุทุก 2s · หมดอายุ 8s = แท็บที่พังไม่ทำให้ล็อกค้างถาวร)
+     ปล่อยล็อก ≠ ล้างรายการค้าง · ด่านหลักกันบันทึกซ้ำข้ามอุปกรณ์ยังเป็นเซิร์ฟเวอร์ (ล็อกรายคน + Request ID) */
+  var LOCK = { seq: 0, mode: '', rel: null, emp: '', hb: 0, op: -1,
+               tab: (function () { try { return attReqId(); } catch (e) { return String(Math.random()); } })() };
+  var LOCK_LEASE_MS = 8000, LOCK_BEAT_MS = 2000;
+  function lockKey(emp) { return 'njhr_att_lock_v1:' + emp; }
+  function leaseRead(emp) { try { return JSON.parse(localStorage.getItem(lockKey(emp)) || 'null'); } catch (e) { return undefined; } }
+  function leaseWrite(emp) { try { localStorage.setItem(lockKey(emp), JSON.stringify({ tab: LOCK.tab, exp: Date.now() + LOCK_LEASE_MS })); return true; } catch (e) { return false; } }
+  function lockRelease() {
+    LOCK.seq++;
+    var m = LOCK.mode, emp = LOCK.emp, rel = LOCK.rel;
+    LOCK.mode = ''; LOCK.rel = null; LOCK.emp = ''; LOCK.op = -1;
+    if (LOCK.hb) { clearInterval(LOCK.hb); LOCK.hb = 0; }
+    if (m === 'wl' && rel) { try { rel(); } catch (e) {} }
+    if (m === 'lease') { try { var j = leaseRead(emp); if (j && j.tab === LOCK.tab) localStorage.removeItem(lockKey(emp)); } catch (e2) {} }
+  }
+  function lockDrop(op) { if (LOCK.op === -1 || LOCK.op === op) lockRelease(); }
+  /* ยังถือล็อกอยู่จริงหรือไม่ — ตรวจก่อนส่งคำสั่งบันทึกทุกครั้ง (สัญญาเช่าหมดอายุขณะแท็บถูกพัก แล้วแท็บอื่นรับไป = ไม่ส่ง) */
+  function lockMine() {
+    if (LOCK.mode === 'wl' || LOCK.mode === 'none') return true;
+    if (LOCK.mode !== 'lease') return false;
+    var j = leaseRead(LOCK.emp);
+    if (j === undefined) return true;                                   // อ่าน localStorage ไม่ได้ = ประสานงานไม่ได้ (เซิร์ฟเวอร์เป็นด่านหลัก)
+    if (j && j.tab !== LOCK.tab && j.exp > Date.now()) return false;
+    return leaseWrite(LOCK.emp) || true;
+  }
+  function lockLease(emp, my) {
+    return new Promise(function (res) {
+      if (my !== LOCK.seq) return res(false);
+      var j = leaseRead(emp);
+      if (j === undefined) { LOCK.mode = 'none'; LOCK.emp = emp; return res(true); }
+      if (j && j.tab !== LOCK.tab && j.exp > Date.now()) return res(false);
+      if (!leaseWrite(emp)) { LOCK.mode = 'none'; LOCK.emp = emp; return res(true); }
+      /* สองแท็บเขียนพร้อมกัน: รอสั้น ๆ แล้วอ่านกลับ — ผู้เขียนคนสุดท้ายเป็นเจ้าของ อีกแท็บถอย */
+      setTimeout(function () {
+        if (my !== LOCK.seq) return res(false);
+        var k = leaseRead(emp);
+        if (!k || k.tab !== LOCK.tab) return res(false);
+        LOCK.mode = 'lease'; LOCK.emp = emp;
+        LOCK.hb = setInterval(function () {
+          var c = leaseRead(emp);
+          if (c && c.tab !== LOCK.tab && c.exp > Date.now()) return;      // เสียสิทธิ์ไปแล้ว: ไม่เขียนทับ (lockMine() จะตอบ false)
+          leaseWrite(emp);
+        }, LOCK_BEAT_MS);
+        res(true);
+      }, 140 + Math.floor(Math.random() * 80));
+    });
+  }
+  function lockAcquire(emp) {
+    lockRelease();
+    var my = LOCK.seq;
+    if (!emp) { LOCK.mode = 'none'; return Promise.resolve(true); }
+    var L = null;
+    try { L = w.navigator && w.navigator.locks; } catch (e) { L = null; }
+    if (!L || typeof L.request !== 'function') return lockLease(emp, my);
+    /* ขอแบบ ifAvailable: ไม่ได้ = ลองซ้ำสั้น ๆ อีก 2 ครั้ง (ล็อกของรอบก่อนในแท็บเดียวกันอาจยังปล่อยไม่เสร็จ) แล้วจึงสรุปว่าแท็บอื่นถืออยู่ */
+    function attempt(n) {
+      return new Promise(function (res) {
+        var settled = false;
+        function done(v) { if (settled) return; settled = true; clearTimeout(tm); res(v); }
+        var tm = setTimeout(function () { done('lease'); }, 1500);
+        try {
+          L.request('njhr_att_punch:' + emp, { ifAvailable: true }, function (lk) {
+            if (!lk) { done(false); return undefined; }
+            if (settled || my !== LOCK.seq) { done(false); return undefined; }   // มาช้า/รอบนี้ถูกยกเลิกแล้ว = ปล่อยทันที
+            return new Promise(function (rel) { LOCK.mode = 'wl'; LOCK.emp = emp; LOCK.rel = rel; done(true); });
+          })['catch'](function () { done('lease'); });
+        } catch (e2) { done('lease'); }
+      }).then(function (v) {
+        if (v === 'lease') return lockLease(emp, my);
+        if (v || my !== LOCK.seq || n >= 3) return v;
+        return new Promise(function (r2) { setTimeout(r2, 200); }).then(function () { return my !== LOCK.seq ? false : attempt(n + 1); });
+      });
+    }
+    return attempt(1);
+  }
+
+  var PEND_AGAIN = 0;                          // ทอดที่เท่าไรของการ "ตรวจรายการค้างแล้วเริ่มใหม่เอง" (กันวนเอง)
+  function punch(kind, onDone, inheritOp, pendChecked) {
     if (S.busy) return;                       // กันกดซ้ำ
     S.busy = true;
-    S.flowT0 = Date.now();                    // [RUN-215] เวลาที่ผู้ใช้กดลงเวลา = จุดเริ่ม Deadline รวม
-    /* [RUN-216] มีธุรกรรมเดิมที่ยังไม่ทราบผล (ปิดหน้าต่าง/โหลดหน้าใหม่/กลับเข้าแอป) = ตรวจรายการเดิมก่อน ห้ามสร้างธุรกรรมใหม่ */
-    var pd0 = (typeof inheritOp === 'number') ? null : pendLoad();
-    if (pd0) {
-      var opP = opStart();
-      shell('สแกนใบหน้า', pd0.kind === 'IN' ? 'ลงเวลาเข้างาน' : 'ลงเวลาออกงาน', 'att');
-      if (S.root) S.root.setAttribute('data-att-scan', '1');
-      S.attDone = null;
-      attFrame('wait', 0);
-      netOwn('P' + opP);
-      S.busy = false;
-      attPendingUI(pd0, onDone, {
-        alive: function () { return opAlive(opP); },
-        autoAgain: true,
-        again: function () { close(); setTimeout(function () { punch(kind, onDone); }, 60); }
+    if (!pendChecked) { S.flowT0 = Date.now(); S.pendAgain = PEND_AGAIN; PEND_AGAIN = 0; }  // เวลาที่ผู้ใช้กดลงเวลา = จุดเริ่ม Deadline รวม (ไม่ Reset)
+    /* [RUN-218] สร้าง Operation "ก่อน" อ่านที่จัดเก็บ — ปิด/ยกเลิก/เปลี่ยนหน้าระหว่างอ่าน = Operation หมดอายุ
+       ผลการอ่านที่มาถึงทีหลังจะไม่เปิดหน้าต่าง ไม่เปิดกล้อง ไม่เริ่ม AI */
+    if (!pendChecked) {
+      var opR = (typeof inheritOp === 'number') ? inheritOp : opStart();
+      /* [RUN-219] ตรวจ Operation "ก่อน" แตะ S.busy ทุกครั้ง — งานรอบเก่าที่ตอบกลับทีหลังห้ามปลดล็อก/เปิดหน้าจอของรอบใหม่
+         (รอบเก่าถูกปิดด้วย close() ซึ่งคืน S.busy ให้แล้ว)
+         ล็อกข้ามแท็บตามรหัสพนักงาน: ได้ล็อกก่อนจึงอ่านรายการค้าง -> สองแท็บไม่มีทาง "ไม่พบรายการค้าง" พร้อมกันแล้วเริ่มธุรกรรมใหม่ทั้งคู่ */
+      var empL = currentSessionEmployeeId();
+      lockAcquire(empL).then(function (got) {
+        if (!opAlive(opR)) { if (got) lockDrop(opR); return null; }
+        if (!got) {
+          S.busy = false; S.mode = ''; opInvalidate();
+          attendanceStatusError(new Error('กำลังลงเวลาอยู่ในแท็บหรือหน้าต่างอื่นของเบราว์เซอร์นี้ กรุณาทำรายการในหน้านั้นให้เสร็จ หรือปิดหน้านั้นก่อน'));
+          return null;
+        }
+        LOCK.op = opR;
+        return pendRead();
+      }).then(function (rd) {
+        if (!rd || !opAlive(opR)) return;
+        S.busy = false;
+        if (rd.state !== 'NOT_FOUND') return attPendingStandalone(rd, kind, onDone, opR);
+        punch(kind, onDone, opR, true);
+      }, function () {
+        if (!opAlive(opR)) return;
+        S.busy = false;
+        attPendingStandalone({ state: 'READ_ERROR', list: [], bad: [], complete: false }, kind, onDone, opR);
       });
       return;
     }
@@ -4295,14 +4406,14 @@
         /* [E2E] เวลารอ njhr_face_status ก่อนตัดสินเส้นทาง (Cache hit = เกือบ 0) */
         PERF.boot.marks.face_status_wait_ms =
           perfOn() ? Math.round((perfNow() - tFs) * 10) / 10 : PERF.boot.marks.face_status_wait_ms;
-        if (!opAlive(myOp)) { S.busy = false; return; }   // ถูกยกเลิกระหว่างรอ = หยุดเงียบ
+        if (!opAlive(myOp)) return;                        // ถูกยกเลิกระหว่างรอ = หยุดเงียบ · ไม่แตะ S.busy ของรอบใหม่
         if (has) { S.busy = false; return doPunch(kind, onDone, myOp); }
         S.busy = false;
         enrollThenPunch(kind, onDone, myOp);
       })
       ['catch'](function (e) {
-        S.busy = false;
-        if (!opAlive(myOp)) return;                        // ถูกยกเลิกระหว่างรอ = ไม่ขึ้น error
+        if (!opAlive(myOp)) return;                        // ถูกยกเลิกระหว่างรอ = ไม่ขึ้น error · ไม่แตะ S.busy ของรอบใหม่
+        S.busy = false; S.mode = ''; opInvalidate(); lockRelease();   // จบ Operation นี้ (ไม่มีหน้าจอให้ปิด) = ปล่อยล็อกข้ามแท็บ
         attendanceStatusError(e);
       });
   }
@@ -4413,10 +4524,13 @@
   function attLogBase() {
     var emp = currentSessionEmployeeId();
     if (!emp) return Promise.reject(new Error('ไม่พบข้อมูลพนักงานของบัญชีนี้ กรุณาเข้าสู่ระบบใหม่'));
-    return attLogRows(emp).then(function (rows) {
+    /* วันทำงานปัจจุบันตามกฎของเซิร์ฟเวอร์ (njhr_att_today) จดไว้คู่กับรายการ — ใช้ปิดสถานะรอตรวจสอบเมื่อเซิร์ฟเวอร์เปลี่ยนรอบวันทำงานแล้วเท่านั้น */
+    var wdP = rpc('njhr_att_today', { p_token: token() }).then(function (r) { return (r && r.work_date) ? String(r.work_date) : ''; },
+                                                             function () { return ''; });
+    return Promise.all([attLogRows(emp), wdP]).then(function (a) {
       var ids = {};
-      (rows || []).forEach(function (x) { if (x && x.id) ids[String(x.id)] = 1; });
-      return { emp: emp, ids: ids };
+      (a[0] || []).forEach(function (x) { if (x && x.id) ids[String(x.id)] = 1; });
+      return { emp: emp, ids: ids, wd: a[1] || '' };
     });
   }
   function attVerifyOnce(kind, base) {
@@ -4452,18 +4566,27 @@
      เซิร์ฟเวอร์ยังไม่มี RUN-216: ใช้ทางเดิม + ตรวจจากรหัสรายการ (punch_log.id) ก่อน/หลังส่ง
         พบรายการใหม่ = แจ้งว่า "พบรายการในระบบแล้ว" (ไม่อ้างว่าเป็นคำสั่งของเครื่องนี้)
      ส่งแล้วไม่ได้คำตอบ = "รอตรวจสอบผลบันทึก": ไม่มีปุ่มลงเวลาซ้ำ · ไม่สร้างธุรกรรมใหม่จนกว่าจะทราบผล
-        ไม่พบรายการ ยังไม่สรุปว่าไม่ได้บันทึก จนกว่าจะพ้น ATT_PENDING_FINAL_MS หลังส่ง
-        (Production: statement_timeout ของ anon = 3s -> คำสั่งที่ยังค้างอยู่บนเซิร์ฟเวอร์จบหรือถูกยกเลิกไปนานแล้ว)
+        ไม่พบรายการ = ยังไม่ทราบผล (ดู RUN-217 ด้านล่าง)
      ปิดหน้าต่าง/โหลดหน้าใหม่/กลับเข้าแอป: รายการที่ค้างถูกตรวจก่อนเสมอเมื่อกดลงเวลาครั้งถัดไป */
-  var PEND_KEY = 'njhr_att_pending_v1';
+  /* [RUN-217]
+     - ไม่มีการสรุป "ไม่ได้บันทึก" จากเวลาอีกต่อไป (เลิก 30 วินาที) — ไม่ทราบผล = คงสถานะรอตรวจสอบ
+       เซิร์ฟเวอร์มี RUN-216: ถามด้วย Request ID เดิม -> ไม่พบ = สั่ง njhr_att_punch_req_void (ปิดคำขอภายใต้ล็อกเดียวกับการลงเวลา)
+           VOID = เซิร์ฟเวอร์ยืนยันว่าไม่ได้บันทึกและจะไม่ถูกบันทึก (คำสั่งเดิมที่มาถึงทีหลังถูกปฏิเสธ) · DONE = บันทึกแล้ว
+       เซิร์ฟเวอร์ยังไม่มี RUN-216: ยืนยันรายรายการไม่ได้ -> รอจนพบรายการ หรือจนเซิร์ฟเวอร์เปลี่ยนรอบวันทำงาน
+     - ไม่พบ/ไม่มีสิทธิ์เรียก RPC ตรวจสอบ (เช่น ระหว่าง Rollback) = ยังไม่ทราบผล ไม่ใช่ "ไม่ได้บันทึก"
+     - รายการค้างจดแยกตามพนักงาน ใน localStorage + IndexedDB (สำรอง) · เขียนแล้วอ่านกลับตรวจ · เขียนไม่ได้ทั้งสองที่ = ไม่ส่งคำสั่งบันทึก
+       เก็บเฉพาะ: รหัสคำขอ · IN/OUT · รหัสพนักงาน · เวลา · โหมด · รหัสรายการก่อนส่ง · วันทำงาน  (ไม่มีใบหน้า/รูป/Token)
+       ไม่มีการลบตามอายุ — ลบเมื่อทราบผลเท่านั้น */
+  var PEND_KEY = 'njhr_att_pending_v2';
+  var PEND_DB = 'njhr_att_v1', PEND_STORE = 'pending';
   var REQ_SRV_KEY = 'njhr_att_req_srv_v1';
-  var ATT_PENDING_FINAL_MS = 30000;
   var ATT_PENDING_AUTO_MS = 5000;
   var ATT_PENDING_AUTO_MAX = 6;
-  var ATT_PENDING_KEEP_MS = 6 * 3600 * 1000;
-  var REQ_SRV_RECHECK_MS = 10 * 60 * 1000;      // เซิร์ฟเวอร์ยังไม่มี face2 -> ลองถามใหม่ทุก 10 นาที (หลังรัน SQL จะสลับเอง)
+  var ATT_VOID_AFTER_MS = 15000;                // ไม่พบรายการ: เริ่มสั่งปิดคำขอได้หลังส่งไปแล้วเท่านี้ (ให้คำสั่งเดิมมีโอกาสถึงเซิร์ฟเวอร์ก่อน) — ผลตัดสินมาจากเซิร์ฟเวอร์ ไม่ใช่เวลา
+  var REQ_SRV_RECHECK_MS = 10 * 60 * 1000;
   var MSG_PENDING = 'รอตรวจสอบผลบันทึก — ส่งคำสั่งบันทึกเวลาแล้ว แต่ยังไม่ได้รับคำตอบจากเซิร์ฟเวอร์';
-  function pendFinalMs() { return Number(w.NJHR_ATT_PENDING_FINAL_MS) > 0 ? Number(w.NJHR_ATT_PENDING_FINAL_MS) : ATT_PENDING_FINAL_MS; }
+  var MSG_STORE = 'อุปกรณ์นี้บันทึกข้อมูลรายการลงเวลาไม่ได้ (พื้นที่จัดเก็บของเบราว์เซอร์เต็ม ถูกปิด หรือเป็นโหมดส่วนตัว) จึงยังไม่ได้ส่งคำสั่งบันทึกเวลา กรุณาแก้ไขแล้วลองใหม่';
+  function voidAfterMs() { return Number(w.NJHR_ATT_VOID_AFTER_MS) > 0 ? Number(w.NJHR_ATT_VOID_AFTER_MS) : ATT_VOID_AFTER_MS; }
   function attReqId() {
     try { if (w.crypto && typeof w.crypto.randomUUID === 'function') return w.crypto.randomUUID(); } catch (e) {}
     var b = new Uint8Array(16), i;
@@ -4482,52 +4605,447 @@
     } catch (e) { return null; }
   }
   function reqSrvSet(v) { try { localStorage.setItem(REQ_SRV_KEY, JSON.stringify({ v: v ? 1 : 0, t: Date.now() })); } catch (e) {} }
+  /* เซิร์ฟเวอร์ตอบชัดเจนว่า "ไม่มี function นี้" หรือ "ไม่มีสิทธิ์เรียก" = คำสั่งไม่ได้ถูกประมวลผลแน่นอน */
   function isNoFn(e) {
-    return !!(e && e.httpStatus === 404 && (e.pgCode === 'PGRST202' || /could not find the function/i.test(String(e.message || ''))));
+    if (!e) return false;
+    if (e.httpStatus === 404 && (e.pgCode === 'PGRST202' || /could not find the function/i.test(String(e.message || '')))) return true;
+    /* 42501 ที่มาจาก "ไม่มีสิทธิ์เรียก function" เท่านั้น — 42501 ที่ฟังก์ชันลงเวลาโยนเอง (เช่น อยู่นอกพื้นที่) คือคำปฏิเสธปกติ */
+    return (e.httpStatus === 401 || e.httpStatus === 403) && e.pgCode === '42501' &&
+           /permission denied for function/i.test(String(e.pgMsg || ''));
   }
-  function pendSave(p) { try { localStorage.setItem(PEND_KEY, JSON.stringify(p)); } catch (e) {} }
-  function pendClear(id) {
-    try {
-      var j = JSON.parse(localStorage.getItem(PEND_KEY) || 'null');
-      if (!id || !j || j.id === id) localStorage.removeItem(PEND_KEY);
-    } catch (e) { try { localStorage.removeItem(PEND_KEY); } catch (e2) {} }
+  /* [RUN-218] ที่จัดเก็บรายการค้าง (ต่อ 1 Request ID ไม่ทับกัน — รองรับหลายแท็บ/กดพร้อมกัน)
+       localStorage : njhr_att_pending_v2:<emp>:<id>   + สำเนาล่าสุด njhr_att_pending_v2:<emp> (รูปแบบเดียวกับ local376 = ย้อนรุ่นได้)
+       IndexedDB    : njhr_att_v1/pending  key <emp>:<id> + สำเนาล่าสุด key <emp>
+       local375     : njhr_att_pending_v1 (คีย์เดียว) -> ย้ายเข้า v2 เมื่อเจ้าของตรงกับผู้ใช้ปัจจุบัน แล้วลบ v1 หลังอ่านกลับได้แล้วเท่านั้น
+     ผลการอ่าน: FOUND · NOT_FOUND · READ_ERROR · CONFLICT (มีมากกว่า 1 รายการ/สองแหล่งไม่ตรงกัน -> ตรวจทุกรายการ) */
+  var PEND_V1 = 'njhr_att_pending_v1';
+  /* [RUN-219] ความสมบูรณ์ของรายการค้าง
+       - ทุกรายการที่ local378 จด มี c = ผลรวมตรวจสอบของข้อมูลสำคัญ (id · emp · kind · mode · wd · t · ids)
+       - อ่านไม่ออก / โครงสร้างผิด / ข้อมูลสำคัญหาย / ผลรวมไม่ตรง = "เสียหาย" -> READ_ERROR (ไม่ข้าม ไม่ลบเอง)
+         กู้คืนได้เฉพาะเมื่ออีกแหล่งมีสำเนาของ Request ID เดียวกันที่ผ่านการตรวจ
+       - Request ID เดียวกันแต่ข้อมูลสำคัญไม่ตรงกันระหว่างแหล่ง = CONFLICT -> ไม่เลือกข้าง ไม่เขียนทับ ตรวจกับเซิร์ฟเวอร์เท่านั้น
+       - อ่านได้ไม่ครบ (IndexedDB อ่านไม่ได้) = ยังไม่ถือว่าตรวจครบ เว้นแต่มีหลักฐานว่าไม่มีรายการที่อยู่ใน IndexedDB อย่างเดียว (เครื่องหมาย IO) */
+  var PEND_IO = 'njhr_att_io_v1', PEND_HOLD = 'njhr_att_hold_v1';
+  var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  function pendSig(j, noT) {
+    return [j.id, j.emp, j.kind, j.mode, j.wd || '', noT ? '' : j.t, (j.ids || []).join(',')].join('|');
   }
-  function pendLoad() {
+  function pendSum(s) {
+    var h = 2166136261, i;
+    for (i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0; }
+    return ('0000000' + h.toString(16)).slice(-8);
+  }
+  function pendValid(j, emp) {
+    if (!(j && typeof j === 'object' && typeof j.id === 'string' && UUID_RE.test(j.id))) return false;
+    if (!(j.kind === 'IN' || j.kind === 'OUT') || !(j.mode === 'req' || j.mode === 'log')) return false;
+    if (!(typeof j.t === 'number' && isFinite(j.t) && j.t > 0)) return false;
+    if (!j.emp || j.emp !== emp) return false;
+    if (j.ids != null && !Array.isArray(j.ids)) return false;
+    if (j.wd != null && typeof j.wd !== 'string') return false;
+    if (j.c != null && j.c !== pendSum(pendSig(j))) return false;
+    return true;
+  }
+  /* สำเนาสำหรับจด: เฉพาะข้อมูลที่ต้องใช้ตรวจผล (ไม่มีใบหน้า/รูป/Token) + ผลรวมตรวจสอบ */
+  function pendPack(p) {
+    var q = { id: p.id, kind: p.kind, emp: p.emp, t: p.t, mode: p.mode, ids: (p.ids || []).slice(), wd: p.wd || '' };
+    if (p.b) q.b = 1;
+    if (p.hr && p.hr.t) q.hr = { id: String(p.hr.id || ''), t: p.hr.t };
+    q.c = pendSum(pendSig(q));
+    return q;
+  }
+  function pendSame(a, b) {                    // ข้อมูลสำคัญตรงกันหรือไม่ (รายการรุ่นเก่าที่ไม่มี c: เวลาอาจต่างกันระดับมิลลิวินาทีระหว่างสองแหล่ง จึงไม่นำเวลามาเทียบ)
+    var noT = !(a.c && b.c);
+    return pendSig(a, noT) === pendSig(b, noT);
+  }
+  function lsKey(emp) { return PEND_KEY + ':' + emp; }
+  function lsKeyR(emp, id) { return PEND_KEY + ':' + emp + ':' + id; }
+  function lsPut(p) {
     try {
-      var j = JSON.parse(localStorage.getItem(PEND_KEY) || 'null');
-      if (!j || !j.id || !j.kind || !j.emp || !j.t) return null;
-      if (j.emp !== currentSessionEmployeeId()) return null;             // ของบัญชีอื่น = ไม่แตะ ไม่ใช้
-      if (Date.now() - j.t > ATT_PENDING_KEEP_MS) { localStorage.removeItem(PEND_KEY); return null; }
-      return j;
+      localStorage.setItem(lsKeyR(p.emp, p.id), JSON.stringify(p));
+      var back = JSON.parse(localStorage.getItem(lsKeyR(p.emp, p.id)) || 'null');      // อ่านกลับตรวจครบทุกข้อมูลสำคัญ
+      if (!(pendValid(back, p.emp) && pendSig(back) === pendSig(p))) return false;
+      try { localStorage.setItem(lsKey(p.emp), JSON.stringify(p)); } catch (e1) {}         // สำเนาให้ local376
+      return true;
+    } catch (e) { return false; }
+  }
+  function lsScan(emp) {
+    try {
+      var out = [], bad = [], m = lsKey(emp), n = localStorage.length, k, j, raw, idK;
+      for (var i = 0; i < n; i++) {
+        k = localStorage.key(i);
+        if (!k || (k !== m && k.indexOf(m + ':') !== 0)) continue;
+        raw = localStorage.getItem(k);
+        try { j = JSON.parse(raw || 'null'); } catch (eP) { j = null; }
+        idK = k === m ? '' : k.slice(m.length + 1);
+        if (pendValid(j, emp) && (!idK || idK === j.id)) out.push({ rec: j, perId: k !== m });
+        else bad.push({ src: 'ls', key: k, id: UUID_RE.test(idK) ? idK : '', mirror: k === m });
+      }
+      return { st: 'OK', list: out, bad: bad };
+    } catch (e) { return { st: 'ERR', list: [], bad: [] }; }
+  }
+  function lsGet(emp) { var r = lsScan(emp); return r.list.length ? r.list[0].rec : null; }
+  function idbRun(mode, fn) {
+    return new Promise(function (res, rej) {
+      var done = false, tm = setTimeout(function () { if (done) return; done = true; rej(idbErr('ERR', 'idb-timeout')); }, 1500);
+      function fin(f, v) { if (done) return; done = true; clearTimeout(tm); f(v); }
+      try {
+        if (!w.indexedDB) return fin(rej, idbErr('NA', 'no-idb'));
+        var rq = w.indexedDB.open(PEND_DB, 1);
+        rq.onupgradeneeded = function () { try { rq.result.createObjectStore(PEND_STORE); } catch (e) {} };
+        rq.onerror = function () { fin(rej, idbErr('NA', 'idb-open')); };       // เปิดไม่ได้ (เช่น โหมดส่วนตัว) = เขียนไม่ได้ตั้งแต่แรก
+        rq.onblocked = function () { fin(rej, idbErr('ERR', 'idb-blocked')); };
+        rq.onsuccess = function () {
+          try {
+            var db = rq.result, tx = db.transaction(PEND_STORE, mode), out;
+            var r2 = fn(tx.objectStore(PEND_STORE));
+            if (r2 && r2.multi) { /* หลายคำขอใน Transaction เดียว */ }
+            else if (r2) r2.onsuccess = function () { out = r2.result; };
+            tx.oncomplete = function () {
+              if (r2 && r2.multi) out = r2.multi.map(function (x) { return x.result; });
+              try { db.close(); } catch (e) {} fin(res, out);
+            };
+            tx.onerror = tx.onabort = function () { try { db.close(); } catch (e) {} fin(rej, idbErr('ERR', 'idb-tx')); };
+          } catch (e) { fin(rej, idbErr('ERR', 'idb-tx')); }
+        };
+      } catch (e) { fin(rej, idbErr('NA', 'idb-open')); }
+    });
+  }
+  function idbErr(kind, m) { var e = new Error(m); e.idb = kind; return e; }
+  /* งาน IndexedDB เข้าคิวเดียว: "จด" ต้องจบก่อน "ลบ" เสมอ (กันรายการที่ทราบผลแล้วถูกจดทับกลับมาค้าง) */
+  var IDBQ = Promise.resolve();
+  function idbSeq(fn) { var r = IDBQ.then(fn, fn); IDBQ = r.then(function () {}, function () {}); return r; }
+  function idbPut(p) { return idbSeq(function () { return idbPutNow(p); }); }
+  function idbPutNow(p) {
+    return idbRun('readwrite', function (st) { st.put(p, p.emp + ':' + p.id); st.put(p, p.emp); }).then(function () {
+      return idbRun('readonly', function (st) { return st.get(p.emp + ':' + p.id); });   // อ่านกลับตรวจครบทุกข้อมูลสำคัญ
+    }).then(function (back) { return !!(pendValid(back, p.emp) && pendSig(back) === pendSig(p)); },
+            function () { return false; });
+  }
+  function idbScan(emp) {
+    return idbRun('readonly', function (st) { return { multi: [st.getAllKeys(), st.getAll()] }; }).then(function (kv) {
+      var out = [], bad = [], keys = (kv && kv[0]) || [], vals = (kv && kv[1]) || [];
+      keys.forEach(function (k0, i) {
+        var k = String(k0), j = vals[i];
+        if (k !== emp && k.indexOf(emp + ':') !== 0) return;                 // ของพนักงานคนอื่น = ไม่แตะ
+        var idK = k === emp ? '' : k.slice(emp.length + 1);
+        if (pendValid(j, emp) && (!idK || idK === j.id)) out.push({ rec: j, perId: k !== emp });
+        else bad.push({ src: 'idb', key: k, id: UUID_RE.test(idK) ? idK : '', mirror: k === emp });
+      });
+      return { st: 'OK', list: out, bad: bad };
+    }, function (e) { return { st: (e && e.idb === 'NA') ? 'NA' : 'ERR', list: [], bad: [] }; });
+  }
+  /* เครื่องหมาย IO = หลักฐานว่า "มีรายการที่จดได้เฉพาะใน IndexedDB" (localStorage เขียนไม่ได้ตอนนั้น)
+     จดไว้ 2 ที่ที่ไม่ขึ้นกับ IndexedDB: Cookie + localStorage · ตั้ง "ก่อน" ส่งคำสั่ง ตั้งไม่ได้ = ไม่ส่ง
+     e:1 (epoch) = เคยอ่านที่จัดเก็บได้ครบด้วยรุ่นนี้แล้ว (รายการรุ่นเก่าถูกย้ายเข้า localStorage ครบ) -> เครื่องหมายนี้ใช้เป็นหลักฐานได้ */
+  function ioCk(emp) { return 'njhr_att_io_' + String(emp).replace(/[^0-9a-zA-Z]/g, '').slice(0, 16); }
+  function ioCookieGet(emp) {
+    try {
+      var m = ('; ' + d.cookie).split('; ' + ioCk(emp) + '=');
+      if (m.length < 2) return [];
+      return m.pop().split(';')[0].split('.').filter(function (x) { return !!x; });
     } catch (e) { return null; }
   }
-  /* ถามผลของธุรกรรมที่ค้าง -> { state: 'SAVED' (r, exact) | 'NOT_SAVED' | 'WAIT' } · ติดต่อเซิร์ฟเวอร์ไม่ได้ = reject (ยังรอ) */
-  function pendCheck(p) {
-    var fin = (Date.now() - p.t) >= pendFinalMs();
-    var none = function () { return { state: fin ? 'NOT_SAVED' : 'WAIT' }; };
-    if (p.mode === 'req') {
-      return rpc('njhr_att_punch_req_status', { p_token: token(), p_request_id: p.id }, true).then(function (row) {
-        if (row && row.found === true && String(row.request_id || '') === p.id &&
-            String(row.action || '').toUpperCase() === p.kind) {
-          return { state: 'SAVED', exact: true,
-                   r: { ok: true, verified_after_timeout: true, request_id: p.id, reason: '', work_date: row.work_date,
-                        check_in: row.check_in, check_out: row.check_out, status: row.status,
-                        work_hours: row.work_hours, late_min: row.late_min, geofence_name: row.geofence_name || '' } };
-        }
-        return none();
-      }, function (e) {
-        /* เซิร์ฟเวอร์ไม่มี function ของ RUN-216 = คำสั่งที่ส่งผ่าน face2 ก็ไม่มีทางถูกประมวลผล -> ไม่ได้บันทึกแน่นอน */
-        if (isNoFn(e)) { reqSrvSet(0); return { state: 'NOT_SAVED' }; }
-        throw e;
+  function ioCookieSet(emp, ids) {
+    try {
+      d.cookie = ioCk(emp) + '=' + ids.join('.') + '; path=/; SameSite=Lax; max-age=' + (ids.length ? 31536000 : 0);
+      var back = ioCookieGet(emp);
+      return !!back && back.join('.') === ids.join('.');
+    } catch (e) { return false; }
+  }
+  function ioLs(emp) {
+    try { var j = JSON.parse(localStorage.getItem(PEND_IO + ':' + emp) || 'null'); return (j && typeof j === 'object' && Array.isArray(j.ids)) ? j : null; }
+    catch (e) { return null; }
+  }
+  function ioLsSet(emp, j) { try { localStorage.setItem(PEND_IO + ':' + emp, JSON.stringify(j)); return true; } catch (e) { return false; } }
+  function ioIds(emp) {
+    var a = ioCookieGet(emp) || [], b = (ioLs(emp) || {}).ids || [], o = {};
+    a.concat(b).forEach(function (x) { o[x] = 1; });
+    return Object.keys(o);
+  }
+  function ioMark(emp, id, on) {
+    var s = String(id).slice(0, 8), ids = ioIds(emp).filter(function (x) { return x !== s; });
+    if (on) ids.push(s);
+    var j = ioLs(emp) || { e: 0, ids: [] };
+    j.ids = ids;
+    var a = ioCookieSet(emp, ids), b = ioLsSet(emp, j);
+    return on ? (a || b) : true;
+  }
+  function ioEpoch(emp) { var j = ioLs(emp); return !!(j && j.e === 1); }
+  function ioEpochSet(emp) { var j = ioLs(emp) || { e: 0, ids: ioIds(emp) }; if (j.e === 1) return; j.e = 1; ioLsSet(emp, j); }
+  /* คืน true เมื่อจดรายการได้และอ่านกลับตรวจครบอย่างน้อย 1 ที่ — localStorage ผ่าน = ไม่ต้องรอ IndexedDB (จดสำรองตามหลัง)
+     localStorage ไม่ผ่าน = ต้องตั้งเครื่องหมาย IO ให้ได้ก่อน แล้วจึงจดลง IndexedDB */
+  function pendSave(p, hold) {                 // hold = { idb: Promise } รับผลการจดสำรองลง IndexedDB (ใช้ตอนย้ายข้อมูลรุ่นเก่า)
+    var q = pendPack(p);
+    if (lsPut(q)) { var bk = idbPut(q); if (hold) hold.idb = bk; return Promise.resolve(true); }
+    if (!ioMark(q.emp, q.id, true)) return Promise.resolve(false);
+    return idbPut(q).then(function (ok) { if (!ok) ioMark(q.emp, q.id, false); return ok; });
+  }
+  function pendClear(p) {                      // เรียกเมื่อ "ทราบผลแล้ว" เท่านั้น (ดู [RUN-219] ที่ attPendingUI)
+    if (!p || !p.emp || !p.id) return;
+    try {
+      localStorage.removeItem(lsKeyR(p.emp, p.id));
+      var m = JSON.parse(localStorage.getItem(lsKey(p.emp)) || 'null');
+      if (m && m.id === p.id) {
+        localStorage.removeItem(lsKey(p.emp));
+        /* ยังมีรายการอื่นค้าง -> สำเนาสำหรับ local376 ชี้ไปที่รายการที่เก่าที่สุดที่เหลือ (ย้อนรุ่นแล้วยังเห็นรายการค้าง) */
+        var rest = lsScan(p.emp).list.filter(function (x) { return x.perId; }).map(function (x) { return x.rec; })
+                     .sort(function (a, b) { return a.t - b.t; });
+        if (rest.length) localStorage.setItem(lsKey(p.emp), JSON.stringify(rest[0]));
+      }
+      var v1 = JSON.parse(localStorage.getItem(PEND_V1) || 'null');
+      if (v1 && v1.id === p.id) localStorage.removeItem(PEND_V1);
+    } catch (e) {}
+    ioMark(p.emp, p.id, false);
+    idbSeq(function () {
+      return idbRun('readwrite', function (st) {
+        st['delete'](p.emp + ':' + p.id);
+        var g = st.get(p.emp);
+        g.onsuccess = function () { if (g.result && g.result.id === p.id) st['delete'](p.emp); };
+      });
+    })['catch'](function () {});
+  }
+  function pendLoad() { var emp = currentSessionEmployeeId(); return emp ? lsGet(emp) : null; }
+  /* รายการ "ตรวจในเครื่องไม่ได้" (ข้อมูลเสียหาย / อ่านที่จัดเก็บได้ไม่ครบ) — ไม่ถูกจดเพิ่ม ตัวข้อมูลที่เสียหายเองคือเครื่องหมาย
+     ref = รหัสอ้างอิงสำหรับคำขอฝ่ายบุคคล (รู้ Request ID จากชื่อคีย์ = ใช้ Request ID นั้น) */
+  function holdRef(emp) {
+    var k = PEND_HOLD + ':' + emp, j = null;
+    try { j = JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { j = null; }
+    if (j && typeof j.ref === 'string' && j.t > 0) return j;
+    j = { ref: 'HOLD-' + String(emp).slice(0, 8) + '-' + attReqId().slice(0, 8), t: Date.now() };
+    try { localStorage.setItem(k, JSON.stringify(j)); } catch (e2) { j = { ref: 'HOLD-' + String(emp).slice(0, 8), t: new Date().setHours(0, 0, 0, 0) }; }
+    return j;
+  }
+  /* ลบข้อมูลที่เสียหาย/เครื่องหมาย — เรียกได้เฉพาะหลังทราบผลสุดท้ายที่ตรวจสอบได้ (เซิร์ฟเวอร์ยืนยัน หรือฝ่ายบุคคลพิจารณาแล้ว + พนักงานยืนยันเอง) */
+  function holdClear(x) {
+    var idbKeys = [];
+    (x.bad || []).forEach(function (b) {
+      if (b.src === 'idb') idbKeys.push(b.key);
+      else { try { localStorage.removeItem(b.key); } catch (e) {} }
+    });
+    if (x.id) pendClear({ emp: x.emp, id: x.id });
+    if (x.io) { ioIds(x.emp).forEach(function (s) { ioMark(x.emp, s, false); }); }
+    if (x.ref) { try { localStorage.removeItem(PEND_HOLD + ':' + x.emp); } catch (e2) {} }
+    if (idbKeys.length) {
+      idbSeq(function () { return idbRun('readwrite', function (st) { idbKeys.forEach(function (k) { st['delete'](k); }); }); })['catch'](function () {});
+    }
+  }
+  function itemClear(x) { if (x.mode === 'bad') holdClear(x); else pendClear({ emp: x.emp, id: x.id }); }
+  /* อ่านรายการค้างทั้งหมดของผู้ใช้ปัจจุบัน (localStorage + IndexedDB + v1) แล้วย้ายเข้ารูปแบบปัจจุบันให้ครบทุก Request ID
+     คืน { state, list, bad, complete }
+       NOT_FOUND  = อ่านได้ครบและไม่มีรายการค้างจริง (ทางเดียวที่เริ่มธุรกรรมใหม่ได้)
+       FOUND      = 1 รายการ · CONFLICT = หลายรายการ หรือ Request ID เดียวกันแต่ข้อมูลไม่ตรงกัน
+       READ_ERROR = มีข้อมูลเสียหายที่กู้ไม่ได้ หรืออ่านที่จัดเก็บได้ไม่ครบ (list อาจมีรายการที่อ่านได้ — ต้องตรวจก่อนเช่นกัน) */
+  var IDB_READ_TRIES = 3, IDB_READ_GAP_MS = 250;
+  function pendRead() {
+    var emp = currentSessionEmployeeId();
+    if (!emp) return Promise.resolve({ state: 'NOT_FOUND', list: [], bad: [], complete: true });
+    var ls = lsScan(emp), v1 = null, lsErr = ls.st !== 'OK', bad = ls.bad.slice();
+    try {
+      var raw = localStorage.getItem(PEND_V1);
+      if (raw) {
+        var j1 = null, okJ = true;
+        try { j1 = JSON.parse(raw); } catch (eJ) { okJ = false; }
+        if (okJ && j1 && typeof j1 === 'object' && j1.emp && j1.emp !== emp) { /* ของพนักงานคนอื่น = ไม่แตะ ไม่ใช้ */ }
+        else if (okJ && pendValid(j1, emp)) v1 = j1;
+        else bad.push({ src: 'v1', key: PEND_V1, id: '', mirror: false });
+      }
+    } catch (e) { lsErr = true; }
+    function scan(n) {                          // IndexedDB อ่านไม่ได้ = ลองซ้ำแบบจำกัดรอบและเวลา (ไม่วนไม่จำกัด)
+      return idbSeq(function () { return idbScan(emp); }).then(function (r) {
+        if (r.st !== 'ERR' || n >= IDB_READ_TRIES) return r;
+        return new Promise(function (res) { setTimeout(res, IDB_READ_GAP_MS); }).then(function () { return scan(n + 1); });
       });
     }
+    return scan(1).then(function (idb) {
+      bad = bad.concat(idb.bad);
+      var groups = {}, order = [];
+      function add(r, src, perId) {
+        var g = groups[r.id];
+        if (!g) { g = groups[r.id] = { recs: [], ls: false, idb: false }; order.push(r.id); }
+        g.recs.push(r);
+        if (perId && src === 'ls') g.ls = true;
+        if (perId && src === 'idb') g.idb = true;
+      }
+      ls.list.forEach(function (x) { add(x.rec, 'ls', x.perId); });
+      idb.list.forEach(function (x) { add(x.rec, 'idb', x.perId); });
+      if (v1) add(v1, 'v1', false);
+      var list = [], mig = [];
+      order.forEach(function (id) {
+        var g = groups[id], a = g.recs[0], same = g.recs.every(function (r) { return pendSame(a, r); });
+        if (!same) {
+          /* Request ID เดียวกัน ข้อมูลสำคัญไม่ตรงกัน: ไม่เลือกข้าง ไม่เขียนทับ — ส่งทุกสำเนาไปตรวจกับเซิร์ฟเวอร์ */
+          var kinds = {}; g.recs.forEach(function (r) { kinds[r.kind] = 1; });
+          list.push({ id: id, emp: emp, mode: 'conflict', kind: Object.keys(kinds).length === 1 ? a.kind : '?',
+                      t: Math.max.apply(null, g.recs.map(function (r) { return r.t; })), wd: a.wd || '', variants: g.recs.slice() });
+          return;
+        }
+        var rec = a;
+        g.recs.forEach(function (r) { if (r.t > rec.t) rec = r; });
+        var hr = null; g.recs.forEach(function (r) { if (r.hr && r.hr.t) hr = r.hr; });
+        rec = pendPack(hr ? Object.assign({}, rec, { hr: hr }) : rec);
+        list.push(rec);
+        if (!g.ls || !g.idb) mig.push(rec);       // ยังไม่มีคีย์ต่อรายการครบทั้งสองแหล่ง (มาจาก v1 / local376 / แหล่งเดียว) -> ย้าย · ทำซ้ำได้ ไม่สร้างซ้ำ (คีย์เดิม)
+      });
+      /* ข้อมูลเสียหายที่ "รู้ Request ID" และอีกแหล่งมีสำเนาที่ผ่านการตรวจ (ไม่ใช่ CONFLICT) = กู้คืนจากสำเนานั้น */
+      var good = {}; list.forEach(function (r) { if (r.mode !== 'conflict') good[r.id] = r; });
+      var mirrorOk = { ls: ls.list.some(function (x) { return !x.perId; }), idb: idb.list.some(function (x) { return !x.perId; }) };
+      bad = bad.filter(function (b) {
+        if (b.id && good[b.id]) { if (mig.indexOf(good[b.id]) < 0) mig.push(good[b.id]); return false; }
+        /* สำเนาล่าสุด (คีย์รวม) เสียหาย แต่คีย์รวมของอีกแหล่งอ่านได้ = เป็นสำเนาของรายการที่อ่านได้อยู่แล้ว */
+        if (b.mirror && ((b.src === 'ls' && mirrorOk.idb) || (b.src === 'idb' && mirrorOk.ls))) { b.fix = true; return false; }
+        return true;
+      });
+      return Promise.all(mig.map(function (r) {
+        var hold = {};
+        return pendSave(r, hold).then(function (ok) {
+          if (!(ok && v1 && v1.id === r.id)) return ok;
+          /* ลบต้นทาง v1 หลัง "ข้อมูลใหม่ครบ" เท่านั้น: อ่านกลับจากคีย์ใหม่ใน localStorage ได้ และการจดสำรองลง IndexedDB จบแล้ว (เครื่องที่ไม่มี IndexedDB = จบด้วยผล false) */
+          return Promise.resolve(hold.idb).then(null, function () { return false; }).then(function () {
+            var still = lsScan(emp).list.some(function (x) { return x.perId && x.rec.id === r.id; });
+            if (still) { try { localStorage.removeItem(PEND_V1); } catch (e2) {} }
+            return ok;
+          });
+        });
+      })).then(function () {
+        /* ซ่อมสำเนาล่าสุดของ localStorage ที่เสียหาย (มีหลักฐานจากอีกแหล่งแล้ว) */
+        if (ls.bad.some(function (b) { return b.fix; })) {
+          var first = list.filter(function (r) { return r.mode !== 'conflict'; }).sort(function (x, y) { return x.t - y.t; })[0];
+          try { if (first) localStorage.setItem(lsKey(emp), JSON.stringify(first)); else localStorage.removeItem(lsKey(emp)); } catch (e3) {}
+        }
+        var idbOk = idb.st === 'OK';
+        if (!lsErr && (idbOk || idb.st === 'NA') && !ioEpoch(emp)) {
+          /* อ่านครบครั้งแรกด้วยรุ่นนี้: รายการที่อยู่ใน IndexedDB อย่างเดียวถูกย้ายเข้า localStorage แล้ว (ย้ายไม่ได้ = ตั้งเครื่องหมายใน pendSave) */
+          if (idbOk) list.forEach(function (r) { if (r.mode !== 'conflict' && !lsScan(emp).list.some(function (x) { return x.perId && x.rec.id === r.id; })) ioMark(emp, r.id, true); });
+          ioEpochSet(emp);
+        }
+        var marked = ioIds(emp).length > 0;
+        var complete = !lsErr && (idbOk || (idb.st === 'NA' && !marked) || (idb.st === 'ERR' && ioEpoch(emp) && !marked));
+        var conflict = list.length > 1 || list.some(function (r) { return r.mode === 'conflict'; });
+        var state = (bad.length || !complete) ? 'READ_ERROR' : conflict ? 'CONFLICT' : list.length ? 'FOUND' : 'NOT_FOUND';
+        return { state: state, list: list, bad: bad, complete: complete, partial: !complete,
+                 src: { ls: lsErr ? 'ERR' : 'OK', idb: idb.st, marked: marked } };
+      });
+    });
+  }
+  function pendResult(p, row) {
+    return { ok: true, verified_after_timeout: true, request_id: p.id, reason: '', work_date: row.work_date,
+             check_in: row.check_in, check_out: row.check_out, status: row.status,
+             work_hours: row.work_hours, late_min: row.late_min, geofence_name: row.geofence_name || '' };
+  }
+  /* ถามผลของธุรกรรมที่ค้าง -> { state: 'SAVED' (r, exact) | 'NOT_SAVED' | 'CLOSED' | 'WAIT' (note) }
+     NOT_SAVED เกิดได้ทางเดียว: เซิร์ฟเวอร์ตอบ state = VOID ของ Request ID นี้ · ไม่มีเงื่อนไขเวลา */
+  /* ตรวจจากรายการบนเซิร์ฟเวอร์ (ใช้ได้เมื่อจดรหัสรายการก่อนส่งไว้): พบรายการใหม่ = SAVED · ไม่พบ = ยังไม่ทราบผล (manual = เซิร์ฟเวอร์ตอบแล้วแต่ตัดสินไม่ได้) */
+  function pendLogCheck(p, note) {
     var base = { emp: p.emp, ids: {} };
     (p.ids || []).forEach(function (x) { base.ids[String(x)] = 1; });
     return attVerifyOnce(p.kind, base).then(function (r) {
-      return r ? { state: 'SAVED', exact: false, r: r } : none();
+      if (r) return { state: 'SAVED', exact: false, r: r };
+      return { state: 'WAIT', note: note, hr: true, manual: true };
+    })['catch'](function (e) {
+      if (isAborted(e)) throw e;
+      return { state: 'WAIT', note: 'ยังติดต่อเซิร์ฟเวอร์ไม่ได้', hr: true };
     });
   }
-  /* ส่งคำสั่งบันทึก 1 ธุรกรรม — ok:true เกิดได้จากคำตอบของเซิร์ฟเวอร์เท่านั้น */
+  /* ถามเซิร์ฟเวอร์ด้วย Request ID อย่างเดียว (ไม่สั่งปิดคำขอ) — ใช้กับข้อมูลเสียหาย/ขัดแย้งที่ไม่รู้ประเภทแน่ชัด
+     kinds = ประเภทที่ยอมรับ (null = ยอมรับตามที่เซิร์ฟเวอร์ตอบ) · คืน null = ตัดสินไม่ได้ · reached = เซิร์ฟเวอร์ตอบแล้ว */
+  function pendStatusOnly(id, kinds, allowVoid) {
+    return rpc('njhr_att_punch_req_status', { p_token: token(), p_request_id: id }, true).then(function (row) {
+      var out = { reached: true, res: null };
+      if (!row || typeof row !== 'object' || row.found !== true || String(row.request_id || '') !== id) return out;
+      var act = String(row.action || '').toUpperCase();
+      if (act !== 'IN' && act !== 'OUT') return out;
+      if (kinds && kinds.indexOf(act) < 0) return out;
+      if (row.state === 'VOID') { if (allowVoid) out.res = { state: 'NOT_SAVED' }; return out; }
+      var t = act === 'IN' ? row.check_in : row.check_out;
+      if (row.state === 'DONE' && row.ok === true && row.log_id && row.work_date && t && !isNaN(Date.parse(t))) {
+        out.res = { state: 'SAVED', exact: true, kind: act, r: pendResult({ id: id }, row) };
+      }
+      return out;
+    }, function (e) {
+      if (isAborted(e)) throw e;
+      return { reached: isNoFn(e), res: null };
+    });
+  }
+  function pendCheckSpecial(p) {
+    var NOTE = 'ยืนยันรายการเดิมจากข้อมูลในเครื่องไม่ได้ กรุณาแจ้งฝ่ายบุคคลตรวจสอบ';
+    if (p.mode === 'bad') {
+      if (!p.id) return Promise.resolve({ state: 'WAIT', note: NOTE, hr: true, manual: true });
+      return pendStatusOnly(p.id, null, true).then(function (o) {
+        return o.res || { state: 'WAIT', note: o.reached ? NOTE : 'ยังติดต่อเซิร์ฟเวอร์ไม่ได้', hr: true, manual: o.reached };
+      });
+    }
+    /* conflict: สำเนาไม่ตรงกัน -> เชื่อคำตอบของเซิร์ฟเวอร์เท่านั้น · ไม่สั่งปิดคำขอ (ไม่รู้ว่าสำเนาใดถูก) */
+    var V = p.variants || [], kinds = {}, ids = {}, canLog = false, anyLog = false;
+    V.forEach(function (v) {
+      kinds[v.kind] = 1;
+      if (v.mode === 'log') anyLog = true;
+      if (v.mode === 'log' || v.b) canLog = true;
+      (v.ids || []).forEach(function (x) { ids[String(x)] = 1; });
+    });
+    var ks = Object.keys(kinds);
+    return pendStatusOnly(p.id, ks, !anyLog).then(function (o) {
+      if (o.res) return o.res;
+      if (!canLog || ks.length !== 1) return { state: 'WAIT', note: o.reached ? NOTE : 'ยังติดต่อเซิร์ฟเวอร์ไม่ได้', hr: true, manual: o.reached };
+      return pendLogCheck({ emp: p.emp, kind: ks[0], ids: Object.keys(ids) }, NOTE);
+    });
+  }
+  function pendCheck(p) {
+    var WAIT = function (note) { return { state: 'WAIT', note: note || '' }; };
+    if (p.mode === 'bad' || p.mode === 'conflict') return pendCheckSpecial(p);
+    if (p.mode === 'req') {
+      var status = function () { return rpc('njhr_att_punch_req_status', { p_token: token(), p_request_id: p.id }, true); };
+      /* ตัดสินได้เฉพาะคำตอบที่ตรวจรูปแบบครบ: Request ID เดียวกัน · ประเภทเดียวกัน · DONE ต้องมี log_id + วันทำงาน + เวลาของประเภทนั้น */
+      var done = function (row) {
+        if (!row || typeof row !== 'object' || row.found !== true || String(row.request_id || '') !== p.id) return null;
+        if (String(row.action || '').toUpperCase() !== p.kind) return null;
+        if (row.state === 'VOID') return { state: 'NOT_SAVED' };
+        var t = p.kind === 'IN' ? row.check_in : row.check_out;
+        if (row.state === 'DONE' && row.ok === true && row.log_id && row.work_date && t && !isNaN(Date.parse(t))) {
+          return { state: 'SAVED', exact: true, r: pendResult(p, row) };
+        }
+        return null;
+      };
+      return status().then(function (row) {
+        var d1 = done(row);
+        if (d1) return d1;
+        if (Date.now() - p.t < voidAfterMs()) return WAIT();
+        return rpc('njhr_att_punch_req_void', { p_token: token(), p_request_id: p.id, p_action: p.kind }, true).then(function (v) {
+          if (!v || String(v.request_id || '') !== p.id) return WAIT();
+          if (v.state === 'VOID') return { state: 'NOT_SAVED' };
+          if (v.state === 'DONE') return status().then(function (row2) { return done(row2) || WAIT(); });
+          return WAIT();
+        });
+      })['catch'](function (e) {
+        if (isAborted(e)) throw e;
+        if (isNoFn(e)) {                         // เช่น ระหว่าง Rollback: ไม่ใช่หลักฐานว่าไม่ได้บันทึก
+          var nN = 'ระบบตรวจสอบรายการของเซิร์ฟเวอร์ยังไม่พร้อม กรุณาแจ้งฝ่ายบุคคล';
+          if (!p.b) return { state: 'WAIT', note: nN, hr: true };
+          /* คงสถานะรอตรวจสอบ (ผลของ Request ID นี้ต้องมาจากระบบตรวจสอบเมื่อกลับมาใช้ได้ หรือจากฝ่ายบุคคล)
+             ตรวจรายการบนเซิร์ฟเวอร์เพื่อกำหนดว่า "ปิดรายการค้างเอง" ทำได้หรือไม่เท่านั้น: พบรายการใหม่ = ห้ามปิดเอง */
+          return pendLogCheck(p, nN).then(function (v) {
+            return { state: 'WAIT', note: nN, hr: true, manual: v.state === 'WAIT' && v.manual === true };
+          });
+        }
+        return WAIT('ยังติดต่อเซิร์ฟเวอร์ไม่ได้');
+      });
+    }
+    /* เซิร์ฟเวอร์ยังไม่มี RUN-216: ยืนยันได้ทางเดียวคือพบรายการใหม่ของพนักงาน/ประเภทนี้
+       ไม่พบ = ยังไม่ทราบผล (ไม่ใช้การเปลี่ยนรอบวันทำงานหรือเวลาเป็นหลักฐาน) -> ช่องทางแจ้งฝ่ายบุคคล */
+    return pendLogCheck(p, 'เซิร์ฟเวอร์รุ่นนี้ยืนยันรายรายการไม่ได้ หากยังไม่พบรายการ กรุณาแจ้งฝ่ายบุคคลตรวจสอบ');
+  }
+  /* ส่งคำสั่งบันทึก 1 ธุรกรรม — ok:true เกิดได้จากคำตอบของเซิร์ฟเวอร์เท่านั้น
+     ทุกเส้นทางก่อนส่ง (รวม RPC สำรอง): ตรวจ ยกเลิก/Session + Deadline + จดรายการสำเร็จ */
+  /* ตรวจคำตอบของคำสั่งบันทึก: 'OK' บันทึกสำเร็จ · 'REJECTED' เซิร์ฟเวอร์ตอบว่าไม่ผ่าน (ไม่ได้บันทึก) · 'INVALID' ตัดสินไม่ได้ */
+  function attResCheck(r, kind, pend) {
+    if (!r || typeof r !== 'object' || typeof r.ok !== 'boolean') return 'INVALID';
+    var v2 = pend.mode === 'req';
+    if (v2 && String(r.request_id || '') !== pend.id) return 'INVALID';
+    if (r.ok === false) return (typeof r.reason === 'string' && r.reason) ? 'REJECTED' : 'INVALID';
+    var t = kind === 'IN' ? r.check_in : r.check_out;
+    if (!r.work_date || !t || isNaN(Date.parse(t))) return 'INVALID';
+    if (v2 && !r.log_id) return 'INVALID';
+    return 'OK';
+  }
   function attSend(kind, body, o) {
     var emp = currentSessionEmployeeId();
     if (!emp) return Promise.reject(new Error('ไม่พบข้อมูลพนักงานของบัญชีนี้ กรุณาเข้าสู่ระบบใหม่'));
@@ -4535,31 +5053,57 @@
     var use2 = srv !== 0;
     var baseP = (srv === 1) ? Promise.resolve(null) : (o.baseP || attLogBase());
     var NOT_SENT = 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ ยังไม่ได้บันทึกเวลา กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่';
+    var pend = null;
+    function gate() {                          // โยน Error = ยังไม่ได้ส่งอะไร (ล้างรายการที่จดไว้ได้อย่างปลอดภัย)
+      try {
+        if (!o.mine()) throw AbortAttendanceError();
+        if (!lockMine()) {                     // ล็อกข้ามแท็บหลุดไปอยู่กับแท็บอื่น (แท็บนี้ถูกพักนานเกิน) = ไม่ส่ง · บอกสาเหตุ ไม่ค้างเงียบ
+          var eL = new Error('มีการลงเวลาเปิดอยู่ในแท็บหรือหน้าต่างอื่น จึงยังไม่ได้ส่งคำสั่งบันทึกเวลาจากหน้านี้ กรุณาลองใหม่');
+          eL.faceCode = 'ATT_LOCK_LOST'; throw eL;
+        }
+        o.chkDl();
+      }
+      catch (eG) { if (pend) pendClear(pend); throw eG; }
+    }
+    function keep(mode) {
+      pend.mode = mode;
+      return pendSave(pend).then(function (saved) {
+        if (!saved) { var eS = new Error(MSG_STORE); eS.faceCode = 'ATT_STORE_FAILED'; throw eS; }
+        gate();
+      });
+    }
     return baseP['catch'](function (eB) {
       if (isAborted(eB)) throw eB;
       throw new Error(NOT_SENT);
     }).then(function (base) {
-      if (!o.mine()) throw AbortAttendanceError();
-      o.chkDl();                               // ตรวจ Deadline ซ้ำ "ทันทีก่อนส่ง" — หมดแล้ว = ไม่ส่ง
-      var pend = { id: attReqId(), kind: kind, emp: emp, t: Date.now(), mode: use2 ? 'req' : 'log',
-                   ids: base ? Object.keys(base.ids) : [] };
-      pendSave(pend);
-      o.onSent(pend);
-      function legacy() { pend.mode = 'log'; pendSave(pend); return rpc('njhr_att_punch_face', body); }
-      var call = !use2 ? legacy()
-        : rpc('njhr_att_punch_face2', Object.assign({}, body, { p_request_id: pend.id }), true).then(function (r) {
-            reqSrvSet(1); return r;
-          }, function (e) {
-            if (!isNoFn(e)) throw e;
-            /* เซิร์ฟเวอร์ยังไม่มี face2: คำสั่งนี้ "ไม่ได้ถูกประมวลผล" แน่นอน (PostgREST ตอบว่าไม่มี function) -> ใช้ทางเดิม */
-            reqSrvSet(0);
-            if (!base) { pendClear(pend.id); throw new Error(NOT_SENT); }
-            if (!o.mine()) { pendClear(pend.id); throw AbortAttendanceError(); }
-            return legacy();
-          });
-      return call.then(function (r) { pendClear(pend.id); return r; }, function (e) {
-        if (isAborted(e)) throw e;             // ผู้ใช้ปิดจอระหว่างรอคำตอบ = ยังไม่ทราบผล -> รายการค้างถูกตรวจเมื่อกดลงเวลาครั้งถัดไป
-        if (njfDone(e)) { pendClear(pend.id); throw e; }   // เซิร์ฟเวอร์ตอบปฏิเสธชัดเจน (ทั้งธุรกรรมถูกยกเลิก)
+      gate();
+      pend = { id: attReqId(), kind: kind, emp: emp, t: Date.now(), mode: use2 ? 'req' : 'log',
+               ids: base ? Object.keys(base.ids) : [], wd: base ? (base.wd || '') : '', b: base ? 1 : 0 };
+      function legacy() { return keep('log').then(function () { return rpc('njhr_att_punch_face', body); }); }
+      return keep(pend.mode).then(function () {
+        o.onSent(pend);                       // t = เวลาที่จด (ก่อนส่งทันที) ไม่แก้หลังจด — สองแหล่งต้องมีข้อมูลตรงกันทุกค่า
+        if (!use2) return rpc('njhr_att_punch_face', body);
+        return rpc('njhr_att_punch_face2', Object.assign({}, body, { p_request_id: pend.id }), true).then(function (r) {
+          reqSrvSet(1); return r;
+        }, function (e) {
+          /* สลับไป RPC เดิมได้เฉพาะเมื่อเซิร์ฟเวอร์ยืนยันว่า function ใหม่ไม่มี/เรียกไม่ได้ (คำสั่งไม่ได้ถูกประมวลผล)
+             Network Timeout / ไม่ทราบผล = ไม่สลับ · ก่อนสลับตรวจ ยกเลิก + Deadline ซ้ำ (หมดแล้ว = ไม่ส่ง) */
+          if (!isNoFn(e)) throw e;
+          reqSrvSet(0);
+          if (!base) { pendClear(pend); throw new Error(NOT_SENT); }
+          gate();
+          return legacy();
+        });
+      }).then(function (r) {
+        /* HTTP 200 ไม่ใช่หลักฐานโดยตัวเอง — ตรวจรูปแบบคำตอบก่อนล้างรายการค้าง */
+        var v = attResCheck(r, kind, pend);
+        if (v === 'INVALID') { var eI = new Error('invalid-response'); eI.invalidResponse = true; throw eI; }
+        pendClear(pend); return r;
+      }, function (e) { throw e; }).then(null, function (e) {
+        if (isAborted(e)) throw e;             // ปิดจอระหว่างรอคำตอบ = ยังไม่ทราบผล -> รายการค้างถูกตรวจเมื่อกดลงเวลาครั้งถัดไป
+        if (e && (e.faceCode === 'ATT_STORE_FAILED' || e.faceCode === 'FACE_FLOW_DEADLINE' || e.faceCode === 'ATT_LOCK_LOST')) throw e;   // ยังไม่ได้ส่ง
+        if (e && e.definite) { pendClear(pend); throw e; }   // 4xx + รหัสฐานข้อมูล = ปฏิเสธแน่นอน (Transaction ถูกยกเลิกทั้งก้อน)
+        /* อื่น ๆ ทั้งหมด = ไม่ทราบผล: 5xx · Timeout · เน็ตหลุด · Body ไม่ครบ · คำตอบผิดรูปแบบ · Request ID ไม่ตรง */
         try { perfBootCount('punch_unknown_outcome'); } catch (e0) {}
         var e3 = new Error(MSG_PENDING);
         e3.punchUnknown = true; e3.punchCode = 'PUNCH_UNKNOWN'; e3.pend = pend;
@@ -4579,52 +5123,176 @@
     actions([{ label: 'เสร็จสิ้น', style: 'primary', on: close }]);
     S.busy = false;
   }
-  /* หน้าจอ "รอตรวจสอบผลบันทึก": ตรวจเองทุก 5s ไม่เกิน 6 ครั้ง แล้วรอให้กด "ตรวจสอบอีกครั้ง" (ไม่วนไม่จำกัด · ปิดได้เสมอ) */
-  function attPendingUI(pend, onDone, o) {
-    var root = S.root, n = 0, busy = false, timer = 0;
+  /* ---------- [RUN-219] คำขอฝ่ายบุคคลของรายการค้าง ----------
+     ส่งคำขอสำเร็จ ≠ ทราบผลธุรกรรม: รายการค้าง "ไม่ถูกล้าง" — เปลี่ยนเป็น "รอฝ่ายบุคคลตรวจสอบ"
+     ความเชื่อมโยง = Request ID (หรือรหัสอ้างอิง HOLD-…) ที่อยู่ในเหตุผลของคำขอ -> ถามสถานะจากเซิร์ฟเวอร์ได้เสมอ
+       (ปิดหน้าต่าง / โหลดหน้าใหม่ / กลับเข้าแอป / ข้อมูลในเครื่องหาย ก็ยังหาเจอ · กันส่งคำขอซ้ำ)
+     ล้างรายการได้เมื่อ: เซิร์ฟเวอร์ตอบ DONE / VOID · พบรายการใหม่บนเซิร์ฟเวอร์ · ฝ่ายบุคคลอนุมัติ (ระบบบันทึกเวลาให้แล้ว)
+     ฝ่ายบุคคลไม่อนุมัติ + ยังไม่ทราบผลเดิม: ไม่ปลดเอง — ส่งคำขอใหม่ได้ หรือพนักงาน "ยืนยันปิดรายการค้าง" เอง
+       (ทำได้เฉพาะเมื่อเซิร์ฟเวอร์ตอบในรอบเดียวกันว่า ฝ่ายบุคคลไม่อนุมัติ + ตรวจแล้วไม่พบ/ยืนยันรายการเดิมไม่ได้) */
+  function hrRefOf(x) { return x.ref || x.id; }
+  function hrFetch(emp) { return rpcRows('njhr_att_correction_list', { p_token: token(), p_employee: emp, p_limit: 200 }); }
+  function hrFind(rows, x) {
+    var ref = hrRefOf(x), best = null;
+    (rows || []).forEach(function (r) {
+      if (!r || String(r.employee_id || '') !== x.emp) return;
+      if (String(r.reason || '').indexOf(ref) < 0) return;
+      var ts = Date.parse(r.submitted_at || r.created_at || '') || 0;
+      if (x.ref && x.t && ts && ts < x.t - 60000) return;
+      if (!best || ts >= best.ts) best = { ts: ts, row: r };
+    });
+    if (!best) return { st: 'NONE' };
+    var s = String(best.row.status || '').toUpperCase();
+    return { st: s === 'APPROVED' ? 'APPROVED' : (s === 'PENDING' || s === 'DRAFT') ? 'PENDING' : 'REJECTED',
+             id: String(best.row.id || ''), why: String(best.row.rejection_reason || '') };
+  }
+  var MSG_BAD = 'อ่านข้อมูลรายการลงเวลาที่ค้างอยู่ในเครื่องไม่ได้ครบ หรือข้อมูลเสียหาย จึงยังไม่เริ่มลงเวลาใหม่ (กันการบันทึกซ้ำ)';
+  /* หน้าจอ "รอตรวจสอบผลบันทึก" (รองรับหลายรายการ + ข้อมูลเสียหาย + ข้อมูลขัดแย้ง): ตรวจเองทุก 5s ไม่เกิน 6 ครั้ง · ปิดได้เสมอ · ไม่มีปุ่มลงเวลาซ้ำ
+     ทุกรายการต้องทราบผลก่อนจึงอนุญาตลงเวลาใหม่ · เซิร์ฟเวอร์ยืนยันว่าบันทึกแล้ว = รีเฟรชหน้าลงเวลาครั้งเดียว */
+  function attPendingUI(list, onDone, o) {
+    var root = S.root, n = 0, busy = false, timer = 0, items = list.slice(), hrShow = false, closed = false;
     var st = o.st || { live: 'ok', match: 'run', gps: 'ok' };
+    var fired = false;
+    var once = function (x) { if (fired) return; fired = true; if (typeof onDone === 'function') onDone(x); };
     function alive() { return !!root && S.root === root && (!o.alive || o.alive()); }
+    function refTxt() { return ' · รหัสรายการ ' + items.map(function (x) { return String(hrRefOf(x)).slice(0, 13); }).join(', '); }
+    function hrOf(x) { return x._hr || { st: x.hr ? 'PENDING' : 'UNKNOWN' }; }
+    function canHr(x) { var s = hrOf(x).st; return s === 'NONE' || s === 'REJECTED'; }
+    function elig(x) { return hrOf(x).st === 'REJECTED' && x._manual === true; }
+    function allBad() { return items.length > 0 && items.every(function (x) { return x.mode === 'bad'; }); }
     function waiting(note) {
-      attFrame('adjust');
-      attCover('save', 'รอตรวจสอบผลบันทึก…');
-      panel(stepsHtml(st, MSG_PENDING + (note ? ' (' + note + ')' : '')));
-      actions([{ label: 'ตรวจสอบอีกครั้ง', style: 'primary', on: check },
-               { label: 'ปิด', style: 'plain', on: close }]);
+      var pd = items.filter(function (x) { return hrOf(x).st === 'PENDING'; });
+      var rj = items.filter(function (x) { return hrOf(x).st === 'REJECTED'; });
+      var bad = allBad();
+      if (bad) { attFrame('bad', 0); attCover('bad', pd.length ? 'รอฝ่ายบุคคลตรวจสอบ' : 'อ่านข้อมูลในเครื่องไม่ได้'); }
+      else { attFrame('adjust'); attCover('save', pd.length ? 'รอฝ่ายบุคคลตรวจสอบ' : 'รอตรวจสอบผลบันทึก…'); }
+      var msg = (bad ? MSG_BAD : MSG_PENDING) + (items.length > 1 ? ' (' + items.length + ' รายการ)' : '');
+      if (items.some(function (x) { return x.mode === 'conflict'; })) msg += ' · ข้อมูลในเครื่องของรายการนี้ไม่ตรงกัน ต้องยืนยันกับเซิร์ฟเวอร์';
+      if (pd.length) msg += ' · ส่งคำขอให้ฝ่ายบุคคลแล้ว' + (pd[0]._hr && pd[0]._hr.id ? ' (เลขที่คำขอ ' + pd[0]._hr.id.slice(0, 8) + ')' : '') +
+                            ' สถานะ: รอฝ่ายบุคคลตรวจสอบ — ยังลงเวลาใหม่ไม่ได้จนกว่าจะทราบผล';
+      if (rj.length) msg += ' · ฝ่ายบุคคลไม่อนุมัติคำขอ' + (rj[0]._hr.why ? ' (' + rj[0]._hr.why + ')' : '') +
+                            ' — ยังไม่ทราบผลของรายการเดิม จึงยังไม่ปลดให้ลงเวลาใหม่โดยอัตโนมัติ';
+      panel(stepsHtml(st, msg + (note ? ' (' + note + ')' : '') + refTxt(), bad));
+      var a = bad ? [{ label: 'ลองอีกครั้ง', style: 'primary', on: o.reread || o.again }]
+                  : [{ label: 'ตรวจสอบอีกครั้ง', style: 'primary', on: function () { check(); } }];
+      if ((hrShow || bad) && items.some(canHr)) {
+        a.push({ label: rj.length ? 'ส่งคำขอฝ่ายบุคคลอีกครั้ง' : 'แจ้งฝ่ายบุคคลตรวจสอบ', style: 'ghost', on: hr });
+      }
+      if (items.length && items.every(elig)) a.push({ label: 'ยืนยันปิดรายการค้าง', style: 'ghost', on: manual });
+      a.push({ label: 'ปิด', style: 'plain', on: close });              // ปิดได้เสมอ — รายการค้างยังถูกจดไว้
+      actions(a);
     }
     function auto() {
-      if (n >= ATT_PENDING_AUTO_MAX) return;
+      if (allBad()) return;                                               // ข้อมูลในเครื่องเสียหาย: ไม่ตั้งเวลาวนตรวจ — ผู้ใช้กดเอง
+      if (n >= ATT_PENDING_AUTO_MAX) { if (!hrShow) { hrShow = true; waiting(); } return; }
       n++;
       timer = setTimeout(function () { if (alive()) check(); }, ATT_PENDING_AUTO_MS);
     }
-    function check() {
+    function hr() {
+      clearTimeout(timer);
+      var tg = items.filter(canHr);
+      if (!tg.length) return;
+      var x0 = tg[0], k0 = (x0.kind === 'IN' || x0.kind === 'OUT') ? x0.kind : (o.kind || 'IN');
+      specialRequest(k0, x0.mode === 'bad' ? 'ข้อมูลรายการลงเวลาในเครื่องเสียหาย/อ่านไม่ครบ ไม่ทราบผลการบันทึกเวลา'
+                                           : 'ไม่ทราบผลการบันทึกเวลา (ส่งคำสั่งแล้วไม่ได้รับคำตอบจากเซิร์ฟเวอร์)', o.onHrDone || null, {
+        at: x0.mode === 'bad' ? 0 : x0.t, workDate: x0.wd || '',
+        head: 'ไม่ทราบผลการบันทึกเวลา — ส่งให้ฝ่ายบุคคลตรวจสอบและบันทึกให้',
+        note: 'Request ID: ' + tg.map(function (x) { return hrRefOf(x) + ' (' + (x.kind || '?') + ', ' + x.mode + ', ' +
+              new Date(x.t).toLocaleString('th-TH') + ')'; }).join(' ; '),
+        /* ส่งคำขอสำเร็จ = จดว่า "รอฝ่ายบุคคลตรวจสอบ" คู่กับ Request ID เดิม — ไม่ล้างรายการค้าง */
+        after: function (r) {
+          tg.forEach(function (x) {
+            x.hr = { id: (r && r.id) ? String(r.id) : '', t: Date.now() };
+            x._hr = { st: 'PENDING', id: x.hr.id, why: '' };
+            if (x.mode === 'req' || x.mode === 'log') pendSave(x);
+          });
+        }
+      });
+    }
+    function manual() {
+      clearTimeout(timer);
+      panel(stepsHtml(st, 'ยืนยันปิดรายการค้าง: ฝ่ายบุคคลพิจารณาคำขอแล้ว (ไม่อนุมัติ) และเซิร์ฟเวอร์ไม่พบ/ยืนยันรายการเดิมไม่ได้ ' +
+        'ระบบจะตรวจกับเซิร์ฟเวอร์อีกครั้งก่อนปิด · หลังปิดแล้วจึงลงเวลาใหม่ได้ (เซิร์ฟเวอร์ยังปฏิเสธการลงเวลาซ้ำตามกฎเดิม)' + refTxt(), true));
+      actions([{ label: 'ยืนยัน', style: 'primary', on: function () { check(true); } },
+               { label: 'ย้อนกลับ', style: 'plain', on: function () { waiting(); } }]);
+    }
+    function fin(left, saved, appr, note, closing) {
+      busy = false;
+      if (!alive()) return;
+      items = left;
+      if (closing && items.length && items.every(elig)) {
+        items.forEach(itemClear); items = []; closed = true;
+        try { perfBootCount('punch_manual_close'); } catch (e0) {}
+      }
+      if (saved.length) { try { perfBootCount('punch_recovered'); } catch (e1) {} once(saved[0].v.r); }   // เซิร์ฟเวอร์ยืนยัน = รีเฟรชทันที ครั้งเดียว
+      else if (appr.length) once(null);
+      /* เหลือแต่ "ที่จัดเก็บอ่านไม่ครบ/เสียหายแบบไม่รู้ Request ID" (ไม่ใช่ธุรกรรม) และมีรายการที่เซิร์ฟเวอร์ยืนยันแล้ว = แสดงผลที่ยืนยันได้
+         การกดลงเวลาครั้งถัดไปยังถูกกั้นด้วยการอ่านที่จัดเก็บใหม่เสมอ (ไม่ใช่ NOT_FOUND = ไม่เริ่มธุรกรรมใหม่) */
+      var onlyHold = items.every(function (x) { return x.mode === 'bad' && !x.id; });
+      if (items.length && !(saved.length && onlyHold)) { waiting(note); auto(); return; }
+      if (saved.length) {
+        var sv = saved[0];
+        if (sv.v.exact) showSuccess(sv.kind, sv.v.r, { gps: null, snapshot: null }, once);
+        else showFound(sv.kind, sv.v.r);
+        return;
+      }
+      if (appr.length) {
+        attFrame('ok', 1); attCover('ok', 'ฝ่ายบุคคลบันทึกเวลาให้แล้ว');
+        panel(stepsHtml({ live: 'ok', match: 'ok', gps: 'ok' },
+          'ฝ่ายบุคคลอนุมัติคำขอและระบบบันทึกเวลาให้แล้ว (ยืนยันจากเซิร์ฟเวอร์) — ปิดรายการค้างเรียบร้อย'));
+        actions([{ label: 'เสร็จสิ้น', style: 'primary', on: close }]);
+        return;
+      }
+      if (closed) {
+        attFrame('bad'); attCover('bad', 'ปิดรายการค้างแล้ว');
+        st.match = 'bad';
+        panel(stepsHtml(st, 'ปิดรายการค้างตามผลการพิจารณาของฝ่ายบุคคลแล้ว หากยังไม่ได้ลงเวลา กรุณาลงเวลาใหม่', true));
+        actions([{ label: 'ลงเวลาใหม่', style: 'primary', on: o.reread || o.again }, { label: 'ปิด', style: 'plain', on: close }]);
+        return;
+      }
+      if (o.autoAgain) return o.again();
+      attFrame('bad'); attCover('bad', 'ยังไม่ได้บันทึก');
+      st.match = 'bad';
+      panel(stepsHtml(st, 'เซิร์ฟเวอร์ยืนยันแล้ว: รายการนี้ไม่ได้ถูกบันทึก (ปิดคำขอเดิมแล้ว) กรุณาลงเวลาใหม่', true));
+      actions([{ label: 'ลงเวลาใหม่', style: 'primary', on: o.reread || o.again },
+               { label: 'ปิด', style: 'plain', on: close }]);
+    }
+    function check(closing) {
       if (busy || !alive()) return;
       busy = true; clearTimeout(timer);
       setMsg('กำลังตรวจสอบผลการบันทึกกับเซิร์ฟเวอร์…', false);
-      pendCheck(pend).then(function (v) {
-        busy = false;
-        if (!alive()) return;
-        if (v.state === 'SAVED') {
-          pendClear(pend.id);
-          try { perfBootCount('punch_recovered'); } catch (e1) {}
-          var fired = false;
-          var once = function (x) { if (fired) return; fired = true; if (typeof onDone === 'function') onDone(x); };
-          once(v.r);                          // เซิร์ฟเวอร์ยืนยันแล้ว = รีเฟรชหน้าลงเวลาทันที ครั้งเดียว
-          if (v.exact) showSuccess(pend.kind, v.r, { gps: null, snapshot: null }, once);
-          else showFound(pend.kind, v.r);
-          return;
-        }
-        if (v.state === 'NOT_SAVED') {
-          pendClear(pend.id);
-          if (o.autoAgain) return o.again();
-          attFrame('bad'); attCover('bad', 'ยังไม่ได้บันทึก');
-          st.match = 'bad';
-          panel(stepsHtml(st, 'ตรวจสอบกับเซิร์ฟเวอร์แล้ว: รายการนี้ยังไม่ถูกบันทึก กรุณาลงเวลาใหม่', true));
-          actions([{ label: 'ลงเวลาใหม่', style: 'primary', on: o.again },
-                   { label: 'ปิด', style: 'plain', on: close }]);
-          return;
-        }
-        waiting(); auto();
-      }, function (e) {
+      var cur = items.slice();
+      Promise.all(cur.map(function (x) {
+        return pendCheck(x).then(null, function (e) { if (isAborted(e)) throw e; return { state: 'WAIT', note: 'ยังติดต่อเซิร์ฟเวอร์ไม่ได้' }; });
+      })).then(function (vs) {
+        if (!alive()) { busy = false; return; }
+        var left = [], saved = [], note = '';
+        vs.forEach(function (v, k) {
+          var x = cur[k];
+          if (v.state === 'SAVED') { itemClear(x); saved.push({ p: x, v: v, kind: v.kind || x.kind }); }
+          else if (v.state === 'NOT_SAVED') itemClear(x);
+          else { x._manual = v.manual === true; left.push(x); if (v.note) note = v.note; if (v.hr) hrShow = true; }
+        });
+        if (!left.length) return fin(left, saved, [], note, closing);
+        /* ยังมีรายการที่ไม่ทราบผล -> ถามสถานะคำขอฝ่ายบุคคลจากเซิร์ฟเวอร์ (ผูกด้วย Request ID) */
+        return hrFetch(cur[0].emp).then(function (rows) {
+          var appr = [];
+          left = left.filter(function (x) {
+            x._hr = hrFind(rows, x);
+            if (x._hr.st === 'APPROVED') { itemClear(x); appr.push(x); return false; }
+            if (x._hr.st === 'PENDING' && !x.hr) {             // คำขอถึงเซิร์ฟเวอร์แล้วแต่เครื่องนี้ไม่ได้รับคำตอบตอนส่ง
+              x.hr = { id: x._hr.id, t: Date.now() };
+              if (x.mode === 'req' || x.mode === 'log') pendSave(x);
+            }
+            return true;
+          });
+          fin(left, saved, appr, note, closing);
+        }, function (e) {
+          if (isAborted(e)) throw e;
+          left.forEach(function (x) { x._hr = { st: x.hr ? 'PENDING' : 'UNKNOWN' }; });   // ถามไม่ได้ = ไม่แสดงปุ่มส่งคำขอ (กันส่งซ้ำ) และไม่ให้ปิดเอง
+          fin(left, saved, [], (note ? note + ' · ' : '') + 'ยังตรวจสถานะคำขอฝ่ายบุคคลไม่ได้', false);
+        });
+      }).then(null, function (e) {
         busy = false;
         if (!alive() || isAborted(e)) return;
         waiting('ยังติดต่อเซิร์ฟเวอร์ไม่ได้'); auto();
@@ -4632,6 +5300,33 @@
     }
     waiting();
     check();
+  }
+  /* กดลงเวลาขณะมีธุรกรรมเดิมค้าง / ข้อมูลในเครื่องเสียหาย / อ่านที่จัดเก็บได้ไม่ครบ:
+     ตรวจทุกรายการก่อน — ไม่เปิดกล้อง ไม่สร้างธุรกรรมใหม่ (ใช้ Operation ที่สร้างไว้ก่อนอ่านที่จัดเก็บ)
+     เริ่มธุรกรรมใหม่ได้ทางเดียว: อ่านที่จัดเก็บใหม่แล้วได้ NOT_FOUND */
+  function attPendingStandalone(rd, kind, onDone, opP) {
+    var emp = currentSessionEmployeeId(), items = rd.list.slice(), noId = [];
+    (rd.bad || []).forEach(function (b) {
+      if (b.id) items.push({ id: b.id, emp: emp, kind: '?', mode: 'bad', t: Date.now(), wd: '', bad: [b] });
+      else noId.push(b);
+    });
+    if (noId.length || !rd.complete) {
+      var h = holdRef(emp);
+      items.push({ id: '', ref: h.ref, emp: emp, kind: kind, mode: 'bad', t: h.t, wd: '', bad: noId, io: !rd.complete });
+    }
+    shell('สแกนใบหน้า', kind === 'IN' ? 'ลงเวลาเข้างาน' : 'ลงเวลาออกงาน', 'att');
+    if (S.root) S.root.setAttribute('data-att-scan', '1');
+    S.attDone = null;
+    attFrame('wait', 0);
+    netOwn('P' + opP);
+    var auto = S.pendAgain < 2;                 // กันวนเอง: ตรวจแล้วเริ่มใหม่เองได้ไม่เกิน 2 ทอดต่อการกด 1 ครั้ง
+    attPendingUI(items, onDone, {
+      kind: kind,
+      alive: function () { return opAlive(opP); },
+      autoAgain: auto,
+      again: function () { var k = S.pendAgain + 1; close(); setTimeout(function () { PEND_AGAIN = k; punch(kind, onDone); }, 60); },
+      reread: function () { close(); setTimeout(function () { punch(kind, onDone); }, 60); }
+    });
   }
 
   var ATT_OK_HOLD_MS = 300;   // [RUN-212] เวลาค้างกรอบเขียวก่อนแสดงหน้าผลสำเร็จ
@@ -5098,7 +5793,7 @@
           attTfMark('end'); perfEnd('total_attendance_ms');
           closeMyCam(); gpsStop(aid);
           st.match = 'run';
-          attPendingUI(e.pend, onDone, {
+          attPendingUI([e.pend], onDone, {
             st: st, alive: own,
             again: function () {
               var nA = S.attempts;
@@ -5244,15 +5939,18 @@
        สาเหตุที่สแกนไม่ผ่าน · Similarity Score · Liveness Result · เหตุผลจากพนักงาน
      ส่งเข้า njhr_att_correction_submit ซึ่งเป็นช่องทางอนุมัติเดิมของระบบ
      หัวหน้าอนุมัติแล้วจึงเขียน attendance จริง (ตรรกะอยู่ใน RPC ไม่ได้ทำที่เบราว์เซอร์) */
-  function specialRequest(kind, failReason, onDone) {
-    var now = new Date();
+  function specialRequest(kind, failReason, onDone, opt) {
+    /* [RUN-218] opt (ใช้จากหน้าจอ "รอตรวจสอบผลบันทึก"): at = เวลาที่ส่งคำสั่งเดิม · workDate · head · note (Request ID) · after (ส่งสำเร็จ)
+       ไม่ส่ง opt = พฤติกรรมเดิมทุกประการ */
+    opt = opt || {};
+    var now = opt.at ? new Date(opt.at) : new Date();
     var pad2 = function (n) { return ('0' + n).slice(-2); };
-    var todayISO = now.getFullYear() + '-' + pad2(now.getMonth() + 1) + '-' + pad2(now.getDate());
+    var todayISO = opt.workDate || (now.getFullYear() + '-' + pad2(now.getMonth() + 1) + '-' + pad2(now.getDate()));
     var c = S.ctx || {};
     var g = c.gps || {};
 
     panel(
-      '<div class="njf-msg">สแกนใบหน้าไม่ผ่าน — ส่งคำขอให้หัวหน้าอนุมัติลงเวลาแทน</div>' +
+      '<div class="njf-msg">' + (opt.head ? esc(opt.head) : 'สแกนใบหน้าไม่ผ่าน — ส่งคำขอให้หัวหน้าอนุมัติลงเวลาแทน') + '</div>' +
       '<div class="njf-rows" style="margin-bottom:12px">' +
       '<div class="njf-row"><span class="k">ประเภท</span><span class="v">' +
       (kind === 'IN' ? 'เข้างาน' : 'ออกงาน') + '</span></div>' +
@@ -5295,7 +5993,7 @@
             g.ok ? ('GPS: ' + g.lat.toFixed(6) + ', ' + g.lng.toFixed(6) +
                     ' · Accuracy ' + Math.round(g.accuracy) + ' ม.')
                  : ('GPS: อ่านไม่ได้ — ' + (g.reason || ''))
-          ].join(' | ');
+          ].concat(opt.note ? [opt.note] : []).join(' | ');
 
           var body = {
             p_token: token(), p_work_date: todayISO,
@@ -5309,6 +6007,7 @@
           };
 
           rpc('njhr_att_correction_submit', body).then(function (r) {
+            if (typeof opt.after === 'function') { try { opt.after(r); } catch (eA) {} }
             panel('<div class="njf-check" style="margin:0 auto 12px">&#10003;</div>' +
               '<div class="njf-msg"><b>ส่งคำขอเรียบร้อยแล้ว</b><br>' +
               'สถานะ: รออนุมัติ' + (r && r.id ? '<br><small>เลขที่คำขอ ' + esc(String(r.id).slice(0, 8)) + '</small>' : '') +
@@ -5360,6 +6059,7 @@
     /* [ข้อ 5] Enrollment Run ID — Manual Enrollment ก็ต้องมีเจ้าของจริง
        เดิม Manual คืน true ตลอด ทำให้ Run เก่ายัง capture/upload/ส่ง RPC ต่อได้หลังปิดหน้าจอ
        ตอนนี้ทุก Run มีหมายเลขของตัวเอง · ปิด/เปลี่ยน Route/Background = Run หมดสิทธิ์ทันที */
+    if (S.busy) return;                       // [RUN-219] กันกดซ้ำ "ก่อน" แตะ State ใด ๆ (เดิมเปลี่ยน EN.id / S.mode ของงานที่กำลังทำอยู่ก่อนแล้วค่อยตรวจ)
     var myRun = ++EN.id;
     netOwn('E' + myRun);                      // [ข้อ 4] Network ของ Enrollment Run นี้
     var enAlive = function () {
@@ -5367,7 +6067,6 @@
       return enAtt ? (enOp === null || opAlive(enOp)) : true;
     };
     S.mode = enAtt ? 'ATTENDANCE' : 'ENROLL';
-    if (S.busy) return;
     S.busy = true;
     /* opts.password มีค่า = "ลงทะเบียนใบหน้าใหม่" (ทับของเดิม)
        ต้องยืนยันรหัสผ่านมาแล้วจากหน้าข้อมูลส่วนตัว และฐานข้อมูลตรวจซ้ำอีกชั้น
@@ -6016,6 +6715,7 @@
   function login(onOk, onCancel) {
     if (S.busy) return;
     S.busy = true;
+    var myL = ++LG.id;                        // [RUN-219] ปิด/ยกเลิก/เริ่มรอบใหม่ = รอบนี้หมดสิทธิ์
     S.mode = 'LOGIN';                         // [ข้อ 1/6] Face Login คนละ Context — ห้ามถูก cancelAttendance ปิด
     shell('สแกนใบหน้าเข้าสู่ระบบ', 'มองกล้องให้อยู่ในกรอบ');
     var st = { live: 'wait', match: 'wait' };
@@ -6079,6 +6779,7 @@
         });
       })
       .then(function (row) {
+        if (myL !== LG.id) return;             // [RUN-219] รอบเก่า (ถูกปิด/ยกเลิกไปแล้ว) = ไม่แตะ State ไม่ปิดหน้าจอของรอบใหม่
         perfEnd('total_face_login_ms');
         st.match = 'ok';
         panel('<div class="njf-check" style="margin:0 auto 12px">&#10003;</div>' +
@@ -6089,6 +6790,7 @@
         if (typeof onOk === 'function') onOk(row);
       })
       ['catch'](function (e) {
+        if (myL !== LG.id) return;             // [RUN-219] รอบเก่า = ไม่ปิดกล้อง/ไม่เขียนหน้าจอ/ไม่แตะ S.busy ของรอบใหม่
         closeCam();
         st.match = 'bad';
         /* ⚠ Error ดิบจากฐานข้อมูล/PostgREST (เช่น schema cache) ห้ามโชว์ให้พนักงาน
@@ -6121,7 +6823,8 @@
                       busy: !!INF.cur, lost: !!INF.lost, recovered: INF.recovered || 0,
                       guideMs: aiMedian(INF.sg), descMs: aiMedian(INF.sd), inferLimitMs: attendanceInferTimeoutMs(),
                       warmMs: INF.warmMs == null ? null : INF.warmMs, modelGen: MODEL.gen },
-               req: { server: reqSrvState(), pending: !!pendLoad() },
+               req: { server: reqSrvState(), pending: !!pendLoad(), mode: (pendLoad() || {}).mode || null },
+               att: { busy: !!S.busy, op: OP.id, lock: LOCK.mode },
                frame: { rvfc: !!FR.ok, n: FR.n }, tf: tfMem(), attempts: S.attempts,
                stream: !!S.stream, running: !!S.running };
     },
