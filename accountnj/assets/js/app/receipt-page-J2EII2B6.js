@@ -122,7 +122,7 @@ import{a as XLS820}from"./chunk-FHYZBT2Q.js";import{css762 as CS762,dd762 as DD7
       <!-- Main List Container \u0E40\u0E14\u0E35\u0E22\u0E27 \u2014 Filter + Table + Empty State + Total + Pagination -->
       <div class="ch-panel">
       <div class="fbar">
-        <input class="inp" data-pf="q" value="${i($.q)}" placeholder="\u0E04\u0E49\u0E19\u0E2B\u0E32 INVOICE / \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 / \u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E07\u0E32\u0E19" title="\u0E04\u0E49\u0E19\u0E2B\u0E32 INVOICE NO. / \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 / \u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E07\u0E32\u0E19 / Customer Job No. / Case / \u0E40\u0E25\u0E02\u0E43\u0E1A\u0E02\u0E19\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32 (\u0E40\u0E15\u0E47\u0E21\u0E2B\u0E23\u0E37\u0E2D\u0E1A\u0E32\u0E07\u0E2A\u0E48\u0E27\u0E19)">/* V.897 */${FI678($,"pf")}
+        <input class="inp" data-pf="q" value="${i($.q)}" placeholder="\u0E04\u0E49\u0E19\u0E2B\u0E32 INVOICE / \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 / \u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E07\u0E32\u0E19" title="\u0E04\u0E49\u0E19\u0E2B\u0E32 INVOICE NO. / \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 / \u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E07\u0E32\u0E19 / Customer Job No. / Case / \u0E40\u0E25\u0E02\u0E43\u0E1A\u0E02\u0E19\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32 (\u0E40\u0E15\u0E47\u0E21\u0E2B\u0E23\u0E37\u0E2D\u0E1A\u0E32\u0E07\u0E2A\u0E48\u0E27\u0E19)">${FI678($,"pf")}
         <button class="btn btn-o btn-sm" id="rp-go">\u0E04\u0E49\u0E19\u0E2B\u0E32</button><button type="button" class="btn btn-o btn-sm clr797" id="rp-clr797" title="คืนค่าตัวกรองทั้งหมดเป็นค่าเริ่มต้น">ล้างค้นหา</button><button type="button" class="btn btn-sm rf881" id="rp-rf881" title="โหลดรายการล่าสุดจากฐานข้อมูล (คงตัวกรอง / หน้า / แท็บ / ระบบ เดิม)">⟳ รีเฟรช</button>${XB734("rp-xl734")}</div>
       ${RB795()}<div class="card mt-2" id="rp-pgn"></div>
       <div class="tbl-wrap lp-scroll"><table class="tbl"><thead><tr>
@@ -135,7 +135,7 @@ import{a as XLS820}from"./chunk-FHYZBT2Q.js";import{css762 as CS762,dd762 as DD7
     <div id="rc-issued" ${I==="issued"?"":"hidden"}>
     <div class="ch-panel">
     <div class="fbar">
-      <input class="inp" data-f="q" value="${i(b.q||"")}" placeholder="เลขใบเสร็จ / JOB No. / INVOICE NJ / Customer / วันที่" title="ค้นหา เลขใบเสร็จ / JOB No. / INVOICE NJ / Customer / วันที่ออก (dd/mm/yyyy) / เลขใบขนสินค้า (เต็มหรือบางส่วน)"/* V.897 */><select class="sel" data-f="customer">${st(b.customer)}</select>
+      <input class="inp" data-f="q" value="${i(b.q||"")}" placeholder="เลขใบเสร็จ / JOB No. / INVOICE NJ / Customer / วันที่" title="ค้นหา เลขใบเสร็จ / JOB No. / INVOICE NJ / Customer / วันที่ออก (dd/mm/yyyy) / เลขใบขนสินค้า (เต็มหรือบางส่วน)"><select class="sel" data-f="customer">${st(b.customer)}</select>
       <input class="inp" type="date" data-f="from" value="${b.from}">
       <input class="inp" type="date" data-f="to" value="${b.to}">
       ${FI678(b,"f")}
