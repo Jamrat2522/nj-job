@@ -8321,6 +8321,36 @@ function stwParse(items){
   if(nl) r.nw = stwWeightAt(items, nl);
   return r;
 }
+/* ══ [479] DN รูปแบบใหม่ (ตัวเลขแบบอังกฤษ "1,164.3") — อ่านน้ำหนักรวมจากหน้าแรก ══
+   • อ่านเฉพาะหน้าแรก · เฉพาะกรอบ Gesamtgewicht/Total Weight · Brutto/Gross = GROSS · Netto/Net = NET
+   • ไม่อ่านน้ำหนักย่อยจากตาราง Packing List and Dimensions (ยึดบรรทัดเดียวกับป้ายในกรอบเท่านั้น)
+   • ตรวจรูปแบบจากเครื่องหมายทศนิยมที่พบจริงในหน้าแรก — ถ้าเป็นรูปแบบเดิม (เยอรมัน 817,4) ใช้ Logic เดิมทั้งหมด
+   • เลข Delivery Note ใช้ Logic เดิม (เรียก stwParse) · 1 ไฟล์ = 1 ชุดน้ำหนัก · ไม่บวกหน้าถัดไป */
+function stwNumEn(t){                                                    // "1,164.3" → { v:1164.3, d:1 } · รูปแบบอื่น = null (ไม่เดา)
+  const m = String(t == null ? '' : t).trim().match(/^(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?$/);
+  if(!m) return null;
+  const d = m[2] || '';
+  return { v: Number(m[1].replace(/,/g, '') + (d ? '.' + d : '')), d: d.length };
+}
+function stwIsEnDn(items){
+  const t = items.map(i => i.s).join(' ');
+  if(!/Gesamtgewicht|Total\s*Weight/i.test(t)) return false;             // ไม่มีกรอบน้ำหนักรวม = ไม่ใช่รูปแบบนี้
+  if(/\d+,\d+\s*KG/i.test(t)) return false;                             // พบ "817,4 KG" = รูปแบบเดิม (เยอรมัน)
+  return /\d[\d,]*\.\d+\s*KG/i.test(t);                                // พบ "578.4 KG" / "1,164.3 KG" = รูปแบบใหม่
+}
+function stwWeightEnAt(items, lab){                                      // ค่าน้ำหนัก "บรรทัดเดียวกันทางขวา" ของป้ายในกรอบ
+  const line = items.filter(i => Math.abs(i.y - lab.y) <= 3 && i.x > lab.x).sort((a, b) => a.x - b.x).map(i => i.s).join(' ');
+  const m = line.match(/(?:^|\s)(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*KG\b/i);
+  return m ? stwNumEn(m[1]) : null;
+}
+function stwParseEn(items){
+  const r = { dn:stwParse(items).dn, nw:null, gw:null };                 // เลข DN = Logic เดิม
+  const gl = items.find(i => /^Gross\b/i.test(i.s)) || items.find(i => /Brutto/i.test(i.s));
+  const nl = items.find(i => /Netto\s*\/\s*Net\b/i.test(i.s)) || items.find(i => /^Netto/i.test(i.s));
+  if(gl){ r.gw = stwWeightEnAt(items, gl); if(!r.gw){ const b = items.find(i => /Brutto/i.test(i.s)); if(b && b !== gl) r.gw = stwWeightEnAt(items, b); } }
+  if(nl) r.nw = stwWeightEnAt(items, nl);
+  return r;
+}
 async function stwReadDn(file){
   const row = { file:file.name, dn:'', nw:null, gw:null, pages:0, miss:[], err:'' };
   try{
@@ -8332,7 +8362,8 @@ async function stwReadDn(file){
     if(STW_INV_RE.test(items.map(i => i.s).join(' '))) return await stwReadInv(pdf, row);   // [477] Export Invoice cum Packing List → Logic แยก
     try{ pdf.destroy(); }catch(_){}
     if(!items.length) throw new Error('หน้าแรกไม่มีข้อความให้อ่านโดยตรง (ไฟล์สแกน) — โหมดนี้ไม่ใช้ AI / OCR');
-    const r = stwParse(items); row.dn = r.dn; row.nw = r.nw; row.gw = r.gw;
+    const en = stwIsEnDn(items); if(en) row.kind = 'dnw';                // [479] รูปแบบใหม่ = ใช้ตัวอ่านใหม่ · รูปแบบเดิม = Logic เดิมทุกบรรทัด
+    const r = en ? stwParseEn(items) : stwParse(items); row.dn = r.dn; row.nw = r.nw; row.gw = r.gw;
     if(!row.dn) row.miss.push('Delivery Note No'); if(!row.nw) row.miss.push('Total NW'); if(!row.gw) row.miss.push('Total GW');
   }catch(e){ row.err = String((e && e.message) || e || 'อ่านไฟล์ไม่สำเร็จ'); }
   row.ok = !row.err && !row.miss.length;
@@ -8385,6 +8416,7 @@ async function stwReadInv(pdf, row){
    • ล้มเหลวแม้ 1 ไฟล์ = ระงับทั้ง Auto Export และ Manual Export (ตรวจซ้ำในตัว stwExport เอง)
    • ไม่ส่งออกข้อมูลบางส่วน · ไม่แทนค่าน้ำหนักที่อ่านไม่ได้ด้วย 0 · ชุดที่มีเฉพาะ DN เดิมทำงานตามเดิมทุกกรณี */
 function stwInvBatch(){ return stwRows.some(r => r.kind === 'inv'); }
+function stwTotalBatch(){ return stwRows.some(r => r.kind === 'inv' || r.kind === 'dnw'); }   // [479] แถว TOTAL ใช้กับไฟล์รูปแบบใหม่ทั้งสองแบบ
 function stwBadRows(){ return stwRows.filter(r => !r.ok); }
 function stwBlocked(){ return stwBusy || (stwInvBatch() && stwBadRows().length > 0); }
 function stwBlockNote(){
@@ -8433,11 +8465,13 @@ async function stwBoldTotal(buf, rowNo){
 }
 /* TOTAL รวมทุกไฟล์ (แสดงเมื่อมีไฟล์ Export Invoice cum Packing List — DN ล้วนแสดงตามเดิม) */
 function stwTotalHtml(){
-  const inv = stwRows.filter(r => r.kind === 'inv'); if(!inv.length) return '';
+  if(!stwTotalBatch()) return '';
+  const inv = stwRows.filter(r => r.kind === 'inv');
   const t = stwTotals(stwRows); let pk = 0, ln = 0;
   for(const r of inv){ pk += r.pk; ln += r.ln; }
   const bad = stwBadRows().length;
-  return '<tfoot><tr id="stw-total"><td>TOTAL (' + stwRows.length + ' ไฟล์)</td><td class="n">' + t.nw.toFixed(t.d) + '</td><td class="n">' + t.gw.toFixed(t.d) + '</td><td class="' + (bad ? 'bad' : 'ok') + '">' + ln + ' บรรทัด · Packing ' + pk + ' PC' + (bad ? ' · ระงับ Export — อ่านไม่สำเร็จ ' + bad + ' ไฟล์' : '') + '</td><td>NW / GW หน่วย KG</td></tr></tfoot>';
+  const info = (inv.length ? ln + ' บรรทัด · Packing ' + pk + ' PC' : 'น้ำหนักรวมทุกไฟล์') + (bad ? ' · ' + (stwInvBatch() ? 'ระงับ Export — ' : '') + 'อ่านไม่สำเร็จ ' + bad + ' ไฟล์' : '');
+  return '<tfoot><tr id="stw-total"><td>TOTAL (' + stwRows.length + ' ไฟล์)</td><td class="n">' + t.nw.toFixed(t.d) + '</td><td class="n">' + t.gw.toFixed(t.d) + '</td><td class="' + (bad ? 'bad' : 'ok') + '">' + info + '</td><td>NW / GW หน่วย KG</td></tr></tfoot>';
 }
 function stwExportable(){
   if(stwInvBatch() && stwBadRows().length) return [];                   // [478] อ่านไม่ครบ = ไม่มีอะไรให้ส่งออก (ห้ามส่งออกบางส่วน)
@@ -8485,7 +8519,7 @@ async function stwExport(){
     ws.getRow(1).height = 22; [22, 16, 16].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     ws.getColumn(2).alignment = { horizontal:'right' }; ws.getColumn(3).alignment = { horizontal:'right' };
     ws.getRow(1).eachCell(c => { c.alignment = { horizontal:'center', vertical:'middle' }; });
-    if(stwInvBatch()){                                                  // [478] แถว TOTAL ล่างสุด: ตัวหนา + เส้นขอบด้านบน · Number · ทศนิยม 3 ตำแหน่ง
+    if(stwTotalBatch()){                                                // [478] แถว TOTAL ล่างสุด: ตัวหนา + เส้นขอบด้านบน · Number · ทศนิยม 3 ตำแหน่ง
       const t = stwTotals(rows), x = ws.addRow(['TOTAL', t.nw, t.gw]);
       x.eachCell(c => { c.font = { bold:true }; c.border = { top:{ style:'thin', color:{ argb:'FF1E40AF' } } }; });
       x.getCell(1).numFmt = '@'; x.getCell(2).numFmt = '0.000'; x.getCell(3).numFmt = '0.000';
@@ -8498,7 +8532,7 @@ async function stwExport(){
     rows.forEach((r, i) => { const n = i + 2; if(r.dn) ws['A' + n] = { t:'s', v:r.dn }; if(r.nw) ws['B' + n] = { t:'n', v:r.nw.v, z:fmt(r.nw) }; if(r.gw) ws['C' + n] = { t:'n', v:r.gw.v, z:fmt(r.gw) }; });
     const last = rows.length + 1;
     ws['!ref'] = 'A1:C' + last; ws['!cols'] = [{ wch:22 }, { wch:16 }, { wch:16 }]; ws['!autofilter'] = { ref:'A1:C' + last };   // TOTAL ไม่อยู่ใน AutoFilter
-    if(stwInvBatch()){                                                  // [478] แถว TOTAL (SheetJS)
+    if(stwTotalBatch()){                                                // [478] แถว TOTAL (SheetJS)
       const t = stwTotals(rows), q = last + 1, bd = { top:{ style:'thin' } }, fb = { bold:true };
       ws['A' + q] = { t:'s', v:'TOTAL', s:{ font:fb, border:bd } };
       ws['B' + q] = { t:'n', v:t.nw, z:'0.000', s:{ font:fb, border:bd } };
@@ -8507,7 +8541,7 @@ async function stwExport(){
     }
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'DN WEIGHT');
     let buf = XLSX.write(wb, { bookType:'xlsx', type:'array' });
-    if(stwInvBatch()) buf = await stwBoldTotal(buf, rows.length + 2);   // [478] แถว TOTAL: ตัวหนา + เส้นขอบด้านบน
+    if(stwTotalBatch()) buf = await stwBoldTotal(buf, rows.length + 2); // [478] แถว TOTAL: ตัวหนา + เส้นขอบด้านบน
     save(buf);
   }
 }
@@ -27720,7 +27754,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local478';
+const DEPLOY_VERSION = 'local479';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
