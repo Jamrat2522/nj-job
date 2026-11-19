@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <!-- Build Metadata (local316): เลข Version ของ Build นี้ — กำหนดที่บรรทัดนี้ที่เดียว ใช้ทั้งเว็บไซต์ (ป้ายมุมขวาบนอ่านจากที่นี่) -->
-<meta name="nj-build" content="local326">
+<meta name="nj-build" content="local327">
 <title>Mapping Export Hi-Tech HTML</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -10253,7 +10253,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       if(status === 200 && j && j.success){
         if(j.api_key === false){ G.sessState = 'fail'; G.sessMsg = 'Server ยังไม่ได้ตั้งค่า ANTHROPIC_API_KEY — AI อ่าน PDF ไม่ได้ (ตรวจพบจาก probe · HTTP 200)'; }
         else if(j.jobs === false){ G.sessState = 'fail'; G.sessMsg = 'Edge Function เข้าถึงตารางงาน AI (nj_ai_jobs) ไม่ได้ (ตรวจพบจาก probe · HTTP 200)'; }
-        else { G.sessState = 'ok'; G.sessMsg = ''; G.showDetail = false; G.promptVer = String(j.prompt_ver || ''); resumeOrphans(); } }
+        else { G.sessState = 'ok'; G.sessMsg = ''; G.showDetail = false; G.promptVer = String(j.prompt_ver || ''); G.caps = { boi:j.boi === true }; resumeOrphans(); } }
       else { G.sessState = status === 401 ? 'expired' : status === 403 ? 'denied' : 'fail'; G.sessMsg = (j && j.msg) || 'ไม่สามารถเชื่อมต่อระบบ AI ได้'; }
       G.authPromise = null; render(); })();
     return G.authPromise;
@@ -10631,20 +10631,58 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   const bProdN = v => bProd(v).replace(/^0+(?=.)/, '');        // ใช้เฉพาะตอนจับคู่ (มี / ไม่มีเลข 0 นำหน้า)
   const bDig = v => String(v == null ? '' : v).replace(/\D/g, '');
   const bTxt = v => String(v == null ? '' : v).trim();
-  function boiDate(v){ const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(bTxt(v)); if(!m) return ''; const p = n => String(n).padStart(2, '0'); return p(m[3]) + '-' + p(m[2]) + '-' + m[1]; }
+  function boiDate(v){ return bTxt(v); }                    // local327: วันที่ ออก = ค่าตามที่พิมพ์ในเอกสาร BOI (เช่น 2026-11-03) — ไม่แปลงรูปแบบ ไม่ใช้วันที่ Mapping
+  // local327: เอกสาร BOI มาจาก "การอ่านเพิ่มเติม" ของแต่ละไฟล์ (f.boiX) — การอ่านหลัก / Cache หลักไม่มีข้อมูล BOI
+  //   ส่งเฉพาะหน้าเอกสารประกอบ (ที่อาจเป็น BOI) + หน้า Invoice (เพื่ออ่าน Our Confirmation No.) · ผลถูก Cache ที่ Server ด้วย SHA ของหน้าที่ส่ง
+  const refKey = (inv, item, prod) => [bTxt(inv), bTxt(item), bProdN(prod)].join('|');
+  async function subsetBytes(src, pages){ const doc = await newDoc(); const cp = await doc.copyPages(src, pages.map(n => n - 1)); cp.forEach(p => doc.addPage(p)); return await doc.save(); }
+  async function subsetChunks(src, pages){
+    const bytes = await subsetBytes(src, pages);
+    if(bytes.byteLength <= MAX_BYTES) return [{ pages, bytes }];
+    if(pages.length < 2) throw new Error('หน้า PDF เดี่ยวใหญ่เกิน 8 MB');
+    const h = Math.ceil(pages.length / 2);
+    return (await subsetChunks(src, pages.slice(0, h))).concat(await subsetChunks(src, pages.slice(h)));
+  }
+  async function readBoi(f){
+    if(f.bad || !f.parts.length || !f.parts.every(p => p.result)) return;
+    const pm = pageMap(f);
+    const cand = pm.filter(x => x.kind === 'other' || x.kind === 'boi').map(x => x.pg), inv = pm.filter(x => x.kind === 'invoice').map(x => x.pg);
+    const pages = [...new Set(cand.concat(inv))].sort((a, b) => a - b);
+    const sig = f.sha + '|' + pages.join(',');
+    if(f.boiX && f.boiX.sig === sig && (f.boiX.ok || f.boiX.none)) return;            // อ่านแล้วในรอบก่อน (ไฟล์เดิม) = ไม่เรียกซ้ำ
+    const X = { sig, ok:false, none:false, fail:false, unsupported:false, msg:'', items:[], refs:new Map(), cand, pages, cached:0, calls:0 };
+    if(!cand.length){ X.none = true; f.boiX = X; return; }                             // ไม่มีหน้าเอกสารประกอบ = ไม่มี BOI ให้อ่าน (ไม่เรียก AI)
+    if(!(G.caps && G.caps.boi)){ X.fail = true; X.unsupported = true; X.msg = 'Server ยังไม่รองรับการอ่านเอกสาร BOI — ต้อง Deploy Edge Function รุ่น local327'; f.boiX = X; return; }
+    let chunks;
+    try{ const src = await PDFLib.PDFDocument.load(await f.file.arrayBuffer(), { ignoreEncryption:true, updateMetadata:false }); chunks = await subsetChunks(src, pages); }
+    catch(e){ X.fail = true; X.msg = 'ตัดหน้าเอกสาร BOI ไม่สำเร็จ — ' + ((e && e.message) || e); f.boiX = X; return; }
+    for(const c of chunks){
+      setPhase(`กำลังอ่านเอกสาร BOI (${c.pages.length} หน้า)...`); render();
+      let { status, j } = await api({ action:'boi', model:'sonnet', name:`${f.name} (BOI p${c.pages[0]}-${c.pages[c.pages.length - 1]}).pdf`, mime:'application/pdf', pdf:b64Of(new Uint8Array(c.bytes)), pages:c.pages }, 180000);
+      let res = null, cached = false;
+      if(status === 200 && j && j.success && j.result){ res = j.result; cached = !!j.cached; if(!cached) addUsage('sonnet', j.usage); }
+      else if(status === 202 && j && j.job_id){ const p = { sha:'', status:ST.AI, model:'sonnet' }; await pollJob(p, j.job_id, j.poll_after_ms); if(p.result) res = p.result; else j = { msg:p.msg }; }
+      if(!res || !Array.isArray(res.boi_items)){ X.fail = true; X.msg = 'อ่านเอกสาร BOI ไม่สำเร็จ — ' + ((j && j.msg) || 'ไม่สามารถเชื่อมต่อระบบ AI ได้'); f.boiX = X; return; }
+      X.calls++; if(cached) X.cached++;
+      const g2 = n => c.pages[(Number(n) || 1) - 1] || null;                           // หน้าในชุดที่ส่ง → หน้าในไฟล์จริง
+      res.boi_items.forEach(b => { if(b && typeof b === 'object') X.items.push(Object.assign({}, b, { gpg:g2(b.pg) })); });
+      (res.item_refs || []).forEach(r => { if(!r) return; const k = refKey(r.invoice_no, r.item_no, r.product); if(bDig(r.confirmation_no) && !X.refs.has(k)) X.refs.set(k, bDig(r.confirmation_no)); });
+    }
+    X.ok = true; f.boiX = X;
+  }
+  const confOf = x => { const X = x.m.f && x.m.f.boiX; return (X && X.refs.get(refKey(x.m.invoiceNo, x.i.it.item_no, x.i.it.product))) || bDig(x.i.it.confirmation_no); };
   function boiCollect(){
     const out = [], seen = new Set();
-    G.files.forEach(f => f.parts.forEach(p => ((p.result && p.result.boi_items) || []).forEach(b => {
-      if(!b || typeof b !== 'object') return;
-      const gpg = (Number(b.pg) || 1) + (p.from - 1);
-      const k = [f.id, gpg, bProd(b.part_no), bDig(b.po_no), bTxt(b.approval_number)].join('|');
-      if(seen.has(k)) return; seen.add(k);                     // ช่วงหน้าทับกัน = ไม่นับซ้ำ
-      out.push(Object.assign({}, b, { f, gpg, matched:[], status:'', why:'', warn:[] }));
-    })));
-    return out.sort((a, b) => a.gpg - b.gpg);
+    G.files.forEach(f => ((f.boiX && f.boiX.items) || []).forEach(b => {
+      const k = [f.id, b.gpg, bProd(b.part_no), bDig(b.po_no), bTxt(b.approval_number)].join('|');
+      if(seen.has(k)) return; seen.add(k);
+      out.push(Object.assign({}, b, { f, matched:[], status:'', why:'', warn:[] }));
+    }));
+    return out.sort((a, b) => (a.gpg || 0) - (b.gpg || 0));
   }
   function boiApply(model){
     const docs = boiCollect(), loose = [];
+    G.files.forEach(f => { const X = f.boiX; if(X && X.fail) loose.push({ b:{ gpg:(X.cand || []).join(', ') || '-' }, file:true, text:`${f.name}: ${X.msg} — ยังไม่มีการ Override จากเอกสาร BOI (หน้าเอกสารประกอบ ${(X.cand || []).join(', ')})` }); });
     const all = []; model.forEach(m => m.items.forEach(i => { i.boi = null; if(!(m.errs || []).length && !i.errs.length) all.push({ m, i }); }));
     const claims = new Map();
     const tagOf = b => `BOI หน้า ${b.gpg} (Part ${bTxt(b.part_no) || '?'}${bTxt(b.packing_list_no) ? ' · Packing list ' + bTxt(b.packing_list_no) : ''}${bTxt(b.approval_number) ? ' · Approval ' + bTxt(b.approval_number) : ''})`;
@@ -10666,11 +10704,11 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       else if(!inv && !po) return fail(b, 'เอกสาร BOI ไม่มี Packing list No. / เลข Invoice / PO No. ให้เชื่อมโยง');
       b.poUnk = 0; b.poSkip = 0;
       if(po){
-        const known = cp.filter(x => bDig(x.i.it.confirmation_no)), hit = known.filter(x => bDig(x.i.it.confirmation_no) === po), unk = cp.filter(x => !bDig(x.i.it.confirmation_no));
+        const known = cp.filter(x => confOf(x)), hit = known.filter(x => confOf(x) === po), unk = cp.filter(x => !confOf(x));
         if(hit.length){ cp = hit; b.poSkip = unk.length; }
         else if(unk.length && pl){ cp = unk; b.poUnk = unk.length; }           // PDF ไม่ได้พิมพ์ / อ่าน Our Confirmation No. ไม่ได้ → เชื่อมด้วย Packing list + Product Code
         else if(!known.length) return fail(b, 'เอกสาร BOI ไม่มี Packing list No. และยืนยัน PO No. ไม่ได้ (ไม่พบ Our Confirmation No. ของรายการ)');
-        else return fail(b, `PO No. ${po} ไม่ตรงกับ Our Confirmation No. ของรายการใน Invoice (${[...new Set(known.map(x => bTxt(x.i.it.confirmation_no)))].join(', ')})`);
+        else return fail(b, `PO No. ${po} ไม่ตรงกับ Our Confirmation No. ของรายการใน Invoice (${[...new Set(known.map(x => confOf(x)))].join(', ')})`);
       }
       const invs = [...new Set(cp.map(x => x.m.invoiceNo))];
       if(invs.length > 1) return fail(b, `พบรายการที่ตรงกันในหลาย Invoice (${invs.join(', ')}) — ยืนยันไม่ได้`);
@@ -10690,7 +10728,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       if(b.poUnk) b.warn.push('ยืนยัน PO No. ไม่ได้ (ไม่พบ Our Confirmation No. ของรายการ) — จับคู่ด้วย Packing list No. + Product Code');
       if(b.poSkip) b.warn.push(`มีอีก ${b.poSkip} รายการที่ Product Code / Packing list ตรงกัน แต่ยืนยัน PO No. ไม่ได้ — ไม่ Override รายการนั้น`);
       if(!pl0(b) && !bTxt(b.invoice_no)) b.warn.push('เอกสาร BOI ไม่มี Packing list No. — จับคู่ด้วย PO No. + Product Code');
-      if(!boiDate(b.approval_date)) b.warn.push(`Approval Date "${bTxt(b.approval_date)}" อ่านเป็นวันที่ไม่ได้ — ช่อง วันที่ ออก เว้นว่าง (ไม่ใช้วันที่ Mapping)`);
+      if(!boiDate(b.approval_date)) b.warn.push('เอกสาร BOI ไม่มี Approval Date — ช่อง วันที่ ออก เว้นว่าง (ไม่ใช้วันที่ Mapping)');
       if(b.warn.length){ const x = b.matched[0]; b.warn.forEach(t => x.i.warns.push(`BOI หน้า ${b.gpg}: ${t}`)); if(x.i.state === 'ok') x.i.state = 'warn'; }
     });
     return { docs, loose };
@@ -10713,17 +10751,20 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   function rowVab(i, base){ const v = (base || fixVab()).slice(), f = boiFinal(i); if(f){ v[3] = f.Y; v[5] = f.AA; } return v; }
   window.groheAiRowVab = rowVab;
   function boiHtml(built){
-    const B = built && built.boi; const old = G.promptVer && /^grohe\|p[1-4]\|/.test(G.promptVer);
-    if(!B || !B.docs.length) return old && G.files.length ? `<div class="sai-rep sai-repwarn" id="gai-boi" data-docs="0" data-old="1"><b>⚠ เอกสาร BOI</b><div class="sai-repl">Server ยังเป็นรุ่นที่ไม่อ่านเอกสาร BOI (${esc(G.promptVer)}) — ยังไม่มีการ Override จาก BOI จนกว่าจะ Deploy Edge Function รุ่น local326</div></div>` : '';
+    const B = built && built.boi;
+    const fails = G.files.filter(f => f.boiX && f.boiX.fail), wait = G.files.filter(f => !f.boiX && !f.bad && f.parts.length && f.parts.every(p => p.result) && pageMap(f).some(x => x.kind === 'other' || x.kind === 'boi'));
+    const fNote = fails.map(f => `<div class="sai-e">❌ ${esc(f.name)}: ${esc(f.boiX.msg)}</div>`).join('') + (wait.length ? `<div class="sai-repl">เอกสาร BOI ของ ${wait.length} ไฟล์จะถูกอ่านเมื่อกด ⬇ EXPORT EXCEL (เฉพาะหน้าเอกสารประกอบ + หน้า Invoice)</div>` : '');
+    const src = G.files.filter(f => f.boiX && f.boiX.ok).map(f => `${esc(f.name)}: อ่านเพิ่มเติม ${f.boiX.pages.length} หน้า${f.boiX.cached === f.boiX.calls ? ' (ใช้ Cache ไม่คิดเงินซ้ำ)' : ''}`).join(' · ');
+    if(!B || !B.docs.length) return (fails.length || wait.length) ? `<div class="sai-rep ${fails.length ? 'sai-repwarn' : 'sai-repok'}" id="gai-boi" data-docs="0" data-fail="${fails.length}" data-wait="${wait.length}"><b>${fails.length ? '⚠ ' : ''}เอกสาร BOI</b>${fNote}</div>` : '';
     const ok = B.docs.filter(d => d.status === 'จับคู่แล้ว'), rows = [];
     built.model.forEach(m => { if(m.errs.length) return; m.items.forEach(i => { if(i.errs.length || !i.boi) return; rows.push({ m, i, f:boiFinal(i) }); }); });
     const dRows = B.docs.map(d => `<tr class="sai-${d.status === 'ตรวจสอบ' ? 'bad' : 'ok'}r"><td>${d.gpg}</td><td class="sai-mono">${esc(bTxt(d.packing_list_no))}</td><td class="sai-mono">${esc(bTxt(d.part_no))}</td><td class="sai-mono">${esc(bTxt(d.po_no))}</td>
         <td class="sai-mono">${esc(bTxt(d.approval_number))}</td><td class="sai-mono">${esc(bTxt(d.approval_date))}</td><td class="sai-num">${esc(bTxt(d.approval_qty))}</td>
         <td class="sai-mono">${esc(d.invoice || '')}</td><td class="sai-mono">${esc(d.matched.map(x => x.i.it.item_no || x.i.seq).join(', '))}</td>
         <td>${d.status === 'ตรวจสอบ' ? `<div class="sai-e">❌ ${esc(d.why)}</div>` : esc(d.status)}${d.status !== 'ตรวจสอบ' && d.why ? ` <span class="sai-msg">${esc(d.why)}</span>` : ''}${(d.warn || []).map(t => `<div class="sai-w">⚠ ${esc(t)}</div>`).join('')}</td></tr>`).join('');
-    return `<div class="sai-rep ${B.loose.length ? 'sai-repwarn' : 'sai-repok'}" id="gai-boi" data-docs="${B.docs.length}" data-ok="${ok.length}" data-loose="${B.loose.length}" data-rows="${rows.length}">
+    return `<div class="sai-rep ${B.loose.length ? 'sai-repwarn' : 'sai-repok'}" id="gai-boi" data-docs="${B.docs.length}" data-ok="${ok.length}" data-loose="${B.loose.length}" data-rows="${rows.length}" data-fail="${fails.length}">
         <b>${B.loose.length ? '⚠' : '✓'} เอกสาร BOI — พบ ${B.docs.length} รายการ · จับคู่แล้ว ${ok.length} · Override ${rows.length} แถว${B.loose.length ? ` · ต้องตรวจสอบ ${B.loose.length}` : ''}</b>
-        <div class="sai-repl">Override เฉพาะคอลัมน์ E · F · R · S · T · Y · AA ของรายการที่จับคู่ได้ (Packing list No. + Product Code + PO No.) · Qty / ราคา / ยอดเงิน / น้ำหนัก คงตาม Invoice</div>
+        <div class="sai-repl">Override เฉพาะคอลัมน์ E · F · R · S · T · Y · AA ของรายการที่จับคู่ได้ (Packing list No. + Product Code + PO No.) · Qty / ราคา / ยอดเงิน / น้ำหนัก คงตาม Invoice${src ? ' · ' + src : ''}</div>${fNote}
         <div class="sai-scroll"><table class="sai-tbl" id="gai-boidoc-tbl"><thead><tr><th>หน้า PDF</th><th>Packing list No.</th><th>Part No.</th><th>PO No.</th><th>Approval Number</th><th>Approval Date</th><th>Approval Qty</th><th>INVOICE</th><th>Item</th><th>ผล</th></tr></thead><tbody>${dRows}</tbody></table></div>
         ${rows.length ? `<div class="sai-sub">ค่าที่จะเขียนลง Excel ของรายการ BOI</div><div class="sai-scroll"><table class="sai-tbl" id="gai-boi-tbl"><thead><tr><th>INVOICE</th><th>Item</th><th>Product</th><th>E<br>EN DESC.</th><th>F<br>TH DESC.</th><th>R<br>COO</th><th>S<br>Product Year</th><th>T<br>TARIFF CODE</th><th>Y<br>เลขที่ใบอนุญาต</th><th>AA<br>วันที่ ออก</th></tr></thead><tbody>${
           rows.map(x => `<tr><td class="sai-mono">${esc(x.m.invoiceNo)}</td><td class="sai-mono">${esc(x.i.it.item_no || '')}</td><td class="sai-mono">${esc(x.i.it.product || '')}</td>${
@@ -11011,6 +11052,9 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       await Promise.all([worker(), worker()]);
     }
     if(filesSig() !== sig0) return { ok:false, msg:'ไฟล์เปลี่ยนระหว่างประมวลผล — กด ⬇ EXPORT EXCEL อีกครั้ง (ใช้ผล AI เดิม)' };
+    // local327: อ่านเอกสาร BOI เพิ่มเติม (เฉพาะหน้าที่ขาดจากการอ่านหลัก / Cache เดิม) ก่อนจับคู่ — ล้มเหลว = แจ้งเตือน ไม่บล็อก EXPORT
+    for(const f of G.files){ try{ await readBoi(f); } catch(e){ f.boiX = { sig:'', fail:true, msg:'อ่านเอกสาร BOI ไม่สำเร็จ — ' + ((e && e.message) || e), items:[], refs:new Map(), cand:[], pages:[] }; } }
+    if(filesSig() !== sig0) return { ok:false, msg:'ไฟล์เปลี่ยนระหว่างประมวลผล — กด ⬇ EXPORT EXCEL อีกครั้ง (ใช้ผล AI เดิม)' };
     setPhase('กำลังตรวจสอบข้อมูล...'); await sleep(0);
     let built = build();
     // AUTO: Sonnet อ่านทั้งไฟล์แล้ว → ตรวจค่าที่อ่านได้ → ส่งเฉพาะจุดที่ถูกฟ้องให้ Opus ตรวจซ้ำ
@@ -11047,7 +11091,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     const rows = [];
     ev.pass.forEach(m => m.good.forEach(i => rows.push({ m, i })));     // ส่งออกทุกรายการที่อ่านจาก PDF ได้ (คำเตือนไม่บล็อก)
     const msg0 = msg; { /* local326: เอกสาร BOI ที่จับคู่ไม่ได้ = คำเตือน (ไม่บล็อก EXPORT) */ }
-    const msgB = nLoose ? msg0 + ` · ⚠ เอกสาร BOI จับคู่ไม่ได้ ${nLoose} รายการ (ดูกรอบ เอกสาร BOI)` : msg0;
+    const msgB = nLoose ? msg0 + ` · ⚠ เอกสาร BOI ต้องตรวจสอบ ${nLoose} รายการ (ดูกรอบ เอกสาร BOI)` : msg0;
     G.pend = { kind:partial ? 'partial' : ((nWarn || nLoose) ? 'warn' : 'full'), msg:msgB, exported:ev.pass.map(m => m.invoiceNo), skipped:ev.skipped, warned:ev.warned, rows:rows.length, lic:G.lic };
     setPhase('กำลังสร้าง Excel...'); render();
     return { ok:true, rows, partial, incomplete:nPart > 0, warned:nWarn > 0 || nLoose > 0, msg:msgB, exported:G.pend.exported, skipped:ev.skipped, lic:G.lic };
