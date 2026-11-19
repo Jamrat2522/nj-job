@@ -1,0 +1,1068 @@
+(function(){"use strict";var S=window.NJHR&&NJHR.compat&&NJHR.compat.scope;if(!S)throw new Error("RUNTIME_NOT_READY");var icon=S.icon;var pad=S.pad;var todayISO=S.todayISO;var esc=S.esc;var debounce=S.debounce;var emp=S.emp;var dept=S.dept;var leaveType=S.leaveType;var balance=S.balance;var audit=S.audit;var toast=S.toast;var sbReady=S.sbReady;var sbRpcList=S.sbRpcList;var rptFetchAllPages=S.rptFetchAllPages;var rptComposeDaily=S.rptComposeDaily;var rptParseWorkingDays=S.rptParseWorkingDays;var rptIsoDow=S.rptIsoDow;var rptIsoRange=S.rptIsoRange;var rptGuardCap=S.rptGuardCap;var rptFetchShiftMap=S.rptFetchShiftMap;var rptEmpKey=S.rptEmpKey;var sbRpc=S.sbRpc;var sbToken=S.sbToken;var emptyState=S.emptyState;var shOfAtt=S.shOfAtt;var db=S.db;var ALL=S.ALL;var rptSafeName=S.rptSafeName;var rptBuildXlsx=S.rptBuildXlsx;var rptBuildXlsxChart=S.rptBuildXlsxChart;var rptBuildXlsxGrid=S.rptBuildXlsxGrid;var RPG_S=S.RPG_S;var RPG_ST_IDX=S.RPG_ST_IDX;/* [RUN-205] ตัวสร้าง Sheet "รวม" อยู่ในโมดูล approvals-reports ซึ่งไม่ใช่ dependency ของหน้านี้
+   จึงอ่านจาก NJHR.compat.scope ตอนเรียกใช้จริง หลังสั่งโหลดโมดูลแล้วเท่านั้น
+   (ยึดค่าไว้ตอนโหลดไฟล์ไม่ได้ เพราะตอนนั้นโมดูลยังไม่ถูกโหลด) */var rptLoadZip=S.rptLoadZip;var rptDateBE=S.rptDateBE;var rptNorm=S.rptNorm;var loadScriptOnce=S.loadScriptOnce;/* [RUN-190] */var lvCode=S.lvCode;var lvType=S.lvType;var lvNum=S.lvNum;var LEAVE_TYPES=S.LEAVE_TYPES;var RPT_PREFIX=["นางสาว","นาย","นาง","ดร.","ด.ช.","ด.ญ."];function rptName(e){var title=String(e.title||"").trim();var first=String(e.firstName||"").trim();var last=String(e.lastName||"").trim();if(!title){for(var i=0;i<RPT_PREFIX.length;i++){if(first.indexOf(RPT_PREFIX[i])===0){title=RPT_PREFIX[i];first=first.slice(RPT_PREFIX[i].length).trim();break}}}return{title:title,name:(first+" "+last).trim()}}function rptVisibleEmployees(){return db.employees.slice()}var rptDeptCache=[];function rptDepts(){return rptDeptCache}function rptLoadDepts(el){if(!sbReady()||!sbToken())return;sbRpcList("njhr_emp_departments",{p_token:sbToken()}).then(function(ds){var next=(ds||[]).map(function(d){return{id:d.name,name:d.name,employees:d.employees}});var changed=next.length!==rptDeptCache.length||next.some(function(d,i){return!rptDeptCache[i]||rptDeptCache[i].name!==d.name});rptDeptCache=next;if(rptState.deptId&&!next.some(function(d){return d.name===rptState.deptId}))rptState.deptId="";if(changed&&el)viewReports(el)}).catch(function(er){console.error("[REPORT] njhr_emp_departments ล้มเหลว:",er)})}function rptMatch(e,q){if(!q)return true;var n=rptName(e);var hay=rptNorm([e.code,e.title,e.firstName,e.lastName,n.name,(e.title||"")+(e.firstName||""),(e.title||"")+n.name,e.nickname,dept(e.deptId)].join(" "));return rptNorm(q).split(" ").every(function(w){return hay.indexOf(w)>=0})}function rptEmployees(){var s=rptState;return rptVisibleEmployees().filter(function(e){if(s.deptId&&e.deptId!==s.deptId)return false;if(s.empId)return e.id===s.empId;return rptMatch(e,s.q)})}function rptMinOf(t){var p=String(t||"").split(":");return p.length>=2?+p[0]*60+ +p[1]:null}function rptLateMin(a,e){var sh=shOfAtt(e,a);var lim=rptMinOf(sh.start),cur=rptMinOf(a.in);if(lim===null||cur===null)return 0;lim+=db.settings.lateGrace||0;return cur>lim?cur-lim:0}function rptWorkMin(a){var i=rptMinOf(a.in),o=rptMinOf(a.out);if(i===null||o===null)return null;var m=o-i;if(m<0)m+=24*60;return m}function rptHM(min){if(min===null||!isFinite(min)||min<0)return{h:"",m:""};return{h:Math.floor(min/60),m:min%60}}function rptRows(){var s=rptState;if(!s.from||!s.to||s.from>s.to)return[];var emps=rptEmployees();var byId={};emps.forEach(function(e){byId[e.id]=e});var merged={};db.attendance.forEach(function(a){if(!byId[a.empId])return;if(a.date<s.from||a.date>s.to)return;var k=a.empId+"|"+a.date;var cur=merged[k];if(!cur){merged[k]={empId:a.empId,date:a.date,in:a.in||null,out:a.out||null,shiftId:a.shiftId,status:a.status};return}if(a.in&&(!cur.in||a.in<cur.in))cur.in=a.in;if(a.out&&(!cur.out||a.out>cur.out))cur.out=a.out;if(!cur.shiftId&&a.shiftId)cur.shiftId=a.shiftId});var rows=Object.keys(merged).map(function(k){var a=merged[k],e=byId[a.empId],n=rptName(e);var lateMin=a.in?rptLateMin(a,e):0;var st;if(!a.in&&!a.out)st="ขาดงาน";else if(!a.in)st="ไม่มีเวลาเข้า";else if(!a.out)st="ไม่มีเวลาออก";else st=lateMin>0?"มาสาย":"ปกติ";if(a.in&&a.out&&lateMin>0)st="มาสาย";var work=rptHM(rptWorkMin(a)),late=rptHM(lateMin);return{empId:e.id,code:e.code||"",date:a.date,title:n.title,name:n.name,in:a.in||"—",out:a.out||"—",status:st,lateMin:lateMin,wh:work.h,wm:work.m,lh:late.h,lm:late.m}});if(s.type==="late")rows=rows.filter(function(r){return r.lateMin>0});rows.sort(function(a,b){return b.date.localeCompare(a.date)||String(a.code).localeCompare(String(b.code),"th",{numeric:true})});return rows}var rptLeaveRows=[],rptBalRows=[],rptBalTypes=[];function rptFetchLeave(){var s=rptState;return sbRpcList("njhr_leave_report",{p_token:sbToken(),p_from:s.from,p_to:s.to,p_dept:s.deptId||null,p_q:s.q||null,p_type:s.leaveType||null,p_status:s.status||null})}function rptFetchBalance(){var s=rptState;return sbRpcList("njhr_leave_balance_report",{p_token:sbToken(),p_year:s.year,p_dept:s.deptId||null,p_q:s.q||null,p_emp_status:s.empStatus||""})}var RPT_LEAVE_HEAD=["ลำดับ","เลขที่คำขอ","รหัสพนักงาน","คำนำหน้า","ชื่อ-นามสกุล","ชื่อเล่น","แผนก","ประเภทการลา","วันที่เริ่มลา","วันที่สิ้นสุด","ช่วงเวลา","จำนวนวัน","จำนวนชั่วโมง","เหตุผลการลา","เอกสารแนบ","วันที่ยื่นคำขอ","สถานะ","ผู้อนุมัติ","วันที่อนุมัติ","หมายเหตุ"];function rptLeaveCells(r,i){return[i+1,lvCode(r.req_id),r.emp_code,r.prefix,r.full_name,r.nickname,r.department,lvType(r.leave_type).name,rptDateBE(r.start_date),rptDateBE(r.end_date),r.mode_txt,lvNum(r.total_days),lvNum(r.hours),r.reason,r.file_count?r.file_names+" ("+r.file_count+")":"—",String(r.created_at||"").replace("T"," ").slice(0,16),LV_STATUS_TH[r.status]||r.status,r.approver||"—",r.approved_at?String(r.approved_at).replace("T"," ").slice(0,16):"—",r.note||""]}function rptBalPivot(rows){var byEmp={},order=[],typeSeen={};rows.forEach(function(r){if(!byEmp[r.employee_id]){byEmp[r.employee_id]={e:r,t:{}};order.push(r.employee_id)}byEmp[r.employee_id].t[r.leave_type]=r;typeSeen[r.leave_type]=1});var known=LEAVE_TYPES.map(function(t){return t.code}).filter(function(c){return typeSeen[c]});var extra=Object.keys(typeSeen).filter(function(c){return known.indexOf(c)<0});var types=known.concat(extra);return{emps:order.map(function(id){return byEmp[id]}),types:types}}function rptBalHasQuota(code){return String(code||"").toUpperCase()==="VACATION"}function rptBalHead(types){var h=["ลำดับ","รหัสพนักงาน","คำนำหน้า","ชื่อ-นามสกุล","ชื่อเล่น","แผนก","วันที่เริ่มงาน","สถานะพนักงาน","ปีสิทธิ์การลา"];types.forEach(function(c){var n=lvType(c).name;h=rptBalHasQuota(c)?h.concat([n+" · สิทธิ์ต่อปี",n+" · ยกมา",n+" · ใช้แล้ว",n+" · รออนุมัติ",n+" · คงเหลือ"]):h.concat([n+" · ใช้แล้ว",n+" · รออนุมัติ"])});return h}function rptBalCells(row,types,i){var e=row.e;var out=[i+1,e.emp_code,e.prefix,e.full_name,e.nickname,e.department,e.start_date?rptDateBE(e.start_date):"—",EMP_STATUS_TH[e.emp_status]||e.emp_status,e.year+543];types.forEach(function(c){var t=row.t[c];if(!rptBalHasQuota(c)){out=out.concat(t?[lvNum(t.used),lvNum(t.pending)]:[0,0]);return}if(!t){out=out.concat(["—",0,0,0,"—"]);return}var unlimited=t.quota===null||t.quota===undefined;out=out.concat([unlimited?"ไม่จำกัด":lvNum(t.quota),lvNum(t.carry_over)+lvNum(t.extra_days),lvNum(t.used),lvNum(t.pending),unlimited?"ไม่จำกัด":lvNum(t.remaining)])});return out}var rptOtData=[],rptOtLoading=false,rptOtSeq=0,rptOtErr="";function rptOtRows(){return rptOtData}function rptOtHM(v){return String(v==null?"":v).slice(0,5)}function rptOtApprover(approvals){var a=(approvals||[]).filter(function(x){var act=String(x.action||"").toUpperCase();return act==="APPROVE"||act==="REJECT"||act==="CANCEL"});if(!a.length)return{by:"",at:""};var last=a[a.length-1];return{by:String(last.by||""),at:String(last.at||"").replace("T"," ").slice(0,16)}}function rptOtLoad(el){var st=rptState,seq=++rptOtSeq;rptOtErr="";if(!st.from||!st.to||st.from>st.to){rptOtData=[];rptOtLoading=false;return Promise.resolve()}if(!sbReady()||!sbToken()){rptOtData=[];rptOtLoading=false;rptOtErr="ยังไม่ได้เชื่อมต่อ Supabase — รายงาน OT ต้องใช้ข้อมูลจริงเท่านั้น";return Promise.resolve()}rptOtLoading=true;rptOtData=[];var args={p_token:sbToken(),p_from:st.from,p_to:st.to,p_dept:st.deptId||null,p_q:st.q||null};return Promise.all([rptFetchAllPages("njhr_ot_report",{p_token:args.p_token,p_from:args.p_from,p_to:args.p_to,p_status:"ALL",p_dept:args.p_dept,p_employee:st.empId||null,p_q:args.p_q},{keyOf:function(r){return String(r.ot_id||"")+"|"+String(r.job_no==null?"":r.job_no)}}),sbRpcList("njhr_rpt_ot_list",args)["catch"](function(){return[]})]).then(function(res){if(seq!==rptOtSeq)return;var jobs=res[0]||[],reqs=res[1]||[];var meta={};reqs.forEach(function(r){meta[String(r.req_id)]=r});var ids=[];jobs.forEach(function(j){if(ids.indexOf(String(j.ot_id))<0)ids.push(String(j.ot_id))});var OT_POOL=6;var otExtra=new Array(ids.length),otNext=0;function otWorker(){if(otNext>=ids.length)return Promise.resolve();var k=otNext++;var id=ids[k];return Promise.all([sbRpcList("njhr_ot_attach_list",{p_token:sbToken(),p_ot_id:id})["catch"](function(){return[]}),sbRpc("njhr_ot_get",{p_token:sbToken(),p_id:id})["catch"](function(){return null})]).then(function(x){var d=x[1]&&x[1].data?x[1].data:x[1];otExtra[k]={id:id,files:x[0]||[],appr:rptOtApprover(d&&d.request&&d.request.approvals)};return otWorker()})}var otRunners=[];for(var w2=0;w2<Math.min(OT_POOL,ids.length);w2++)otRunners.push(otWorker());return Promise.all(otRunners).then(function(){return otExtra}).then(function(extra){if(seq!==rptOtSeq)return;var byId={};extra.forEach(function(x){byId[x.id]=x});rptOtData=jobs.map(function(j){var x=byId[String(j.ot_id)]||{files:[],appr:{by:"",at:""}};var mine=x.files.filter(function(f){return Number(f.job_no)===Number(j.job_no)});var m=meta[String(j.ot_id)]||{};return{reqId:m.request_no||j.ot_id,no:j.job_no,code:j.emp_code||"",name:j.emp_name||"",title:j.prefix||"",dept:j.department||"",position:j.position_name||"",job:j.job_code||"",detail:j.detail||"",jobType:j.job_type||"",date:String(j.job_date||"").slice(0,10),start:rptOtHM(j.start_time),end:rptOtHM(j.end_time),endDate:String(j.end_date||"").slice(0,10),nextDay:!!j.spans_next_day,hours:Number(j.job_hours)||0,fileNames:mine.map(function(f){return f.file_name}).join(", "),fileCount:mine.length,status:OT_STATUS_TH[j.status]||j.status,createdAt:String(m.created_at||"").replace("T"," ").slice(0,16),approver:x.appr.by,approvedAt:x.appr.at,note:j.reason||"",empId:j.employee_id}});rptOtData.sort(function(a2,b2){return a2.date.localeCompare(b2.date)||String(a2.start).localeCompare(String(b2.start))||String(a2.code).localeCompare(String(b2.code),"th",{numeric:true})||String(a2.reqId).localeCompare(String(b2.reqId))||a2.no-b2.no});rptOtLoading=false})})["catch"](function(ex){if(seq!==rptOtSeq)return;rptOtLoading=false;rptOtData=[];console.error("[REPORT] รายงาน OT จาก Supabase ล้มเหลว:",ex);rptOtErr="โหลดรายงาน OT จาก Supabase ไม่สำเร็จ: "+(ex&&ex.message||ex)})}var RPT_OT_HEAD=["เลขที่คำขอ","ลำดับรายการ","รหัสพนักงาน","ชื่อ–นามสกุล","แผนก","ตำแหน่ง","JOB","รายละเอียดงาน","ประเภทงาน","วันที่ OT","เวลาเริ่มต้น","เวลาสิ้นสุด","จำนวนชั่วโมง","จำนวนไฟล์แนบ","สถานะ","วันที่ยื่น","ผู้อนุมัติ","วันที่อนุมัติ"];var RPT_OT_HEAD_XLS=["เลขที่คำขอ","ลำดับรายการ","รหัสพนักงาน","ชื่อ–นามสกุล","แผนก","ตำแหน่ง","JOB","รายละเอียดงาน","ประเภทงาน","วันที่ OT","เวลาเริ่มต้น","เวลาสิ้นสุด","จำนวนชั่วโมง","ชื่อไฟล์แนบ","จำนวนไฟล์","สถานะ","ผู้อนุมัติ","วันที่อนุมัติ","หมายเหตุรวม"];function rptOtCells(r){return[r.reqId,r.no,r.code,r.name,r.dept,r.position,r.job,r.detail,r.jobType,rptDateBE(r.date),r.start,r.end+(r.nextDay?" (+1 วัน)":""),r.hours,r.fileCount,r.status,r.createdAt,r.approver||"-",r.approvedAt||"-"]}function rptOtCellsXls(r){return[r.reqId,r.no,r.code,r.name,r.dept,r.position,r.job,r.detail,r.jobType,rptDateBE(r.date),r.start,r.end+(r.nextDay?" (+1 วัน)":""),r.hours,r.fileNames,r.fileCount,r.status,r.approver||"-",r.approvedAt||"-",r.note]}function rptOtPaint(el){var box=document.getElementById("rpt-table");var eb=document.getElementById("rpt-err");if(eb)eb.textContent=rptOtErr||"";var rows=rptOtRows();var sum=rptOtSummary(rows);var sb=el.querySelector(".rpt-otsum");if(sb){sb.innerHTML=[["คำขอทั้งหมด",sum.reqs],["รายการงานทั้งหมด",sum.items],["ชั่วโมงรวม",sum.hours],["จำนวนพนักงาน",sum.emps],["รออนุมัติ",sum.pend],["อนุมัติแล้ว",sum.appr]].map(function(x){return'<div class="bal-item"><div class="bal-top"><span>'+x[0]+"</span><b>"+x[1]+"</b></div></div>"}).join("")}var cnt=el.querySelector(".rpt-sum b:last-child");if(cnt)cnt.textContent=rows.length+" รายการ";if(!box)return;box.innerHTML=rows.length?'<div class="table-wrap"><table><thead><tr>'+RPT_OT_HEAD.map(function(h){return"<th>"+esc(h)+"</th>"}).join("")+"</tr></thead><tbody>"+rows.map(function(r){return"<tr>"+rptOtCells(r).map(function(c){return"<td>"+esc(c)+"</td>"}).join("")+"</tr>"}).join("")+"</tbody></table></div>":emptyState(rptOtErr?"ไม่สามารถแสดงข้อมูลได้":rptEmptyMsg())}function rptOtSummary(rows){var reqs={},emps={},hrs=0,pend=0,appr=0;rows.forEach(function(r){reqs[r.reqId]=1;emps[r.empId]=1;hrs+=r.hours;if(r.status==="รออนุมัติ")pend++;if(r.status==="อนุมัติแล้ว")appr++});return{reqs:Object.keys(reqs).length,items:rows.length,hours:Math.round(hrs*100)/100,emps:Object.keys(emps).length,pend:pend,appr:appr}}var RPT_HEAD=["วันที่","รหัสพนักงาน","คำนำหน้า","พนักงาน","แผนก","เข้า","ออก","สถานะ","จำนวนชั่วโมง","จำนวนนาที"];var rptAttRows=[];var RPT_ATT_PER=200;var rptAttPage=0;var rptAttRaw=[];function rptAttStatusOpts(){var seen={},out=[];rptAttRaw.forEach(function(r){var code=r.statusCode||"";if(!code||seen[code])return;seen[code]=1;out.push([code,EMP_ATT_STATUS[code]||code])});var cur=rptState.attStatus;if(cur&&!seen[cur])out.push([cur,EMP_ATT_STATUS[cur]||cur]);out.sort(function(a,b){return a[1].localeCompare(b[1],"th")});return out}function rptAttApplyStatus(rows){var f=rptState.attStatus;if(!f)return rows;return rows.filter(function(r){return r.statusCode===f})}
+/* ============================ [RUN-161] ============================
+   "รายงานการลงเวลา" -> สรุปจำนวนวันรายพนักงาน (พนักงาน 1 คน = 1 รายการ)
+   · อ่านจาก rptAttRows ชุดเดียวกับที่โหลดมา = ครบทั้งช่วงวันที่ ไม่ใช่เฉพาะหน้าปัจจุบัน
+   · ห้ามนับวันซ้ำ: key = พนักงาน + วันที่ นับได้ครั้งเดียวเท่านั้น
+   · ตาราง / กราฟหน้าเว็บ / Excel เรียก rptSumRows() ตัวเดียวกัน ตัวเลขจึงตรงกัน 100%
+   · ขอบเขต: เฉพาะ type="attendance" — "รายงานมาสาย" (late) คงพฤติกรรมเดิมทุกอย่าง
+   · ไม่แตะข้อมูลต้นฉบับ ไม่ยิง RPC เพิ่ม ไม่แก้ DB
+   ================================================================= */
+/* [RUN-188] เพิ่ม "วันหยุด" เข้าชุดสถานะสรุป — เดิมมี 4 สถานะ ทำให้โหมด "ทุกสถานะ"
+   ไม่นับวันหยุดเลย ทั้งที่ตัวกรองมีให้เลือกและข้อมูลจริงมีสถานะนี้
+   กฎการตัดสินสถานะอยู่ที่ rptComposeDaily() ทั้งหมด — ไม่ถูกแตะแม้แต่บรรทัดเดียว */
+var RPT_SUM_ST=[["NORMAL","ปกติ"],["LATE","มาสาย"],["ABSENT","ขาดงาน"],["LEAVE","ลา"],
+  ["HOLIDAY","วันหยุด"]];
+var RPT_SUM_COLOR={NORMAL:"16A34A",LATE:"F59E0B",ABSENT:"DC2626",LEAVE:"2563EB",HOLIDAY:"64748B"};
+function rptSumTH(code){for(var i=0;i<RPT_SUM_ST.length;i++)if(RPT_SUM_ST[i][0]===code)return RPT_SUM_ST[i][1];return EMP_ATT_STATUS[code]||code||""}
+function rptSumOn(){return rptState.type==="attendance"}
+function rptSumKeyOf(r){var c=rptEmpKey(r.empCode||"");return c||("N:"+rptNorm(r.name||"-"))}
+function rptSumRows(){
+  var pick=rptState.attStatus||"";
+  var by=Object.create(null),out=[],seen=Object.create(null);
+  rptAttRows.forEach(function(r){
+    var k=rptSumKeyOf(r),d=String(r.date||"").slice(0,10);
+    if(!d)return;
+    var dk=k+"|"+d;
+    if(seen[dk])return;                       /* วันเดียวกัน + คนเดียวกัน = นับครั้งเดียว */
+    seen[dk]=1;
+    var o=by[k];
+    if(!o){o=by[k]={key:k,code:r.empCode||"",title:r.title||"",name:String(r.name||"").trim()||"-",
+      nick:r.nick||"",dept:r.dept||"",n:{},total:0};out.push(o)}   /* [RUN-202] key ใช้จับคู่ตารางรายวัน */
+    if(!o.title&&r.title)o.title=r.title;
+    if(!o.nick&&r.nick)o.nick=r.nick;          /* [RUN-188] ใช้ค้นหาในตาราง Dashboard */
+    if(!o.dept&&r.dept)o.dept=r.dept;
+    var st=String(r.statusCode||"").toUpperCase();
+    if(st)o.n[st]=(o.n[st]||0)+1;
+  });
+  out.forEach(function(o){var t=0;for(var i=0;i<RPT_SUM_ST.length;i++)t+=o.n[RPT_SUM_ST[i][0]]||0;o.total=t});
+  /* 0 วันไม่ต้องขึ้น (ทั้งตารางและกราฟ ใช้กติกาเดียวกันเพื่อให้ตรงกัน) */
+  var res=pick?out.filter(function(o){return(o.n[pick]||0)>0})
+              :out.filter(function(o){return o.total>0});
+  res.sort(function(a,b){
+    var av=pick?(a.n[pick]||0):a.total,bv=pick?(b.n[pick]||0):b.total;
+    if(bv!==av)return bv-av;
+    var c=String(a.code||"").localeCompare(String(b.code||""),"th");
+    return c||a.name.localeCompare(b.name,"th")
+  });
+  return res
+}
+/* [RUN-188] หัว/ช่อง/ความกว้างของโหมด "ทุกสถานะ" อ่านจาก RPT_SUM_ST โดยตรง
+   เพิ่มหรือลดสถานะในอนาคตแล้วทั้ง 3 ส่วนเปลี่ยนตามกันเสมอ ไม่มีทางเหลื่อมกัน */
+function rptSumHead(){
+  var pick=rptState.attStatus||"";
+  return pick?["ลำดับ","รหัสพนักงาน","พนักงาน","แผนก","จำนวนวัน"+rptSumTH(pick)]
+             :["ลำดับ","รหัสพนักงาน","คำนำหน้า","พนักงาน","แผนก"]
+               .concat(RPT_SUM_ST.map(function(x){return x[1]})).concat(["รวมวัน"])
+}
+function rptSumCells(o,i){
+  var pick=rptState.attStatus||"";
+  if(pick)return[i+1,o.code||"-",o.name||"-",o.dept||"-",o.n[pick]||0];
+  return[i+1,o.code||"-",o.title||"",o.name||"-",o.dept||"-"]
+    .concat(RPT_SUM_ST.map(function(x){return o.n[x[0]]||0})).concat([o.total||0])
+}
+function rptSumWidths(){
+  if(rptState.attStatus)return[8,14,30,24,20];
+  return[8,14,12,28,24].concat(RPT_SUM_ST.map(function(){return 10})).concat([11])
+}
+function rptSumTotals(rows){
+  var t={total:0};RPT_SUM_ST.forEach(function(x){t[x[0]]=0});
+  (rows||[]).forEach(function(o){RPT_SUM_ST.forEach(function(x){t[x[0]]+=o.n[x[0]]||0});t.total+=o.total||0});
+  return t
+}
+function rptSumPaint(box,pg){
+  var rows=rptSumRows(),head=rptSumHead();
+  box.innerHTML=rows.length
+    ?'<div class="table-wrap"><table class="rpt-att-tbl rpt-sum-tbl"><thead><tr>'
+      +head.map(function(h){return"<th>"+esc(h)+"</th>"}).join("")+"</tr></thead><tbody>"
+      +rows.map(function(o,i){return"<tr>"+rptSumCells(o,i).map(function(c){
+         return"<td>"+esc(c)+"</td>"}).join("")+"</tr>"}).join("")
+      +"</tbody></table></div>"
+    :emptyState(rptEmptyMsg());
+  if(pg)pg.innerHTML=rows.length
+    ?'<span class="muted">พนักงาน '+rows.length+" คน · ทุกแถวมาจากข้อมูลครบทั้งช่วงวันที่ (ไม่แบ่งหน้า)</span>"
+    :"";
+  return rows
+}
+/* ============================ [RUN-188] ============================
+   "รายงานการลงเวลา" -> Dashboard เดียว รองรับครบ 6 ตัวเลือกสถานะ
+   (ทุกสถานะ · ปกติ · มาสาย · ขาดงาน · ลา · วันหยุด)
+
+   หลักการที่ยึดไว้ทั้งหมด
+   · แหล่งข้อมูลเดียว: rptSumRows() ตัวเดิมของ RUN-161 ซึ่ง de-dup "คน+วัน"
+     มาแล้ว การ์ด / กราฟแท่ง / กราฟวงกลม / ตาราง / Excel จึงอ่านชุดเดียวกัน
+     ตัวเลขตรงกันเสมอ และไม่มีทางนับวันซ้ำ
+   · ไม่ยิง RPC เพิ่มแม้แต่ตัวเดียว ไม่แตะกฎมาสาย/ขาดงาน/ลา/วันหยุด
+     (กฎทั้งหมดอยู่ที่ rptComposeDaily ใน runtime/shared/report-export.js)
+   · หน่วยนับไม่ปะปน: วงกลมโหมด "ทุกสถานะ" นับเป็น "วัน" ทุกชิ้น
+     โหมดเลือกสถานะนับเป็น "คน" ทุกชิ้น
+   · ขอบเขต: เฉพาะ type="attendance" — "รายงานมาสาย" (late) ใช้ของเดิมทุกบรรทัด
+   ================================================================= */
+var rptDash={q:"",per:20,page:0,desc:true};   /* [RUN-191] ค่าเริ่มต้น 20 คน/หน้า */
+function rptDashOn(){return rptState.type==="attendance"}
+
+/* ฐานพนักงาน = ทุกคนที่มีข้อมูลลงเวลาอย่างน้อย 1 วันในตัวกรองปัจจุบัน
+   อ่านจาก rptAttRaw (ยังไม่กรองสถานะ) de-dup ด้วยกติกาเดียวกับ rptSumRows */
+function rptDashAll(){
+  var seen=Object.create(null),by=Object.create(null),out=[];
+  rptAttRaw.forEach(function(r){
+    var k=rptSumKeyOf(r),d=String(r.date||"").slice(0,10);
+    if(!d)return;
+    var dk=k+"|"+d;
+    if(seen[dk])return;
+    seen[dk]=1;
+    var o=by[k];
+    if(!o){o=by[k]={code:r.empCode||"",name:String(r.name||"").trim()||"-",n:{},total:0};out.push(o)}
+    var st=String(r.statusCode||"").toUpperCase();
+    if(st)o.n[st]=(o.n[st]||0)+1;
+  });
+  out.forEach(function(o){var t=0;RPT_SUM_ST.forEach(function(x){t+=o.n[x[0]]||0});o.total=t});
+  return out.filter(function(o){return o.total>0});
+}
+
+function rptDashN(o,pick){return pick?(o.n[pick]||0):(o.total||0)}
+
+/* เกณฑ์ระดับ — ใช้กับ "มาสาย" และ "ขาดงาน" เท่านั้น ตามสเปก
+   ห้ามนำไปใช้กับ ปกติ / ลา / วันหยุด */
+var RPT_DASH_LV=[
+  {max:2,  t:"0 – 2 วัน",      c:"g", note:"ปกติ / เฝ้าดู"},
+  {max:5,  t:"3 – 5 วัน",      c:"y", note:"เริ่มติดตาม"},
+  {max:10, t:"6 – 10 วัน",     c:"o", note:"ควรเรียกพูดคุย"},
+  {max:1e9,t:"11 วันขึ้นไป",   c:"r", note:"เร่งตรวจสอบและดำเนินการ"}
+];
+function rptDashHasLv(pick){return pick==="LATE"||pick==="ABSENT"}
+function rptDashLvOf(n){
+  for(var i=0;i<RPT_DASH_LV.length;i++)if(n<=RPT_DASH_LV[i].max)return RPT_DASH_LV[i];
+  return RPT_DASH_LV[RPT_DASH_LV.length-1];
+}
+var RPT_DASH_LVTH={g:"ปกติ",y:"ปานกลาง",o:"สูง",r:"รุนแรง"};
+
+/* ช่วงการกระจายของ ปกติ / ลา / วันหยุด — แบ่งจากค่าสูงสุดจริงในข้อมูล
+   ไม่ใช้สีและเกณฑ์ความรุนแรงของการมาสาย */
+function rptDashRanges(maxN){
+  var m=Math.max(1,Math.floor(maxN||1));
+  if(m<=1)return[{lo:1,hi:1,t:"1 วัน",c:"b1"}];
+  var step=Math.ceil(m/4),out=[],lo=1,i;
+  for(i=0;i<4&&lo<=m;i++){
+    var hi=(i===3)?m:Math.min(m,lo+step-1);
+    out.push({lo:lo,hi:hi,t:(lo===hi?lo+" วัน":lo+" – "+hi+" วัน"),c:"b"+(i+1)});
+    lo=hi+1;
+  }
+  return out;
+}
+
+/* ---------- การ์ดสรุป ---------- */
+function rptDashCards(rows,base,pick){
+  function card(cls,ic,lab,big,unit,sub){
+    return '<div class="rd-card rd-'+cls+'"><span class="rd-ic">'+ic+"</span>"+
+      '<div class="rd-cbody"><small>'+esc(lab)+"</small>"+
+      '<b>'+esc(String(big))+'<i>'+esc(unit)+"</i></b>"+
+      (sub?'<em class="rd-sub">'+esc(sub)+"</em>":"")+"</div></div>";
+  }
+  if(!pick){
+    var tot=0,cards=[card("blue","👥","พนักงานทั้งหมด",base.length,"คน","")];
+    RPT_SUM_ST.forEach(function(x){
+      var d=0,p=0;
+      base.forEach(function(o){var v=o.n[x[0]]||0;if(v>0){d+=v;p++}});
+      tot+=d;
+      cards.push(card("st-"+x[0],RPT_DASH_ICON[x[0]]||"•",x[1],d,"วัน",p+" คน"));
+    });
+    cards.push(card("gray","Σ","รวมทุกสถานะ",tot,"วัน",""));
+    return '<div class="rd-cards">'+cards.join("")+"</div>";
+  }
+  var th=rptSumTH(pick),n=rows.length,days=0,mx=0;
+  rows.forEach(function(o){var v=o.n[pick]||0;days+=v;if(v>mx)mx=v});
+  var avg=n?Math.round(days*10/n)/10:0;
+  var pct=base.length?Math.round(n*100/base.length):0;
+  return '<div class="rd-cards">'+
+    card("blue","👥","พนักงานทั้งหมด",base.length,"คน","")+
+    card("st-"+pick,RPT_DASH_ICON[pick]||"•","พนักงาน"+th,n,"คน",pct+"% ของทั้งหมด")+
+    card("st-"+pick+" rd-soft","Σ","จำนวนวัน"+th+"รวม",days,"วัน","")+
+    card("green","📅","เฉลี่ยต่อคน",avg,"วัน","เฉพาะคนที่มี"+th)+
+    /* การ์ด "สูงสุด" ใช้สีแดงเฉพาะสถานะที่เป็นปัญหา (มาสาย/ขาดงาน)
+       ปกติ/ลา/วันหยุด ใช้สีกลาง — ห้ามสื่อว่าเป็นเรื่องไม่ดี */
+    card(rptDashHasLv(pick)?"red":"gray","📈",th+"สูงสุดต่อคน",mx,"วัน","")+"</div>";
+}
+var RPT_DASH_ICON={NORMAL:"✅",LATE:"🕒",ABSENT:"🚫",LEAVE:"🌴",HOLIDAY:"🏖"};
+
+/* ---------- กราฟแท่งแนวนอนด้านซ้าย ---------- */
+/* [RUN-190] ปุ่ม Export กราฟ — อยู่มุมขวาบนของกล่องกราฟ ข้างปุ่ม "ดูทั้งหมด"
+   ปุ่ม Export Excel เดิมบนแถบตัวกรองไม่ถูกแตะ ยังทำงานเหมือนเดิมทุกประการ */
+var RD_EXP_BTN='<button type="button" class="rd-exp" id="rd-exp" '+
+  'title="บันทึก Dashboard เป็นรูป PNG">📊 Export กราฟ</button>';
+
+function rptDashTop(rows,base,pick){
+  var head,body;
+  if(!pick){
+    /* ทุกสถานะ -> เทียบ "จำนวนวันรวมแยกตามสถานะ" ไม่เอา TOP 10 มาปนกัน */
+    var tot=RPT_SUM_ST.map(function(x){
+      var d=0;base.forEach(function(o){d+=o.n[x[0]]||0});
+      return{code:x[0],th:x[1],n:d}
+    });
+    var mx=Math.max(1,Math.max.apply(null,tot.map(function(t){return t.n})));
+    head='<div class="rd-h"><b>📊 จำนวนวันรวมแยกตามสถานะ</b>'+
+      '<span class="grow"></span>'+RD_EXP_BTN+"</div>";
+    body=tot.map(function(t){
+      return '<div class="rd-bar-row"><span class="rd-bar-lb">'+esc(t.th)+"</span>"+
+        '<span class="rd-bar rd-b-'+t.code+'"><i style="width:'+
+        (t.n?Math.max(2,Math.round(t.n*100/mx)):0)+'%"></i></span>'+
+        '<b class="rd-bar-n">'+t.n+" วัน</b></div>";
+    }).join("");
+    return '<div class="card rd-panel">'+head+'<div class="rd-bars">'+body+"</div></div>";
+  }
+  var th=rptSumTH(pick),top=rows.slice(0,10);
+  var mx2=Math.max(1,rptDashN(top[0]||{n:{}},pick));
+  head='<div class="rd-h"><b>🏆 10 อันดับพนักงาน'+esc(th)+"สูงสุด</b>"+
+    (rows.length>10?'<button type="button" class="rd-all" id="rd-all">ดูทั้งหมด ('+
+      rows.length+" คน) ›</button>":"")+
+    '<span class="grow"></span>'+RD_EXP_BTN+"</div>";
+  body=top.length?top.map(function(o,i){
+    var v=o.n[pick]||0,lv=rptDashHasLv(pick)?rptDashLvOf(v):null;
+    return '<div class="rd-bar-row"><span class="rd-rank">'+(i+1)+".</span>"+
+      '<span class="rd-bar-lb" title="'+esc((o.code||"-")+" "+(o.name||""))+'">'+
+      esc(o.code||"-")+" – "+esc(o.name||"-")+"</span>"+
+      '<span class="rd-bar '+(lv?"rd-l-"+lv.c:"rd-b-"+pick)+'"><i style="width:'+
+      Math.max(2,Math.round(v*100/mx2))+'%"></i></span>'+
+      '<b class="rd-bar-n">'+v+" วัน</b></div>";
+  }).join(""):'<p class="muted note">ไม่มีข้อมูลตามตัวกรองที่เลือก</p>';
+  return '<div class="card rd-panel">'+head+'<div class="rd-bars">'+body+"</div></div>";
+}
+
+/* ============================ [RUN-190] ============================
+   ปุ่ม "📊 Export กราฟ" — บันทึก Dashboard เป็นรูป PNG ความละเอียดสูง
+
+   · ใช้ html2canvas 1.4.1 ตัวเดียวกับที่ระบบใช้สร้าง PDF สลิปอยู่แล้ว
+     (compat/approvals-reports.js -> epPdfLibs) จึงไม่เพิ่ม Library ใหม่
+   · จับภาพจาก "สำเนา" ของ Dashboard ที่แสดงอยู่บนจอจริง
+     -> ข้อมูลตรงกับตัวกรองปัจจุบันเสมอ ไม่ต้องคำนวณซ้ำ ไม่ยิง RPC เพิ่ม
+   · ตัดปุ่มควบคุมออกจากรูป (ดูทั้งหมด / Export) · ไม่มีเมนูด้านซ้ายติดมา
+   · ไม่แตะ Dashboard เดิม · ไม่แตะ Export Excel เดิม · ไม่แตะสูตรคำนวณใด ๆ
+   ================================================================= */
+function rdLoadH2C(){
+  return loadScriptOnce("html2canvas",
+    "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js","html2canvas")
+}
+function rdWaitFonts(){
+  if(document.fonts&&document.fonts.ready)return document.fonts.ready["catch"](function(){});
+  return Promise.resolve()
+}
+function rdWithTimeout(p,ms){
+  return Promise.race([p,new Promise(function(res){setTimeout(res,ms)})])
+}
+/* ตอนจับภาพ SVG จะถูกแปลงเป็นรูปแยก ซึ่งมองไม่เห็น CSS ภายนอก
+   จึงต้องย้ายค่าที่คำนวณได้จริง (สีเส้น สีตัวอักษร ขนาด) มาใส่ในตัว SVG ก่อน
+   ไม่งั้นกราฟวงกลมจะออกมาเป็นสีเทาทั้งวง */
+var RD_SVG_PROPS=["stroke","fill","stroke-width","stroke-dasharray","stroke-dashoffset",
+  "font-size","font-weight","font-family","text-anchor","opacity"];
+function rdInlineSvg(live,clone){
+  var a=live.querySelectorAll("svg *"),b=clone.querySelectorAll("svg *");
+  var n=Math.min(a.length,b.length),i,j;
+  for(i=0;i<n;i++){
+    var cs=window.getComputedStyle(a[i]),t=b[i];
+    for(j=0;j<RD_SVG_PROPS.length;j++){
+      var k=RD_SVG_PROPS[j],v=cs.getPropertyValue(k);
+      if(v)t.setAttribute(k,v);
+    }
+  }
+  return n;
+}
+function rdExportHead(){
+  var s=rptState,pick=s.attStatus||"";
+  var st=pick?rptSumTH(pick):"ทุกสถานะ";
+  var co="";try{co=String(db.settings.companyName||"")}catch(e){co=""}
+  var d=new Date();
+  var stamp=rptDateBE(d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()))+
+    " "+pad(d.getHours())+":"+pad(d.getMinutes());
+  return '<div class="rd-cap-head">'+
+    (co?'<div class="rd-cap-co">'+esc(co)+"</div>":"")+
+    "<h2>รายงานการลงเวลา — "+esc(st)+"</h2>"+
+    '<div class="rd-cap-meta">ช่วงวันที่ '+esc(rptDateBE(s.from))+" – "+esc(rptDateBE(s.to))+
+      " · แผนก "+esc(s.deptId||"ทุกแผนก")+" · พนักงาน "+esc(s.q||"ทุกคน")+"</div>"+
+    '<div class="rd-cap-stamp">ออกรายงานเมื่อ '+esc(stamp)+"</div></div>";
+}
+function rdBlobOf(cv){
+  return new Promise(function(res,rej){
+    if(cv.toBlob)cv.toBlob(function(b){b?res(b):rej(new Error("สร้างรูปไม่สำเร็จ"))},"image/png");
+    else{
+      try{
+        var p=cv.toDataURL("image/png").split(",")[1],bin=atob(p),u=new Uint8Array(bin.length),i;
+        for(i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+        res(new Blob([u],{type:"image/png"}))
+      }catch(e){rej(e)}
+    }
+  })
+}
+function rptDashExport(btn){
+  var errEl=document.getElementById("rpt-err");
+  if(errEl)errEl.textContent="";
+  var dash=document.getElementById("rpt-chart");
+  if(!dash||!dash.querySelector(".rd-cards")){
+    if(errEl)errEl.textContent="ยังไม่มีข้อมูลกราฟให้ Export";
+    return Promise.resolve()
+  }
+  if(btn&&btn.disabled)return Promise.resolve();
+  var lb=btn?btn.innerHTML:"";
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner"></span> กำลังสร้างรูป…'}
+
+  var s=rptState,pick=s.attStatus||"";
+  var box=document.createElement("div");
+  box.id="rd-capture";
+  box.setAttribute("aria-hidden","true");
+  box.innerHTML=rdExportHead()+'<div class="rd-cap-body"></div>';
+  var body=box.querySelector(".rd-cap-body");
+  var cards=dash.querySelector(".rd-cards"),grid=dash.querySelector(".rd-grid");
+  if(cards)body.appendChild(cards.cloneNode(true));
+  if(grid)body.appendChild(grid.cloneNode(true));
+  document.body.appendChild(box);
+  rdInlineSvg(dash,body);
+  /* ปุ่มควบคุมไม่ควรติดไปในรูป */
+  Array.prototype.slice.call(body.querySelectorAll("button")).forEach(function(b){
+    if(b.parentNode)b.parentNode.removeChild(b)
+  });
+
+  function cleanup(){if(box&&box.parentNode)box.parentNode.removeChild(box)}
+
+  return rdLoadH2C()
+    .then(function(){return rdWithTimeout(rdWaitFonts(),4e3)})
+    .then(function(){
+      var H2C=window.html2canvas;
+      if(!H2C)throw new Error("โหลดตัวสร้างรูปไม่สำเร็จ กรุณาลองใหม่");
+      var w=Math.max(1,Math.round(box.offsetWidth)),h=Math.max(1,Math.round(box.offsetHeight));
+      return H2C(box,{scale:2,backgroundColor:"#ffffff",useCORS:true,logging:false,
+        width:w,height:h,windowWidth:w,windowHeight:h,scrollX:0,scrollY:0})
+    })
+    .then(rdBlobOf)
+    .then(function(blob){
+      var st=pick?rptSumTH(pick):"ทุกสถานะ";
+      var fname=rptSafeName("รายงานการลงเวลา")+"_"+rptSafeName(st)+"_"+
+        rptSafeName(s.deptId||"ทุกแผนก")+"_"+
+        rptDateBE(s.from).replace(/\//g,"-")+"_ถึง_"+rptDateBE(s.to).replace(/\//g,"-")+".png";
+      var a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);a.download=fname;
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(function(){URL.revokeObjectURL(a.href)},4e3);
+      audit("EXPORT","Export กราฟรายงานการลงเวลา ("+st+" · "+s.from+" ถึง "+s.to+")");
+      toast("ดาวน์โหลดรูปกราฟแล้ว ("+st+")")
+    })["catch"](function(ex){
+      if(errEl)errEl.textContent="สร้างรูปกราฟไม่สำเร็จ: "+(ex&&ex.message||ex)
+    }).then(function(){
+      cleanup();
+      if(btn){btn.disabled=false;btn.innerHTML=lb}
+    })
+}
+
+/* ---------- กราฟวงกลมด้านขวา (SVG ไม่มี Library) ---------- */
+function rptDashDonutSVG(parts,center,unit){
+  var sum=0;parts.forEach(function(p){sum+=p.n});
+  var R=54,C=2*Math.PI*R,off=0;
+  var ring=sum?parts.filter(function(p){return p.n>0}).map(function(p){
+    var len=C*p.n/sum,seg='<circle class="rd-seg rd-'+p.c+'" r="'+R+'" cx="70" cy="70"'+
+      ' fill="none" stroke-width="22" stroke-dasharray="'+len.toFixed(2)+" "+
+      (C-len).toFixed(2)+'" stroke-dashoffset="'+(-off).toFixed(2)+'"></circle>';
+    off+=len;return seg;
+  }).join(""):'<circle r="54" cx="70" cy="70" fill="none" stroke="#E2E8F0" stroke-width="22"></circle>';
+  return '<svg class="rd-donut" viewBox="0 0 140 140" role="img" aria-label="สัดส่วนข้อมูล">'+
+    '<g transform="rotate(-90 70 70)">'+ring+"</g>"+
+    '<text x="70" y="66" class="rd-dn">'+esc(String(center))+"</text>"+
+    '<text x="70" y="84" class="rd-du">'+esc(unit)+"</text></svg>";
+}
+function rptDashDonut(rows,base,pick){
+  var parts,unit,center,title,sum=0;
+  if(!pick){
+    parts=RPT_SUM_ST.map(function(x){
+      var d=0;base.forEach(function(o){d+=o.n[x[0]]||0});
+      return{t:x[1],n:d,c:"d-"+x[0]}
+    });
+    unit="วัน";title="สัดส่วนข้อมูลการลงเวลา (นับเป็นวัน)";
+  }else if(rptDashHasLv(pick)){
+    parts=RPT_DASH_LV.map(function(b){
+      return{t:b.t,n:rows.filter(function(o){return rptDashLvOf(o.n[pick]||0)===b}).length,
+             c:"l-"+b.c,note:b.note}
+    });
+    unit="คน";title="สรุประดับการ"+rptSumTH(pick)+" (นับเป็นคน)";
+  }else{
+    var mx=0;rows.forEach(function(o){var v=o.n[pick]||0;if(v>mx)mx=v});
+    parts=rptDashRanges(mx).map(function(b){
+      return{t:b.t,n:rows.filter(function(o){var v=o.n[pick]||0;return v>=b.lo&&v<=b.hi}).length,
+             c:"n-"+b.c}
+    });
+    unit="คน";title="การกระจายจำนวนวัน"+rptSumTH(pick)+" (นับเป็นคน)";
+  }
+  parts.forEach(function(p){sum+=p.n});
+  center=sum;
+  var legend=parts.map(function(p){
+    /* ค่าที่มีอยู่จริงแต่ปัดแล้วเป็น 0% ต้องไม่แสดง 0% เพราะทำให้เข้าใจว่าไม่มีข้อมูล */
+    var raw=sum?p.n*100/sum:0,pct=Math.round(raw)===0&&p.n>0?"<1":String(Math.round(raw));
+    return '<div class="rd-lg"><span class="rd-dot rd-'+p.c+'"></span>'+
+      '<div class="rd-lgt"><b>'+esc(p.t)+"</b>"+(p.note?"<small>"+esc(p.note)+"</small>":"")+"</div>"+
+      '<span class="rd-lgn">'+p.n+" "+esc(unit)+'</span><span class="rd-lgp">('+pct+"%)</span></div>";
+  }).join("");
+  return '<div class="card rd-panel"><div class="rd-h"><b>🥧 '+esc(title)+"</b></div>"+
+    '<div class="rd-donut-wrap">'+rptDashDonutSVG(parts,center,unit)+
+    '<div class="rd-legend">'+legend+"</div></div></div>";
+}
+
+/* ---------- ตารางพนักงาน ---------- */
+function rptDashFilter(rows){
+  var q=rptNorm(rptDash.q||"");
+  if(!q)return rows.slice();
+  var ws=q.split(" ").filter(Boolean);
+  return rows.filter(function(o){
+    var hay=rptNorm([o.code,o.name,o.nick,o.dept].join(" "));
+    return ws.every(function(w){return hay.indexOf(w)>=0});
+  });
+}
+function rptDashTable(rows,pick){
+  var all=rptDashFilter(rows);
+  all.sort(function(a,b){
+    var av=rptDashN(a,pick),bv=rptDashN(b,pick);
+    if(av!==bv)return rptDash.desc?bv-av:av-bv;
+    return String(a.code||"").localeCompare(String(b.code||""),"th");
+  });
+  var per=rptDash.per===0?all.length||1:rptDash.per;
+  var pages=Math.max(1,Math.ceil(all.length/per));
+  if(rptDash.page>=pages)rptDash.page=pages-1;
+  if(rptDash.page<0)rptDash.page=0;
+  var start=rptDash.page*per,page=all.slice(start,start+per);
+  var mx=1;all.forEach(function(o){var v=rptDashN(o,pick);if(v>mx)mx=v});
+
+  var head=pick
+    ?["ลำดับ","รหัสพนักงาน","ชื่อ-สกุล","แผนก","สถานะ","จำนวน"+rptSumTH(pick)+" (วัน)"]
+      .concat(rptDashHasLv(pick)?["ระดับ"]:[]).concat(["กราฟ"])
+    :["ลำดับ","รหัสพนักงาน","ชื่อ-สกุล","แผนก"]
+      .concat(RPT_SUM_ST.map(function(x){return x[1]})).concat(["รวมวัน","กราฟ"]);
+
+  var body=page.map(function(o,i){
+    var seq=start+i+1,v=rptDashN(o,pick);
+    var bar='<td class="rd-tb"><span class="rd-mini '+
+      (pick?(rptDashHasLv(pick)?"rd-l-"+rptDashLvOf(v).c:"rd-b-"+pick):"rd-b-ALL")+
+      '"><i style="width:'+(v?Math.max(2,Math.round(v*100/mx)):0)+'%"></i></span></td>';
+    if(pick){
+      var lv=rptDashHasLv(pick)?rptDashLvOf(v):null;
+      return "<tr><td>"+seq+"</td><td>"+esc(o.code||"-")+"</td><td>"+esc(o.name||"-")+
+        "</td><td>"+esc(o.dept||"-")+'</td><td><span class="rd-pill rd-b-'+pick+'">'+
+        esc(rptSumTH(pick))+'</span></td><td class="rd-num">'+v+"</td>"+
+        (lv?'<td><span class="rd-pill rd-l-'+lv.c+'">'+esc(RPT_DASH_LVTH[lv.c])+"</span></td>":"")+
+        bar+"</tr>";
+    }
+    return "<tr><td>"+seq+"</td><td>"+esc(o.code||"-")+"</td><td>"+esc(o.name||"-")+
+      "</td><td>"+esc(o.dept||"-")+"</td>"+
+      RPT_SUM_ST.map(function(x){return '<td class="rd-num">'+(o.n[x[0]]||0)+"</td>"}).join("")+
+      '<td class="rd-num"><b>'+(o.total||0)+"</b></td>"+bar+"</tr>";
+  }).join("");
+
+  /* คอลัมน์ตัวเลข — หัวตารางต้องชิดขวาและกว้างพอดีเนื้อหา ไม่งั้นเลขลอยห่างจากหัว
+     และคอลัมน์กราฟเล็กลงในโหมดทุกสถานะ เพื่อไม่ให้ตารางล้นจนต้องเลื่อนแนวนอน */
+  var numFrom=pick?5:4,numTo=head.length-2;
+  var tbl=all.length
+    ?'<div class="table-wrap"><table class="rpt-att-tbl rd-tbl'+
+      (pick?(rptDashHasLv(pick)?" rd-tbl-lv":" rd-tbl-pick"):" rd-tbl-all")+
+      '"><thead><tr>'+
+      head.map(function(h,i){
+        var sortable=pick?(i===5):(i===head.length-2);
+        var isNum=i>=numFrom&&i<=numTo;
+        /* หัวคอลัมน์กราฟต้องมี class เดียวกับช่องข้อมูล ไม่งั้น auto-layout ยุบจนเหลือ 0px */
+        var cls=(sortable?"rd-sortable ":"")+(isNum?"rd-num":(i===head.length-1?"rd-tb":""));
+        return "<th"+(cls?' class="'+cls.trim()+'"':"")+(sortable?' id="rd-sort"':"")+">"+esc(h)+
+          (sortable?' <span class="rd-arrow">'+(rptDash.desc?"▼":"▲")+"</span>":"")+"</th>";
+      }).join("")+"</tr></thead><tbody>"+body+"</tbody></table></div>"
+    :emptyState(rptDash.q?"ไม่พบพนักงานที่ตรงกับคำค้น “"+rptDash.q+"”":rptEmptyMsg());
+
+  return{html:'<div class="rd-h rd-th"><b>📋 รายชื่อพนักงานทั้งหมด ('+all.length+' คน)</b>'+
+    '<span class="grow"></span>'+
+    '<span class="search-box rd-search">'+icon("search","ic-sm")+
+    '<input id="rd-q" autocomplete="off" placeholder="ค้นหารหัส ชื่อ ชื่อเล่น หรือแผนก…" value="'+
+    esc(rptDash.q)+'"></span>'+
+    '<span class="rd-per">แสดง <select id="rd-per">'+
+    [[10,"10"],[20,"20"],[50,"50"],[0,"ทั้งหมด"]].map(function(x){
+      return '<option value="'+x[0]+'"'+(rptDash.per===x[0]?" selected":"")+">"+x[1]+"</option>"
+    }).join("")+"</select> รายการ</span></div>"+tbl,
+    total:all.length,pages:pages,start:start,per:per};
+}
+
+function rptDashPager(info){
+  if(info.pages<=1)return"";
+  var cur=rptDash.page,out=[],i;
+  var lo=Math.max(0,cur-3),hi=Math.min(info.pages-1,lo+6);
+  lo=Math.max(0,hi-6);
+  out.push('<button type="button" class="rd-pg" data-pg="'+(cur-1)+'"'+
+    (cur===0?" disabled":"")+' aria-label="ก่อนหน้า">‹</button>');
+  for(i=lo;i<=hi;i++)out.push('<button type="button" class="rd-pg'+(i===cur?" on":"")+
+    '" data-pg="'+i+'">'+(i+1)+"</button>");
+  out.push('<button type="button" class="rd-pg" data-pg="'+(cur+1)+'"'+
+    (cur+1>=info.pages?" disabled":"")+' aria-label="ถัดไป">›</button>');
+  return '<span class="muted rd-pginfo">แสดง '+(info.start+1)+"–"+
+    Math.min(info.start+info.per,info.total)+" จาก "+info.total+" คน</span>"+
+    '<span class="grow"></span><span class="rd-pgs">'+out.join("")+"</span>";
+}
+
+/* ตารางอย่างเดียว — ค้นหา / เรียง / เปลี่ยนจำนวนแถว / เปลี่ยนหน้า
+   ไม่วาดการ์ดและกราฟใหม่ เพราะทั้งสองยึดตามตัวกรองด้านบน ไม่ใช่คำค้นในตาราง */
+function rptDashTablePaint(box,pg,focusQ){
+  var pick=rptState.attStatus||"";
+  var info=rptDashTable(rptSumRows(),pick);
+  box.innerHTML='<div class="rd-tablebox">'+info.html+"</div>";
+  if(pg)pg.innerHTML=rptDashPager(info);
+
+  var qEl=document.getElementById("rd-q");
+  if(qEl){
+    qEl.oninput=debounce(function(){
+      rptDash.q=this.value;rptDash.page=0;rptDashTablePaint(box,pg,true);
+    },250);
+    if(focusQ){qEl.focus();
+      try{qEl.setSelectionRange(qEl.value.length,qEl.value.length)}catch(e){}}
+  }
+  var perEl=document.getElementById("rd-per");
+  if(perEl)perEl.onchange=function(){
+    rptDash.per=parseInt(this.value,10)||0;rptDash.page=0;rptDashTablePaint(box,pg)};
+  var srt=document.getElementById("rd-sort");
+  if(srt)srt.onclick=function(){
+    rptDash.desc=!rptDash.desc;rptDash.page=0;rptDashTablePaint(box,pg)};
+  if(pg)pg.onclick=function(ev){
+    var b=ev.target.closest?ev.target.closest("[data-pg]"):null;
+    if(!b||b.disabled)return;
+    var n=parseInt(b.getAttribute("data-pg"),10);
+    if(isNaN(n)||n===rptDash.page)return;
+    rptDash.page=n;rptDashTablePaint(box,pg);
+    var t=document.querySelector(".rd-tablebox");
+    if(t&&t.scrollIntoView)t.scrollIntoView({block:"start"});
+  };
+  return info;
+}
+
+function rptDashPaint(el,box,pg){
+  var pick=rptState.attStatus||"";
+  var rows=rptSumRows();              /* ชุดเดียวกับ Excel — ตัวเลขตรงกันเสมอ */
+  var base=rptDashAll();
+  var dash=document.getElementById("rpt-chart");
+  if(dash)dash.innerHTML=rptDashCards(rows,base,pick)+
+    '<div class="rd-grid">'+rptDashTop(rows,base,pick)+rptDashDonut(rows,base,pick)+"</div>";
+  rptDashTablePaint(box,pg);
+  var allBtn=document.getElementById("rd-all");
+  if(allBtn)allBtn.onclick=function(){
+    var t=document.querySelector(".rd-tablebox");
+    if(t&&t.scrollIntoView)t.scrollIntoView({block:"start",behavior:"smooth"});
+  };
+  var expBtn=document.getElementById("rd-exp");           /* [RUN-190] */
+  if(expBtn)expBtn.onclick=function(){rptDashExport(this)};
+  return rows;
+}
+
+function rptLeaveLabel(r){if(!r||r.leaveStatus!=="LEAVE")return"";var m=r.leaveMode||"";if(m==="HOURLY"){var a=String(r.leaveFrom||"").slice(0,5),b=String(r.leaveTo||"").slice(0,5);return a&&b?"ลา "+a+"–"+b:"ลา (รายชั่วโมง)"}if(m==="HALF_AM")return"ลา (ครึ่งวันเช้า)";if(m==="HALF_PM")return"ลา (ครึ่งวันบ่าย)";if(m==="HALF")return"ลา (ครึ่งวัน)";return"ลา"}function rptStatusText(r){var lb=rptLeaveLabel(r);if(!lb)return r.status;var st=String(r.statusCode||"").toUpperCase();if(st==="LEAVE"||!r.in||r.in==="—")return lb;var th=EMP_ATT_STATUS[st]||r.status;return th?lb+" · "+th:lb}function rptCells(r){var late=rptState.type==="late";return[rptDateBE(r.date),r.empCode||"-",r.title,r.name,r.dept||"-",r.in,r.out,late?"มาสาย":rptStatusText(r),late?r.lh:r.wh,late?r.lm:r.wm]}function rptEmptyMsg(){if(rptState.type==="leave")return"ไม่พบรายการลาตามช่วงวันที่ แผนก ประเภทการลา และสถานะที่เลือก";if(rptState.type==="balance")return"ไม่พบพนักงานตามปีสิทธิ์ แผนก และสถานะพนักงานที่เลือก";if(rptState.type==="ot")return"ไม่พบรายการ OT ตามช่วงวันที่ แผนก และชื่อพนักงานที่เลือก";return rptState.type==="late"?"ยังไม่มีข้อมูลการมาสายในช่วงวันที่ แผนก และพนักงานที่เลือก":"ยังไม่มีข้อมูลการลงเวลาในช่วงวันที่ แผนก และพนักงานที่เลือก"}var rptState={type:"attendance",from:"",to:"",deptId:"",q:"",empId:"",leaveType:"",status:"",attStatus:"",year:(new Date).getFullYear(),empStatus:"ACTIVE"};/* [RUN-151] เปิดหน้า/รีเฟรช/ล้างตัวกรอง = วันนี้ → วันนี้ (เดิมย้อนหลัง 14 วัน)
+   ใช้ todayISO() ทั้งสองค่า ไม่ใช้ toISOString() ซึ่งเป็นเวลา UTC และเลื่อนวันได้เมื่อ TZ เป็น Asia/Bangkok
+   ถูกเรียก 2 จุด: viewReports() ตอน s.from ยังว่าง และปุ่ม #rpt-clear */
+function rptDefaults(){var t=todayISO();return{from:t,to:t}}function viewReports(el){var s=rptState;rptAttPage=0;rptDash.page=0;/* [RUN-188] */if(!s.from){var dft=rptDefaults();s.from=dft.from;s.to=dft.to}var types=[["attendance","รายงานการลงเวลา"],["late","รายงานมาสาย"],["leave","รายงานการลา"],["balance","รายงานวันลาคงเหลือ"],["ot","รายงาน OT"]];var depts=rptDepts();if(s.empId){var picked=emp(s.empId);if(!picked||s.deptId&&picked.deptId!==s.deptId){s.empId="";s.q=""}}var err="";if(!s.from||!s.to)err="กรุณาเลือกวันที่เริ่มต้นและวันที่สิ้นสุดให้ครบ";else if(s.from>s.to)err="วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด";var isOt=s.type==="ot",isLv=s.type==="leave",isBal=s.type==="balance";var isAtt=s.type==="attendance"||s.type==="late";var isSb=isLv||isBal||isAtt||isOt;if(isBal)err="";var rows=err||isSb?[]:isOt?rptOtRows():rptRows();var head=isOt?RPT_OT_HEAD:RPT_HEAD;var cellsOf=isOt?rptOtCells:rptCells;var otSum=isOt?rptOtSummary(rows):null;var seq=++rptSeq;var pickedName=s.empId?s.q||"พนักงานที่เลือก":s.q?s.q:"ทุกคน";el.innerHTML='<div class="toolbar rpt-filters">'+'<select id="rpt-type">'+types.map(function(t){return'<option value="'+t[0]+'"'+(s.type===t[0]?" selected":"")+">"+t[1]+"</option>"}).join("")+"</select>"+(isBal?'<select id="rpt-year">'+rptYears().map(function(y){return'<option value="'+y+'"'+(s.year===y?" selected":"")+">ปีสิทธิ์ "+(y+543)+"</option>"}).join("")+"</select>"+'<select id="rpt-estatus">'+[["ACTIVE","ปฏิบัติงาน"],["PROBATION","ทดลองงาน"],["RESIGNED","พ้นสภาพ"],["","ทุกสถานะ"]].map(function(x){return'<option value="'+x[0]+'"'+(s.empStatus===x[0]?" selected":"")+">"+x[1]+"</option>"}).join("")+"</select>":'<input type="date" id="rpt-from" value="'+esc(s.from)+'"><span class="muted">ถึง</span><input type="date" id="rpt-to" value="'+esc(s.to)+'">')+(isLv?'<select id="rpt-ltype"><option value="">ทุกประเภทการลา</option>'+LEAVE_TYPES.map(function(t){return'<option value="'+t.code+'"'+(s.leaveType===t.code?" selected":"")+">"+esc(t.name)+"</option>"}).join("")+"</select>"+'<select id="rpt-status"><option value="">ทุกสถานะ</option>'+Object.keys(LV_STATUS_TH).map(function(k){return'<option value="'+k+'"'+(s.status===k?" selected":"")+">"+LV_STATUS_TH[k]+"</option>"}).join("")+"</select>":"")+'<select id="rpt-dept"><option value="">ทุกแผนก</option>'+depts.map(function(d2){return'<option value="'+esc(d2.name)+'"'+(s.deptId===d2.name?" selected":"")+">"+esc(d2.name)+"</option>"}).join("")+"</select>"+(isAtt?'<select id="rpt-astatus"><option value="">ทุกสถานะ</option>'+rptAttStatusOpts().map(function(o2){return'<option value="'+esc(o2[0])+'"'+(s.attStatus===o2[0]?" selected":"")+">"+esc(o2[1])+"</option>"}).join("")+"</select>":"")+'<span class="search-box rpt-emp-box">'+icon("search","ic-sm")+'<input id="rpt-q" autocomplete="off" placeholder="ค้นหาชื่อ นามสกุล ชื่อเล่น หรือรหัสพนักงาน" value="'+esc(s.q)+'">'+'<div class="rpt-ac" id="rpt-ac" hidden></div></span>'+'<button class="btn btn-ghost" id="rpt-clear">ล้างตัวกรอง</button>'+'<span class="grow"></span>'+'<button class="btn btn-primary" id="rpt-export">'+icon("download")+" Export Excel</button></div>"+'<p class="muted note rpt-sum">ประเภทรายงาน: <b>'+esc(types.filter(function(t){return t[0]===s.type})[0][1])+"</b>"+(isBal?" · ปีสิทธิ์การลา: <b>"+(s.year+543)+"</b> · สถานะพนักงาน: <b>"+esc({ACTIVE:"ปฏิบัติงาน",PROBATION:"ทดลองงาน",RESIGNED:"พ้นสภาพ"}[s.empStatus]||"ทุกสถานะ")+"</b>":" · ช่วงวันที่: <b>"+esc(rptDateBE(s.from))+" – "+esc(rptDateBE(s.to))+"</b>")+(isLv?" · ประเภทการลา: <b>"+esc(s.leaveType?lvType(s.leaveType).name:"ทุกประเภท")+"</b>"+" · สถานะ: <b>"+esc(s.status?LV_STATUS_TH[s.status]:"ทุกสถานะ")+"</b>":"")+" · แผนก: <b>"+esc(s.deptId||"ทุกแผนก")+"</b>"+(isAtt?" · สถานะ: <b>"+esc(s.attStatus?EMP_ATT_STATUS[s.attStatus]||s.attStatus:"ทุกสถานะ")+"</b>":"")+" · พนักงาน: <b>"+esc(pickedName)+"</b>"+" · จำนวนรายการ: <b>"+rows.length+" รายการ</b></p>"+(otSum?'<div class="bal-grid rpt-otsum">'+[["คำขอทั้งหมด",otSum.reqs],["รายการงานทั้งหมด",otSum.items],["ชั่วโมงรวม",otSum.hours],["จำนวนพนักงาน",otSum.emps],["รออนุมัติ",otSum.pend],["อนุมัติแล้ว",otSum.appr]].map(function(x){return'<div class="bal-item"><div class="bal-top"><span>'+x[0]+"</span><b>"+x[1]+"</b></div></div>"}).join("")+"</div>":"")+(err?'<div class="form-error" role="alert">'+esc(err)+"</div>":"")+/* [RUN-188] โหมด Dashboard ใช้กล่องโปร่ง (การ์ดอยู่ข้างใน) · รายงานมาสายใช้ card เดิม */
+(isAtt?'<div class="'+(s.type==="attendance"?"rd-wrap":"card rpt-chart")+'" id="rpt-chart"></div>':"")+'<div class="card p0" id="rpt-table">'+(isSb?'<div class="muted" style="padding:18px">กำลังโหลดข้อมูลจาก Supabase…</div>':rows.length?'<div class="table-wrap"><table><thead><tr>'+head.map(function(h){return"<th>"+esc(h)+"</th>"}).join("")+"</tr></thead><tbody>"+rows.map(function(r){return"<tr>"+cellsOf(r).map(function(c){return"<td>"+esc(c)+"</td>"}).join("")+"</tr>"}).join("")+"</tbody></table></div>":emptyState(err||rptEmptyMsg()))+"</div>"+'<div class="toolbar" id="rpt-att-pager"></div>'+'<div class="form-error" id="rpt-err" role="alert" style="white-space:pre-line"></div>';document.getElementById("rpt-type").onchange=function(){s.type=this.value;viewReports(el)};var fEl=document.getElementById("rpt-from");if(fEl)fEl.onchange=function(){s.from=this.value;viewReports(el)};var tEl=document.getElementById("rpt-to");if(tEl)tEl.onchange=function(){s.to=this.value;viewReports(el)};var yEl=document.getElementById("rpt-year");if(yEl)yEl.onchange=function(){s.year=parseInt(this.value,10);viewReports(el)};var esEl=document.getElementById("rpt-estatus");if(esEl)esEl.onchange=function(){s.empStatus=this.value;viewReports(el)};var ltEl=document.getElementById("rpt-ltype");if(ltEl)ltEl.onchange=function(){s.leaveType=this.value;viewReports(el)};var stEl=document.getElementById("rpt-status");if(stEl)stEl.onchange=function(){s.status=this.value;viewReports(el)};document.getElementById("rpt-dept").onchange=function(){s.deptId=this.value;var p=s.empId?emp(s.empId):null;if(p&&s.deptId&&p.deptId!==s.deptId){s.empId="";s.q=""}viewReports(el)};var asEl=document.getElementById("rpt-astatus");if(asEl)asEl.onchange=function(){var v=this.value;this.blur();setTimeout(function(){s.attStatus=v;viewReports(el)},0)};document.getElementById("rpt-clear").onclick=function(){var dft2=rptDefaults();rptDash={q:"",per:20,page:0,desc:true};/* [RUN-188 · RUN-191] */rptState={type:"attendance",from:dft2.from,to:dft2.to,deptId:"",q:"",empId:"",leaveType:"",status:"",attStatus:"",year:(new Date).getFullYear(),empStatus:"ACTIVE"};viewReports(el)};var qEl=document.getElementById("rpt-q"),acEl=document.getElementById("rpt-ac");function acBox(){return document.getElementById("rpt-ac")}function closeAc(){var b=acBox();if(b){b.hidden=true;b.innerHTML=""}}function openAc(){var box=acBox(),inp=document.getElementById("rpt-q");if(!box||!inp)return;var q=inp.value.trim();if(!q){closeAc();return}sbRpcList("njhr_emp_list",{p_token:sbToken(),p_q:q,p_dept:s.deptId||null,p_status:null,p_sort:"emp_code",p_desc:false,p_limit:8,p_offset:0}).then(function(pool){var b2=acBox();if(!b2)return;if(!pool||!pool.length){closeAc();return}b2.innerHTML=pool.map(function(e2){return'<button type="button" class="rpt-ac-item" data-eid="'+esc(e2.id)+'">'+esc(e2.emp_code||"-")+" — "+esc((e2.prefix||"")+(e2.full_name||""))+(e2.nickname?" ("+esc(e2.nickname)+")":"")+" — "+esc(e2.department_name||"-")+"</button>"}).join("");b2.hidden=false}).catch(function(er){console.error("[REPORT] njhr_emp_list ล้มเหลว:",er);closeAc()})}qEl.oninput=debounce(function(){s.q=qEl.value;s.empId="";viewReports(el);var q2=document.getElementById("rpt-q");q2.focus();q2.setSelectionRange(q2.value.length,q2.value.length);openAc()},300);acEl.onmousedown=function(ev){var b=ev.target.closest?ev.target.closest("[data-eid]"):null;if(!b)return;ev.preventDefault();s.empId=b.dataset.eid;s.q=(b.textContent||"").split(" — ").slice(0,2).join(" — ");viewReports(el)};qEl.onblur=function(){setTimeout(closeAc,120)};document.getElementById("rpt-export").onclick=function(){rptExport(this)};if(!rptDeptCache.length)rptLoadDepts(el);if(isOt){rptOtLoad(el).then(function(){if(seq!==rptSeq)return;rptOtPaint(el)})}else if(isSb)rptLoadSb(el,seq)}var rptSeq=0;function rptYears(){var y=(new Date).getFullYear(),out=[];for(var i=y-3;i<=y+1;i++)out.push(i);return out}var _rptAttInflight=null,_rptAttKey="";
+var _rptAttCache={key:"",rows:null,at:0};   /* [RUN-188] แคชผลลัพธ์ชุดเดียวกันไว้ใช้ซ้ำ *//* ============================ [RUN-139] ============================
+   รายงานการลงเวลา: เดิมแสดงเฉพาะ "วันที่ที่มี attendance row"
+   (njhr_att_report เริ่ม query จาก public.attendance) จึงไม่เห็นวันที่ควรทำงานแต่ไม่ได้สแกน
+   แก้โดยประกอบ Daily Dataset กลาง (rptComposeDaily) จาก Source จริงทั้งหมด
+   แล้วแปลงกลับเป็นรูปแบบแถวเดิมของ njhr_att_report เพื่อไม่ต้องแตะ rptAttRow/rptCells/Export
+   หมายเหตุ: โหมด "มาสาย" (LATE) ยังใช้เส้นทางเดิม เพราะกรองที่ Server ด้วย late_min > 0
+   =================================================================== */
+function rptDailyShiftMap(){return rptFetchShiftMap(sbToken())}
+var rptDailyWarn=[];
+function rptDailyToAttRow(r){
+  return {work_date:r.date,employee_id:r.empId,emp_code:r.empCode,prefix:r.prefix,
+    emp_name:r.empName,nickname:r.nickname||"",department:r.dept,position_name:"",
+    check_in:r.checkIn,check_out:r.checkOut,work_hours:r.workHours,
+    status:r.attStatus,late_min:r.lateMin,shift_name:r.shiftName,
+    leave_status:r.leaveType?"LEAVE":"",leave_type:r.leaveType||"",
+    leave_mode:r.leaveMode||"",leave_start_time:r.leaveFrom||"",leave_end_time:r.leaveTo||""};
+}
+function rptFetchAttDaily(args,s){
+  var tk=sbToken();
+  return Promise.all([
+    rptFetchAllPages("njhr_att_report",args,{keyOf:function(r){
+      return String(r.employee_id||"")+"|"+String(r.work_date||"").slice(0,10)}}),
+    /* พนักงานทั้งแผนกที่เลือก (ไม่กรองด้วยคำค้น เพื่อไม่ให้แถว attendance ของใครหล่นหาย) */
+    rptFetchAllPages("njhr_emp_list",{p_token:tk,p_q:null,p_dept:s.deptId||null,
+      p_status:null,p_sort:"emp_code",p_desc:false},{keyOf:function(r){return String(r.id||"")}}),
+    sbRpcList("njhr_leave_report",{p_token:tk,p_from:s.from,p_to:s.to,p_dept:s.deptId||null,
+      p_q:null,p_type:null,p_status:"APPROVED"}),
+    sbRpcList("njhr_holiday_list",{p_token:tk,p_from:s.from,p_to:s.to}),
+    rptDailyShiftMap()
+  ]).then(function(res){
+    var aRows=res[0]||[],eRows=rptGuardCap(res[1]||[],"รายชื่อพนักงาน"),
+        lRows=rptGuardCap(res[2]||[],"ใบลา"),hRows=rptGuardCap(res[3]||[],"วันหยุด"),
+        shiftByEmp=res[4]||{};
+
+    var emps=eRows.map(function(e){
+      var full=String(e.full_name||"").trim();
+      return {id:e.id,code:String(e.emp_code||"").trim(),prefix:e.prefix||"",name:full,
+        nickname:e.nickname||"",dept:e.department_name||"",status:e.status||"",
+        startDate:e.start_date||null,resignDate:e.resign_date||null};
+    });
+    /* ขอบเขตพนักงาน = ที่ตรงกับตัวกรองหน้าจอ  ∪  ที่มี attendance จริง (กันข้อมูลหาย) */
+    var inAtt={};aRows.forEach(function(a){if(a.employee_id)inAtt[a.employee_id]=1});
+    var q=rptNorm(s.q||"");
+    var scope=emps.filter(function(e){
+      if(inAtt[e.id])return true;
+      if(s.empId)return e.id===s.empId;
+      if(!q)return true;
+      var hay=rptNorm([e.code,e.prefix,e.name,e.prefix+e.name,e.nickname,e.dept].join(" "));
+      return q.split(" ").every(function(w){return hay.indexOf(w)>=0});
+    });
+
+    /* [RUN-144] ของเดิมสร้าง byCode จาก scope ซึ่งถูกกรองด้วยคำค้น/พนักงานที่เลือกแล้ว
+       แต่ njhr_leave_report ถูกดึงมาโดยไม่ใส่ p_q/p_employee จึงได้ใบลาของ "ทุกคน" ในแผนก
+       ใบลาของคนนอกผลการค้นหาจึงจับคู่ไม่ได้ แล้วไป throw ทำให้ทั้งรายงานเป็น 0 รายการ
+       แก้: สร้าง map จากรายชื่อพนักงานทั้งชุด (master เต็ม) แล้วค่อยแยกสามกรณี
+         1) จับคู่ได้ + อยู่ในขอบเขตที่แสดง  -> ใช้งาน
+         2) จับคู่ได้ + อยู่นอกขอบเขต        -> ข้าม (เป็นเรื่องปกติของการกรอง ไม่ใช่ error)
+         3) จับคู่ไม่ได้จริง                 -> เก็บเป็นคำเตือน ไม่บล็อกรายงานส่วนที่ถูกต้อง */
+    var byCode=Object.create(null),dupCode=[];
+    emps.forEach(function(e){
+      var k=rptEmpKey(e.code);
+      if(!k)return;
+      if(byCode[k]){if(dupCode.indexOf(k)<0)dupCode.push(k);return}   /* ตัวแรกชนะ */
+      byCode[k]=e;
+    });
+    var inScope=Object.create(null);
+    scope.forEach(function(e){inScope[e.id]=1});
+
+    var lvMiss=[],lvOut=0;
+    var leaves=lRows.map(function(l){
+      var c=rptEmpKey(l.emp_code),e=c?byCode[c]:null;
+      if(!e){if(c&&lvMiss.indexOf(c)<0)lvMiss.push(c);return null}
+      if(!inScope[e.id]){lvOut++;return null}                          /* นอกตัวกรอง ข้ามเงียบ */
+      return {id:l.req_id,empId:e.id,typeCode:l.leave_type||"",typeName:l.leave_type||"",
+        startDate:String(l.start_date||"").slice(0,10),endDate:String(l.end_date||"").slice(0,10),
+        unit:l.leave_unit||"day",
+        mode:(l.mode_txt==="ครึ่งวันบ่าย"?"HALF_PM":l.mode_txt==="ครึ่งวันเช้า"?"HALF_AM":""),
+        days:Number(l.total_days)||0,hours:Number(l.hours)||0,
+        startTime:l.start_time||"",endTime:l.end_time||""};
+    }).filter(Boolean);
+    /* [RUN-144] แจ้งเฉพาะรหัสที่มีปัญหาจริง ไม่บล็อกทั้งรายงาน */
+    rptDailyWarn=[];
+    if(dupCode.length)rptDailyWarn.push("พบรหัสพนักงานซ้ำ "+dupCode.slice(0,5).join(", ")+
+      (dupCode.length>5?" …":"")+" — ใช้รายการแรกในการจับคู่วันลา");
+    if(lvMiss.length)rptDailyWarn.push("มีใบลาที่จับคู่พนักงานไม่ได้ "+lvMiss.length+" รหัส ("+
+      lvMiss.slice(0,5).join(", ")+(lvMiss.length>5?" …":"")+
+      ") — วันลาของรหัสเหล่านี้ไม่ถูกนับ ส่วนที่เหลือแสดงตามปกติ");
+
+    var holidays={};hRows.forEach(function(h){
+      var d=String(h.holiday_date||"").slice(0,10);if(d)holidays[d]=h.name||"วันหยุด"});
+
+    var att=aRows.map(function(a){
+      return {empId:a.employee_id,date:String(a.work_date||"").slice(0,10),
+        checkIn:a.check_in||null,checkOut:a.check_out||null,
+        workHours:a.work_hours==null?null:Number(a.work_hours),
+        status:a.status||"",lateMin:a.late_min==null?null:Number(a.late_min),
+        shiftName:a.shift_name||""};
+    });
+
+    var built=rptComposeDaily({from:s.from,to:s.to,employees:scope,attendance:att,
+      leaves:leaves,holidays:holidays,shiftByEmp:shiftByEmp});
+
+    /* กติกาบังคับ: Daily Dataset ต้องไม่น้อยกว่าจำนวนแถว attendance ดิบ */
+    if(built.rows.length<aRows.length)throw new Error("รายงานหยุด: Daily Dataset ("+built.rows.length+
+      " แถว) น้อยกว่าข้อมูลลงเวลาจริง ("+aRows.length+" แถว) — ยังไม่แสดงผลเพื่อกันข้อมูลหาย");
+    rptDailyStats=built.stats;rptDailyRaw=aRows.length;
+    return built.rows.map(rptDailyToAttRow);
+  });
+}
+var rptDailyStats=null,rptDailyRaw=0;
+function rptFetchAtt(){var s=rptState;var args={p_token:sbToken(),p_from:s.from,p_to:s.to,p_type:s.type==="late"?"LATE":"ATTEND",p_dept:s.deptId||null,p_employee:s.empId||null,p_q:s.empId?null:s.q||null};var key=JSON.stringify([args.p_from,args.p_to,args.p_type,args.p_dept,args.p_employee,args.p_q]);
+/* [RUN-188] เปลี่ยน "สถานะ" อย่างเดียว = ตัวกรองฝั่ง Client ทั้งหมด (rptAttApplyStatus)
+   กุญแจแคชไม่มีสถานะอยู่ด้วย จึงใช้ข้อมูลชุดเดิมซ้ำได้ ไม่ต้องยิง RPC ใหม่
+   อายุแคชสั้น (90 วินาที) เพื่อไม่ให้เห็นข้อมูลเก่าค้าง และล้างทิ้งเมื่อคีย์เปลี่ยน */
+if(_rptAttCache.key===key&&_rptAttCache.rows&&(Date.now()-_rptAttCache.at)<9e4)
+  return Promise.resolve(_rptAttCache.rows);
+if(_rptAttInflight&&_rptAttKey===key)return _rptAttInflight;_rptAttKey=key;_rptAttInflight=((s.type==="late")?rptFetchAllPages("njhr_att_report",args,{keyOf:function(r){return String(r.employee_id||"")+"|"+String(r.work_date||"").slice(0,10)}}):rptFetchAttDaily(args,s))
+  .then(function(rows){_rptAttCache={key:key,rows:rows,at:Date.now()};return rows});_rptAttInflight["catch"](function(){}).then(function(){if(_rptAttKey===key){_rptAttInflight=null;_rptAttKey=""}});return _rptAttInflight}function rptAttRow(r){function hm(t){return t?new Date(t).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:"Asia/Bangkok"}):"—"}var mins=r.check_in&&r.check_out?Math.max(0,Math.round((new Date(r.check_out)-new Date(r.check_in))/6e4)):null;return{date:String(r.work_date).slice(0,10),title:r.prefix||"",name:r.emp_name||"",in:hm(r.check_in),out:hm(r.check_out),statusCode:r.status||"",leaveStatus:r.leave_status||"",leaveType:r.leave_type||"",leaveMode:r.leave_mode||"",leaveFrom:r.leave_start_time||"",leaveTo:r.leave_end_time||"",nick:r.nickname||"",rawStatus:r.raw_status||"",rawLateMin:r.raw_late_min==null?null:Number(r.raw_late_min),status:EMP_ATT_STATUS[r.status]||r.status||"",wh:mins==null?"":Math.floor(mins/60),wm:mins==null?"":mins%60,lh:r.late_min?Math.floor(r.late_min/60):r.late_min===0?0:"",lm:r.late_min?r.late_min%60:r.late_min===0?0:"",dept:r.department||"",empCode:r.emp_code||""}}function rptAttPaint(el){var box=document.getElementById("rpt-table");var pg=document.getElementById("rpt-att-pager");if(!box)return;
+/* [RUN-188] รายงานการลงเวลา -> Dashboard · รายงานมาสาย (late) ใช้ของเดิมทุกบรรทัด */
+if(rptDashOn()){rptDashPaint(el,box,pg);return}
+rptChartPaint();if(rptSumOn()){rptSumPaint(box,pg);return}var total=rptAttRows.length;var pages=Math.ceil(total/RPT_ATT_PER)||1;if(rptAttPage>=pages)rptAttPage=pages-1;if(rptAttPage<0)rptAttPage=0;var start=rptAttPage*RPT_ATT_PER;var cells=rptAttRows.slice(start,start+RPT_ATT_PER).map(rptCells);box.innerHTML=cells.length?'<div class="table-wrap"><table class="rpt-att-tbl"><thead><tr>'+RPT_HEAD.map(function(h){return"<th>"+esc(h)+"</th>"}).join("")+"</tr></thead><tbody>"+cells.map(function(r){return"<tr>"+r.map(function(c){return"<td>"+esc(c)+"</td>"}).join("")+"</tr>"}).join("")+"</tbody></table></div>":emptyState(rptEmptyMsg());if(!pg)return;pg.innerHTML=pages>1?'<button class="btn btn-ghost btn-sm" id="rpt-att-prev"'+(rptAttPage===0?" disabled":"")+">ก่อนหน้า</button>"+'<span class="muted">หน้า '+(rptAttPage+1)+" / "+pages+" · แสดง "+(start+1)+"–"+Math.min(start+RPT_ATT_PER,total)+" จาก "+total+" รายการ</span>"+'<button class="btn btn-ghost btn-sm" id="rpt-att-next"'+(rptAttPage+1>=pages?" disabled":"")+">ถัดไป</button>":"";if(pages>1){document.getElementById("rpt-att-prev").onclick=function(){if(rptAttPage>0){rptAttPage--;rptAttPaint(el)}};document.getElementById("rpt-att-next").onclick=function(){if(rptAttPage+1<pages){rptAttPage++;rptAttPaint(el)}}}}function rptLoadSb(el,seq){var s=rptState,isBal=s.type==="balance";var isAtt=s.type==="attendance"||s.type==="late";if(isAtt){rptFetchAtt().then(function(rows){if(seq!==rptSeq)return;rptAttRaw=(rows||[]).map(rptAttRow);rptAttRows=rptAttApplyStatus(rptAttRaw);rptAttPaint(el);/* [RUN-144] คำเตือนระดับแถว แสดงให้เห็นแต่ไม่บล็อกรายงาน */var wEl=document.getElementById("rpt-err");if(wEl)wEl.innerHTML=(rptDailyWarn&&rptDailyWarn.length)?'<span class="chip chip-warn">ข้อควรทราบ</span> '+rptDailyWarn.map(esc).join("<br>"):"";var sum=el.querySelector(".rpt-sum");if(sum)sum.innerHTML=sum.innerHTML.replace(/จำนวนรายการ: <b>\d+ รายการ<\/b>/,rptSumOn()?"จำนวนพนักงาน: <b>"+rptSumRows().length+" คน</b>":"จำนวนรายการ: <b>"+rptAttRows.length+" รายการ</b>")}).catch(function(er){if(seq!==rptSeq)return;console.error("[REPORT] njhr_att_report ล้มเหลว:",er);var box=document.getElementById("rpt-table");if(box)box.innerHTML='<div class="ep-state ep-state-bad"><b>โหลดรายงานไม่สำเร็จ</b>'+'<small class="muted">'+esc(er.message||"")+"</small></div>"});return}(isBal?rptFetchBalance():rptFetchLeave()).then(function(rows){if(seq!==rptSeq)return;var box=document.getElementById("rpt-table");if(!box)return;var head,cells,n;if(isBal){var pv=rptBalPivot(rows);rptBalRows=pv.emps;rptBalTypes=pv.types;head=rptBalHead(pv.types);cells=pv.emps.map(function(r,i){return rptBalCells(r,pv.types,i)});n=pv.emps.length}else{rptLeaveRows=rows;head=RPT_LEAVE_HEAD;cells=rows.map(rptLeaveCells);n=rows.length}box.innerHTML=cells.length?'<div class="table-wrap"><table><thead><tr>'+head.map(function(h){return"<th>"+esc(h)+"</th>"}).join("")+"</tr></thead><tbody>"+cells.map(function(r){return"<tr>"+r.map(function(c){return"<td>"+esc(c)+"</td>"}).join("")+"</tr>"}).join("")+"</tbody></table></div>":emptyState(rptEmptyMsg());var sum=el.querySelector(".rpt-sum");if(sum)sum.innerHTML=sum.innerHTML.replace(/จำนวนรายการ: <b>\d+ รายการ<\/b>/,"จำนวนรายการ: <b>"+n+" รายการ</b>")}).catch(function(er){if(seq!==rptSeq)return;rptLeaveRows=[];rptBalRows=[];var box=document.getElementById("rpt-table");if(box)box.innerHTML=emptyState("โหลดข้อมูลไม่สำเร็จ");var e2=document.getElementById("rpt-err");if(e2)e2.textContent="โหลดข้อมูลจาก Supabase ไม่สำเร็จ: "+(er.message||er)})}function rptExportLeave(btn,isBal){var s=rptState,errEl=document.getElementById("rpt-err");var head,cells,n;if(isBal){if(!rptBalRows.length){errEl.textContent=rptEmptyMsg();return}head=rptBalHead(rptBalTypes);cells=rptBalRows.map(function(r,i){return rptBalCells(r,rptBalTypes,i)});n=rptBalRows.length}else{if(!rptLeaveRows.length){errEl.textContent=rptEmptyMsg();return}head=RPT_LEAVE_HEAD;cells=rptLeaveRows.map(rptLeaveCells);n=rptLeaveRows.length}if(btn.disabled)return;var label=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spinner"></span> กำลังสร้างไฟล์…';var deptTxt=s.deptId||"ทุกแผนก";var now=new Date;var stamp=rptDateBE(now.getFullYear()+"-"+pad(now.getMonth()+1)+"-"+pad(now.getDate()))+" "+pad(now.getHours())+":"+pad(now.getMinutes());var sheetName,fname,title;if(isBal){sheetName="วันลาคงเหลือ";fname="รายงานวันลาคงเหลือ_ปี_"+(s.year+543)+".xlsx";title=[db.settings.companyName,"รายงานวันลาคงเหลือ","ปีสิทธิ์การลา: "+(s.year+543),"แผนก: "+deptTxt,"สถานะพนักงาน: "+({ACTIVE:"ปฏิบัติงาน",PROBATION:"ทดลองงาน",RESIGNED:"พ้นสภาพ"}[s.empStatus]||"ทุกสถานะ"),"พนักงานทั้งหมด: "+n+" คน","วันที่ Export: "+stamp]}else{sheetName="รายงานการลา";fname="รายงานการลา_"+rptDateBE(s.from).replace(/\//g,"-")+"_ถึง_"+rptDateBE(s.to).replace(/\//g,"-")+".xlsx";var sumD=rptLeaveRows.reduce(function(a2,r){return a2+lvNum(r.total_days)},0);var sumH=rptLeaveRows.reduce(function(a2,r){return a2+lvNum(r.hours)},0);title=[db.settings.companyName,"รายงานการลา","ช่วงวันที่: "+rptDateBE(s.from)+" – "+rptDateBE(s.to),"แผนก: "+deptTxt,"ประเภทการลา: "+(s.leaveType?lvType(s.leaveType).name:"ทุกประเภท"),"สถานะ: "+(s.status?LV_STATUS_TH[s.status]:"ทุกสถานะ"),"จำนวนรายการรวม: "+n+" รายการ · จำนวนวันลารวม: "+Math.round(sumD*100)/100+" วัน · จำนวนชั่วโมงลารวม: "+Math.round(sumH*100)/100+" ชม.","วันที่ Export: "+stamp]}var widths=head.map(function(h){return Math.min(Math.max(String(h).length+4,10),30)});rptLoadZip().then(function(){return rptBuildXlsx(sheetName,head,cells,widths,title)}).then(function(blob){var a3=document.createElement("a");a3.href=URL.createObjectURL(blob);a3.download=rptSafeName(fname.replace(".xlsx",""))+".xlsx";document.body.appendChild(a3);a3.click();a3.remove();setTimeout(function(){URL.revokeObjectURL(a3.href)},4e3);audit("EXPORT","Export "+sheetName+" "+n+" รายการ");toast("ดาวน์โหลด "+sheetName+" แล้ว "+n+" รายการ")}).catch(function(ex){if(errEl)errEl.textContent="สร้างไฟล์ Excel ไม่สำเร็จ: "+(ex&&ex.message||ex)}).then(function(){btn.disabled=false;btn.innerHTML=label})}/* [RUN-149] กราฟรายงานการลงเวลา แยกตามสถานะ — Desktop เท่านั้น (ซ่อนด้วย CSS ที่ .rpt-chart)
+   · ใช้ rptAttRows ชุดเดียวกับตาราง (ผ่าน rptAttApplyStatus มาแล้ว) ไม่ query ใหม่ ไม่สร้างข้อมูลใหม่
+   · แสดงกราฟเดียวตามสถานะที่เลือกเท่านั้น ไม่รวม 3 สถานะในกราฟเดียว
+   · refresh อัตโนมัติ เพราะ rptAttPaint() ถูกเรียกทุกครั้งที่ viewReports -> rptLoadSb เสร็จ */
+/* [RUN-161] เพิ่ม "ปกติ" และเพิ่มโหมด "ทุกสถานะ" = กราฟเปรียบเทียบรายพนักงาน
+   (ของเดิม RUN-149 รองรับ 3 สถานะ และไม่เลือกสถานะ = ไม่มีกราฟ — ถูกแทนที่ตามคำสั่งรอบนี้) */
+var RPT_CHART_ST={NORMAL:"กราฟปกติ",LATE:"กราฟมาสาย",ABSENT:"กราฟขาดงาน",LEAVE:"กราฟลา",HOLIDAY:"กราฟวันหยุด"};
+function rptChartAll(){return rptSumOn()&&!rptState.attStatus}
+function rptChartTitle(){var c=rptState.attStatus;
+  if(!c)return rptChartAll()?"กราฟเปรียบเทียบทุกสถานะรายพนักงาน":"";
+  return RPT_CHART_ST[c]||""}
+/* [RUN-161] กราฟอ่านจาก rptSumRows() ชุดเดียวกับตารางสรุป -> ตัวเลขตรงกัน 100%
+   และเรียงมากสุด -> น้อยสุดมาแล้วจาก rptSumRows() */
+function rptChartData(){
+  var code=rptState.attStatus;
+  if(code&&!RPT_CHART_ST[code])return[];
+  if(!code&&!rptChartAll())return[];
+  return rptSumRows().map(function(o){
+    return{code:o.code,name:o.name,dept:o.dept,nb:o.n,total:o.total,
+           n:code?(o.n[code]||0):(o.total||0)}
+  })
+}
+/* ค่าสูงสุดที่ใช้สเกลแท่ง — โหมดทุกสถานะเทียบข้ามสถานะด้วยค่าเดียวกัน แท่งจึงเทียบกันได้จริง */
+function rptChartMax(data){
+  var m=0;
+  (data||[]).forEach(function(d){
+    if(rptChartAll()){RPT_SUM_ST.forEach(function(x){var v=d.nb[x[0]]||0;if(v>m)m=v})}
+    else if(d.n>m)m=d.n
+  });
+  return m||1
+}
+function rptChartPaint(){
+  var box=document.getElementById("rpt-chart");
+  if(!box)return;
+  var s=rptState,title=rptChartTitle();
+  if(!title){
+    box.innerHTML='<p class="muted note rpt-chart-hint">เลือกสถานะ <b>ปกติ</b> / <b>มาสาย</b> / <b>ขาดงาน</b> / <b>ลา</b> ที่ตัวกรองด้านบน เพื่อดูกราฟแยกตามสถานะ</p>';
+    return
+  }
+  var range=esc(rptDateBE(s.from))+" – "+esc(rptDateBE(s.to));
+  var data=rptChartData();
+  if(!data.length){
+    box.innerHTML='<div class="rpt-chart-head"><b>'+esc(title)+'</b><span class="muted">'+range+'</span></div>'
+      +'<p class="muted note">ไม่มีข้อมูลในช่วงวันที่ แผนก และพนักงานที่เลือก</p>';
+    return
+  }
+  var max=rptChartMax(data),total=0,allMode=rptChartAll();
+  data.forEach(function(d){total+=d.n});
+  var head='<div class="rpt-chart-head"><b>'+esc(title)+"</b>"
+    +'<span class="muted">'+range+" · "+esc(s.deptId||"ทุกแผนก")+" · "+data.length+" คน · รวม "+total+" วัน</span>"
+    +'<span class="grow"></span>'
+    +'<button class="btn btn-ghost btn-sm" id="rpt-chart-export">'+icon("download")+" Export กราฟ</button></div>";
+  if(allMode){
+    /* [RUN-161] เปรียบเทียบรายพนักงาน: ปกติ | มาสาย | ขาดงาน | ลา ในคนเดียวกัน */
+    box.innerHTML=head
+      +'<div class="rpt-chart-legend">'+RPT_SUM_ST.map(function(x){
+        return '<span class="rpt-chart-lg rpt-g-'+x[0]+'"><i></i>'+esc(x[1])+"</span>"}).join("")+"</div>"
+      +'<div class="rpt-chart-body rpt-chart-gbody">'+data.map(function(d){
+        var lb=(d.code?d.code+" · ":"")+d.name;
+        return '<div class="rpt-chart-grp"><span class="rpt-chart-lb" title="'+esc(lb)+'">'+esc(lb)
+          +'</span><span class="rpt-chart-gbars">'+RPT_SUM_ST.map(function(x){
+            var v=d.nb[x[0]]||0;
+            return '<span class="rpt-chart-gbar rpt-g-'+x[0]+'" title="'+esc(x[1])+" "+v+' วัน">'
+              +'<i style="width:'+(v?Math.max(2,Math.round(v*100/max)):0)+'%"></i>'
+              +'<em>'+esc(x[1])+" "+v+' วัน</em></span>'
+          }).join("")+"</span></div>"
+      }).join("")+"</div>";
+  }else{
+    var stTH=rptSumTH(s.attStatus);
+    box.innerHTML=head
+      +'<div class="rpt-chart-body">'+data.map(function(d){
+        var lb=d.code?d.code+" · "+d.name:d.name;
+        return '<div class="rpt-chart-row"><span class="rpt-chart-lb" title="'+esc(lb)+'">'+esc(lb)+"</span>"
+          +'<span class="rpt-chart-bar"><i style="width:'+Math.max(2,Math.round(d.n*100/max))+'%"></i></span>'
+          +'<b class="rpt-chart-n">'+esc(stTH)+" "+d.n+" วัน</b></div>"
+      }).join("")+"</div>";
+  }
+  var bx=document.getElementById("rpt-chart-export");
+  if(bx)bx.onclick=function(){rptChartExport(this)}
+}
+function rptChartExport(btn){
+  var s=rptState,errEl=document.getElementById("rpt-err");
+  if(errEl)errEl.textContent="";
+  var title=rptChartTitle(),data=rptChartData();
+  if(!title||!data.length){if(errEl)errEl.textContent="ยังไม่มีข้อมูลกราฟให้ Export";return}
+  if(btn.disabled)return;
+  var label=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spinner"></span> กำลังสร้างไฟล์…';
+  function done(){btn.disabled=false;btn.innerHTML=label}
+  try{
+    /* [RUN-151] ขยายให้อ่านออกเมื่อคนเยอะ — แถวสูงขึ้น ช่องชื่อกว้างขึ้น ภาพกว้างขึ้น */
+    var allMode=rptChartAll(),sub=22;
+    /* [RUN-161] โหมดทุกสถานะใช้ 4 แท่งย่อย จึงต้องสูงขึ้น และป้ายขวากว้างขึ้นเพราะมีคำว่า "N วัน" */
+    var rowH=allMode?(sub*4+12):34,padT=112,padB=30,padL=320,padR=allMode?168:200,W=1360;
+    var H=padT+data.length*rowH+padB;
+    /* [RUN-151] คนเยอะ = ภาพสูงมาก ถ้าคูณ dpr ต่ออาจเกินขีดจำกัดขนาด canvas ของเบราว์เซอร์
+       แล้วได้ไฟล์เปล่า จึงลด dpr ลงเมื่อสูงเกิน 12000px */
+    var dpr=Math.min(2,window.devicePixelRatio||1);if(H*dpr>12000)dpr=1;
+    var cv=document.createElement("canvas");
+    cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
+    var c=cv.getContext("2d");c.scale(dpr,dpr);
+    c.fillStyle="#FFFFFF";c.fillRect(0,0,W,H);
+    var range=rptDateBE(s.from)+" – "+rptDateBE(s.to),total=0;
+    data.forEach(function(d){total+=d.n});
+    c.textBaseline="alphabetic";c.textAlign="left";
+    c.fillStyle="#111827";c.font='600 26px Prompt, sans-serif';
+    c.fillText(title,28,48);
+    c.fillStyle="#6B7280";c.font='15px Prompt, sans-serif';
+    c.fillText("ช่วงวันที่ "+range+" · แผนก "+(s.deptId||"ทุกแผนก")+(s.q?" · ค้นหา "+s.q:""),28,76);
+    c.fillText("พนักงาน "+data.length+" คน · รวม "+total+" วัน"+(allMode?" (ทุกสถานะ)":""),28,100);
+    var max=rptChartMax(data),barW=W-padL-padR,stTH=rptSumTH(s.attStatus);
+    data.forEach(function(d,i){
+      var y=padT+i*rowH,lb=(d.code?d.code+" · ":"")+d.name;
+      c.font='15px Prompt, sans-serif';c.textAlign="right";c.fillStyle="#374151";
+      while(c.measureText(lb).width>padL-36&&lb.length>4)lb=lb.slice(0,-2)+"…";
+      c.fillText(lb,padL-18,y+(allMode?sub*2:21));
+      c.textAlign="left";
+      if(allMode){
+        /* [RUN-161] โหมดทุกสถานะ: 4 แท่งย่อยต่อพนักงาน (ปกติ/มาสาย/ขาดงาน/ลา) */
+        RPT_SUM_ST.forEach(function(x,k){
+          var v=d.nb[x[0]]||0,yy=y+4+k*sub;
+          c.fillStyle="#EEF0F3";c.fillRect(padL,yy,barW,sub-3);
+          c.fillStyle="#"+RPT_SUM_COLOR[x[0]];
+          if(v)c.fillRect(padL,yy,Math.max(3,Math.round(v*barW/max)),sub-3);
+          c.fillStyle="#111827";c.font='600 12px Prompt, sans-serif';
+          c.fillText(x[1]+" "+v+" วัน",padL+barW+10,yy+sub-7)
+        })
+      }else{
+        c.fillStyle="#E5E7EB";c.fillRect(padL,y+7,barW,18);
+        c.fillStyle="#2563EB";c.fillRect(padL,y+7,Math.max(3,Math.round(d.n*barW/max)),18);
+        c.fillStyle="#111827";c.font='600 15px Prompt, sans-serif';
+        c.fillText(stTH+" "+d.n+" วัน",padL+barW+14,y+21)
+      }
+    });
+    var who=s.q?rptSafeName(s.q):"ทุกคน";
+    var fname=rptSafeName(title)+"_"+rptSafeName(s.deptId||"ทุกแผนก")+"_"+who+"_"
+      +rptDateBE(s.from).replace(/\//g,"-")+"_ถึง_"+rptDateBE(s.to).replace(/\//g,"-")+".png";
+    cv.toBlob(function(blob){
+      if(!blob){if(errEl)errEl.textContent="สร้างไฟล์กราฟไม่สำเร็จ";done();return}
+      var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=fname;
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(function(){URL.revokeObjectURL(a.href)},4e3);
+      audit("EXPORT","Export "+title+" "+data.length+" คน ("+s.from+" ถึง "+s.to+")");
+      toast("ดาวน์โหลด "+title+" แล้ว "+data.length+" คน");
+      done()
+    },"image/png")
+  }catch(ex){
+    if(errEl)errEl.textContent="สร้างไฟล์กราฟไม่สำเร็จ: "+(ex&&ex.message||ex);
+    done()
+  }
+}
+/* ============================ [RUN-161] ============================
+   Export Excel ของ "รายงานการลงเวลา" = 2 ส่วน
+     ส่วนบน  Sheet "รายงานการลงเวลา" = ตารางสรุปจำนวนวันรายพนักงาน
+     ส่วนล่าง Sheet "กราฟสรุป"        = ข้อมูลชุดเดียวกัน + กราฟแท่งของจริง
+   · ใช้ rptSumRows() ตัวเดียวกับตารางและกราฟหน้าเว็บ -> ตัวเลขตรงกัน 100%
+   · เรียงมากสุด -> น้อยสุด เหมือนตาราง (กราฟใช้ catAx maxMin ให้แท่งบนสุด = มากสุด)
+   ================================================================= */
+/* ===========================================================================
+   [RUN-202] Export โหมดสรุป — ตารางลงเวลารายวันแนวนอนตามภาพต้นแบบ
+   เพิ่มเฉพาะ "ตอนสร้างไฟล์ Excel" ของโหมดสรุปเท่านั้น
+   ไม่แตะตารางบนหน้าจอ · ไม่แตะรายงาน OT / ลา / สิทธิ์วันลา / รายงานรายวัน
+   ไม่แตะฐานข้อมูล · ไม่เพิ่ม RPC ใหม่ (ใช้ njhr_ot_report ตัวเดิมของหน้านี้)
+   =========================================================================== */
+var RPG_DOW_TH = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
+
+/* OT รายวัน — รวมชั่วโมงงาน OT ที่อนุมัติแล้ว ต่อ (พนักงาน + วันที่)
+   ห้ามสร้าง OT อัตโนมัติ: ไม่มีรายการจริง = 0 เสมอ */
+function rptSumOtMap() {
+  var s = rptState;
+  if (!sbReady() || !sbToken()) return Promise.resolve({});
+  return rptFetchAllPages("njhr_ot_report", {
+    p_token: sbToken(), p_from: s.from, p_to: s.to, p_status: "APPROVED",
+    p_dept: s.deptId || null, p_employee: s.empId || null, p_q: s.q || null
+  }, { keyOf: function (r) { return String(r.ot_id || "") + "|" + String(r.job_no == null ? "" : r.job_no) } })
+    .then(function (rows) {
+      var m = Object.create(null);
+      (rows || []).forEach(function (r) {
+        if (String(r.status || "").toUpperCase() !== "APPROVED") return;
+        var d = String(r.job_date || "").slice(0, 10);
+        var k = rptEmpKey(r.emp_code || "");
+        if (!d || !k) return;
+        m[k + "|" + d] = Math.round(((m[k + "|" + d] || 0) + (Number(r.job_hours) || 0)) * 100) / 100;
+      });
+      return m;
+    })["catch"](function () { return {} });
+}
+
+/* [RUN-203] เวลาเข้า/ออกสำหรับ Excel — รับเฉพาะเวลาจริงรูปแบบ HH:mm เท่านั้น
+   ค่าว่าง "—" null 0 หรือข้อความอื่นใด ให้เป็นช่องว่าง
+   ห้ามแปลง 0 หรือ null เป็นเวลาเที่ยงคืน และห้ามแสดง 0.00 แทนข้อมูลที่ไม่มี
+   ส่วนการสแกนจริงเวลา 00:00 ถือเป็นเวลาจริง ต้องแสดง 00:00 ตามเดิม */
+function rptSumHM(v) {
+  var t = String(v == null ? "" : v).trim();
+  var m = /^([0-9]{1,2}):([0-9]{2})$/.exec(t);
+  if (!m) return "";
+  var h = Number(m[1]), mi = Number(m[2]);
+  if (!(h >= 0 && h <= 23) || !(mi >= 0 && mi <= 59)) return "";
+  return (h < 10 ? "0" + h : String(h)) + ":" + m[2];
+}
+
+/* [RUN-203] สถานะรายวัน — ลำดับการตรวจสอบตามสเปก PART 4
+   1-2) ช่วงการจ้างงานและวันทำงานตามกะ ระบบเดิมคัดไว้แล้ว (ไม่มีแถว = ไม่นับเป็นขาดงาน)
+   3-4) เสาร์–อาทิตย์ = วันหยุดเสมอ ไม่คิดขาด/สาย/ปกติ แต่ยังคงเวลาจริงและ OT จริงไว้
+   5)   วันหยุดนักขัตฤกษ์ตามระบบเดิม = วันหยุด
+   6-8) ใบลาที่ถูกต้องของพนักงานคนนั้นในวันนั้น = ประเภทใบลาจริง (PART 6)
+   9)   มีสแกนเพียงด้านเดียว = ขาดงาน ห้ามแสดงเป็นปกติหรือมาสาย
+   10)  ไม่มีสแกนทั้งสองด้านและไม่มีใบลา = ขาดงาน
+   11)  สแกนครบ = ใช้คำตอบของระบบซึ่งคิดจากเวลาเริ่มงานตามกะจริง (NORMAL/LATE) */
+function rptSumDayStatus(r, iso) {
+  var dow = rptIsoDow(iso);
+  if (dow === 0 || dow === 6) return "วันหยุด";
+  var st = String(r.statusCode || "").toUpperCase();
+  if (st === "HOLIDAY") return "วันหยุด";
+  var lv = rptLeaveLabel(r);
+  if (lv) return lv;
+  if (st === "LEAVE") return "ลา";
+  var hasIn = !!rptSumHM(r.in), hasOut = !!rptSumHM(r.out);
+  /* [RUN-204] มีเข้าแต่ไม่มีออก = ลงเวลาไม่ครบ (ยกเลิกกฎเดิมที่ถือเป็นขาดงาน)
+     รวมถึงกรณีเข้ามาสายแล้วไม่มีออกด้วย — ไม่นับรวมยอดขาดงาน */
+  if (hasIn && !hasOut) return "ลงเวลาไม่ครบ";
+  if (!hasIn) return "ขาดงาน";
+  return st === "LATE" ? "มาสาย" : "ปกติ";
+}
+
+function rptSumDayBucket(txt) {
+  if (txt === "ปกติ" || txt === "มาสาย" || txt === "ขาดงาน" || txt === "วันหยุด") return txt;
+  /* [RUN-204] ลงเวลาไม่ครบ นับแยก ห้ามรวมเข้ายอดขาดงานหรือยอดลา */
+  if (txt === "ลงเวลาไม่ครบ") return "";
+  return txt ? "ลา" : "";
+}
+
+/* ตารางรายวัน: { empKey|date : {in,out,st} } จากแถวเดียวกับที่หน้าจอใช้ */
+function rptSumDayMap() {
+  var m = Object.create(null);
+  rptAttRows.forEach(function (r) {
+    var d = String(r.date || "").slice(0, 10); if (!d) return;
+    var k = rptSumKeyOf(r), key = k + "|" + d;
+    if (m[key]) return;                                      /* คนเดียว วันเดียว นับครั้งเดียว */
+    m[key] = { in: rptSumHM(r.in), out: rptSumHM(r.out), st: rptSumDayStatus(r, d) };
+  });
+  return m;
+}
+
+/* ประกอบ spec ให้ rptBuildXlsxGrid */
+function rptSumGridSpec(rows, otMap, titleLines, dayMap) {
+  var s = rptState;
+  var days = rptIsoRange(s.from, s.to);
+  dayMap = dayMap || rptSumDayMap();          /* [RUN-203] ใช้ร่วมกับ Sheet 2 ชุดเดียวกัน */
+  var SUM = RPT_SUM_ST.map(function (x) { return x[1] });      /* ปกติ มาสาย ขาดงาน ลา วันหยุด */
+  var head = ["ลำดับ", "รหัส", "ชื่อ - นามสกุล", "แผนก"].concat(SUM).concat(["OT ชม."]);
+  var widths = [7, 10, 26, 20].concat(SUM.map(function () { return 9 })).concat([9]);
+  var groups = [
+    { label: "ข้อมูลพนักงาน", from: 1, to: 4, style: RPG_S.H_EMP },
+    { label: "ยอดสรุปสถานะรายคน (วัน)", from: 5, to: 4 + SUM.length + 1, style: RPG_S.H_SUM }
+  ];
+  var col = 4 + SUM.length + 1;
+  days.forEach(function (d, i) {
+    var p = d.split("-");
+    groups.push({ label: p[2] + "/" + p[1] + "  " + RPG_DOW_TH[rptIsoDow(d)],
+      from: col + 1, to: col + 4, style: RPG_S.H_DAY[i % RPG_S.H_DAY.length] });
+    head.push("เข้า", "ออก", "สถานะ", "OT ชม.");
+    widths.push(8, 8, 12, 8);
+    col += 4;
+  });
+
+  var out = rows.map(function (o, ri) {
+    var band = ri % 2 ? 1 : 0;
+    var T = { TXT: band ? RPG_S.TXT2 : RPG_S.TXT, CEN: band ? RPG_S.CEN2 : RPG_S.CEN, NUM: band ? RPG_S.NUM2 : RPG_S.NUM };
+    var n = { "ปกติ": 0, "มาสาย": 0, "ขาดงาน": 0, "ลา": 0, "วันหยุด": 0 }, otSum = 0, incomplete = 0;
+    var tail = [];
+    days.forEach(function (d) {
+      var k = o.key + "|" + d, r = dayMap[k];
+      var ot = otMap[k] || 0;
+      var stTxt = r ? r.st : ((rptIsoDow(d) === 0 || rptIsoDow(d) === 6) ? "วันหยุด" : "");
+      var b = rptSumDayBucket(stTxt); if (b) n[b]++;
+      if (stTxt === "ลงเวลาไม่ครบ") incomplete++;      /* [RUN-204] เก็บยอดแยก ไม่รวมขาดงาน */
+      otSum = Math.round((otSum + ot) * 100) / 100;
+      /* [RUN-204] หาสีจากข้อความสถานะก่อน (ลงเวลาไม่ครบ มีสีของตัวเอง)
+         แล้วจึงถอยไปใช้ช่องสรุป เพื่อให้ชื่อประเภทใบลาได้สีฟ้าของ "ลา" */
+      var si = RPG_ST_IDX[stTxt]; if (si == null) si = RPG_ST_IDX[rptSumDayBucket(stTxt)];
+      tail.push({ v: r ? r.in : "", s: T.CEN },
+        { v: r ? r.out : "", s: T.CEN },
+        { v: stTxt, s: si == null ? T.CEN : RPG_S.ST[si] },
+        { v: ot || "", s: ot ? RPG_S.OT : T.NUM });
+    });
+    o.incomplete = incomplete;             /* [RUN-204] ยอดลงเวลาไม่ครบ เก็บไว้ภายใน ไม่เพิ่มคอลัมน์ */
+    return [{ v: ri + 1, s: T.CEN }, { v: o.code || "-", s: T.CEN },
+      { v: o.name || "-", s: T.TXT }, { v: o.dept || "-", s: T.TXT }]
+      .concat(SUM.map(function (lab) { return { v: n[lab] || 0, s: T.CEN } }))
+      .concat([{ v: otSum || 0, s: otSum ? RPG_S.OT : T.NUM }])
+      .concat(tail);
+  });
+
+  return { head: head, widths: widths, groups: groups, rows: out,
+    titleLines: titleLines, freezeX: 4 };
+}
+
+/* [RUN-204] SHEET 2 "รวม" — โคลน Sheet "REPORT ALL" จากเมนูรายงานทั้งหมด
+   เรียก rpFetch/rpCollect/rp1Sheet/rp1Styles ตัวเดิมโดยตรง ไม่เขียนสูตรหรือรูปแบบใหม่
+   ใช้ช่วงวันที่และตัวกรองของหน้ารายงานการลงเวลา ตามขอบเขตสิทธิ์เดิมของผู้ใช้
+   ถ้าโหลดไม่สำเร็จ คืน null แล้วไฟล์จะมี Sheet เดียว ไม่ทำให้ EXPORT ทั้งใบล้มเหลว */
+function rptSumAllModule(){
+  try{
+    if(S.rpFetch&&S.rp1Sheet)return Promise.resolve(true);
+    if(window.NJHR&&NJHR.modules&&typeof NJHR.modules.load==="function")
+      return NJHR.modules.load("approvals-reports").then(function(){return true});
+  }catch(e){}
+  return Promise.resolve(false);
+}
+function rptSumAllSheet(){
+  var s=rptState;
+  return rptSumAllModule().then(function(){
+    var rpFetch=S.rpFetch,rpCollect=S.rpCollect,rp1Sheet=S.rp1Sheet,
+        rp1Styles=S.rp1Styles,rpDeptName=S.rpDeptName;
+    if(typeof rpFetch!=="function"||typeof rpCollect!=="function"
+       ||typeof rp1Sheet!=="function"||typeof rp1Styles!=="function")return null;
+    var range={s:s.from,e:s.to};
+    var filter={deptName:(typeof rpDeptName==="function"&&s.deptId)?rpDeptName(s.deptId):(s.deptId||null),
+      empId:s.empId||null};
+    return rpFetch(range,filter).then(function(data){
+      var c=rpCollect(range,{deptId:s.deptId,empId:s.empId},data);
+      if(!c||!c.sumRows||!c.sumRows.length)return null;
+      return {name:"รวม",sheetXml:rp1Sheet(c),stylesXml:rp1Styles()}
+    })
+  })["catch"](function(ex){
+    console.error("[REPORT] โคลน Sheet รวม จากรายงานทั้งหมดไม่สำเร็จ:",ex);
+    return null
+  });
+}
+
+function rptExportSummary(btn){
+  var s=rptState,errEl=document.getElementById("rpt-err");
+  var rows=rptSumRows();
+  if(!rows.length){if(errEl)errEl.textContent=rptEmptyMsg();return}
+  if(btn.disabled)return;
+  var label=btn.innerHTML;btn.disabled=true;
+  btn.innerHTML='<span class="spinner"></span> กำลังสร้างไฟล์…';
+  var pick=s.attStatus||"",stTH=pick?rptSumTH(pick):"ทุกสถานะ";
+  var head=rptSumHead(),cells=rows.map(function(o,i){return rptSumCells(o,i)});
+  var tot=rptSumTotals(rows);
+  var now=new Date;
+  var stamp=rptDateBE(now.getFullYear()+"-"+pad(now.getMonth()+1)+"-"+pad(now.getDate()))
+    +" "+pad(now.getHours())+":"+pad(now.getMinutes());
+  var sheetName="รายงานการลงเวลา";
+  var title=[db.settings.companyName,"รายงานการลงเวลา — สรุปจำนวนวันรายพนักงาน",
+    "ช่วงวันที่: "+rptDateBE(s.from)+" – "+rptDateBE(s.to),
+    "แผนก: "+(s.deptId||"ทุกแผนก"),
+    "สถานะ: "+stTH,
+    "พนักงาน: "+(s.q||"ทุกคน"),
+    "จำนวนพนักงาน: "+rows.length+" คน"+(pick
+      ?" · รวมจำนวนวัน"+stTH+": "+tot[pick]+" วัน"
+      /* [RUN-188] อ่านจาก RPT_SUM_ST — เพิ่มสถานะแล้วบรรทัดสรุปเปลี่ยนตามเอง */
+      :" · "+RPT_SUM_ST.map(function(x){return x[1]+" "+(tot[x[0]]||0)}).join(" · ")
+       +" · รวม "+tot.total+" วัน"),
+    "วันที่ Export: "+stamp];
+  var cats=rows.map(function(o){return(o.code?o.code+" · ":"")+o.name});
+  var series=pick
+    ?[{name:"จำนวนวัน"+stTH,color:RPT_SUM_COLOR[pick]||"2563EB",
+       values:rows.map(function(o){return o.n[pick]||0})}]
+    :RPT_SUM_ST.map(function(x){return{name:x[1],color:RPT_SUM_COLOR[x[0]],
+       values:rows.map(function(o){return o.n[x[0]]||0})}});
+  var chart={title:(pick?rptChartTitle():"กราฟเปรียบเทียบทุกสถานะรายพนักงาน")
+    +" ("+rptDateBE(s.from)+" – "+rptDateBE(s.to)+")",cats:cats,series:series};
+  var fname=rptSafeName(sheetName)+"_สรุป_"+rptSafeName(s.deptId||"ทุกแผนก")+"_"
+    +rptSafeName(stTH)+"_"+(s.q?rptSafeName(s.q):"ทุกคน")+"_"
+    +rptDateBE(s.from).replace(/\//g,"-")+"_ถึง_"+rptDateBE(s.to).replace(/\//g,"-")+".xlsx";
+  /* [RUN-202] โหมด "ทุกสถานะ" = ตารางลงเวลารายวันแนวนอนตามภาพต้นแบบ
+     โหมดเลือกสถานะเดียว ยังใช้ไฟล์เดิมพร้อมกราฟทุกประการ ไม่เปลี่ยนแปลง */
+  /* [RUN-203] หัวรายงานของไฟล์ตารางรายวันเหลือ 2 บรรทัด: ชื่อรายงาน + ช่วงวันที่ (พ.ศ.)
+     ส่วนโหมดเลือกสถานะเดียวยังใช้หัวรายงานเดิมพร้อมกราฟทุกบรรทัด ไม่เปลี่ยนแปลง */
+  var gridTitle=["รายงานการลงเวลา — สรุปจำนวนวันรายพนักงาน",
+    "ช่วงวันที่: "+rptDateBE(s.from)+" – "+rptDateBE(s.to)];
+  /* [RUN-204] ไฟล์ตารางรายวันเหลือ Sheet เดียวชื่อ "REPORT ALL"
+     (ยกเลิก Sheet "รายละเอียดรายวัน" ของ RUN-203 — รายละเอียดรายวันยังอยู่ครบใน Sheet นี้)
+     ชื่อไฟล์ .xlsx ยังใช้ sheetName เดิม จึงไม่เปลี่ยนชื่อไฟล์ที่ดาวน์โหลด */
+  rptLoadZip().then(function(){
+    if(pick)return rptBuildXlsxChart(sheetName,head,cells,rptSumWidths(),title,chart);
+    return Promise.all([rptSumOtMap(),rptSumAllSheet()]).then(function(res){
+      var otMap=res[0],extra=res[1],dayMap=rptSumDayMap();
+      return rptBuildXlsxGrid("REPORT ALL",rptSumGridSpec(rows,otMap,gridTitle,dayMap),extra)
+    })
+  }).then(function(blob){
+    var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=fname;
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(function(){URL.revokeObjectURL(a.href)},4e3);
+    audit("EXPORT","Export สรุปรายงานการลงเวลา "+rows.length+" คน ("+s.from+" ถึง "+s.to+")");
+    toast("ดาวน์โหลดสรุปรายงานการลงเวลาแล้ว "+rows.length+" คน")
+  })["catch"](function(ex){
+    if(errEl)errEl.textContent="สร้างไฟล์ Excel ไม่สำเร็จ: "+(ex&&ex.message||ex)
+  }).then(function(){btn.disabled=false;btn.innerHTML=label})
+}
+function rptExport(btn){var s=rptState,errEl=document.getElementById("rpt-err");if(errEl)errEl.textContent="";if(s.type!=="balance"){if(!s.from||!s.to){errEl.textContent="กรุณาเลือกวันที่เริ่มต้นและวันที่สิ้นสุดให้ครบ";return}if(s.from>s.to){errEl.textContent="วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด";return}}var isOt=s.type==="ot",isLv=s.type==="leave",isBal=s.type==="balance";if(isLv||isBal){rptExportLeave(btn,isBal);return}if(rptSumOn()){rptExportSummary(btn);return}var rows=isOt?rptOtRows():rptAttRows;if(!rows.length){errEl.textContent=rptEmptyMsg();return}if(btn.disabled)return;var label=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spinner"></span> กำลังสร้างไฟล์…';var late=s.type==="late";var sheetName=isOt?"รายงาน OT":late?"รายงานมาสาย":"รายงานการลงเวลา";var who=s.q?rptSafeName(s.q):"ทุกคน";var stName=!isOt&&s.attStatus?"_"+rptSafeName(EMP_ATT_STATUS[s.attStatus]||s.attStatus):"";var fname=rptSafeName(sheetName)+"_"+rptSafeName(s.deptId||"ทุกแผนก")+stName+"_"+who+"_"+rptDateBE(s.from).replace(/\//g,"-")+"_ถึง_"+rptDateBE(s.to).replace(/\//g,"-")+".xlsx";rptLoadZip().then(function(){return isOt?rptBuildXlsx(sheetName,RPT_OT_HEAD_XLS,rows.map(rptOtCellsXls),[14,11,13,24,18,18,14,28,16,13,11,13,12,26,10,12,16,14,24]):rptBuildXlsx(sheetName,RPT_HEAD,rows.map(rptCells),[13,11,10,26,22,9,9,14,14,12])}).then(function(blob){var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=fname;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href)},4e3);audit("EXPORT","Export "+sheetName+" "+rows.length+" รายการ ("+s.from+" ถึง "+s.to+")");toast("ดาวน์โหลด "+sheetName+" แล้ว "+rows.length+" รายการ")}).catch(function(ex){if(errEl)errEl.textContent="สร้างไฟล์ Excel ไม่สำเร็จ: "+(ex&&ex.message||ex)}).then(function(){btn.disabled=false;btn.innerHTML=label})}var LV_STATUS_TH={PENDING:"รออนุมัติ",APPROVED:"อนุมัติแล้ว",REJECTED:"ไม่อนุมัติ",CANCELLED:"ยกเลิก"};var OT_STATUS_TH={PENDING:"รออนุมัติ",APPROVED:"อนุมัติแล้ว",REJECTED:"ไม่อนุมัติ",CANCELLED:"ยกเลิก"};var EMP_STATUS_TH={ACTIVE:"ปฏิบัติงาน",PROBATION:"ทดลองงาน",RESIGNED:"พ้นสภาพ",SUSPENDED:"พักงาน"};var EMP_ATT_STATUS={NORMAL:"ปกติ",LATE:"มาสาย",ABSENT:"ขาดงาน",LEAVE:"ลา",HOLIDAY:"วันหยุด"};var LEAVE_MODE_TH={FULL:"เต็มวัน",HALF_AM:"ครึ่งวันเช้า",HALF_PM:"ครึ่งวันบ่าย",HOURLY:"รายชั่วโมง",HALF:"ครึ่งวัน (ไม่ระบุช่วง)"};NJHR.views.register("viewReports",viewReports)})();

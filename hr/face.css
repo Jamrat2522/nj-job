@@ -1,0 +1,504 @@
+/* ============================================================
+   NJ HR V.10 — face.css
+   สแกนใบหน้าเพื่อลงเวลา + ลงทะเบียนใบหน้า
+   โหลดเฉพาะตอนเปิดหน้าสแกน (face.js เป็นคนใส่ <link> ให้เอง)
+   ใช้ตัวแปรสีเดิมของระบบ ไม่แตะ styles.css และไม่กระทบ Desktop
+   ============================================================ */
+
+.njf-overlay {
+  position: fixed; inset: 0; z-index: 9000;
+  background: #0B0D10; color: #fff;
+  display: flex; flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  overscroll-behavior: contain;
+}
+.njf-overlay[hidden] { display: none; }
+
+/* ---------- แถบบน ---------- */
+/* หัวหน้าสแกนเป็นสีขาว ตัวอักษรเข้ม ตามแบบ (ไม่ใช่แถบแดง) */
+.njf-top {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; background: #fff; color: #101828; flex: none;
+  border-bottom: 1px solid #E2E8F0;
+}
+.njf-top b { font-size: 16px; font-weight: 600; }
+.njf-top small { display: block; font-size: 11px; color: #94A3B8; }
+.njf-back {
+  border: 0; background: #F1F5F9; color: #334155;
+  width: 36px; height: 36px; border-radius: 10px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 20px;
+}
+
+/* ---------- กล้อง ---------- */
+/* ---------- [PREVIEW CROP LOCK — BASE, ไม่พึ่ง Container Query] ----------
+   Root Cause ที่วัดได้จริง: .njf-overlay เป็น position:fixed;inset:0 และเดิม .njf-cam เป็น flex:1
+   ความสูงของ .njf-cam จึงเปลี่ยนตาม viewport (Safari toolbar ยุบ/ขยาย · แถบ Android)
+   Stream เป็น 4:3 คงที่ แต่ object-fit:cover คำนวณ crop ใหม่ทุกครั้งที่กล่องเปลี่ยนสัดส่วน
+   วัดได้: กล่อง 390x572 -> เห็นภาพต้นทาง 327x480 · กล่อง 390x658 -> เห็น 284x480
+   = ภาพซูมเข้า/ออก 1.15x และ .njf-oval ขยับ 40px ทั้งที่ Source ไม่มีคำสั่ง Zoom เลย
+
+   แก้ที่ "กล่อง" ไม่ใช่ที่ <video>: ล็อก .njf-cam เป็น 3:4 ด้วย aspect-ratio ใน Base CSS
+   -> ทุกเบราว์เซอร์ที่รองรับ aspect-ratio (iOS Safari 15+ / Chrome 88+) ได้ Ratio คงที่ทันที
+      โดยไม่ต้องมี Container Query
+   -> <video> และ .njf-guide ยังใช้กฎเดิมทุกประการ (width/height 100% · cover · scaleX(-1) · inset:0)
+      จึงไม่แตะกระจกเงาและไม่แตะ overlay ใด ๆ
+   ⚠ ไม่แตะ <canvas> และไม่แตะ videoWidth/videoHeight — Face Detection อ่านพิกเซลดิบจาก
+     <video> ผ่าน canvas โดยตรง ไม่เกี่ยวกับ CSS box จึงไม่กระทบ Descriptor/Liveness/Threshold */
+.njf-cam {
+  position: relative; background: #000; overflow: hidden;
+  flex: none;                     /* เดิม flex:1 = ยืดตามที่เหลือ -> ต้นเหตุของ Dynamic Crop */
+  width: 100%; aspect-ratio: 3 / 4; max-height: 100%; min-height: 0;
+  margin-inline: auto;
+}
+/* แนวนอน: พื้นที่เตี้ยมาก ให้ยึดความสูงแล้วคำนวณความกว้างจาก Ratio เดิม
+   UI จึงคง Portrait 3:4 ไม่กลายเป็น Layout แนวนอน และ Crop ยังเท่ากับ Portrait */
+@media (orientation: landscape) {
+  .njf-cam { flex: 1 1 auto; width: auto; height: auto; aspect-ratio: 3 / 4; }
+}
+.njf-cam video {
+  width: 100%; height: 100%; object-fit: cover;
+  transform: scaleX(-1);                 /* กระจกเงา ให้ผู้ใช้จัดหน้าง่าย */
+  background: #000; display: block;
+}
+.njf-cam canvas { display: none; }
+
+.njf-guide { position: absolute; inset: 0; pointer-events: none; }
+.njf-oval {
+  position: absolute; left: 50%; top: 47%; transform: translate(-50%, -50%);
+  width: min(62vw, 260px); aspect-ratio: 3 / 4;
+  border: 2px dashed rgba(255,255,255,.9); border-radius: 50%;
+  transition: border-color .2s;
+}
+.njf-oval.ok  { border-color: #22C55E; border-style: solid; }
+
+/* ---------- วงแหวนความคืบหน้ารอบใบหน้า (overlay ล้วน) ----------
+   ซ้อนตำแหน่งเดียวกับ .njf-oval เป๊ะ · ไม่รับ event · ไม่บังกล้อง
+   หมุน -90deg ให้เริ่มวาดจากยอดวงรี */
+.njf-ring {
+  position: absolute; left: 50%; top: 47%; transform: translate(-50%, -50%) rotate(-90deg);
+  width: min(62vw, 260px); aspect-ratio: 3 / 4;
+  pointer-events: none; overflow: visible;
+}
+.njf-ring ellipse { fill: none; stroke-width: 4; }
+.njf-ring-bg { stroke: rgba(255, 255, 255, .22); }
+.njf-ring-fg {
+  stroke: #1D6FF2; stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgba(29, 111, 242, .55));
+  transition: stroke-dashoffset .45s ease, stroke .25s ease;
+}
+.njf-ring-fg.ok { stroke: #22C55E; filter: drop-shadow(0 0 5px rgba(34, 197, 94, .6)); }
+
+/* เส้นประไหลรอบวง — บอกว่าระบบกำลังตรวจอยู่ */
+.njf-ring-dash {
+  stroke: rgba(255, 255, 255, .85); stroke-width: 3;
+  stroke-dasharray: 10 9;
+  animation: njfdashflow 9s linear infinite;
+}
+@keyframes njfdashflow { to { stroke-dashoffset: -380; } }
+
+/* ส่วนโค้งไฮไลต์ฝั่งที่ต้องหมุนไป — ซ่อนไว้ก่อน แสดงเมื่อ .left/.right */
+.njf-ring-hint {
+  stroke: #38BDF8; stroke-width: 6; stroke-linecap: round;
+  stroke-dasharray: 96 420; stroke-dashoffset: 0;
+  opacity: 0; transition: opacity .25s;
+}
+.njf-ring-hint.left  { opacity: 1; stroke-dashoffset: -318; animation: njfpulse 1.3s ease-in-out infinite; }
+.njf-ring-hint.right { opacity: 1; stroke-dashoffset: -106; animation: njfpulse 1.3s ease-in-out infinite; }
+@keyframes njfpulse { 0%,100% { opacity: .45; } 50% { opacity: 1; } }
+
+/* เอียงกรอบเล็กน้อยตามทิศที่ต้องหมุน (แค่ภาพ ไม่แตะกล้อง) */
+.njf-cam[data-dir="left"]  .njf-oval,
+.njf-cam[data-dir="left"]  .njf-ring { transform: translate(-50%, -50%) rotate(-8deg); }
+.njf-cam[data-dir="right"] .njf-oval,
+.njf-cam[data-dir="right"] .njf-ring { transform: translate(-50%, -50%) rotate(8deg); }
+.njf-cam[data-dir="left"]  .njf-ring { transform: translate(-50%, -50%) rotate(-98deg); }
+.njf-cam[data-dir="right"] .njf-ring { transform: translate(-50%, -50%) rotate(-82deg); }
+.njf-oval, .njf-ring { transition: transform .4s ease, border-color .2s; }
+
+/* ลูกศรโค้งบอกทิศ */
+.njf-turn {
+  position: absolute; top: 47%; transform: translateY(-50%);
+  width: 52px; height: 52px; pointer-events: none;
+  opacity: 0; transition: opacity .25s;
+  background: no-repeat center/contain;
+}
+.njf-turn.show { opacity: 1; animation: njfslide 1.4s ease-in-out infinite; }
+.njf-turn.left  { left: calc(50% - min(31vw, 130px) - 46px); }
+.njf-turn.right { right: calc(50% - min(31vw, 130px) - 46px); }
+.njf-turn.left::before, .njf-turn.right::before {
+  content: '';
+  display: block; width: 100%; height: 100%;
+  border: 4px solid #38BDF8; border-radius: 50%;
+  border-right-color: transparent; border-bottom-color: transparent;
+  filter: drop-shadow(0 0 6px rgba(56, 189, 248, .6));
+}
+.njf-turn.left::before  { transform: rotate(-45deg); }
+.njf-turn.right::before { transform: rotate(135deg); }
+@keyframes njfslide {
+  0%, 100% { transform: translateY(-50%) translateX(0); }
+  50%      { transform: translateY(-50%) translateX(6px); }
+}
+.njf-turn.left.show  { animation-name: njfslideL; }
+@keyframes njfslideL {
+  0%, 100% { transform: translateY(-50%) translateX(0); }
+  50%      { transform: translateY(-50%) translateX(-6px); }
+}
+
+/* ✓ กลางวงเมื่อผ่านมุม */
+.njf-ok {
+  position: absolute; left: 50%; top: 47%; transform: translate(-50%, -50%) scale(.5);
+  width: 76px; height: 76px; border-radius: 50%;
+  background: rgba(34, 197, 94, .95); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 40px; font-weight: 700; line-height: 1;
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s ease, transform .25s ease;
+  box-shadow: 0 8px 24px rgba(34, 197, 94, .45);
+}
+.njf-ok.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+/* ---------- Live feedback ระหว่างหมุนหน้า ----------
+   วงแหวนชั้นในบอกความคืบหน้าของ "มุมปัจจุบัน" แบบสด
+   far = ยังไม่ถึง (ฟ้าจาง) · near = ใกล้แล้ว (ฟ้าสด) · hit = ถึงเกณฑ์ (เขียว) */
+.njf-ring-live {
+  fill: none; stroke: rgba(56, 189, 248, .45); stroke-width: 5; stroke-linecap: round;
+  transition: stroke-dashoffset .12s linear, stroke .2s ease;
+}
+.njf-cam[data-live="near"] .njf-ring-live { stroke: #38BDF8; }
+.njf-cam[data-live="hit"]  .njf-ring-live { stroke: #22C55E; }
+
+/* กรอบวงรีตอบสนองทันทีตามระยะ */
+.njf-cam[data-live="near"] .njf-oval { border-color: #38BDF8; }
+.njf-cam[data-live="hit"]  .njf-oval { border-color: #22C55E; border-style: solid; }
+
+/* ถึงเกณฑ์แล้ว = หยุดกะพริบลูกศร/ไฮไลต์ ให้ผู้ใช้รู้ว่า "พอแล้ว ค้างไว้" */
+.njf-cam[data-live="hit"] .njf-turn.show,
+.njf-cam[data-live="hit"] .njf-ring-hint { animation: none; opacity: .25; }
+
+/* ---------- หน้าจอกำลังบันทึกข้อมูลใบหน้า ---------- */
+.njf-save { text-align: center; padding: 4px 0 2px; }
+.njf-save-t { font-size: 18px; font-weight: 700; color: var(--njf-ink, #0F1E3D); }
+.njf-save-s { font-size: 13px; color: #7A8BA6; margin: 4px 0 14px; }
+.njf-save-list { display: grid; gap: 8px; margin-bottom: 14px; text-align: left; }
+.njf-save-li {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14.5px; font-weight: 600; color: #16A34A;
+}
+.njf-save-li b { font-size: 15px; line-height: 1; }
+.njf-save-li.wait { color: #7A8BA6; font-weight: 500; }
+.njf-dot {
+  width: 13px; height: 13px; border-radius: 50%; flex: none;
+  border: 2px solid #CBD5E1; border-top-color: #38BDF8;
+  animation: njfspin .8s linear infinite;
+}
+@keyframes njfspin { to { transform: rotate(360deg); } }
+
+/* ---------- หน้าจอลงทะเบียนสำเร็จ ---------- */
+.njf-done { text-align: center; padding: 6px 0 2px; }
+.njf-done-ic {
+  width: 84px; height: 84px; border-radius: 50%; margin: 0 auto 14px;
+  background: #22C55E; color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 46px; font-weight: 700; line-height: 1;
+  box-shadow: 0 10px 28px rgba(34, 197, 94, .45);
+  animation: njfpop .35s ease;
+}
+@keyframes njfpop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.njf-done-t { font-size: 20px; font-weight: 700; color: #16A34A; }
+.njf-done-s { font-size: 13.5px; color: #7A8BA6; margin: 5px 0 14px; }
+.njf-done-tags { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 10px; }
+.njf-done-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 12px; border-radius: 999px;
+  background: #F0FDF4; border: 1px solid #BBF7D0; color: #16A34A;
+  font-size: 13px; font-weight: 600;
+}
+.njf-done-tag b { font-size: 12px; }
+.njf-done-n { font-size: 13px; color: #7A8BA6; }
+
+/* เคารพ prefers-reduced-motion — ปิดอนิเมชันทั้งหมด แต่ยังเห็นสถานะ */
+@media (prefers-reduced-motion: reduce) {
+  .njf-ring-dash, .njf-ring-hint.left, .njf-ring-hint.right, .njf-turn.show,
+  .njf-dot, .njf-done-ic { animation: none; }
+}
+.njf-oval.bad { border-color: #F59E0B; }
+.njf-corner { position: absolute; width: 34px; height: 34px; border: 3px solid #fff; opacity: .9; }
+.njf-corner.tl { left: 8%;  top: 14%; border-right: 0; border-bottom: 0; border-radius: 6px 0 0 0; }
+.njf-corner.tr { right: 8%; top: 14%; border-left: 0;  border-bottom: 0; border-radius: 0 6px 0 0; }
+.njf-corner.bl { left: 8%;  bottom: 26%; border-right: 0; border-top: 0; border-radius: 0 0 0 6px; }
+.njf-corner.br { right: 8%; bottom: 26%; border-left: 0;  border-top: 0; border-radius: 0 0 6px 0; }
+
+.njf-hint {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(to top, rgba(0,0,0,.82), rgba(0,0,0,0));
+  padding: 26px 18px 16px; text-align: center;
+}
+.njf-hint b { display: block; font-size: 17px; font-weight: 600; }
+.njf-hint small { display: block; font-size: 12.5px; opacity: .85; margin-top: 3px; }
+
+/* ---------- แผงสถานะ 3 ขั้น ---------- */
+.njf-panel { flex: none; background: #fff; color: var(--ink, #101828); border-radius: 18px 18px 0 0;
+  padding: 16px 14px calc(14px + env(safe-area-inset-bottom)); }
+.njf-steps { display: flex; align-items: flex-start; gap: 4px; }
+.njf-step { flex: 1; text-align: center; min-width: 0; }
+.njf-step .ico {
+  width: 46px; height: 46px; margin: 0 auto 7px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: #F1F5F9; color: #94A3B8; font-size: 20px; border: 2px solid #E2E8F0;
+  transition: all .2s;
+}
+.njf-step small { display: block; font-size: 11.5px; line-height: 1.45; color: #64748B; }
+.njf-step b { display: block; font-size: 12.5px; color: #334155; margin-bottom: 2px; }
+.njf-step.run .ico { background: #FEE2E2; border-color: #E60000; color: #E60000; }
+.njf-step.run b { color: #E60000; }
+.njf-step.ok  .ico { background: #DCFCE7; border-color: #22C55E; color: #16A34A; }
+.njf-step.bad .ico { background: #FEE2E2; border-color: #EF4444; color: #DC2626; }
+.njf-step.bad small { color: #DC2626; }
+.njf-line { flex: none; width: 18px; height: 2px; background: #E2E8F0; margin-top: 23px; }
+
+.njf-msg { margin-top: 12px; font-size: 13.5px; line-height: 1.6; text-align: center; color: #475569; }
+.njf-msg.err { color: #DC2626; font-weight: 500; }
+
+.njf-actions { display: flex; gap: 10px; margin-top: 14px; }
+.njf-btn {
+  flex: 1; min-height: 48px; border-radius: 12px; font-family: inherit;
+  font-size: 15px; font-weight: 600; cursor: pointer; border: 1.5px solid transparent;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.njf-btn.primary { background: #E60000; color: #fff; }
+.njf-btn.ghost   { background: #fff; color: #E60000; border-color: #E60000; }
+.njf-btn.plain   { background: #F1F5F9; color: #475569; }
+.njf-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+/* ---------- หน้าผลสำเร็จ ---------- */
+.njf-result { flex: 1; overflow: auto; background: #F8FAFC; color: var(--ink, #101828);
+  padding: 22px 16px calc(20px + env(safe-area-inset-bottom)); text-align: center; }
+.njf-check {
+  width: 96px; height: 96px; margin: 6px auto 14px; border-radius: 50%;
+  background: #DCFCE7; color: #16A34A; font-size: 46px;
+  display: flex; align-items: center; justify-content: center;
+}
+.njf-result h3 { font-size: 20px; margin: 0 0 4px; color: #15803D; }
+.njf-result p  { margin: 0 0 18px; font-size: 13.5px; color: #64748B; }
+.njf-rows { display: flex; flex-direction: column; gap: 9px; text-align: left; }
+.njf-row {
+  display: flex; align-items: center; gap: 12px;
+  background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 12px 14px;
+}
+.njf-row .k { flex: 1; font-size: 13.5px; color: #475569; }
+.njf-row .v { font-size: 15px; font-weight: 600; }
+.njf-row .v.ok { color: #16A34A; }
+.njf-row small { display: block; font-size: 11.5px; color: #94A3B8; font-weight: 400; }
+.njf-shot { width: 62px; height: 62px; border-radius: 12px; object-fit: cover; background: #E2E8F0; }
+
+/* ---------- ลงทะเบียนใบหน้า ---------- */
+/* ---------- Stepper 1-2-3 หน้าลงทะเบียนใบหน้า ---------- */
+.njf-steps { display: flex; align-items: center; justify-content: center; gap: 0; margin-bottom: 14px; }
+.njf-step { flex: none; }
+.njf-step > span {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 50%;
+  font-size: 14px; font-weight: 700; line-height: 1;
+  background: #E7EDF6; color: #7A8BA6; border: 2px solid #E7EDF6;
+  transition: background .2s, color .2s, border-color .2s;
+}
+.njf-step.on > span   { background: #1D6FF2; color: #fff; border-color: #1D6FF2;
+  box-shadow: 0 0 0 4px rgba(29, 111, 242, .18); }
+.njf-step.done > span { background: #22C55E; color: #fff; border-color: #22C55E; }
+.njf-steps-line { flex: 1 1 auto; height: 2px; max-width: 46px; background: #E7EDF6; margin: 0 6px; }
+
+/* หัวข้อบอกสิ่งที่ต้องทำ + ลูกศรบอกทิศ */
+.njf-title {
+  text-align: center; font-size: 19px; font-weight: 700; line-height: 1.3;
+  margin-bottom: 12px; color: var(--njf-ink, #0F1E3D);
+  display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;
+}
+.njf-title.ok { color: #16A34A; }
+.njf-arrow { font-size: 24px; color: #1D6FF2; font-weight: 700; }
+.njf-tick  { color: #16A34A; font-size: 18px; }
+
+/* แถบความคืบหน้า + ตัวเลข n/3 */
+.njf-prog { height: 6px; border-radius: 999px; background: #E7EDF6; overflow: hidden; margin-bottom: 6px; }
+.njf-prog-bar { height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, #1D6FF2 0%, #22C55E 100%);
+  transition: width .35s ease; }
+.njf-prog-txt { text-align: right; font-size: 12.5px; font-weight: 700; color: #7A8BA6; margin-bottom: 10px; }
+
+.njf-poses { display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; }
+.njf-pose {
+  flex: 1; max-width: 100px; text-align: center; font-size: 12px; color: #64748B;
+  border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 9px 4px; background: #fff;
+}
+.njf-pose.on   { border-color: #E60000; color: #E60000; font-weight: 600; }
+.njf-pose.done { border-color: #22C55E; background: #F0FDF4; color: #16A34A; }
+.njf-pose i { display: block; font-size: 19px; font-style: normal; margin-bottom: 3px; }
+
+@media (min-width: 900px) {
+  .njf-overlay { max-width: 460px; left: 50%; transform: translateX(-50%);
+    box-shadow: 0 0 0 100vmax rgba(0,0,0,.55); }
+}
+@media (max-width: 340px) {
+  .njf-step small { font-size: 10.5px; }
+  .njf-line { width: 10px; }
+}
+
+/* ============================================================
+   [RUN-212 · FIXED SCAN FRAME] Scope เฉพาะ "จอสแกนใบหน้าเพื่อลงเวลา" ทุกอุปกรณ์
+   ------------------------------------------------------------
+   ทุกกฎในบล็อกนี้ขึ้นต้นด้วย .njf-overlay[data-att-scan="1"] (ตั้งโดย shell(…,'att') จุดเดียว)
+   หรือเป็น class ใหม่ (.njf-frame / .njf-scanbar) ที่มีเฉพาะใน Markup ของจอสแกนลงเวลา
+   -> Face Login · ลงทะเบียนใบหน้า · จอตรวจตำแหน่ง ใช้กฎฐานเดิม 100% ไม่โดนแม้แต่พิกเซลเดียว
+   (แทนที่บล็อก RUN-165 OVAL SIZE LOCK เดิม — จอนี้ไม่มีวงรี/วงแหวน/ลูกศรใน DOM แล้ว)
+
+   Root Cause ที่แก้:
+   1 วงแหวน SVG สัดส่วน 3:4 ถูก rotate(-90deg) => กลายเป็นวงรี "แนวนอน" ทับวงรีแนวตั้ง
+     + เส้นประ animation ไหลตลอด => เห็นวงซ้อนผิดตำแหน่งและหมุน  -> เอาออกจาก DOM ทั้งชุด
+   (RUN-213: Layout row/col เปิดด้วย data-att-layout จาก JS · ข้อความกำกับย้ายไปใต้กล้อง · มีป้ายสถานะตอนไม่มีภาพ)
+   2 กล่องกล้องผูกกับ aspect-ratio 3/4 จากความกว้าง (แนวตั้ง) หรือ "พื้นที่ที่เหลือ" (แนวนอน)
+     จอเตี้ย/จอคอมที่ขยาย 125–150% => กล่องกล้องเหลือแถบเล็กกลางจอ มีพื้นดำสองข้าง
+     และวงรี 260px ใหญ่กว่ากล่องกล้อง  -> กล่องกล้องเต็มความกว้าง สูงเท่าที่เหลือจริง แล้ว JS ตรึงเป็น px
+   3 <video> ใช้ height:100% กับกล่องที่ความสูงมาจาก aspect-ratio/flex
+     -> วาง <video> และ .njf-guide แบบ absolute ชิดขอบทั้ง 4 ด้านของ .njf-cam = พื้นที่อ้างอิงเดียวกัน
+   ============================================================ */
+.njf-overlay[data-att-scan="1"] { overflow: hidden; }
+.njf-overlay[data-att-scan="1"] .njf-cam {
+  position: relative; background: #000; overflow: hidden;
+  flex: 1 1 0; min-height: 0; width: 100%; height: auto;
+  aspect-ratio: auto; max-height: none; margin: 0;
+}
+.njf-overlay[data-att-scan="1"] .njf-cam video {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+  width: 100%; height: 100%; display: block; background: #000;
+  object-fit: cover; object-position: 50% 50%;      /* เต็มกล่อง · กึ่งกลาง · คงสัดส่วนต้นฉบับ */
+  transform: scaleX(-1); transform-origin: 50% 50%;  /* กระจกเงา (เดิม) */
+}
+.njf-overlay[data-att-scan="1"] .njf-guide {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none;
+}
+
+/* กรอบสี่เหลี่ยมแนวตั้ง 3:4 กึ่งกลางพื้นที่กล้อง — ขนาดเป็น px ตรึงโดย attCamLock()
+   (ค่าด้านล่างเป็นค่าสำรองก่อน JS ล็อก) ไม่มี transition/animation ของตำแหน่งหรือขนาด */
+.njf-frame {
+  position: absolute; left: 50%; top: 50%;
+  width: 62%; aspect-ratio: 3 / 4; max-height: 76%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  --njf-fc: #FFFFFF;                                  /* wait = ขาว */
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, .55));    /* ให้เห็นบนพื้นหลังสว่าง */
+}
+.njf-frame[data-state="run"]    { --njf-fc: #38BDF8; }   /* ฟ้า = กำลังตรวจสอบ */
+.njf-frame[data-state="adjust"] { --njf-fc: #F59E0B; }   /* ส้ม = จัดตำแหน่งใบหน้าใหม่ */
+.njf-frame[data-state="ok"]     { --njf-fc: #22C55E; }   /* เขียว = ผ่าน */
+.njf-frame[data-state="bad"]    { --njf-fc: #EF4444; }   /* แดง = ไม่ผ่าน */
+.njf-frame .njf-corner {
+  position: absolute; left: auto; top: auto; right: auto; bottom: auto;
+  width: 24%; height: auto; aspect-ratio: 1; max-width: 48px; min-width: 20px;
+  border: 5px solid #FFFFFF; border-color: var(--njf-fc); opacity: 1;
+  transition: border-color .18s linear;               /* เปลี่ยนเฉพาะสี */
+}
+.njf-frame .njf-corner.tl { left: 0;  top: 0;    border-right: 0; border-bottom: 0; border-radius: 14px 0 0 0; }
+.njf-frame .njf-corner.tr { right: 0; top: 0;    border-left: 0;  border-bottom: 0; border-radius: 0 14px 0 0; }
+.njf-frame .njf-corner.bl { left: 0;  bottom: 0; border-right: 0; border-top: 0;    border-radius: 0 0 0 14px; }
+.njf-frame .njf-corner.br { right: 0; bottom: 0; border-left: 0;  border-top: 0;    border-radius: 0 0 14px 0; }
+
+/* แถบ Progress แนวนอนใต้ภาพกล้อง (แทนวงแหวนเดิม) — ขยับด้วย transform ไม่กระทบ Layout */
+.njf-scanbar { flex: none; height: 6px; background: #1E293B; overflow: hidden; }
+.njf-scanbar i {
+  display: block; width: 100%; height: 100%; background: #94A3B8;
+  transform: scaleX(0); transform-origin: 0 50%;
+  transition: transform .3s ease, background-color .18s linear;
+}
+.njf-scanbar[data-state="run"] i    { background: #38BDF8; }
+.njf-scanbar[data-state="adjust"] i { background: #F59E0B; }
+.njf-scanbar[data-state="ok"] i     { background: #22C55E; }
+.njf-scanbar[data-state="bad"] i    { background: #EF4444; }
+
+/* [RUN-213] ข้อความกำกับ "ใต้ภาพกล้อง" (เดิมซ้อนบนภาพ ทับใบหน้า/มุมล่างของกรอบ) — สูงคงที่ ไม่ดัน Layout */
+.njf-capt {
+  flex: none; height: 46px; padding: 0 12px; background: #0B0D10; color: #fff;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; overflow: hidden;
+}
+.njf-capt b { font-size: 15px; font-weight: 600; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.njf-capt small { font-size: 11.5px; opacity: .8; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+/* [RUN-213] ป้ายสถานะบนพื้นที่กล้องเมื่อยังไม่มีภาพ (รอ GPS · เตรียมกล้อง · กำลังบันทึก · ผล)
+   อยู่ใต้กรอบ 4 มุม · ข้อความอยู่กลางกรอบ — ไม่มีกรอบบนพื้นดำโดยไม่มีคำอธิบาย */
+.njf-camstate {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: #0F172A; color: #E2E8F0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  padding: 0 16%; text-align: center; pointer-events: none;
+}
+.njf-camstate[hidden] { display: none; }
+.njf-camstate b { font-size: 14.5px; font-weight: 600; line-height: 1.4; }
+.njf-camstate-ic {
+  width: 30px; height: 30px; border-radius: 50%; flex: none; box-sizing: border-box;
+  border: 3px solid rgba(255, 255, 255, .22); border-top-color: #38BDF8;
+  animation: njfspin .8s linear infinite;
+}
+.njf-camstate[data-kind="ok"] .njf-camstate-ic,
+.njf-camstate[data-kind="bad"] .njf-camstate-ic {
+  animation: none; border: 0; display: flex; align-items: center; justify-content: center;
+  font-style: normal; font-size: 19px; font-weight: 700; color: #fff;
+}
+.njf-camstate[data-kind="ok"] .njf-camstate-ic  { background: #22C55E; }
+.njf-camstate[data-kind="bad"] .njf-camstate-ic { background: #EF4444; }
+.njf-camstate[data-kind="ok"] .njf-camstate-ic::before  { content: "\2713"; }
+.njf-camstate[data-kind="bad"] .njf-camstate-ic::before { content: "\2715"; }
+.njf-camstate[data-kind="ok"] b  { color: #86EFAC; }
+.njf-camstate[data-kind="bad"] b { color: #FCA5A5; }
+
+/* Panel: จองความสูงคงที่ก่อนล็อก (ให้วัดพื้นที่กล้องได้นิ่ง) · หลังล็อก Panel รับส่วนที่เหลือและเลื่อนในตัวเอง
+   ปุ่ม (ยกเลิก/ลองใหม่/เสร็จสิ้น) ติดขอบล่างเสมอ เข้าถึงได้แม้เนื้อหายาวกว่าพื้นที่ */
+.njf-overlay[data-att-scan="1"] .njf-panel {
+  flex: none; min-height: calc(214px + env(safe-area-inset-bottom));
+  overflow: auto; -webkit-overflow-scrolling: touch;
+}
+.njf-overlay[data-att-scan="1"][data-cam-locked="1"] .njf-panel { flex: 1 1 auto; min-height: 0; }
+.njf-overlay[data-att-scan="1"] .njf-panel .njf-actions {
+  position: -webkit-sticky; position: sticky; bottom: 0; background: #fff; padding-top: 8px; z-index: 1;
+}
+.njf-overlay[data-att-scan="1"] .njf-result .njf-actions {
+  position: -webkit-sticky; position: sticky; bottom: 0; background: #F8FAFC; padding: 10px 0 2px; z-index: 1;
+}
+
+/* [RUN-215] จอแนวตั้งเตี้ย (iPhone SE / มือถือจอเล็ก · สูง < 640px): หัวจอ + Panel แบบกระชับ -> พื้นที่กล้องใหญ่ขึ้น
+   เปิดโดย attCamLock() (data-att-compact) ตอนล็อกเท่านั้น · สถานะของแต่ละขั้นยังเห็นจากสีไอคอน + ข้อความใต้ขั้น */
+.njf-overlay[data-att-scan="1"][data-att-compact="1"] .njf-top { padding: 6px 12px; }
+.njf-overlay[data-att-scan="1"][data-att-compact="1"] .njf-capt { height: 36px; }
+.njf-overlay[data-att-scan="1"][data-att-compact="1"] .njf-capt small { display: none; }
+.njf-overlay[data-att-scan="1"][data-att-compact="1"] .njf-panel {
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  min-height: calc(142px + env(safe-area-inset-bottom)); border-radius: 14px 14px 0 0;
+}
+.njf-overlay[data-att-scan="1"][data-att-compact="1"][data-cam-locked="1"] .njf-panel { min-height: 0; }
+.njf-overlay[data-att-scan="1"][data-att-compact="1"] .njf-step .ico { width: 30px; height: 30px; margin-bottom: 3px; font-size: 14px; }
+.njf-overlay[data-att-scan="1"][data-att-compact="1"] .njf-step small { display: none; }
+.njf-overlay[data-att-scan="1"][data-att-compact="1"] .njf-step b { font-size: 11.5px; margin-bottom: 0; }
+.njf-overlay[data-att-scan="1"][data-att-compact="1"] .njf-msg { margin-top: 5px; font-size: 12.5px; line-height: 1.35; }
+.njf-overlay[data-att-scan="1"][data-att-compact="1"] .njf-panel .njf-actions { margin-top: 6px; padding-top: 4px; }
+.njf-overlay[data-att-scan="1"][data-att-compact="1"] .njf-panel .njf-btn { min-height: 42px; }
+
+/* [RUN-213] Layout "row" = กล้องซ้าย · สถานะขวา — เปิดโดย JS (data-att-layout) ไม่ใช่ @media
+   ใช้กับ คอม/แท็บเล็ตแนวนอน (กว้าง >= 900) และ จอเตี้ยแนวนอน (สูง <= 520)
+   JS เป็นผู้ตัดสิน Layout และล็อกขนาดในจังหวะเดียวกัน จึงไม่มีช่วงที่ CSS เปลี่ยน Breakpoint เองแล้วกรอบเลื่อน */
+.njf-overlay[data-att-scan="1"][data-att-layout="row"]:not([hidden]) {
+  display: grid; max-width: 1100px; width: 100%;
+  left: 0; right: 0; margin: 0 auto; transform: none;   /* กฎฐาน >=900px ใช้ left:50% => กว้างได้แค่ครึ่งจอ */
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 36%);
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+}
+.njf-overlay[data-att-scan="1"][data-att-layout="row"] .njf-top { grid-column: 1 / -1; grid-row: 1; padding: 8px 14px; }
+.njf-overlay[data-att-scan="1"][data-att-layout="row"] .njf-cam { grid-column: 1; grid-row: 2; height: 100%; align-self: end; }
+.njf-overlay[data-att-scan="1"][data-att-layout="row"] .njf-scanbar { grid-column: 1; grid-row: 3; }
+.njf-overlay[data-att-scan="1"][data-att-layout="row"] .njf-capt { grid-column: 1; grid-row: 4; }
+.njf-overlay[data-att-scan="1"][data-att-layout="row"] .njf-panel,
+.njf-overlay[data-att-scan="1"][data-att-layout="row"][data-cam-locked="1"] .njf-panel {
+  grid-column: 2; grid-row: 2 / 5; min-height: 0; border-radius: 0;
+}
+.njf-overlay[data-att-scan="1"][data-att-layout="row"] .njf-result { grid-column: 1 / -1; grid-row: 2 / 5; }
+@media (prefers-reduced-motion: reduce) {
+  .njf-scanbar i, .njf-frame .njf-corner { transition: none; }
+  .njf-camstate-ic { animation: none; }
+}
