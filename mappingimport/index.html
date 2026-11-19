@@ -2731,6 +2731,9 @@ body.legacy-active .content-area { display: none !important; }
     #avg-view #avgFxMsg{padding:0 12px 8px;font-size:12px;font-weight:700;white-space:pre-line}
     #avg-view #avgFxMsg.ok{color:#047857} #avg-view #avgFxMsg.err{color:#b91c1c}
     #avg-view .avg-scroll{max-height:56vh;overflow:auto}
+    /* [475] ซ่อนตารางรายละเอียดทั้งตาราง (หัวตาราง · รายการ · หมายเหตุในตาราง) และตัวเปลี่ยนหน้า — ซ่อนเฉพาะการแสดงผล · การคำนวณ / จำนวนรายการที่เปลี่ยน / Export ใช้ข้อมูลชุดเดิม */
+    #avg-view #avgTbl{display:none !important}
+    #avg-view #avgPager > *{display:none !important}
     #avg-view table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
     #avg-view thead th{position:sticky;background:#1e40af;color:#fff;padding:6px 10px;font-weight:700;border-right:1px solid #1e3a8a;border-bottom:1px solid #1e3a8a;z-index:2}
     #avg-view thead tr:first-child th{top:0}
@@ -27558,7 +27561,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local474';
+const DEPLOY_VERSION = 'local475';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
