@@ -1956,11 +1956,12 @@ function AK820(files, C) {   /* Popup ยืนยันก่อนบันท
    · ดึงครบทุกหน้า · ไม่ข้ามแท็บ / ข้ามระบบ / ข้ามลูกค้า · อ่านอย่างเดียว ไม่เขียนข้อมูล ═══ */
 var MKNM900 = "MAERSK LOGISTICS & SERVICES (THAILAND) CO., LTD.", MKCD900 = "MK";
 var MKNM = "Maersk Logistics & Services (Thailand) Co., Ltd.";   /* V.901 : ชื่อเต็มสำหรับแสดงผล */
+var LAST902 = null;   /* V.902 : สรุปผลการตรวจสอบของการส่งออกครั้งล่าสุด */
 function NZ900(v) { return String(v == null ? "" : v).trim().replace(/\s+/g, " ").toUpperCase(); }
 function SC901() { return I === "issued" ? "#rc-issued" : "#rc-pending"; }
 function AT901() { return I === "issued" ? "f" : "pf"; }
-function EL901(k) { try { return document.querySelector(SC901() + ' [data-' + AT901() + '="' + k + '"]'); } catch (e) { return null; } }
-function VL901(k) { let e = EL901(k); return e ? String(e.value || "").trim() : ""; }
+function EL901(ky) { try { return document.querySelector(SC901() + ' [data-' + AT901() + '="' + ky + '"]'); } catch (e) { return null; } }
+function VL901(ky) { let e = EL901(ky); return e ? String(e.value || "").trim() : ""; }
 function CU901() {   /* V.901 : ค่าลูกค้าที่เลือกอยู่จริงบนหน้าจอ (อ่านจาก Dropdown โดยตรง — ไม่ใช้ค่าที่ค้างในตัวแปร) */
   let el = document.querySelector(SC901() + ' select.sel797[data-o797="customers"]') || EL901("f678_customer");
   let v = el ? String(el.value || "").trim() : "";
@@ -1986,71 +1987,176 @@ function MKOPT901() {   /* V.901 : ลูกค้า Maersk ของ "หน�
   }
   return out;
 }
-function GT900() {   /* V.901 : เงื่อนไขการใช้งาน Export SOA — ตรวจจากหน้าจอจริงทุกครั้งที่เรียก */
-  if (SRC837 !== "ACC") return { ok: !1, why: "Export SOA \u0e43\u0e0a\u0e49\u0e44\u0e14\u0e49\u0e40\u0e09\u0e1e\u0e32\u0e30\u0e23\u0e30\u0e1a\u0e1a\u0e43\u0e2b\u0e21\u0e48 (ACCOUNTING) \u2014 \u0e23\u0e32\u0e22\u0e01\u0e32\u0e23 UPLOAD EXCEL \u0e44\u0e21\u0e48\u0e21\u0e35\u0e23\u0e2b\u0e31\u0e2a\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32\u0e43\u0e2b\u0e49\u0e15\u0e23\u0e27\u0e08\u0e2a\u0e2d\u0e1a" };
+function TS902() {   /* V.902 : แหล่งข้อมูลของแท็บ / ระบบย่อยที่เปิดอยู่ (= แหล่งเดียวกับหน้าต่างรายงาน) */
+  if (I === "issued") return SRC837 === "ACC" ? "rcp795" : "none";
+  return "pending";
+}
+function GT900() {   /* V.902 : เงื่อนไขการใช้งาน Export SOA — ตรวจจากหน้าจอจริงทุกครั้งที่เรียก */
+  let src = TS902();
+  if (src === "none") return { ok: !1, why: "แท็บ ใบเสร็จที่ออกแล้ว · ระบบเก่า (UPLOAD EXCEL) : แหล่งข้อมูลของแท็บนี้เก็บเฉพาะใบเสร็จ ไม่มีรายการระดับ INVOICE / JOB (ไม่มีเลขที่งาน วันที่งาน และยอดต่อ INVOICE) จึงสร้าง SOA จากข้อมูลจริงไม่ได้ — ใช้แท็บ รอรับชำระ (ระบบเก่า) หรือ ใบเสร็จที่ออกแล้ว (ระบบใหม่)" };
   let cu = CU901(), mk = MKOPT901();
-  if (!cu.v) return { ok: !1, why: "\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32 " + MKNM + " \u0e43\u0e19\u0e0a\u0e48\u0e2d\u0e07 \u0e04\u0e49\u0e19\u0e2b\u0e32\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32 \u0e01\u0e48\u0e2d\u0e19 \u0e08\u0e36\u0e07\u0e08\u0e30 Export SOA \u0e44\u0e14\u0e49" };
-  if (NZ900(cu.nm) !== MKNM900) return { ok: !1, why: "Export SOA \u0e2d\u0e19\u0e38\u0e0d\u0e32\u0e15\u0e40\u0e09\u0e1e\u0e32\u0e30\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32 " + MKNM + " \u2014 \u0e02\u0e13\u0e30\u0e19\u0e35\u0e49\u0e40\u0e25\u0e37\u0e2d\u0e01 : " + (cu.nm || "-") };
-  let ids = [];
-  if (cu.v.slice(0, 2) !== "n:") ids = cu.v.split(",").map((x) => x.trim()).filter(Boolean);
-  if (!ids.length) ids = mk.ids.slice();
-  if (!ids.length) return { ok: !1, why: "\u0e44\u0e21\u0e48\u0e1e\u0e1a Customer ID \u0e02\u0e2d\u0e07 " + MKNM + " \u0e43\u0e19\u0e23\u0e32\u0e22\u0e01\u0e32\u0e23\u0e02\u0e2d\u0e07\u0e2b\u0e19\u0e49\u0e32\u0e19\u0e35\u0e49" };
-  return { ok: !0, ids: ids, name: mk.name || cu.nm, tab: I, src: mk.src || "select" };
+  if (!cu.v) return { ok: !1, why: "เลือกลูกค้า " + MKNM + " ในช่อง ค้นหาลูกค้า ก่อน จึงจะ Export SOA ได้ (ลูกค้าทั้งหมด = ส่งออก SOA ไม่ได้)" };
+  if (NZ900(cu.nm) !== MKNM900) return { ok: !1, why: "Export SOA อนุญาตเฉพาะลูกค้า " + MKNM + " — ขณะนี้เลือก : " + (cu.nm || "-") };
+  let byname = cu.v.slice(0, 2) === "n:", ids = byname ? [] : cu.v.split(",").map((x) => x.trim()).filter(Boolean);
+  let nkey = byname ? cu.v.slice(2) : String(cu.nm || "").toLowerCase();
+  if (!byname && !ids.length) ids = mk.ids.slice();
+  if (!byname && !ids.length) return { ok: !1, why: "ไม่พบ Customer ID ของ " + MKNM + " ในรายการของหน้านี้" };
+  let idsx = (ids.length ? ids : mk.ids).map(String).filter(Boolean);
+  return { ok: !0, src: src, byname: byname, ids: ids, idsx: idsx, nkey: nkey, name: mk.name || cu.nm, tab: I, sub: SRC837 };
 }
-function FL901() {   /* V.901 : ตัวกรองทุกช่องของหน้าต่างรายงาน ณ เวลาที่กด (ส่งออกตามผลค้นหาล่าสุด) */
-  let f = {}, q = VL901("q"), inv = VL901("f678_invoice"), cj = VL901("f678_cjob");
-  if (q) f.q = q;
-  if (inv) f.f678_invoice = inv;
-  if (cj) f.f678_cjob = cj;
+function FB902() {   /* V.902 : ตัวกรองของหน้าต่างรายงาน (ค่าที่ค้นหาแล้ว) ครบทุกช่องของแท็บนั้น */
+  return I === "issued"
+    ? Object.assign({ company_group: "NJ", q: b.q || null, customer_id: b.customer || null, from: b.from || null, to: b.to || null }, FP678(b), { sort853: "rcp" })
+    : Object.assign({ company_group: "NJ", q: $.q || null, customer_id: $.customer || null }, FP678($));
+}
+function SE902(g2) {   /* V.902 : ชุดลูกค้าที่ต้องดึง — แต่ละชุดมีตัวนับหน้าของตัวเอง (ชื่อซ้ำหลาย Customer ID = หลายชุด) */
+  if (g2.byname) return [{ key: "name:" + g2.nkey, f: { f833_customer_names: [g2.nkey] } }];
+  return g2.ids.map((id) => ({ key: "id:" + id, f: { customer_id: id, f797_customer_ids: [id] } }));
+}
+function CF902(base, u) {   /* V.902 : แทนค่าลูกค้าในตัวกรองด้วยชุดที่กำลังดึง (ตัวกรองช่องอื่นคงเดิมทุกช่อง) */
+  let o = Object.assign({}, base);
+  delete o.customer_id; delete o.f678_customer; delete o.f797_customer_ids; delete o.f833_customer_names;
+  return Object.assign(o, u.f);
+}
+function KY902(o, src) {   /* V.902 : รหัสอ้างอิงจริงของแถว (ห้ามกันซ้ำด้วยเลข INVOICE) */
+  return src === "rcp795"
+    ? [String(o && o.receipt_id || ""), String(o && o.invoice_id || ""), String(o && o.job_id || ""), String(o && o.line_no == null ? "" : o.line_no)].join("|")
+    : [String(o && o.invoice_id || ""), String(o && o.job_id || ""), String(o && o.rx823_id || "")].join("|");
+}
+function NB902(v) { let n = Number(v); return isFinite(n) ? n : 0; }
+function AK902(a, x) {
+  let o = a || {};
+  ["total_job", "service_charge", "advance_charge", "vat", "total_amount", "receipts", "jobs", "invoices", "amount"].forEach((ky) => {
+    if (x && x[ky] != null) o[ky] = NB902(o[ky]) + NB902(x[ky]); });
+  return o;
+}
+async function PG902(src, f) { return src === "rcp795" ? V("njacc_rcp795_list", { p: f }) : et(f); }
+async function RW902(set, g2) {   /* V.902 : ดึงครบทุกหน้าของทุกชุดลูกค้า · ตัวนับแยกกัน · RPC ล้ม = หยุดทันที */
+  let base = FB902(), units = SE902(g2), out = [], seen = new Set(), ref = { total: 0, kpi: null, per: [] };
+  for (let ui = 0; ui < units.length; ui++) {
+    let f = CF902(base, units[ui]), page = 1, total = null, got = 0;
+    for (;;) {
+      let d;
+      try { d = await PG902(g2.src, Object.assign({}, f, { page: page, size: 200 })); }
+      catch (e) { throw new Error("\u274c ดึงข้อมูลไม่สำเร็จ (" + units[ui].key + " หน้า " + page + ") : " + String((e && e.message) || e) + " — ยกเลิกการส่งออก ไม่สร้างไฟล์ที่ข้อมูลไม่ครบ"); }
+      let rows = (d && d.rows) || [];
+      if (total === null) { total = NB902(d && d.total); ref.total += total; if (d && d.kpi) ref.kpi = AK902(ref.kpi, d.kpi); }
+      rows.forEach((o) => { let kk = KY902(o, g2.src); if (!seen.has(kk)) { seen.add(kk); out.push(o); } });
+      got += rows.length; set && set(out.length, ref.total);
+      if (!rows.length || got >= total || page >= 2000) break;
+      page += 1;
+    }
+    if (got < total) throw new Error("\u274c ดึงข้อมูลไม่ครบของ " + units[ui].key + " (" + got + " / " + total + " รายการ) — ยกเลิกการส่งออก");
+    ref.per.push({ key: units[ui].key, total: total, got: got });
+    if (g2.src === "rcp795") { try { let z2 = await L835(Object.assign({}, f, { page: 1, size: 1 })); if (z2 && z2.kpi) ref.kpi = AK902(ref.kpi, z2.kpi); } catch (e) {} }
+  }
+  return { rows: out, ref: ref };
+}
+async function EN902(g2, rows) {   /* V.902 : เติมเฉพาะ 4 คอลัมน์ที่ RPC ของหน้ารายงานไม่มี (เบอร์ตู้ / ETD / ETA / Contact person) — จับคู่ด้วยรหัส JOB จริง ไม่เพิ่ม/ลดแถว ไม่แก้ยอดเงิน */
+  let need = new Set(); (rows || []).forEach((o) => { let jid = o && o.job_id; jid && need.add(String(jid)); });
+  let m = new Map(), note = "";
+  if (!need.size) return { map: m, note: "" };
+  if (!g2.idsx.length) return { map: m, note: "ไม่พบ Customer ID สำหรับเติมข้อมูล เบอร์ตู้ / ETD / ETA / Contact person" };
   try {
-    let co = document.querySelector(SC901() + ' select.sel797[data-o797="companies"]'), cv = co ? String(co.value || "").trim() : "";
-    if (cv) { if (cv.slice(0, 2) === "n:") f.f678_company = NM797.get(cv) || cv.slice(2);
-      else { let ci = cv.split(",").map((x) => x.trim()).filter(Boolean); if (ci.length) f.company_ids = ci; } }
-  } catch (e) {}
-  if (I === "issued") { let fr = VL901("from"), to = VL901("to"); if (fr) f.from = fr; if (to) f.to = to; }
-  return f;
+    for (let page = 1; page <= 20; page++) {
+      let d = await V("njacc_export_charges", { p: { charge_type: "SERVICE", company_group: "NJ", customer_ids: g2.idsx.slice(),
+        queue: I === "issued" ? null : "receipt_active", export_page: page, export_size: 1000, with_kpi: !1 } });
+      let rs = (d && d.rows) || [];
+      rs.forEach((x) => { let jid = String((x && x.id) || ""); if (jid && need.has(jid) && !m.has(jid)) m.set(jid, x); });
+      if (!rs.length || !(d && d.has_more) || m.size >= need.size) break;
+    }
+  } catch (e) { note = "เติมข้อมูล เบอร์ตู้ / ETD / ETA / Contact person ไม่ได้ : " + String((e && e.message) || e); }
+  if (!note && m.size < need.size) note = "เติมข้อมูลเสริมได้ " + m.size + " / " + need.size + " JOB";
+  return { map: m, note: note };
 }
-function UP900(t) {   /* V.901 : ปุ่มเมนูเดิม — เปิด/ปิดทันทีตามลูกค้าที่เลือก พร้อมเหตุผลจริง (กดได้เสมอเพื่อไม่ให้เงียบ) */
+function AP902(rows, m) {   /* V.902 : ใส่ค่าที่เติมได้ แล้วรายงานหัวข้อที่ไม่พบข้อมูลต้นทางเลย (ห้ามสร้างข้อมูลสมมติ) */
+  let f4 = ["container_no", "etd", "eta", "company_contact"];
+  (rows || []).forEach((o) => {
+    let x = o && o.job_id ? m.get(String(o.job_id)) : null; if (!x) return;
+    f4.forEach((ky) => { if ((o[ky] == null || o[ky] === "") && x[ky] != null && x[ky] !== "") o[ky] = x[ky]; });
+  });
+  let miss = [];
+  [["JOB NO.", ["job_no"]], ["Amount", ["net_payable"]], ["Container number", ["container_no"]], ["BOL / AWB Number", ["house_bl_no", "master_bl_no"]],
+   ["PO number", ["customer_job_no"]], ["Kewill / PO Received Date", ["etd"]], ["Kewill / PO requested Date", ["eta"]],
+   ["Vendor Comment", ["case_no"]], ["Contact person", ["company_contact"]]].forEach((z) => {
+    let has = (rows || []).some((o) => z[1].some((ky) => o && o[ky] != null && o[ky] !== ""));
+    has || miss.push(z[0]);
+  });
+  return miss;
+}
+function CK902(rows, ref, g2) {   /* V.902 : กระทบยอดก่อนสร้างไฟล์ Excel ทุกครั้ง */
+  let out = [], bad = [], dj = new Set(), di = new Set(), fst = new Map();
+  (rows || []).forEach((o) => {
+    let jk = String((o && (o.job_id || o.rx823_id)) || ""), ik = String((o && (o.invoice_id || o.rx823_id)) || "");
+    jk && dj.add(jk); ik && di.add(ik); ik && !fst.has(ik) && fst.set(ik, o);
+  });
+  let one = [], S = (a2, ky) => a2.reduce((s2, o) => s2 + NB902(o && o[ky]), 0);
+  fst.forEach((o) => one.push(o));
+  let svc = S(one, "service_amount"), adv = S(one, "advance_amount"), vat = S(one, "vat_amount"),
+      wht = S(one, "wht_amount"), tot = S(one, "net_payable"), amtG = S(rows || [], "net_payable");
+  let NF = (n) => Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  out.push("แหล่งข้อมูล : " + (g2.src === "rcp795" ? "njacc_rcp795_list (ใบเสร็จที่ออกแล้ว · ระบบใหม่)" : "njacc_receipt_pending (รอรับชำระ · " + (g2.sub === "XLS" ? "ระบบเก่า UPLOAD EXCEL" : "ระบบใหม่ ACCOUNTING") + ")"));
+  out.push("ชุดลูกค้าที่ดึง : " + ref.per.map((x) => x.key + " = " + x.got + "/" + x.total).join(" · "));
+  out.push("จำนวนรายการในรายงาน " + ref.total.toLocaleString("th-TH") + " · ดึงได้จริง " + (rows || []).length.toLocaleString("th-TH") + " · เขียนลง Excel " + (rows || []).length.toLocaleString("th-TH"));
+  out.push("จำนวน JOB " + dj.size.toLocaleString("th-TH") + " · จำนวน INVOICE " + di.size.toLocaleString("th-TH"));
+  out.push("Service " + NF(svc) + " · Advance " + NF(adv) + " · VAT " + NF(vat) + " · WHT " + NF(wht) + " · Total " + NF(tot));
+  out.push("ยอดรวมคอลัมน์ Amount ของ SOA " + NF(amtG) + ((rows || []).length !== di.size ? " (1 INVOICE มีหลาย JOB : " + (rows || []).length + " แถว / " + di.size + " INVOICE)" : ""));
+  if ((rows || []).length !== ref.total) bad.push("จำนวนรายการที่ดึงได้ (" + (rows || []).length + ") ไม่เท่ากับจำนวนในรายงาน (" + ref.total + ")");
+  let drop = (rows || []).filter((o) => !(o && (o.invoice_no || o.source_invoice_no))).length;
+  drop && bad.push("มีรายการที่ไม่มีเลข INVOICE / INVOICE ต้นทาง " + drop + " รายการ (จะหายไปจากไฟล์)");
+  let kp = ref.kpi;
+  if (kp && g2.src === "pending" && kp.total_job != null) {
+    [["จำนวน JOB", dj.size, NB902(kp.total_job), 0], ["Service Charge", svc, NB902(kp.service_charge), 0.01],
+     ["Advance Charge", adv, NB902(kp.advance_charge), 0.01], ["VAT", vat, NB902(kp.vat), 0.01],
+     ["Total Amount", tot, NB902(kp.total_amount), 0.01]].forEach((z) => {
+      Math.abs(z[1] - z[2]) > z[3] && bad.push(z[0] + " ไม่ตรงกับยอดสรุปของรายงาน (" + NF(z[1]) + " \u2260 " + NF(z[2]) + ")"); });
+    out.push("กระทบยอดกับยอดสรุปของรายงาน : " + (bad.length ? "ไม่ตรง" : "ตรงทุกค่า"));
+  } else if (kp && g2.src === "rcp795") {
+    out.push("ยอดสรุปของแถบใบเสร็จที่ออกแล้ว (รวมใบ ADVANCE ด้วย) : ใบเสร็จ " + NB902(kp.receipts) + " · INVOICE " + NB902(kp.invoices) + " · ยอดรับชำระ " + NF(NB902(kp.amount)) + " — แสดงเพื่อเทียบ ไม่ใช้ตัดสินหยุด");
+  } else out.push("ยอดสรุป (KPI) : รายงานไม่ส่งค่ามาด้วย — ตรวจจำนวนรายการเทียบ total ของ RPC เดียวกัน");
+  return { ok: !bad.length, why: bad.join(" · "), lines: out };
+}
+function UP900(t) {   /* V.901 : ปุ่มเมนูเดิม — เปิด / ปิดตามสถานะล่าสุดของหน้าจอ พร้อมเหตุผลใน Tooltip */
   try {
     let bt = (t || document).querySelector('[data-drop="maersk"] [data-tool="export-soa"]'); if (!bt) return;
-    let g = GT900();
+    let g2 = GT900();
     bt.disabled = !1;
-    bt.dataset.off901 = g.ok ? "" : "1";
-    bt.setAttribute("aria-disabled", g.ok ? "false" : "true");
-    bt.style.opacity = g.ok ? "" : ".45";
-    bt.style.cursor = g.ok ? "" : "not-allowed";
-    bt.title = g.ok ? "Export SOA (SOA_WK9) \u2014 " + (I === "issued" ? "\u0e43\u0e1a\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e17\u0e35\u0e48\u0e2d\u0e2d\u0e01\u0e41\u0e25\u0e49\u0e27" : "\u0e23\u0e2d\u0e23\u0e31\u0e1a\u0e0a\u0e33\u0e23\u0e30") + " \u00b7 " + g.name : g.why;
+    bt.dataset.off901 = g2.ok ? "" : "1";
+    bt.setAttribute("aria-disabled", g2.ok ? "false" : "true");
+    bt.style.opacity = g2.ok ? "" : ".45";
+    bt.style.cursor = g2.ok ? "" : "not-allowed";
+    bt.title = g2.ok ? "Export SOA (SOA_WK9) \u2014 " + (I === "issued" ? "ใบเสร็จที่ออกแล้ว" : "รอรับชำระ") + " \u00b7 " + (SRC837 === "XLS" ? "ระบบเก่า" : "ระบบใหม่") + " \u00b7 " + g2.name : g2.why;
   } catch (e) {}
 }
-async function RW900(set, ids) {   /* \u0e43\u0e1a\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e17\u0e35\u0e48\u0e2d\u0e2d\u0e01\u0e41\u0e25\u0e49\u0e27 : RPC \u0e40\u0e14\u0e34\u0e21 1 \u0e41\u0e16\u0e27\u0e15\u0e48\u0e2d INVOICE \u00b7 \u0e04\u0e23\u0e1a\u0e17\u0e38\u0e01\u0e2b\u0e19\u0e49\u0e32 */
-  let out = [], F2 = FL901();
-  for (let ci = 0; ci < (ids || []).length; ci++) {
-    let pg = 1, tot = 0;
-    for (;;) {
-      let d = await V("njacc_rcp795_list", { p: { company_group: "NJ", customer_id: ids[ci], from: F2.from || null, to: F2.to || null, q: F2.q || null, page: pg, size: 200 } });
-      let rs = (d && d.rows) || []; tot = Number((d && d.total) || tot) || 0;
-      out.push(...rs); set && set(out.length, tot || out.length);
-      if (!rs.length || out.length >= tot || pg >= 200) break;
-      pg += 1;
-    }
-  }
-  return out;
-}
-async function SOA900(t) {   /* V.901 : ตรวจซ้ำตอนกด · ส่งตัวกรองล่าสุดของหน้าจอให้ Export SOA เดิม · ล้มเหลวต้องบอกสาเหตุเสมอ */
+async function SOA900(t) {   /* V.902 : ตรวจซ้ำตอนกด · ดึงจากแหล่งของหน้าต่างรายงาน · กระทบยอด · ล้มเหลวต้องบอกสาเหตุเสมอ */
   try {
-    let g = GT900();
-    if (!g.ok) { k(g.why, "err"); return; }
-    let f = FL901();
-    if (g.ids.length === 1) f.customer = g.ids[0]; else { f.customer = g.ids[0]; f.customer_ids = g.ids.slice(); }
-    let ctx = { charge: "SERVICE", group: "NJ", mode: "receipt", scope: null,
-      queue: I === "issued" ? null : "receipt_active", filters: f,
-      cust900: { id: g.ids[0], ids: g.ids.slice(), name: g.name },
-      empty900: "\u0e44\u0e21\u0e48\u0e1e\u0e1a\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25 SOA \u0e02\u0e2d\u0e07\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32 Maersk",
-      refresh: () => {} };
-    if (I === "issued") ctx.rows900 = (set) => RW900(set, g.ids);
+    let g2 = GT900();
+    if (!g2.ok) { k(g2.why, "err"); return; }
+    LAST902 = null;
+    let ctx = { charge: "SERVICE", group: "NJ", mode: "receipt", scope: null, queue: null,
+      filters: { customer: g2.idsx[0] || ("n:" + g2.nkey) },
+      cust900: { id: g2.idsx[0] || "", ids: g2.idsx.slice(), name: g2.name },
+      empty902: 1,
+      empty900: "ไม่พบข้อมูล SOA ของลูกค้า " + MKNM + " ตามผลการค้นหาล่าสุดของหน้าต่างรายงาน",
+      refresh: () => {},
+      rows900: async (set) => {
+        let r = await RW902(set, g2);
+        let en = await EN902(g2, r.rows), miss = AP902(r.rows, en.map), ck = CK902(r.rows, r.ref, g2);
+        try { console.log("[SOA V.902]", { tab: g2.tab, sub: g2.sub, src: g2.src, check: ck.lines, missing: miss, enrich: en.note }); } catch (e2) {}
+        if (!ck.ok) throw new Error("\u274c ตรวจสอบก่อนส่งออกไม่ผ่าน : " + ck.why + " — ไม่สร้างไฟล์ Excel");
+        LAST902 = { lines: ck.lines, miss: miss, note: en.note, rows: r.rows.length };
+        return r.rows;
+      } };
     await rt("export-soa", ctx);
+    if (LAST902) {
+      let ex = [];
+      LAST902.miss.length && ex.push("ไม่พบข้อมูลต้นทางของคอลัมน์ : " + LAST902.miss.join(", "));
+      LAST902.note && ex.push(LAST902.note);
+      ex.length && setTimeout(() => { try { k(ex.join(" \u00b7 "), "ok"); } catch (e3) {} }, 1500);
+    }
   } catch (e) {
-    try { k("Export SOA \u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08 \u2014 " + String((e && e.message) || e), "err"); } catch (e2) {}
+    let m2 = String((e && e.message) || e);
+    try { k(m2.slice(0, 1) === "\u274c" ? m2 : "Export SOA ไม่สำเร็จ \u2014 " + m2, "err"); } catch (e2) {}
   }
 }
 function BG823(o) {   /* หน้ารายงาน : ป้ายรายการนำเข้าจาก Excel (คอลัมน์เลขที่งาน) */
