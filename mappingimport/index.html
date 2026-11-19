@@ -988,6 +988,7 @@ body.legacy-active .content-area { display: none !important; }
       #stw-table .n{text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600}
       #stw-table .ok{color:#047857;font-weight:700} #stw-table .bad{color:#b91c1c;font-weight:700}
       #stw-table tr.bad td{background:#fef2f2}
+      #stw-table tfoot td{background:#eff6ff;font-weight:800;border-top:2px solid #1e40af}
       #stw-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
     </style>
     <div id="stw-box" style="display:none">
@@ -998,7 +999,7 @@ body.legacy-active .content-area { display: none !important; }
       <div id="stw-panel" style="display:none">
         <div id="stw-drop" onclick="document.getElementById('stw-input').click()">
           <div class="t">📄 วางไฟล์ DELIVERY NOTE (DN)</div>
-          <div class="h">PDF หลายไฟล์พร้อมกันได้ · อ่านเฉพาะหน้าแรกของแต่ละไฟล์ · อ่านเสร็จแล้ว Export Excel อัตโนมัติ</div>
+          <div class="h">PDF หลายไฟล์พร้อมกันได้ · DN อ่านเฉพาะหน้าแรก · Export Invoice cum Packing List อ่านเฉพาะหน้าสุดท้าย · อ่านเสร็จแล้ว Export Excel อัตโนมัติ</div>
           <input id="stw-input" type="file" accept=".pdf,application/pdf" multiple style="display:none" onchange="stwHandle(this.files); this.value=''">
         </div>
         <div id="stw-status"></div>
@@ -2832,7 +2833,6 @@ body.legacy-active .content-area { display: none !important; }
 const AVG_COLS = [{ col:'V', head:'F/W_OTH' }, { col:'W', head:'Frg_OTH' }, { col:'X', head:'Ins_OTH' }];
 const AVG_HEADERS = { B1:'Item No.', V1:'F/W_OTH', W1:'Frg_OTH', X1:'Ins_OTH', AK1:'Amount' };
 const AVG_GROUP_N = 20, AVG_PAGE = 20, AVG_FX_MAX = 5 * 1024 * 1024;
-const AVG_MIN_NOTE = 'ปรับขั้นต่ำเป็น 0.01';
 let avgS = null;            // { name, base, buf, rows:[{r,item,v:[3],blank:[3]}], amount, res, page }
 let avgFxActive = null;     // ไฟล์อัตราแลกเปลี่ยน ACTIVE จาก Server: { file_name, cur_count, currencies:[{code,name,rate}], ... }
 let avgFxPending = null;    // ไฟล์ที่เลือกแล้วแต่ยังไม่ SAVE: { name, size, sha, rows:[{code,name,rate}] }
@@ -2907,19 +2907,52 @@ function avgCurChanged(j){
 }
 function avgFxChanged(){ avgFxFields(); if(avgS && avgS.res) avgRender(); }             // เปลี่ยนสกุลเงิน / อัตรา → คำนวณยอดต่างประเทศใหม่ทันที (ยอดไทยไม่เปลี่ยน)
 function avgFxEnable(on){ for(let j = 0; j < 3; j++) ['avgCur', 'avgRate'].forEach(k => { avgEl(k + j).disabled = !on; }); }
-/* ยอดต่างประเทศของหัวข้อ j ครบทุกรายการ: ขั้นต่ำ 0.01 + รักษายอดรวม (ชดเชยเฉพาะ Item ที่เปลี่ยนจากการเฉลี่ย · ไม่ข้ามหัวข้อ / สกุลเงิน) */
+/* [476] ยอดต่างประเทศของหัวข้อ j ครบทุกรายการ (หน่วย 0.01 ของสกุลนั้น) — ไม่กระทบยอดฝั่งไทย / อัตรา / ยอดรวม
+   • ค่าตั้งต้น = ยอดไทย ÷ อัตรา (HALF-UP) · ทุกรายการต้องไม่น้อยกว่า 0.10 · ไม่จำกัดค่าสูงสุด · ยอดรวม = ยอดรวมไทย ÷ อัตรา ตรง 100%
+   • รายการที่ต่ำกว่า 0.10 = "รายการรับ": ได้ 0.10 + ส่วนเพิ่มตามสัดส่วน Amount (คอลัมน์ AK) ของรายการนั้น → ตัวเลขหลากหลาย ไม่เติม 0.10 ตายตัว
+     ค่าที่ยังซ้ำกันถูกขยับทีละ 0.01 เท่าที่งบเฉลี่ยมี (ไม่สุ่ม — เรียงตาม Amount แล้วตามลำดับไฟล์) · งบไม่พอ = ยอมให้ซ้ำ
+   • แหล่งเงิน = 20 รายการแรกที่มียอดเกิน 0.10 · ไม่พอ → ใช้ทุกรายการในไฟล์ที่มียอดเกิน 0.10 โดยอัตโนมัติ · หักตามสัดส่วนส่วนเกิน และเหลือไม่ต่ำกว่า 0.10
+   • ยอดรวมเป้าหมายน้อยกว่า 0.10 × จำนวนรายการ = เป็นไปไม่ได้ทางคณิตศาสตร์ → แจ้งข้อผิดพลาด (ไม่สร้างค่าติดลบ / ค่าต่ำกว่าขั้นต่ำ) */
+const AVG_FMIN = 10, AVG_FVAR = 40;
+function avgShare(total, idx, weight){          // แบ่ง total ตามสัดส่วน weight (เศษที่เหลือให้รายการที่เศษมากสุดก่อน · เท่ากันเรียงตามไฟล์) · ไม่เกิน cap เมื่อกำหนด
+  const W = idx.reduce((s, i) => s + weight(i), 0), out = new Map(); if(!idx.length || total <= 0) return out;
+  const parts = idx.map(i => { const x = W > 0 ? total * weight(i) : total; return W > 0 ? { i, q: Math.floor(x / W), r: x % W } : { i, q: Math.floor(total / idx.length), r: 0 }; });
+  let left = total - parts.reduce((s, p) => s + p.q, 0);
+  parts.sort((a, b) => b.r - a.r || a.i - b.i);
+  for(let k = 0; left > 0; k = (k + 1) % parts.length){ parts[k].q++; left--; }
+  parts.forEach(p => out.set(p.i, p.q)); return out;
+}
 function avgForeign(j, R, rp){
-  const f = [], bump = [];
-  for(let i = 0; i < R.out.length; i++){ const c = R.out[i][j], q = c > 0 ? avgDiv(c, rp) : 0; bump.push(c > 0 && q < 1); f.push(c > 0 ? Math.max(q, 1) : 0); }
-  const target = avgDiv(R.T[j], rp);
-  let diff = f.reduce((a, b) => a + b, 0) - target, guard = 0;
-  const cand = R.changed;
-  const top = min => { let b = -1; for(const i of cand) if(f[i] > min && (b < 0 || f[i] > f[b])) b = i; return b; };
-  while(diff !== 0 && cand.length && guard++ < 100000){
-    if(diff > 0){ const i = top(1); if(i < 0) return { err:'ไม่สามารถเฉลี่ยยอด ' + AVG_COLS[j].head + ' ได้ เนื่องจากยอดรวมต่างประเทศไม่เพียงพอสำหรับขั้นต่ำ 0.01 ต่อรายการ' }; f[i]--; diff--; }
-    else { const i = top(0); if(i < 0) break; f[i]++; diff++; }
+  const n = R.out.length, nat = R.out.map(o => avgDiv(o[j], rp)), target = avgDiv(R.T[j], rp), natSum = nat.reduce((a, b) => a + b, 0);
+  if(target < AVG_FMIN * n)
+    return { err:'ไม่สามารถเฉลี่ยยอด ' + AVG_COLS[j].head + ' ได้ เนื่องจากยอดรวมต่างประเทศ ' + avgFmt(target) + ' ไม่เพียงพอสำหรับขั้นต่ำ 0.10 ต่อรายการ (' + n + ' รายการ ต้องมียอดรวมอย่างน้อย ' + avgFmt(AVG_FMIN * n) + ')' };
+  const f = nat.slice(), recv = [], src = [];
+  for(let i = 0; i < n; i++) (nat[i] < AVG_FMIN ? recv : src).push(i);
+  const cap = i => nat[i] - AVG_FMIN, sum = (a, fn) => a.reduce((s, i) => s + fn(i), 0);
+  const g20 = src.filter(i => i < AVG_GROUP_N), cap20 = sum(g20, cap), capAll = sum(src, cap);
+  const am = i => (avgS.rows[i] && avgS.rows[i].am) || 0, amMax = recv.reduce((m, i) => Math.max(m, am(i)), 0);
+  const plan = K => recv.map(i => AVG_FMIN + (K && amMax > 0 ? Math.round(K * am(i) / amMax) : 0));
+  const dedOf = vals => natSum - target + vals.reduce((s, v, k) => s + v - nat[recv[k]], 0);     // > 0 = ต้องหักจากแหล่งเงิน · < 0 = ต้องเติมคืน
+  const base = dedOf(plan(0)), lim = Math.max(cap20, Math.floor(capAll / 2), base);             // base ≤ capAll เสมอ เมื่อ target ≥ 0.10 × n
+  let vals = plan(0);
+  for(let k = AVG_FVAR; k > 0; k--){ const v = plan(k); if(dedOf(v) <= lim){ vals = v; break; } }
+  let ded = dedOf(vals);
+  if(recv.length > 1){                                                                          // ลดค่าซ้ำในกลุ่มรายการรับ
+    const used = new Set(), ord = recv.map((_, k) => k).sort((a, b) => vals[a] - vals[b] || am(recv[a]) - am(recv[b]) || a - b);
+    for(const k of ord){ let v = vals[k]; while(used.has(v) && ded < lim){ v++; ded++; } vals[k] = v; used.add(v); }
   }
-  return { f, bump, target };
+  recv.forEach((i, k) => { f[i] = vals[k]; });
+  if(ded > 0){
+    const pool = cap20 >= ded ? g20 : src;                                                      // 20 รายการแรกไม่พอ → ค้นหาจากทั้งไฟล์
+    const take = avgShare(ded, pool.filter(i => cap(i) > 0), cap);
+    take.forEach((q, i) => { f[i] -= q; });
+    let over = 0; pool.forEach(i => { if(f[i] < AVG_FMIN){ over += AVG_FMIN - f[i]; f[i] = AVG_FMIN; } });   // กันเศษปัดเกินส่วนเกินของรายการ
+    for(const i of pool.slice().sort((a, b) => f[b] - f[a] || a - b)){ if(over <= 0) break; const t = Math.min(over, f[i] - AVG_FMIN); f[i] -= t; over -= t; }
+  } else if(ded < 0){
+    const pool = g20.length ? g20 : (src.length ? src : recv);
+    avgShare(-ded, pool, i => nat[i]).forEach((q, i) => { f[i] += q; });
+  }
+  return { f, adj: f.map((v, i) => v !== nat[i]), rebal: recv.length > 0, target, nat };   // rebal = มีการเฉลี่ยเพื่อขั้นต่ำ 0.10 (ไม่ใช่แค่ปรับเศษปัดของยอดรวม)
 }
 
 /* ───────── ไฟล์ข้อมูล ───────── */
@@ -2951,7 +2984,7 @@ async function avgHandleFile(files){
         v.push(p.bad ? 0 : p.c); blank.push(!!p.blank); }
       if(!item){ if(any) err.push('แถว ' + r + ': มียอดเงินแต่ไม่มี Item No.'); continue; }
       const am = avgToCents(ws['AK' + r] ? ws['AK' + r].v : null); if(am.bad || am.blank) amountOk = false; else amount += am.c;
-      rows.push({ r, item, v, blank });                         // Item ซ้ำคนละแถว = คนละรายการ (Key = เลขแถวต้นฉบับ)
+      rows.push({ r, item, v, blank, am: (am.bad || am.blank) ? 0 : am.c });                         // Item ซ้ำคนละแถว = คนละรายการ (Key = เลขแถวต้นฉบับ)
     }
     if(!rows.length) err.push('ไม่พบรายการ (Item No.) ในไฟล์');
     if(err.length) throw { list:err };
@@ -3011,26 +3044,30 @@ function avgCalc(){
   avgS.page = 0;
   avgRender();
 }
-function avgGo(p){ if(!avgS || !avgS.res) return; const n = Math.max(1, Math.ceil(avgS.res.changed.length / AVG_PAGE)); avgS.page = Math.min(n - 1, Math.max(0, p)); avgRenderTable(); }
+function avgGo(p){ if(!avgS || !avgS.res) return; const n = Math.max(1, Math.ceil(avgFxView().list.length / AVG_PAGE)); avgS.page = Math.min(n - 1, Math.max(0, p)); avgRenderTable(); }
 /* ยอดต่างประเทศของทั้ง 3 หัวข้อ ตามสกุลเงิน / อัตราที่กรอกอยู่ตอนนี้ */
 function avgFxView(){
   const R = avgS.res, fx = [0, 1, 2].map(avgFx);
   const fr = fx.map((x, j) => x.ok ? avgForeign(j, R, x.rp) : null);
-  return { fx, fr, miss: avgFxMissing(), errs: fr.filter(x => x && x.err).map(x => x.err) };
+  /* [476] รายการที่รายงาน = Item ที่ค่าฝั่งไทยเปลี่ยน + Item ที่ยอดต่างประเทศถูกปรับสมดุล (เรียงตามแถวในไฟล์) */
+  const okFr = fr.filter(x => x && !x.err), list = [];
+  for(let i = 0; i < R.out.length; i++) if(R.chg[i].some(Boolean) || okFr.some(x => x.rebal && x.adj[i])) list.push(i);   // การปรับเศษปัดของยอดรวมอย่างเดียว ไม่ทำให้ Item เพิ่มเข้ารายงาน
+  const yF = (i, j) => !!(fr[j] && !fr[j].err && (R.chg[i][j] || (fr[j].rebal && fr[j].adj[i])));
+  return { fx, fr, list, yF, miss: avgFxMissing(), errs: fr.filter(x => x && x.err).map(x => x.err) };
 }
 function avgRenderTable(V){
-  const R = avgS.res, n = R.changed.length, pages = Math.max(1, Math.ceil(n / AVG_PAGE)), p = avgS.page;
   V = V || avgFxView();
+  const R = avgS.res, n = V.list.length, pages = Math.max(1, Math.ceil(n / AVG_PAGE)), p = Math.min(avgS.page, pages - 1);
   avgEl('avgCount').textContent = '— ' + n.toLocaleString('en-US') + ' รายการ';
   if(!n){ avgEl('avgTable').innerHTML = '<div class="avg-empty" id="avgNone">ไม่พบรายการที่มีการเปลี่ยนแปลง</div>'; avgEl('avgPager').innerHTML = ''; return; }
   let h = '<table id="avgTbl"><thead><tr><th rowspan="2">Item</th><th colspan="3" class="g">ไทย (THB)</th><th colspan="3" class="g">ต่างประเทศ</th></tr><tr>'
         + AVG_COLS.map((c, j) => '<th class="n' + (j ? '' : ' g') + '">' + c.head + '</th>').join('')
         + AVG_COLS.map((c, j) => '<th class="n' + (j ? '' : ' g') + '">' + c.head + ' (' + avgEsc(V.fx[j].code || '—') + ')</th>').join('') + '</tr></thead><tbody>';
-  for(const i of R.changed.slice(p * AVG_PAGE, (p + 1) * AVG_PAGE)){
+  for(const i of V.list.slice(p * AVG_PAGE, (p + 1) * AVG_PAGE)){
     h += '<tr><td class="c">' + avgEsc(avgS.rows[i].item) + '</td>'
        + R.out[i].map((c, j) => '<td class="n' + (j ? '' : ' g') + (R.chg[i][j] ? ' y' : '') + '">' + avgFmt(c) + '</td>').join('')
        + [0, 1, 2].map(j => { const r = V.fr[j], ok = r && !r.err;
-           return '<td class="n' + (j ? '' : ' g') + (ok && R.chg[i][j] ? ' y' : '') + '">' + (ok ? avgFmt(r.f[i]) + (r.bump[i] ? '<div class="avg-note">' + AVG_MIN_NOTE + '</div>' : '') : '') + '</td>'; }).join('') + '</tr>';
+           return '<td class="n' + (j ? '' : ' g') + (V.yF(i, j) ? ' y' : '') + '">' + (ok ? avgFmt(r.f[i]) : '') + '</td>'; }).join('') + '</tr>';
   }
   avgEl('avgTable').innerHTML = h + '</tbody></table>';
   avgEl('avgPager').innerHTML = '<span>แสดง ' + (p * AVG_PAGE + 1) + '–' + Math.min(n, (p + 1) * AVG_PAGE) + ' จาก ' + n + ' รายการ</span>'
@@ -3050,7 +3087,7 @@ function avgRender(){
   if(aS !== bS) h += '<div class="avg-info" id="avgNet">ยอดไทยในไฟล์เดิม ' + avgFmt(bS) + ' → หลังเฉลี่ย ' + avgFmt(aS) + ' THB (ส่วนต่างสุทธิ ' + avgSigned(aS - bS) + ' จากยอดที่กรอก — แยกจากยอดที่โยกภายในกลุ่ม ' + AVG_GROUP_N + ' รายการแรก)</div>';
   avgEl('avgCheck').innerHTML = h;
   avgSetFlag(!R.ok ? 'ยอดรวมไม่ตรง' : fxReady ? '✓ ยอดรวมตรงกัน' : V.errs.length ? 'ยอดต่างประเทศไม่ผ่าน' : 'กรอกสกุลเงิน / อัตรา ให้ครบ', R.ok && fxReady ? 'ok' : 'bad');
-  avgEl('avgExpChanged').disabled = !(R.ok && fxReady && R.changed.length > 0);
+  avgEl('avgExpChanged').disabled = !(R.ok && fxReady && V.list.length > 0);
   avgEl('avgExpAll').disabled = !R.ok;                           // ไฟล์ตามต้นฉบับมีเฉพาะค่าฝั่งไทย — ไม่ขึ้นกับสกุลเงิน
 }
 
@@ -3163,8 +3200,9 @@ function avgSaveBlob(data, name){
   const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 async function avgExportChanged(){
-  if(!avgS || !avgS.res || !avgS.res.ok || !avgS.res.changed.length) return;
-  const R = avgS.res, V = avgFxView(); if(V.miss.length || V.errs.length) return;
+  if(!avgS || !avgS.res || !avgS.res.ok) return;
+  const R = avgS.res, V = avgFxView(); if(V.miss.length || V.errs.length || !V.list.length) return;
+  const isY = (i, c) => c > 1 && (c >= 5 ? V.yF(i, c - 5) : R.chg[i][c - 2]);
   try{
     if(typeof ExcelJS === 'undefined') throw new Error('โหลดตัวสร้างไฟล์ Excel (ExcelJS) ไม่สำเร็จ กรุณาโหลดหน้าเว็บใหม่');
     const NAVY = 'FF1F3864', BLUE = 'FF1E40AF', LINE = 'FFB4C6E7', ZEBRA = 'FFEAF2FB', YEL = 'FFFFF2CC', GOLD = 'FFBF9000', WHITE = 'FFFFFFFF';
@@ -3184,21 +3222,20 @@ async function avgExportChanged(){
     for(let r = 4; r <= 5; r++) for(let c = 1; c <= 7; c++){ const x = ws.getCell(r, c); x.font = { bold:true, color:{ argb:WHITE } }; x.fill = fill(BLUE); x.alignment = { horizontal:'center', vertical:'middle', wrapText:true }; }
     ws.getRow(4).height = 20; ws.getRow(5).height = 20;
     let r = 6;
-    for(const i of R.changed){                                  // เฉพาะ Item ที่แสดงในหน้าต่าง · ลำดับตามไฟล์ Upload · Item เป็นข้อความ
+    for(const i of V.list){                                     // เฉพาะ Item ที่เปลี่ยนจริง · ลำดับตามไฟล์ Upload · Item เป็นข้อความ
       const a = ws.getCell(r, 1); a.value = String(avgS.rows[i].item); a.numFmt = '@'; a.alignment = { horizontal:'center' }; a.font = { bold:true };
       for(let j = 0; j < 3; j++){
         const th = ws.getCell(r, 2 + j), fo = ws.getCell(r, 5 + j);
         th.value = R.out[i][j] / 100; fo.value = V.fr[j].f[i] / 100;
-        if(V.fr[j].bump[i]) fo.note = AVG_MIN_NOTE;
         [th, fo].forEach(x => { x.numFmt = '#,##0.00'; x.alignment = { horizontal:'right' }; });
       }
-      for(let c = 1; c <= 7; c++){ const x = ws.getCell(r, c), j = c >= 5 ? c - 5 : c - 2, y = c > 1 && R.chg[i][j];
+      for(let c = 1; c <= 7; c++){ const x = ws.getCell(r, c), y = isY(i, c);
         if(y) x.fill = fill(YEL); else if((r - 6) % 2 === 1) x.fill = fill(ZEBRA); }      // สีเหลืองเฉพาะเซลล์ที่เปลี่ยน — ไม่ลงสีทั้งแถว
       r++;
     }
     const last = r - 1;
     for(let rr = 4; rr <= last; rr++) for(let c = 1; c <= 7; c++){
-      const x = ws.getCell(rr, c), j = c >= 5 ? c - 5 : c - 2, y = rr >= 6 && c > 1 && R.chg[R.changed[rr - 6]][j], e = y ? thin(GOLD) : thin(LINE);
+      const x = ws.getCell(rr, c), y = rr >= 6 && isY(V.list[rr - 6], c), e = y ? thin(GOLD) : thin(LINE);
       if(rr === 4 || (rr === 5 && c === 1)) continue;             // เซลล์หัวที่ Merge ใช้รูปแบบร่วมกัน → กำหนดกรอบที่ช่วง Merge ด้านล่าง
       x.border = { top: e, bottom: rr === last ? med(NAVY) : (rr === 5 ? med(NAVY) : e), left: c === 1 ? med(NAVY) : ((c === 2 || c === 5) ? med(NAVY) : e), right: c === 7 ? med(NAVY) : e };
     }
@@ -8292,6 +8329,7 @@ async function stwReadDn(file){
     row.pages = pdf.numPages;
     const tc = await (await pdf.getPage(1)).getTextContent();            // หน้าแรกเท่านั้น
     const items = tc.items.map(i => ({ s:String(i.str || '').trim(), x:i.transform[4], y:i.transform[5] })).filter(i => i.s);
+    if(STW_INV_RE.test(items.map(i => i.s).join(' '))) return await stwReadInv(pdf, row);   // [477] Export Invoice cum Packing List → Logic แยก
     try{ pdf.destroy(); }catch(_){}
     if(!items.length) throw new Error('หน้าแรกไม่มีข้อความให้อ่านโดยตรง (ไฟล์สแกน) — โหมดนี้ไม่ใช้ AI / OCR');
     const r = stwParse(items); row.dn = r.dn; row.nw = r.nw; row.gw = r.gw;
@@ -8301,14 +8339,63 @@ async function stwReadDn(file){
   row.msg = row.ok ? 'อ่านสำเร็จ' : row.err ? 'อ่านไม่สำเร็จ: ' + row.err : 'ไม่พบ ' + row.miss.join(', ') + (row.dn ? ' ใน Delivery Note ' + row.dn : ' ในไฟล์ ' + row.file);
   return row;
 }
+/* ══ [477] โหมดน้ำหนัก — รองรับ Export Invoice cum Packing List (INDIA SCHAEFFLER) · แยกจาก Logic DN เดิม ══
+   • ตรวจรูปแบบจากชื่อเอกสารในหน้าแรก · อ่านตาราง Shipment / Quantity Packaging mat. / Gross / Net "เฉพาะหน้าสุดท้าย"
+   • รวมทุกบรรทัดของไฟล์ (Shipment ซ้ำ = รวม ไม่ตัดออก · ไม่คูณ Quantity) · คิดเป็นจำนวนเต็มหน่วย 0.001 KG กันเศษทศนิยม
+   • อ่านไม่ครบแม้บรรทัดเดียว = ไม่ใส่ค่าใด ๆ ให้ไฟล์นั้น (ไม่แทนด้วย 0) + แจ้งชื่อไฟล์ + ไม่ Export อัตโนมัติ */
+const STW_INV_RE = /Export\s+Invoice\s+cum\s+Packing\s+List/i;
+function stwInvNum(t){                                                   // "2,687.800" → 2687800 (หน่วย 0.001) · รูปแบบอื่น = null
+  const m = String(t == null ? '' : t).trim().match(/^(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d{1,3}))?$/);
+  return m ? Number(m[1].replace(/,/g, '')) * 1000 + Number(((m[2] || '') + '000').slice(0, 3)) : null;
+}
+function stwInvParse(items){
+  const rows = [];
+  for(const i of items.slice().sort((a, b) => b.y - a.y || a.x - b.x)){ const r = rows.find(q => Math.abs(q.y - i.y) <= 3); if(r) r.it.push(i); else rows.push({ y:i.y, it:[i] }); }
+  rows.forEach(r => { r.t = r.it.sort((a, b) => a.x - b.x).map(i => i.s).join(' ').replace(/\s+/g, ' ').trim(); });
+  const hi = rows.findIndex(r => /^Shipment\b.*Quantity\s+Packaging.*\bGross\b.*\bNet\b/i.test(r.t));
+  if(hi < 0) return { err:'ไม่พบตาราง Shipment / Quantity Packaging mat. / Gross / Net ในหน้าสุดท้าย' };
+  const lines = [], bad = [];
+  for(const r of rows.slice(hi + 1)){
+    const m = r.t.match(/^(\d{6,12}) (\d+) ?PC ([\d.,]+) ?KG ([\d.,]+) ?KG$/i), g = m ? stwInvNum(m[3]) : null, n = m ? stwInvNum(m[4]) : null;
+    if(m && g != null && n != null) lines.push({ ship:m[1], pk:Number(m[2]), g, n });
+    else if(/^\d{6,12}\b/.test(r.t) || /\bKG\b/i.test(r.t) || /\bPC\b/.test(r.t)) bad.push(r.t);
+  }
+  if(bad.length) return { err:'อ่านบรรทัดน้ำหนักไม่ครบ ' + bad.length + ' บรรทัด ("' + bad[0].slice(0, 60) + '")' };
+  if(!lines.length) return { err:'ไม่พบบรรทัดน้ำหนักใต้หัวตาราง Shipment ในหน้าสุดท้าย' };
+  return { lines };
+}
+async function stwReadInv(pdf, row){
+  row.kind = 'inv'; row.pk = 0; row.ln = 0;
+  try{
+    const tc = await (await pdf.getPage(pdf.numPages)).getTextContent();  // หน้าสุดท้ายเท่านั้น
+    const items = tc.items.map(i => ({ s:String(i.str || '').trim(), x:i.transform[4], y:i.transform[5] })).filter(i => i.s);
+    if(!items.length) throw new Error('หน้าสุดท้ายไม่มีข้อความให้อ่านโดยตรง (ไฟล์สแกน) — โหมดนี้ไม่ใช้ AI / OCR');
+    const r = stwInvParse(items); if(r.err) throw new Error(r.err);
+    let g = 0, n = 0; const ships = [];
+    for(const l of r.lines){ g += l.g; n += l.n; row.pk += l.pk; if(ships.indexOf(l.ship) < 0) ships.push(l.ship); }
+    row.ln = r.lines.length; row.dn = ships.join(', '); row.gw = { v:g / 1000, d:3 }; row.nw = { v:n / 1000, d:3 };
+  }catch(e){ row.err = String((e && e.message) || e || 'อ่านไฟล์ไม่สำเร็จ'); row.dn = ''; row.nw = null; row.gw = null; row.pk = 0; row.ln = 0; }
+  try{ pdf.destroy(); }catch(_){}
+  row.ok = !row.err;
+  row.msg = row.ok ? 'อ่านสำเร็จ · ' + row.ln + ' บรรทัด · Packing ' + row.pk + ' PC' : 'อ่านไม่สำเร็จ: ' + row.err + ' — ไฟล์ ' + row.file;
+  return row;
+}
+/* TOTAL รวมทุกไฟล์ (แสดงเมื่อมีไฟล์ Export Invoice cum Packing List — DN ล้วนแสดงตามเดิม) */
+function stwTotalHtml(){
+  const inv = stwRows.filter(r => r.kind === 'inv'); if(!inv.length) return '';
+  let n = 0, g = 0, d = 0, pk = 0, ln = 0;
+  for(const r of stwRows){ if(r.nw){ n += Math.round(r.nw.v * 1000); d = Math.max(d, r.nw.d); } if(r.gw){ g += Math.round(r.gw.v * 1000); d = Math.max(d, r.gw.d); } if(r.kind === 'inv'){ pk += r.pk; ln += r.ln; } }
+  const bad = stwRows.filter(r => !r.ok).length;
+  return '<tfoot><tr id="stw-total"><td>TOTAL (' + stwRows.length + ' ไฟล์)</td><td class="n">' + (n / 1000).toFixed(d) + '</td><td class="n">' + (g / 1000).toFixed(d) + '</td><td class="' + (bad ? 'bad' : 'ok') + '">' + ln + ' บรรทัด · Packing ' + pk + ' PC' + (bad ? ' · ยังไม่รวมไฟล์ที่อ่านไม่ครบ ' + bad + ' ไฟล์' : '') + '</td><td>NW / GW หน่วย KG</td></tr></tfoot>';
+}
 function stwExportable(){ return stwRows.filter(r => r.dn || r.nw || r.gw); }
 function stwRender(note){
   const e = escapeHtml, st = document.getElementById('stw-status'), tb = document.getElementById('stw-table');
   if(!stwRows.length && !stwBusy){ st.textContent = ''; st.className = ''; tb.innerHTML = ''; document.getElementById('stw-export').disabled = true; return; }
   let h = '<table id="stw-tbl"><thead><tr><th>Delivery Note No</th><th class="n">Total NW</th><th class="n">Total GW</th><th>สถานะ</th><th>หมายเหตุ</th></tr></thead><tbody>';
   for(const r of stwRows)
-    h += '<tr class="' + (r.ok ? '' : 'bad') + '"><td>' + e(r.dn) + '</td><td class="n">' + stwShow(r.nw) + '</td><td class="n">' + stwShow(r.gw) + '</td><td class="' + (r.ok ? 'ok' : 'bad') + '">' + e(r.msg) + '</td><td>' + e(r.file) + (r.pages > 1 ? ' (อ่านหน้า 1 จาก ' + r.pages + ' หน้า)' : '') + '</td></tr>';
-  tb.innerHTML = h + '</tbody></table>';
+    h += '<tr class="' + (r.ok ? '' : 'bad') + '"><td>' + e(r.dn) + '</td><td class="n">' + stwShow(r.nw) + '</td><td class="n">' + stwShow(r.gw) + '</td><td class="' + (r.ok ? 'ok' : 'bad') + '">' + e(r.msg) + '</td><td>' + e(r.file) + (r.kind === 'inv' ? ' (อ่านหน้าสุดท้าย ' + r.pages + ' จาก ' + r.pages + ' หน้า)' : r.pages > 1 ? ' (อ่านหน้า 1 จาก ' + r.pages + ' หน้า)' : '') + '</td></tr>';
+  tb.innerHTML = h + '</tbody>' + stwTotalHtml() + '</table>';
   const bad = stwRows.filter(r => !r.ok).length;
   st.textContent = note || ''; st.className = stwBusy ? '' : bad ? 'err' : 'ok';
   document.getElementById('stw-export').disabled = stwBusy || !stwExportable().length;
@@ -8323,6 +8410,8 @@ async function stwHandle(files){
   }
   stwBusy = false;
   const bad = stwRows.filter(r => !r.ok).length, n = stwExportable().length;
+  const badInv = stwRows.filter(r => r.kind === 'inv' && !r.ok);        // [477] ไฟล์รูปแบบใหม่อ่านไม่ครบ → แจ้งชื่อไฟล์ก่อน · ไม่ Export อัตโนมัติ
+  if(badInv.length){ stwRender('อ่าน ' + stwRows.length + ' ไฟล์ · สำเร็จ ' + (stwRows.length - bad) + ' · อ่านไม่ครบ ' + bad + ' ไฟล์\nไฟล์ที่มีปัญหา: ' + badInv.map(r => r.file).join(', ') + '\nยังไม่ Export อัตโนมัติ — ตรวจสอบไฟล์ก่อน (ปุ่ม EXPORT EXCEL จะส่งออกเฉพาะไฟล์ที่อ่านครบ)'); return; }
   stwRender('อ่าน DN ' + stwRows.length + ' ไฟล์ · สำเร็จ ' + (stwRows.length - bad) + (bad ? ' · อ่านไม่ครบ ' + bad + ' ไฟล์ (ช่องที่ไม่พบเว้นว่าง)' : '') + (n ? ' · Export ' + STW_FILE + ' แล้ว' : ' · ไม่มีข้อมูลให้ Export'));
   if(n) await stwExport();                                              // Export อัตโนมัติ 1 ครั้งต่อรอบ
 }
@@ -27561,7 +27650,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local475';
+const DEPLOY_VERSION = 'local477';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
