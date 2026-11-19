@@ -289,9 +289,136 @@ function UMS806(list, v, lb) {   /* จับคู่ข้อมูลหล�
   let ids = [...new Set(a.map((x) => x.id))];
   return ids.length === 1 ? { id: ids[0] } : { err: ids.length ? lb + " ชื่อนี้มีมากกว่า 1 รายการในข้อมูลหลัก (" + v + ")" : "ไม่พบ" + lb + "ในข้อมูลหลัก (" + v + ")" };
 }
+/* ═══ V.904 (local894) · DOCUMENT → SERVICE → UPLOAD EXCEL : รองรับ Excel รูปแบบ HP เพิ่มเติม
+   ตรวจรูปแบบอัตโนมัติจากชื่อหัวคอลัมน์ (ไม่ยึดชื่อไฟล์ / ตำแหน่งคอลัมน์ / ชื่อ SHEET)
+   อ่านเฉพาะ 6 หัวข้อ : ลูกค้า · บริษัท (→ บริษัท INVOICE) · เลขที่ใบขนฯ · Houes (→ House B/L No.) · Master (→ Master B/L No.) · Customer Job (→ Customer Job No.)
+   รองรับหัวคอลัมน์ "ลูกค้า" ที่เว้นว่างตามไฟล์ต้นฉบับ · ช่องว่างท้ายชื่อหัวคอลัมน์ · ค่า AIR ในช่อง Master · ทุกแถวไม่จำกัดจำนวน
+   ค่าที่ไฟล์ไม่มีแต่ระบบบังคับ (โหมด / Invoice No. / ประเภท / ประเภทงาน) เลือกในหน้าต่าง Preview ก่อนบันทึก
+   บันทึกตาม FLOW เดิมทุกขั้น (njacc_job_dup_check + njacc_save_document_job) ═══ */
+var UL904 = ["ลูกค้า", "บริษัท", "เลขที่ใบขนฯ", "Houes", "Master", "Customer Job"];
+var UK904 = ["cust", "comp", "dcl", "hbl", "mbl", "cjob"];
+var UH904 = {
+  cust: ["ลูกค้า", "CUSTOMER", "CUSTOMER NAME"],
+  comp: ["บริษัท", "บริษัท INVOICE", "COMPANY", "COMPANY INVOICE"],
+  dcl: ["เลขที่ใบขนฯ", "เลขที่ใบขน", "เลขใบขนฯ", "เลขใบขนสินค้า", "เลขที่ใบขนสินค้า"],
+  hbl: ["HOUES", "HOUSE", "HOUSE B/L", "HOUSE B/L NO.", "HOUSE BL", "HOUSE BL NO."],
+  mbl: ["MASTER", "MASTER B/L", "MASTER B/L NO.", "MASTER BL", "MASTER BL NO."],
+  cjob: ["CUSTOMER JOB", "CUSTOMER JOB NO.", "CUSTOMER JOB NO", "CUSTOMERJOB"]
+};
+var UN904 = ["cust", "comp", "dcl", "hbl", "mbl", "cjob"].reduce((a, k2) => (a[k2] = { cust: "ลูกค้า", comp: "บริษัท INVOICE", dcl: "เลขที่ใบขนฯ", hbl: "House B/L No.", mbl: "Master B/L No.", cjob: "Customer Job No." }[k2], a), {});
+function UF904(wb, X) {   /* หา SHEET + ตำแหน่งคอลัมน์ของรูปแบบ HP จากชื่อหัวคอลัมน์ */
+  for (let n of (wb.SheetNames || [])) {
+    let ws = wb.Sheets[n]; if (!ws || !ws["!ref"]) continue;
+    let rg; try { rg = X.utils.decode_range(ws["!ref"]); } catch (e) { continue; }
+    let hd = [];
+    for (let cc = rg.s.c; cc <= rg.e.c; cc++) hd.push(UH806N(UX806(ws, X, rg.s.r, cc)));
+    let ix = {}, miss = [];
+    UK904.forEach((k2) => {
+      let p = -1;
+      UH904[k2].some((h) => { let q2 = hd.indexOf(UH806N(h)); return q2 >= 0 ? (p = q2, !0) : !1; });
+      p < 0 ? miss.push(k2) : (ix[k2] = rg.s.c + p);
+    });
+    if (miss.length === 1 && miss[0] === "cust" && !hd[0] && Object.keys(ix).every((k2) => ix[k2] !== rg.s.c)) { ix.cust = rg.s.c; miss = []; }   /* หัวคอลัมน์ ลูกค้า เว้นว่างตามไฟล์ต้นฉบับ */
+    if (!miss.length && new Set(UK904.map((k2) => ix[k2])).size === UK904.length) return { ws: ws, name: n, ix: ix, rg: rg };
+  }
+  return {};
+}
+async function UR904(t, f, X, F) {
+  let { ws, ix, rg } = F, ms = XG506.masters || {}, rows = [];
+  for (let r = rg.s.r + 1; r <= rg.e.r; r++) {
+    let T = {};
+    UK904.forEach((k2) => { T[k2] = UX806(ws, X, r, ix[k2]); });
+    if (UK904.every((k2) => !T[k2])) continue;   /* แถวว่าง */
+    let x = { row: r + 1, T: T, err: [] };
+    let cu = UMS806(ms.customers, T.cust, "ลูกค้า"), co = UMS806(ms.companies, T.comp, "บริษัท");
+    cu.err ? x.err.push(cu.err) : (x.cu = cu.id); co.err ? x.err.push(co.err) : (x.co = co.id);
+    ["dcl", "hbl", "mbl", "cjob"].forEach((k2) => { T[k2] || x.err.push("ไม่มี " + UN904[k2]); });
+    rows.push(x);
+  }
+  if (!rows.length) { c('ไม่มีข้อมูลใน SHEET "' + F.name + '" — ยังไม่สร้าง JOB', "err"); return !1; }
+  /* ── ซ้ำกันเองในไฟล์ (ฟิลด์เดียวกับที่ระบบกันซ้ำ · Invoice No. มาจากหน้าต่าง Preview จึงตรวจตอนบันทึก) ── */
+  let seen = {};
+  rows.forEach((x) => [["dcl", "เลขที่ใบขนฯ"], ["hbl", "House B/L No."]].forEach(([k2, lb]) => {
+    let v = x.T[k2].toLowerCase(); if (!v || v === "n/a") return; let K = k2 + "|" + v;
+    seen[K] ? x.err.push(lb + " ซ้ำกับแถว " + seen[K] + " ในไฟล์ (" + x.T[k2] + ")") : (seen[K] = x.row);
+  }));
+  /* ── ซ้ำกับ JOB ในระบบ (njacc_job_dup_check เดิม · อ่านอย่างเดียว) ── */
+  let chk = rows.filter((x) => !x.err.length), fail = null, q = chk.slice();
+  await Promise.all([0, 1, 2, 3].map(async () => {
+    for (let x; !fail && (x = q.shift());) {
+      try {
+        let r = await RPC753("njacc_job_dup_check", { p: { charge_type: "SERVICE", customs_declaration_no: x.T.dcl, house_bl_no: x.T.hbl } });
+        if (!r || typeof r !== "object") throw new Error("NO_RESULT");
+        r.ok === !1 && Array.isArray(r.dups) && r.dups.length && (x.dup = r.dups.map((d) => d.label + " " + d.value + " → JOB เดิม: " + (d.jobs || []).join(", ")).join(" · "));
+      } catch (e) { fail = e; }
+    }
+  }));
+  if (fail) { c("ตรวจข้อมูลซ้ำกับระบบไม่สำเร็จ — ยังไม่สร้าง JOB · " + String(fail && fail.message || fail || ""), "err"); return !1; }
+  rows.forEach((x) => { x.st = x.err.length ? "bad" : x.dup ? "dup" : "ready"; });
+  /* ── Preview (ยังไม่บันทึก) ── */
+  let bd = document.createElement("div"), ft = document.createElement("div"), RED = "#b91c1c", GRN = "#15803d", BLU = "#1d4ed8";
+  let stTxt = (x) => x.st === "ready" ? "ผ่าน · พร้อมนำเข้า" : x.st === "dup" ? "ข้อมูลซ้ำ (ห้ามนำเข้า) — " + x.dup : "ไม่ผ่าน — " + x.err.join(" · ");
+  let cols = [["Excel Row", (x) => x.row], ["ลูกค้า", (x) => x.T.cust], ["บริษัท INVOICE", (x) => x.T.comp], ["เลขที่ใบขนฯ", (x) => x.T.dcl],
+    ["House B/L No.", (x) => x.T.hbl], ["Master B/L No.", (x) => x.T.mbl], ["Customer Job No.", (x) => x.T.cjob]];
+  let opt = (a) => a.map((v) => `<option value="${s(v)}">${s(v)}</option>`).join("");
+  bd.innerHTML = `<div class="up904" style="width:min(1100px,calc(100vw - 72px));max-width:100%"><div class="up904-def" style="display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin:0 0 8px;padding:8px 10px;border:1px solid #ddd6fe;background:#f5f3ff;border-radius:8px;font-size:13px">
+      <b style="color:#6d28d9">ค่าที่ไม่มีใน Excel (บังคับตามฟอร์มเปิดงานเดิม · ใช้กับทุกรายการที่บันทึก)</b>
+      <label style="display:inline-flex;align-items:center;gap:6px">โหมด <span style="color:${RED}">*</span><select class="sel" id="up904-mode">${opt(UM806)}</select></label>
+      <label style="display:inline-flex;align-items:center;gap:6px">Invoice No. <span style="color:${RED}">*</span><input class="inp" id="up904-inv" value="N/A" style="width:150px"></label>
+      <label style="display:inline-flex;align-items:center;gap:6px">ประเภท <span style="color:${RED}">*</span><select class="sel" id="up904-cat"><option value="">— เลือกประเภท —</option>${opt(UC806)}</select></label>
+      <label style="display:inline-flex;align-items:center;gap:6px">ประเภทงาน <span style="color:${RED}">*</span><select class="sel" id="up904-cg"><option value="">— FCL / LCL / FZ / FZ+FZ —</option>${UG806.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select></label>
+      <span class="t-sm" style="color:#6b7280">Invoice No. ใช้ค่าเดียวกับทุกแถว — ถ้าไม่ใช่ N/A และมีมากกว่า 1 รายการ ระบบจะถือเป็นข้อมูลซ้ำ</span></div>
+    <div class="t-sm mb-1" id="up904-sum"></div><div class="tbl-wrap" style="max-height:52vh;overflow:auto;max-width:100%"><table class="tbl" style="white-space:nowrap"><thead><tr>${cols.map((k2, j) => `<th>${s(k2[0])}</th>` + (j ? "" : "<th>สถานะ</th>")).join("")}</tr></thead><tbody>${rows.map((x, i2) => `<tr data-up904="${i2}">${cols.map((k2, j) => `<td>${s(k2[1](x) == null ? "" : String(k2[1](x)))}</td>` + (j ? "" : `<td class="up904-st" style="color:${x.st === "ready" ? BLU : RED};font-weight:600;white-space:normal;min-width:260px;max-width:420px">${s(stTxt(x))}</td>`)).join("")}</tr>`).join("")}</tbody></table></div></div>`;
+  let nReady = rows.filter((x) => x.st === "ready").length, nDup = rows.filter((x) => x.st === "dup").length, nBad = rows.filter((x) => x.st === "bad").length, ok = 0, bad = 0, saving = !1, done = !1;
+  let mode = bd.querySelector("#up904-mode"), inv = bd.querySelector("#up904-inv"), cat = bd.querySelector("#up904-cat"), cg = bd.querySelector("#up904-cg");
+  mode.value = "IM (AIR)";
+  let sm = () => { let e = bd.querySelector("#up904-sum"); e && (e.innerHTML = `แถว Excel ทั้งหมด: <b>${rows.length}</b> · ผ่าน (พร้อมนำเข้า): <b style="color:${BLU}">${nReady}</b> · ไม่ผ่าน: <b style="color:${RED}">${nDup + nBad}</b> (ข้อมูลซ้ำ ${nDup} · ข้อมูลไม่ถูกต้อง/ไม่ครบ ${nBad})${saving || done ? ` · บันทึกสำเร็จ: <b style="color:${GRN}">${ok}</b> · ไม่สำเร็จ: <b style="color:${RED}">${bad}</b>` : ""}${done ? "" : saving ? " · กำลังบันทึก…" : nReady ? ` · <b>ยังไม่บันทึกจนกว่าจะเลือก โหมด + Invoice No. + ประเภท + ประเภทงาน แล้วกด "บันทึกข้อมูล"</b>` : " · <b>ไม่มีรายการที่บันทึกได้</b>"}`); };
+  let st = (i2, h, col) => { let e = bd.querySelector(`tr[data-up904="${i2}"] .up904-st`); e && (e.textContent = h, e.style.color = col); };
+  ft.innerHTML = `<button class="btn btn-o" data-close>ยกเลิก</button><button class="btn btn-p" id="up904-save" disabled>\u{1F4BE} บันทึกข้อมูล (${nReady} JOB)</button>`;
+  k({ title: "UPLOAD HP — " + s(f.name), body: bd, footer: ft, large: !0 }); sm();
+  let sv = ft.querySelector("#up904-save"), cl = ft.querySelector("[data-close]");
+  let en = () => { sv.disabled = saving || done || !nReady || !mode.value || !UN753(inv.value) || !cat.value || !cg.value; };
+  [mode, cat, cg].forEach((e) => e.addEventListener("change", en)); inv.addEventListener("input", en); en();
+  let td = new Date(), today = td.getFullYear() + "-" + UP2753(td.getMonth() + 1) + "-" + UP2753(td.getDate()), rq = Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 10);
+  let rel = () => { UB753 = !1; }, mo = new MutationObserver(() => { if (!bd.isConnected && !saving) { mo.disconnect(); rel(); } });
+  mo.observe(document.body, { childList: !0, subtree: !0 });   /* ปิดหน้าต่าง = ไม่บันทึก · ปลดล็อกให้ UPLOAD ใหม่ได้ */
+  sv.addEventListener("click", async () => {
+    if (saving || done || !mode.value || !cat.value || !cg.value) return;
+    let IV = UN753(inv.value); if (!IV) return;
+    if (IV.toLowerCase() !== "n/a" && nReady > 1) { c("Invoice No. ใช้ค่าเดียวกับทุกแถว — มี " + nReady + " รายการ ระบบจะถือเป็นข้อมูลซ้ำ · ใช้ N/A หรือบันทึกทีละรายการ", "err"); return; }
+    if (IV.toLowerCase() !== "n/a") {
+      try { let r = await RPC753("njacc_job_dup_check", { p: { charge_type: "SERVICE", source_invoice_no: IV } });
+        if (r && r.ok === !1 && Array.isArray(r.dups) && r.dups.length) { c("Invoice No. ซ้ำกับ JOB เดิม — " + r.dups.map((d) => d.label + " " + d.value + " → " + (d.jobs || []).join(", ")).join(" · "), "err"); return; } }
+      catch (e) { c("ตรวจ Invoice No. ซ้ำไม่สำเร็จ — ยังไม่สร้าง JOB · " + String(e && e.message || e || ""), "err"); return; }
+    }
+    saving = !0; en(); cl.disabled = !0; [mode, inv, cat, cg].forEach((e) => { e.disabled = !0; }); sm();
+    let C = cat.value, G = cg.value, MD = mode.value;
+    for (let i2 = 0; i2 < rows.length; i2++) {
+      let x = rows[i2], T = x.T; if (x.st !== "ready") continue;
+      st(i2, "กำลังบันทึก…", BLU);
+      let p = { job: { charge_type: "SERVICE", company_group: t.group, data_type: MD, reference_date: today, reference_no: null, job_date: today,
+          company_invoice_id: x.co, customer_id: x.cu, customer_job_no: T.cjob, customs_declaration_no: T.dcl, source_invoice_no: IV,
+          house_bl_no: T.hbl || null, master_bl_no: T.mbl || null, booking_no: null, etd: null, eta: null, delivery_date: null, note: null,
+          request_id: "up904_" + rq + "_" + i2 },
+        doc: { job_category: C, cargo_fcl: G === "fcl", cargo_lcl: G === "lcl", cargo_fz: G === "fz", cargo_fz_fz: G === "fzfz", import_port: null, container_no: null } };
+      let r = null, er = null;
+      try { r = await RPC753("njacc_save_document_job", { p: p }); } catch (e) { er = e; }
+      if (r && r.id) { ok++; st(i2, "สำเร็จ (แถว " + x.row + ") · " + (r.job_no || r.open_no || ("ID " + String(r.id).slice(0, 8))) + (r.job_no || r.open_no ? "" : " (รอ POST ออกเลข JOB)"), GRN); }
+      else { bad++; let y2 = UE806(er); st(i2, (y2.dup ? "ข้อมูลซ้ำ (ห้ามนำเข้า) — " : "ไม่สำเร็จ (แถว " + x.row + ") — ") + y2.msg, RED); }
+      sm();
+    }
+    saving = !1; done = !0; bd.isConnected || (mo.disconnect(), rel()); sm(); en(); cl.disabled = !1; cl.textContent = "✕ ปิด"; sv.style.display = "none";
+    try { t.refresh && t.refresh(); } catch (e) {}
+    c("UPLOAD HP : สร้าง JOB สำเร็จ " + ok + " / ไม่สำเร็จ " + bad, bad ? "err" : "ok");
+  });
+  return !0;
+}
 async function UR806(t, f, X, wb) {
   let F = UF806(wb, X);
-  if (!F.ws) { c((F.why || 'ไม่รู้จักรูปแบบไฟล์ — รองรับ SHEET "เปิดจ๊อบ" (CALCOMP) หรือ SERVICE NJ LIST (17 คอลัมน์ : ' + UH806.join(", ") + ")") + " — ยังไม่สร้าง JOB", "err"); return !1; }
+  if (!F.ws) {   /* V.904 : รูปแบบเดิมไม่ตรง → ลองรูปแบบ HP (6 คอลัมน์) ก่อนแจ้งว่าไม่รู้จักไฟล์ (รูปแบบเดิมมาก่อนเสมอ) */
+    let H904 = UF904(wb, X);
+    if (H904.ws) return await UR904(t, f, X, H904);
+    c((F.why || 'ไม่รู้จักรูปแบบไฟล์ — รองรับ SHEET "เปิดจ๊อบ" (CALCOMP) · SERVICE NJ LIST (17 คอลัมน์ : ' + UH806.join(", ") + ") · รูปแบบ HP (6 คอลัมน์ : " + UL904.join(", ") + ")") + " — ยังไม่สร้าง JOB", "err"); return !1; }
   let { ws, ix, rg } = F, ms = XG506.masters || {}, rows = [];
   for (let r = rg.s.r + 1; r <= rg.e.r; r++) {
     let x = { row: r + 1 }, T = {};
