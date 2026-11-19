@@ -8395,12 +8395,18 @@ function stwEwmParse(items){
   const rows = stwEwmLines(items);
   const hi = rows.findIndex(r => /Total\s*gross/i.test(r.t) && /Total\s*net/i.test(r.t));
   if(hi < 0) return { err:'ไม่พบหัวข้อ Total gross / Total net ในหน้าสุดท้าย' };
-  const hg = rows[hi].it.find(i => /gross/i.test(i.s)), hn = rows[hi].it.find(i => /net/i.test(i.s));
+  const lab = re => rows[hi].it.find(i => re.test(i.s));
+  const hg = lab(/gross/i), hn = lab(/net/i), hp = lab(/packages/i), hq = lab(/Total\s*qty/i);
   for(const r of rows.slice(hi + 1, hi + 4)){
     const p = stwEwmPairs(r); if(p.length < 2) continue;
     const near = (x, skip) => p.filter(q => q !== skip).sort((a, b) => Math.abs(a.x - x) - Math.abs(b.x - x))[0];
     const g = hg ? near(hg.x) : p[0], nt = hn ? near(hn.x, g) : p.filter(q => q !== g)[0];
-    if(g && nt) return { gw:g.n, nw:nt.n };
+    if(!g || !nt) continue;
+    /* [483] จำนวนในกรอบเดียวกัน (ไม่มีหน่วย KG): Qty. packages และ Total qty. — ตัวเลขยุโรป "4.256" = 4,256 */
+    const num = r.it.filter(i => !/KG/i.test(i.s) && stwNum(i.s) && !p.some(q => q.x === i.x)).map(i => ({ n:stwNum(i.s), x:i.x }));
+    const pick = (h, skip) => h ? (num.filter(q => q !== skip && q.x < g.x).sort((a, b) => Math.abs(a.x - h.x) - Math.abs(b.x - h.x))[0] || null) : null;
+    const pkg = pick(hp), qty = pick(hq, pkg);
+    return { gw:g.n, nw:nt.n, pkg: pkg ? pkg.n.v : null, qty: qty ? qty.n.v : null };
   }
   return { err:'ไม่พบยอดรวมน้ำหนัก (KG) ใต้หัวข้อ Total gross / Total net ในหน้าสุดท้าย' };
 }
@@ -8417,9 +8423,10 @@ async function stwReadEwm(pdf, row){
     const items = tc.items.map(i => ({ s:String(i.str || '').trim(), x:i.transform[4], y:i.transform[5] })).filter(i => i.s);
     if(!items.length) throw new Error('หน้าสุดท้ายไม่มีข้อความให้อ่านโดยตรง (ไฟล์สแกน) — โหมดนี้ไม่ใช้ AI / OCR');
     const r = stwEwmParse(items); if(r.err) throw new Error(r.err);
-    row.gw = r.gw; row.nw = r.nw; row.dn = stwEwmNo(items);
+    row.gw = r.gw; row.nw = r.nw; row.dn = stwEwmNo(items); row.pkg = r.pkg; row.qty = r.qty;
     if(!row.dn) row.miss.push('Delivery Note No'); if(!row.nw) row.miss.push('Total net'); if(!row.gw) row.miss.push('Total gross');
-  }catch(e){ row.err = String((e && e.message) || e || 'อ่านไฟล์ไม่สำเร็จ'); row.dn = ''; row.nw = null; row.gw = null; }
+    if(row.pkg == null) row.miss.push('Qty. packages'); if(row.qty == null) row.miss.push('Total qty.');   // [483] ไม่พบ = แจ้งเตือน ไม่เดาค่า ไม่ใส่ 0
+  }catch(e){ row.err = String((e && e.message) || e || 'อ่านไฟล์ไม่สำเร็จ'); row.dn = ''; row.nw = null; row.gw = null; row.pkg = null; row.qty = null; }
   try{ pdf.destroy(); }catch(_){}
   row.ok = !row.err && !row.miss.length;
   row.msg = row.ok ? 'อ่านสำเร็จ' : row.err ? 'อ่านไม่สำเร็จ: ' + row.err + ' — ไฟล์ ' + row.file : 'ไม่พบ ' + row.miss.join(', ') + ' ในไฟล์ ' + row.file;
@@ -8526,7 +8533,10 @@ function stwTotalHtml(){
   for(const r of inv){ pk += r.pk; ln += r.ln; }
   const bad = stwBadRows().length;
   const info = (inv.length ? ln + ' บรรทัด · Packing ' + pk + ' PC' : 'น้ำหนักรวมทุกไฟล์') + (bad ? ' · ' + (stwInvBatch() ? 'ระงับ Export — ' : '') + 'อ่านไม่สำเร็จ ' + bad + ' ไฟล์' : '');
-  return '<tfoot><tr id="stw-total"><td>TOTAL (' + stwRows.length + ' ไฟล์)</td><td class="n">' + t.nw.toFixed(t.d) + '</td><td class="n">' + t.gw.toFixed(t.d) + '</td><td class="' + (bad ? 'bad' : 'ok') + '">' + info + '</td><td>NW / GW หน่วย KG</td></tr></tfoot>';
+  const ewm = stwRows.filter(r => r.kind === 'ewm' && r.ok);            // [483] ยอดรวม Packages / Total Qty จากไฟล์ที่อ่านสำเร็จ
+  const sum = k => ewm.reduce((a, r) => a + (r[k] || 0), 0);
+  const q0 = n => ewm.length ? Number(n).toLocaleString('en-US') : '';
+  return '<tfoot><tr id="stw-total"><td>TOTAL (' + stwRows.length + ' ไฟล์)</td><td class="n">' + t.nw.toFixed(t.d) + '</td><td class="n">' + t.gw.toFixed(t.d) + '</td><td class="n">' + q0(sum('pkg')) + '</td><td class="n">' + q0(sum('qty')) + '</td><td class="' + (bad ? 'bad' : 'ok') + '">' + info + '</td><td>NW / GW หน่วย KG</td></tr></tfoot>';
 }
 function stwExportable(){
   if(stwInvBatch() && stwBadRows().length) return [];                   // [478] อ่านไม่ครบ = ไม่มีอะไรให้ส่งออก (ห้ามส่งออกบางส่วน)
@@ -8535,9 +8545,10 @@ function stwExportable(){
 function stwRender(note){
   const e = escapeHtml, st = document.getElementById('stw-status'), tb = document.getElementById('stw-table');
   if(!stwRows.length && !stwBusy){ st.textContent = ''; st.className = ''; tb.innerHTML = ''; document.getElementById('stw-export').disabled = true; return; }
-  let h = '<table id="stw-tbl"><thead><tr><th>Delivery Note No</th><th class="n">Total NW</th><th class="n">Total GW</th><th>สถานะ</th><th>หมายเหตุ</th></tr></thead><tbody>';
+  const q0 = n => n == null ? '' : Number(n).toLocaleString('en-US');   // [483] Packages / Total Qty (เฉพาะไฟล์ Packing List EWM)
+  let h = '<table id="stw-tbl"><thead><tr><th>Delivery Note No</th><th class="n">Total NW</th><th class="n">Total GW</th><th class="n">Packages</th><th class="n">Total Qty</th><th>สถานะ</th><th>หมายเหตุ</th></tr></thead><tbody>';
   for(const r of stwRows)
-    h += '<tr class="' + (r.ok ? '' : 'bad') + '"><td>' + e(r.dn) + '</td><td class="n">' + stwShow(r.nw) + '</td><td class="n">' + stwShow(r.gw) + '</td><td class="' + (r.ok ? 'ok' : 'bad') + '">' + e(r.msg) + '</td><td>' + e(r.file) + (r.kind === 'inv' ? ' (อ่านหน้าสุดท้าย ' + r.pages + ' จาก ' + r.pages + ' หน้า)' : r.pages > 1 ? ' (อ่านหน้า 1 จาก ' + r.pages + ' หน้า)' : '') + '</td></tr>';
+    h += '<tr class="' + (r.ok ? '' : 'bad') + '"><td>' + e(r.dn) + '</td><td class="n">' + stwShow(r.nw) + '</td><td class="n">' + stwShow(r.gw) + '</td><td class="n">' + q0(r.pkg) + '</td><td class="n">' + q0(r.qty) + '</td><td class="' + (r.ok ? 'ok' : 'bad') + '">' + e(r.msg) + '</td><td>' + e(r.file) + (r.kind === 'inv' ? ' (อ่านหน้าสุดท้าย ' + r.pages + ' จาก ' + r.pages + ' หน้า)' : r.pages > 1 ? ' (อ่านหน้า 1 จาก ' + r.pages + ' หน้า)' : '') + '</td></tr>';
   tb.innerHTML = h + '</tbody>' + stwTotalHtml() + '</table>';
   const bad = stwRows.filter(r => !r.ok).length;
   st.textContent = note || ''; st.className = stwBusy ? '' : bad ? 'err' : 'ok';
@@ -27815,7 +27826,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local482';
+const DEPLOY_VERSION = 'local483';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
