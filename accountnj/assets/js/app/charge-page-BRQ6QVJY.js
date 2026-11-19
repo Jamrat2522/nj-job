@@ -2089,7 +2089,7 @@ function FX880(t, cx) {
     if (E.key !== key) { E.key = key; E.D = null; E.R = null; E.cats = null; E.rest = !1; delete CC523[E.q]; if (E.svc) { delete CU804C[ck]; delete CU804S[ck]; } }
     let c = FC880.get(key), now = Date.now();
     c && c.D && (E.D = c.D);
-    if (!c || (!c.p && now - c.at > 2e4)) {
+    if (!c || (!c.p && now - c.at > 18e4)) {   /* V.895 : อายุแคชตัวเลือกตัวกรอง 20 วินาที -> 3 นาที (ล้างทันทีเมื่อบันทึก/แก้ไข · Refresh · ล้างตัวกรอง) */
       c || FC880.set(key, (c = {})); c.at = now; FC880.size > 40 && FC880.delete(FC880.keys().next().value);
       let c0 = c;
       c.p = RPC499("njacc_charge_facets880", { p: tp }).then((D) => {
