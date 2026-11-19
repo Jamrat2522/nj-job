@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <!-- Build Metadata (local316): เลข Version ของ Build นี้ — กำหนดที่บรรทัดนี้ที่เดียว ใช้ทั้งเว็บไซต์ (ป้ายมุมขวาบนอ่านจากที่นี่) -->
-<meta name="nj-build" content="local328">
+<meta name="nj-build" content="local329">
 <title>Mapping Export Hi-Tech HTML</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -5504,7 +5504,7 @@ async function _doExportGROHERun(){
     "วันที่ ออก/ 2",
     "พีวิวโชว์/2",
   ];
-  const _invBoi = new Set();            // local326: INVOICE ที่มีรายการ BOI → ชื่อชีต "<INVOICE> BOI"
+  const _invBoi = new Set((typeof groheAiBoiInvoices === 'function') ? groheAiBoiInvoices() : []);   // local329: INVOICE ที่ชุดเอกสารมีหน้า BOI → ชื่อชีต "<INVOICE> BOI"
   const _invKeys = [];                  // local325: เลข INVOICE (จาก PDF) ของแต่ละแถว — ใช้แยกชีตจากผล Mapping ชุดเดียวกัน
   const SUM_COLS = [6, 9, 13];          // G Qty · J Amount · N NET WEIGHT (ไม่รวม Unit price ที่เป็นอัตรา · ไม่รวม ITEMS / Invoice / Product / Tariff ที่เป็นรหัส)
   const aoa = [HEADERS];
@@ -10633,16 +10633,67 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   const bTxt = v => String(v == null ? '' : v).trim();
   // local328: วันที่ ออก = วันที่จริงจากเอกสาร BOI รูปแบบ YYYY-MM-DD · รูปแบบอื่นที่แปลงไม่ได้แน่ชัด = '' (แจ้งตรวจสอบ ไม่เดาวัน/เดือน)
   function boiDate(v){ const m = /^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/.exec(bTxt(v)); if(!m) return ''; const mo = +m[2], d = +m[3]; if(mo < 1 || mo > 12 || d < 1 || d > 31) return ''; const p = n => String(n).padStart(2, '0'); return m[1] + '-' + p(mo) + '-' + p(d); }
-  /* local328: เอกสาร BOI มาจาก "การอ่านเพิ่มเติม" ของแต่ละไฟล์ (f.boiX) — การอ่านหลัก / Cache หลักไม่มีข้อมูล BOI และไม่ถูกแตะ
-     (1) ส่งเฉพาะหน้าเอกสารประกอบ ให้ AI ตัดสินจากเนื้อหาว่าหน้าใดเป็น BOI และอ่านเฉพาะช่องที่ใช้
-     (2) ช่องที่ "มีข้อมูลแต่ AI อ่านไม่ได้" → อ่านซ้ำเฉพาะช่องนั้น 1 ครั้ง
-     (3) ส่งเฉพาะหน้า Invoice ของรายการที่ Product Code + Packing list ตรงกับ BOI เพื่ออ่าน Our Confirmation No. (ตรวจ PO No.) — ไม่ส่งหน้า Invoice ทั้งหมด
-     ผลทุกขั้นถูก Cache ที่ Server ด้วย SHA ของหน้าที่ส่ง (+คำถาม) · ผลในหน้าจอเก็บไว้กับไฟล์ → กด EXPORT ซ้ำไม่เรียก AI ซ้ำ */
+  /* local329: เอกสาร BOI ของแต่ละไฟล์ (f.boiX)
+     (1) แบ่ง "ชุดเอกสาร" ตามลำดับหน้าจริง: หน้า Invoice ที่มีเลข INVOICE เริ่มชุด · ทุกหน้าที่ตามมา (BOI / Packing List / เอกสารประกอบ) อยู่ในชุดนั้นจนกว่าจะพบเลข INVOICE ใหม่
+         (ไม่ปิดชุดเมื่อถึง Page x/x ของตัว Invoice)
+     (2) หน้า BOI = หน้าที่มีหัวข้อ Product Year / Tariff Code / Approval Number ... — อ่าน "ข้อความใน PDF โดยตรง" (ไม่ใช้ AI ไม่มีค่าใช้จ่าย ไม่ต้องพึ่ง Edge Function)
+         เฉพาะหน้าเอกสารประกอบที่เป็นภาพสแกน (ไม่มีข้อความ) ภายในชุด จึงส่งให้ AI อ่าน (action "boi") ถ้า Server รองรับ
+     (3) หน้า BOI เป็นของ INVOICE ของชุดนั้นทันที — จับคู่รายการด้วย Product Code + Packing list No. ภายในชุดเท่านั้น ไม่ค้นข้ามชุด / ข้ามไฟล์ */
   const BOI_NEED = ['exp_description', 'desc_th', 'coo', 'product_year', 'tariff_code', 'approval_number', 'approval_date'];
-  const BOI_KEYS = ['part_no', 'packing_list_no', 'po_no', 'invoice_no'];
   const BOI_LABEL = { exp_description:'EN DESC. (Exp. Description)', desc_th:'TH DESC. (Description (TH))', coo:'COO', product_year:'Product Year', tariff_code:'Tariff Code', approval_number:'Approval Number', approval_date:'Approval Date',
-                      part_no:'Product Code (Part No.)', packing_list_no:'Packing list No.', po_no:'PO No.', invoice_no:'Invoice No.' };
-  const refKey = (inv, item, prod) => [bTxt(inv), bTxt(item), bProdN(prod)].join('|');
+                      part_no:'Product Code (หมายเลขชิ้นส่วน)', packing_list_no:'Packing list No.', po_no:'PO No.', invoice_no:'Invoice No.' };
+  // ── ชุดเอกสารตาม INVOICE (หน้า → เลข INVOICE) จากผลจัดชนิดหน้าของการอ่านหลัก ──
+  function boiSets(f){
+    const pm = pageMap(f), of = new Map(), sets = [];
+    let cur = null;
+    for(let pg = 1; pg <= (f.pages || 0); pg++){
+      const x = pm.find(y => y.pg === pg);
+      if(x && x.kind === 'invoice' && x.invoice_no && (!cur || cur.invoice !== x.invoice_no)){ cur = { invoice:x.invoice_no, from:pg, to:pg, boi:[] }; sets.push(cur); }
+      if(cur){ cur.to = pg; of.set(pg, cur); }
+    }
+    return { of, sets, pm };
+  }
+  // ── ข้อความในหน้า PDF (pdf.js) → บรรทัด (เรียงบน→ล่าง ซ้าย→ขวา · ช่องห่างกว้าง = \t) ──
+  const thFix = s => String(s == null ? '' : s).replace(/[ \t]+(?=[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E])/g, '').replace(/\u0E4D\u0E32/g, '\u0E33').normalize('NFC');   // สระ/วรรณยุกต์ที่ PDF วางแยกตำแหน่ง ไม่ถือเป็นช่องว่าง
+  async function pageLines(doc, pg){
+    const page = await doc.getPage(pg), tc = await page.getTextContent();
+    const its = (tc.items || []).filter(t => t && typeof t.str === 'string' && t.str.trim() !== '').map(t => ({ s:t.str, x:t.transform[4], y:t.transform[5], w:t.width || 0, h:Math.abs(t.transform[3]) || t.height || 8 }));
+    its.sort((a, b) => b.y - a.y || a.x - b.x);
+    const lines = [];
+    its.forEach(t => { const L = lines.find(l => Math.abs(l.y - t.y) <= Math.max(2, Math.min(l.h, t.h) * 0.45)); if(L) L.it.push(t); else lines.push({ y:t.y, h:t.h, it:[t] }); });
+    lines.sort((a, b) => b.y - a.y);
+    return lines.map(L => { L.it.sort((a, b) => a.x - b.x); let s = '', end = null;
+      L.it.forEach(t => { if(end != null){ const gap = t.x - end; s += gap > Math.max(10, t.h * 1.2) ? '\t' : (gap > t.h * 0.18 ? ' ' : ''); } s += t.s; end = t.x + t.w; });
+      return thFix(s); });
+  }
+  const BOI_TXT = [['product_year', /^Product\s*Year\b\s*:?\s*(.*)$/i], ['desc_th', /^Description\s*\(\s*TH\s*\)\s*:?\s*(.*)$/i], ['tariff_code', /^Tariff\s*Code\b\s*:?\s*(.*)$/i], ['approval_number', /^Approval\s*Number\b\s*:?\s*(.*)$/i],
+                   ['approval_date', /^Approval\s*Date\b\s*:?\s*(.*)$/i], ['approval_qty', /^Approval\s*Qty\b\s*:?\s*(.*)$/i], ['exp_description', /^Exp\.?\s*Description\b\s*:?\s*(.*)$/i]];
+  const isBoiText = lines => { const t = lines.join('\n'); return /Approval\s*Number/i.test(t) && /Tariff\s*Code/i.test(t) && /Product\s*Year/i.test(t); };
+  // แยกข้อมูล BOI จากบรรทัดข้อความของ 1 หน้า: แถวตาราง (หมายเลขชิ้นส่วน / PO / จำนวน / COO) + กล่องรายละเอียดใต้แถว + โน้ต "Packing list No."
+  function parseBoiLines(lines){
+    let pl = null; const out = []; let cur = null;
+    const clean = lines.map(L => { const m = /Packing\s*list\s*No\.?\s*:?\s*([0-9][0-9 ]{4,})/i.exec(L); if(m){ if(pl == null) pl = m[1].replace(/\s+/g, ''); L = (L.slice(0, m.index) + ' ' + L.slice(m.index + m[0].length)); } return L.replace(/[ \t]+$/, ''); });
+    clean.forEach(L => {
+      const flat = L.replace(/\t+/g, ' ').replace(/ {2,}/g, ' ').trim(); if(!flat) return;
+      const lab = BOI_TXT.find(x => x[1].test(flat));
+      if(lab){ if(cur && !(lab[0] in cur.seen)){ cur[lab[0]] = (lab[1].exec(flat)[1] || '').trim() || null; cur.seen[lab[0]] = 1; } return; }
+      // แถวตาราง: [-] ลำดับ · หมายเลขชิ้นส่วน · ... · YES/NO · ... · COO
+      const tk = L.split('\t').map(s => s.trim()).filter(Boolean); if(tk[0] === '-' || tk[0] === '–' || tk[0] === '+') tk.shift();
+      if(tk.length && /^[-–+]?\s*\d{1,3}\s+\S/.test(tk[0])){ const m2 = /^[-–+]?\s*(\d{1,3})\s+(.*)$/.exec(tk[0]); tk.splice(0, 1, m2[1], m2[2]); }
+      else if(tk.length && /^[-–+]\s*\d{1,3}$/.test(tk[0])) tk[0] = tk[0].replace(/^[-–+]\s*/, '');
+      const yn = tk.findIndex(s => /^(YES|NO)$/i.test(s));
+      if(tk.length >= 4 && /^\d{1,3}$/.test(tk[0]) && yn > 1 && /^[0-9A-Za-z][0-9A-Za-z.\-\/]{2,}$/.test(tk[1])){
+        const mid = tk.slice(2, yn), poI = mid.findIndex(s => /^\d{8,12}$/.test(s)), after = tk.slice(yn + 1), last = after[after.length - 1];
+        cur = { seen:{}, part_no:tk[1], description:poI > 0 ? mid.slice(0, poI).join(' ') : null, po_no:poI >= 0 ? mid[poI] : null,
+                qty:poI >= 0 && mid[poI + 1] && /^[\d,]+(\.\d+)?$/.test(mid[poI + 1]) ? mid[poI + 1].replace(/,/g, '') : null, unit:null,
+                coo:last && /^[A-Za-z]{2}$/.test(last) ? last.toUpperCase() : null, invoice_no:null,
+                product_year:null, desc_th:null, tariff_code:null, approval_number:null, approval_date:null, approval_qty:null, exp_description:null };
+        out.push(cur);
+      }
+    });
+    return out.map(b => { const un = BOI_TXT.map(x => x[0]).filter(k => k !== 'approval_qty' && !(k in b.seen));   // ไม่พบหัวข้อในหน้า = อ่านไม่ได้ (ต่างจาก "หัวข้อมีแต่ค่าว่าง" = ว่างจริง)
+      const o = Object.assign({}, b, { packing_list_no:pl, unreadable:un, via:'text' }); delete o.seen; return o; });
+  }
   async function subsetBytes(src, pages){ const doc = await newDoc(); const cp = await doc.copyPages(src, pages.map(n => n - 1)); cp.forEach(p => doc.addPage(p)); return await doc.save(); }
   async function subsetChunks(src, pages){
     const bytes = await subsetBytes(src, pages);
@@ -10651,10 +10702,10 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     const h = Math.ceil(pages.length / 2);
     return (await subsetChunks(src, pages.slice(0, h))).concat(await subsetChunks(src, pages.slice(h)));
   }
-  // เรียก action "boi" กับชุดหน้าที่กำหนด → { items, refs, calls, cached } หรือ { fail, msg }
+  // AI (เฉพาะหน้าภาพสแกน): เรียก action "boi" กับชุดหน้าที่กำหนด → { items, calls, cached } หรือ { fail, msg }
   async function boiCall(f, src, pages, opt){
     opt = opt || {};
-    const out = { items:[], refs:[], calls:0, cached:0 };
+    const out = { items:[], calls:0, cached:0 };
     let chunks; try{ chunks = await subsetChunks(src, pages); } catch(e){ return { fail:true, msg:'ตัดหน้าเอกสารไม่สำเร็จ — ' + ((e && e.message) || e) }; }
     for(const c of chunks){
       const idx = new Map(c.pages.map((n, k) => [n, k + 1]));
@@ -10671,157 +10722,126 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       }
       if(!res || !Array.isArray(res.boi_items)) return { fail:true, msg:(j && j.msg) || 'ไม่สามารถเชื่อมต่อระบบ AI ได้' };
       out.calls++; if(cached) out.cached++;
-      const g2 = n => c.pages[(Number(n) || 1) - 1] || null;                           // หน้าในชุดที่ส่ง → หน้าในไฟล์จริง
-      res.boi_items.forEach(b => { if(b && typeof b === 'object') out.items.push(Object.assign({}, b, { gpg:g2(b.pg), unreadable:Array.isArray(b.unreadable) ? b.unreadable.slice() : [] })); });
-      (res.item_refs || []).forEach(r => { if(r) out.refs.push(r); });
+      const g2 = n => c.pages[(Number(n) || 1) - 1] || null;
+      res.boi_items.forEach(b => { if(b && typeof b === 'object') out.items.push(Object.assign({}, b, { gpg:g2(b.pg), unreadable:Array.isArray(b.unreadable) ? b.unreadable.slice() : [], via:'ai' })); });
     }
     return out;
   }
-  // อ่านซ้ำเฉพาะช่อง (pick(b) = รายชื่อช่องของรายการ b ที่ต้องอ่านซ้ำ) — ช่องละไม่เกิน 1 ครั้ง · แก้เฉพาะช่องที่ถามและอ่านได้จริง
-  async function boiReread(f, src, X, pick){
+  // AI อ่านไม่ได้บางช่อง → อ่านซ้ำเฉพาะช่องนั้น 1 ครั้ง (Opus) · แก้เฉพาะช่องที่ถามและอ่านได้จริง
+  async function boiReread(f, src, X){
     const focus = [];
-    X.items.forEach(b => { const fields = (pick(b) || []).filter(k => !(b.retried || []).includes(k)); if(fields.length && b.gpg) focus.push({ gpg:b.gpg, part_no:bTxt(b.part_no), fields, b }); });
-    if(!focus.length) return false;
+    X.items.forEach(b => { if(b.via !== 'ai') return; const fields = (b.unreadable || []).filter(k => (BOI_NEED.includes(k) || k === 'part_no' || k === 'packing_list_no') && !(b.retried || []).includes(k)); if(fields.length && b.gpg) focus.push({ gpg:b.gpg, part_no:bTxt(b.part_no), fields, b }); });
+    if(!focus.length) return;
     const pages = [...new Set(focus.map(q => q.gpg))].sort((a, b) => a - b);
     setPhase(`กำลังอ่านซ้ำเฉพาะช่องของเอกสาร BOI (${focus.reduce((a, q) => a + q.fields.length, 0)} ช่อง)...`); render();
     const r = await boiCall(f, src, pages, { focus, model:'opus' });
     focus.forEach(q => { q.b.retried = (q.b.retried || []).concat(q.fields); });
-    if(r.fail){ X.rereadMsg = r.msg; return false; }
-    X.calls += r.calls; X.cached += r.cached; X.rereads = (X.rereads || 0) + focus.reduce((a, q) => a + q.fields.length, 0);
-    let changed = false;
+    if(r.fail) return;
+    X.calls += r.calls; X.cached += r.cached; X.rereads += focus.reduce((a, q) => a + q.fields.length, 0);
     focus.forEach(q => {
       const same = r.items.filter(y => y.gpg === q.gpg);
       const hit = same.length === 1 ? same[0] : (same.find(y => bProdN(y.part_no) === bProdN(q.b.part_no)) || same.find(y => bTxt(y.approval_number) && bTxt(y.approval_number) === bTxt(q.b.approval_number)) || null);
       if(!hit) return;
-      q.fields.forEach(k => { if((hit.unreadable || []).includes(k)) return;          // ยังอ่านไม่ได้ = คงสถานะเดิม
-        if(bTxt(hit[k]) !== bTxt(q.b[k]) || (q.b.unreadable || []).includes(k)) changed = true;
-        q.b[k] = hit[k] == null ? null : hit[k]; q.b.unreadable = (q.b.unreadable || []).filter(u => u !== k); });
+      q.fields.forEach(k => { if((hit.unreadable || []).includes(k)) return; q.b[k] = hit[k] == null ? null : hit[k]; q.b.unreadable = (q.b.unreadable || []).filter(u => u !== k); });
     });
-    return changed;
   }
-  // Our Confirmation No.: ส่งเฉพาะหน้า Invoice ของรายการที่ Product Code (+ Packing list) ตรงกับเอกสาร BOI · หน้าก่อนหน้าของ Invoice เดียวกันด้วย (บรรทัด Confirmation อาจอยู่ท้ายหน้าก่อน)
-  async function boiRefs(f, src, X){
-    const pm = pageMap(f), want = new Set();
-    mergeInvoices().filter(m => m.f === f).forEach(m => (m.iv.items || []).forEach(it => {
-      if(!it.gpg) return;
-      const need = X.items.some(b => bDig(b.po_no) && bProd(b.part_no) && bProdN(it.product) === bProdN(b.part_no) && (!bDig(b.packing_list_no) || bDig(it.delivery_ref) === bDig(b.packing_list_no)));
-      if(!need) return;
-      want.add(it.gpg);
-      const prev = pm.find(x => x.pg === it.gpg - 1); if(prev && prev.kind === 'invoice' && prev.invoice_no === String(m.iv.invoice_no || '')) want.add(it.gpg - 1);
-    }));
-    const pages = [...want].filter(p => !X.refPages.has(p)).sort((a, b) => a - b);
-    if(!pages.length) return;
-    setPhase(`กำลังตรวจ PO No. ของรายการ BOI (หน้า Invoice ${pages.length} หน้า)...`); render();
-    const r = await boiCall(f, src, pages);
-    if(r.fail){ X.refMsg = r.msg; return; }                                            // ตรวจ PO ไม่ได้ → ขั้นจับคู่จะแจ้งเอง (ไม่ถือว่ายืนยันแล้ว)
-    X.calls += r.calls; X.cached += r.cached; pages.forEach(p => X.refPages.add(p));
-    r.refs.forEach(x => { const k = refKey(x.invoice_no, x.item_no, x.product); if(bDig(x.confirmation_no) && !X.refs.has(k)) X.refs.set(k, bDig(x.confirmation_no)); });
-  }
-  async function loadSrc(f){ return await PDFLib.PDFDocument.load(await f.file.arrayBuffer(), { ignoreEncryption:true, updateMetadata:false }); }
   async function readBoi(f){
     if(f.bad || !f.parts.length || !f.parts.every(p => p.result)) return;
-    const cand = pageMap(f).filter(x => x.kind === 'other' || x.kind === 'boi').map(x => x.pg).sort((a, b) => a - b);
-    const sig = f.sha + '|' + cand.join(',');
-    if(f.boiX && f.boiX.sig === sig && (f.boiX.ok || f.boiX.none)) return;            // อ่านแล้วในรอบก่อน (ไฟล์เดิม) = ไม่เรียก AI ซ้ำ
-    const X = { sig, ok:false, none:false, noBoi:false, fail:false, unsupported:false, msg:'', items:[], refs:new Map(), refPages:new Set(), cand, calls:0, cached:0, rereads:0 };
-    if(!cand.length){ X.none = true; f.boiX = X; return; }                             // ไม่มีหน้าเอกสารประกอบ = ไม่มี BOI (ไม่เรียก AI)
-    if(!(G.caps && G.caps.boi)){ X.fail = true; X.unsupported = true; X.msg = 'Server ยังไม่รองรับการอ่านเอกสาร BOI — ต้อง Deploy Edge Function nj-invoice-ai-grohe รุ่น local328'; f.boiX = X; return; }
-    let src; try{ src = await loadSrc(f); } catch(e){ X.fail = true; X.msg = 'เปิดไฟล์ PDF เพื่อตัดหน้าเอกสาร BOI ไม่สำเร็จ'; f.boiX = X; return; }
-    setPhase(`กำลังตรวจหาเอกสาร BOI (${cand.length} หน้า)...`); render();
-    const r1 = await boiCall(f, src, cand);
-    if(r1.fail){ X.fail = true; X.msg = 'อ่านเอกสาร BOI ไม่สำเร็จ — ' + r1.msg; f.boiX = X; return; }
-    X.items = r1.items; X.calls += r1.calls; X.cached += r1.cached;
-    if(!X.items.length){ X.ok = true; X.noBoi = true; f.boiX = X; return; }            // ไม่มีเอกสาร BOI จริง → Export ตามระบบเดิม
-    await boiReread(f, src, X, b => (b.unreadable || []).filter(k => BOI_NEED.includes(k) || BOI_KEYS.includes(k)));
-    await boiRefs(f, src, X);
+    const S = boiSets(f);
+    const sig = f.sha + '|' + S.pm.map(x => x.pg + ':' + (x.kind === 'invoice' ? x.invoice_no : x.kind[0])).join(',') + '|' + ((G.caps && G.caps.boi) ? 1 : 0);
+    if(f.boiX && f.boiX.sig === sig && f.boiX.ok) return;                              // อ่านแล้วในรอบก่อน (ไฟล์เดิม) = ไม่อ่านซ้ำ ไม่เรียก AI ซ้ำ
+    const X = { sig, ok:false, fail:false, msg:'', note:'', items:[], sets:S.sets, textPages:[], scanPages:[], aiPages:[], calls:0, cached:0, rereads:0 };
+    // (ก) อ่านข้อความใน PDF ทุกหน้า → หน้าที่มีหัวข้อ BOI = เอกสาร BOI (ไม่ใช้ AI)
+    setPhase('กำลังตรวจหาเอกสาร BOI ในแต่ละชุด INVOICE...'); render();
+    let buf, doc;
+    try{ buf = await f.file.arrayBuffer(); doc = await pdfjsLib.getDocument({ data:new Uint8Array(buf.slice(0)) }).promise; }
+    catch(e){ X.fail = true; X.msg = 'เปิดไฟล์ PDF เพื่ออ่านข้อความเอกสาร BOI ไม่สำเร็จ'; f.boiX = X; return; }
+    const hasText = new Map();
+    try{
+      for(let pg = 1; pg <= doc.numPages; pg++){
+        let lines = []; try{ lines = await pageLines(doc, pg); } catch(e){ lines = []; }
+        hasText.set(pg, lines.join('').replace(/\s/g, '').length);
+        if(!isBoiText(lines)) continue;
+        X.textPages.push(pg);
+        const rows = parseBoiLines(lines);
+        if(!rows.length) X.items.push({ gpg:pg, via:'text', part_no:null, packing_list_no:null, unreadable:['part_no'], noRow:true });   // พบหัวข้อ BOI แต่แยกแถวสินค้าไม่ได้ → แจ้งตรวจสอบ (ไม่ข้ามหน้า)
+        rows.forEach(b => X.items.push(Object.assign(b, { gpg:pg })));
+      }
+    } finally { try{ doc.destroy(); } catch(e){} }
+    // (ข) หน้าเอกสารประกอบที่เป็นภาพสแกน (ไม่มีข้อความ) ภายในชุด INVOICE → AI อ่าน ถ้า Server รองรับ
+    X.scanPages = S.pm.filter(x => (x.kind === 'other' || x.kind === 'boi') && S.of.has(x.pg) && !X.textPages.includes(x.pg) && (hasText.get(x.pg) || 0) < 40).map(x => x.pg);
+    if(X.scanPages.length){
+      if(!(G.caps && G.caps.boi)) X.note = `มีหน้าเอกสารประกอบที่เป็นภาพสแกน ${X.scanPages.length} หน้า (หน้า ${X.scanPages.join(', ')}) ซึ่งยังตรวจไม่ได้ว่าเป็นเอกสาร BOI หรือไม่ — ต้อง Deploy Edge Function nj-invoice-ai-grohe รุ่นที่มี action "boi"`;
+      else {
+        let src = null; try{ src = await PDFLib.PDFDocument.load(buf, { ignoreEncryption:true, updateMetadata:false }); } catch(e){}
+        setPhase(`กำลังให้ AI อ่านหน้าเอกสารประกอบที่เป็นภาพสแกน (${X.scanPages.length} หน้า)...`); render();
+        const r1 = src ? await boiCall(f, src, X.scanPages) : { fail:true, msg:'ตัดหน้าเอกสารไม่สำเร็จ' };
+        if(r1.fail){ X.fail = true; X.msg = `AI อ่านหน้าเอกสารประกอบที่เป็นภาพสแกน (หน้า ${X.scanPages.join(', ')}) ไม่สำเร็จ — ${r1.msg}`; }
+        else { X.aiPages = X.scanPages.slice(); X.calls += r1.calls; X.cached += r1.cached; r1.items.forEach(b => X.items.push(b)); await boiReread(f, src, X); }
+      }
+    }
+    X.items.forEach(b => { const s = S.of.get(b.gpg); b.set = s ? s.invoice : ''; if(s && s.boi.indexOf(b.gpg) < 0) s.boi.push(b.gpg); });
     X.ok = true; f.boiX = X;
   }
-  // เอกสาร BOI ที่จับคู่ไม่ได้ → อ่านซ้ำเฉพาะช่องที่ใช้จับคู่ 1 ครั้ง (เผื่ออ่านเลขผิด) แล้วให้จับคู่ใหม่
-  async function boiRetry(built){
-    let changed = false;
-    for(const f of G.files){ const X = f.boiX; if(!X || !X.ok || !X.items.length) continue;
-      const bad = new Set(((built.boi && built.boi.loose) || []).filter(x => x.kind === 'match' && x.b && x.b.f === f && x.b.src).map(x => x.b.src));
-      if(!bad.size) continue;
-      let src; try{ src = await loadSrc(f); } catch(e){ continue; }
-      if(await boiReread(f, src, X, b => bad.has(b) ? BOI_KEYS : [])){ changed = true; await boiRefs(f, src, X); }
-    }
-    return changed;
-  }
-  const confOf = x => { const X = x.m.f && x.m.f.boiX; return (X && X.refs.get(refKey(x.m.invoiceNo, x.i.it.item_no, x.i.it.product))) || bDig(x.i.it.confirmation_no); };
+  // INVOICE ที่ชุดเอกสารมีหน้า BOI → ชื่อชีต "<INVOICE> BOI"
+  window.groheAiBoiInvoices = function(){ const out = []; G.files.forEach(f => ((f.boiX && f.boiX.sets) || []).forEach(s => { if(s.boi.length && out.indexOf(s.invoice) < 0) out.push(s.invoice); })); return out; };
   function boiCollect(){
-    const out = [], seen = new Set();
-    G.files.forEach(f => ((f.boiX && f.boiX.items) || []).forEach(b => {
-      const k = [f.id, b.gpg, bProd(b.part_no), bDig(b.po_no), bTxt(b.approval_number)].join('|');
-      if(seen.has(k)) return; seen.add(k);
-      out.push(Object.assign({}, b, { f, src:b, matched:[], status:'', why:'', warn:[] }));
-    }));
+    const out = [];
+    G.files.forEach(f => ((f.boiX && f.boiX.items) || []).forEach(b => out.push(Object.assign({}, b, { f, src:b, matched:[], status:'', why:'', warn:[] }))));
     return out.sort((a, b) => (a.gpg || 0) - (b.gpg || 0));
   }
   function boiApply(model){
-    const docs = boiCollect(), loose = [];
-    // ปัญหา 1 รายการ = ข้อความไทยที่ระบุ INVOICE · Product Code · หัวข้อ
+    const docs = boiCollect(), loose = [], notes = [];
     const prob = (b, kind, inv, topic, why) => loose.push({ b, kind, inv:inv || 'ไม่ทราบ', product:bTxt(b.part_no) || 'ไม่ทราบ', topic,
       text:`INVOICE ${inv || 'ไม่ทราบ'} · Product Code ${bTxt(b.part_no) || 'ไม่ทราบ'} · ${topic}: ${why} (เอกสาร BOI หน้า ${b.gpg || '?'})` });
-    G.files.forEach(f => { const X = f.boiX; if(X && X.fail) loose.push({ b:{ gpg:(X.cand || []).join(', ') || '-', f }, kind:'file', inv:'-', product:'-', topic:'อ่านเอกสาร BOI',
-      text:`ไฟล์ ${f.name} · อ่านเอกสาร BOI: ${X.msg} — ยังไม่มีข้อมูล BOI ของไฟล์นี้ (หน้าเอกสารประกอบ ${(X.cand || []).join(', ')})` }); });
+    G.files.forEach(f => { const X = f.boiX; if(!X) return;
+      if(X.fail) loose.push({ b:{ gpg:(X.scanPages || []).join(', ') || '-', f }, kind:'file', inv:'-', product:'-', topic:'อ่านเอกสาร BOI', text:`ไฟล์ ${f.name} · อ่านเอกสาร BOI: ${X.msg}` });
+      if(X.note) notes.push({ f, pg:(X.scanPages || []).join(', '), text:`ไฟล์ ${f.name}: ${X.note}` }); });
     const all = []; model.forEach(m => m.items.forEach(i => { i.boi = null; if(!(m.errs || []).length && !i.errs.length) all.push({ m, i }); }));
     const claims = new Map();
     const fail = (b, topic, why, inv) => { b.status = 'ตรวจสอบ'; b.why = `${topic}: ${why}`; b.cands = null; prob(b, 'match', inv, topic, why + ' — ไม่ Override'); };
     docs.forEach(b => {
-      const un = b.unreadable || [];
-      if(!bProd(b.part_no)) return fail(b, BOI_LABEL.part_no, un.includes('part_no') ? 'มีข้อมูลแต่อ่านไม่ได้' : 'ไม่พบในเอกสาร');
-      if(!bTxt(b.approval_number)) return fail(b, BOI_LABEL.approval_number, un.includes('approval_number') ? 'มีข้อมูลแต่อ่านไม่ได้' : 'ไม่พบในเอกสาร');
-      // (ก) จำกัดที่ไฟล์เดียวกับเอกสาร BOI ก่อน — ไม่จับคู่ข้ามไฟล์
-      let c = all.filter(x => x.m.f === b.f);
-      const inv = bTxt(b.invoice_no);
-      if(inv){ c = c.filter(x => x.m.invoiceNo === inv); if(!c.length) return fail(b, BOI_LABEL.invoice_no, `ไม่พบ Invoice ${inv} ในไฟล์เดียวกับเอกสาร BOI`, inv); }
-      // (ข) Product Code: ตรงตัวก่อน · ไม่มี = เทียบแบบไม่สนเลข 0 นำหน้า (ต้องได้รหัสเดียว)
+      const un = b.unreadable || [], inv = b.set;
+      // (ก) เลข INVOICE = ชุดเอกสารที่หน้า BOI อยู่ (ไม่ต้องมีเลข INVOICE บนหน้า BOI)
+      if(!inv) return fail(b, 'ชุด INVOICE', 'หน้า BOI ไม่ได้อยู่ต่อจากหน้า INVOICE ใด', '');
+      if(bTxt(b.invoice_no) && bTxt(b.invoice_no) !== inv) return fail(b, BOI_LABEL.invoice_no, `เอกสาร BOI ระบุ Invoice ${bTxt(b.invoice_no)} แต่อยู่ในชุด INVOICE ${inv}`, inv);
+      if(!bProd(b.part_no)) return fail(b, BOI_LABEL.part_no, b.noRow ? 'พบหัวข้อ BOI แต่อ่านแถวสินค้าไม่ได้' : (un.includes('part_no') ? 'มีข้อมูลแต่อ่านไม่ได้' : 'ไม่พบในเอกสาร'), inv);
+      if(!bTxt(b.approval_number)) return fail(b, BOI_LABEL.approval_number, un.includes('approval_number') ? 'อ่านไม่ได้ / ไม่พบหัวข้อในหน้า' : 'เอกสารไม่มีเลข Approval Number', inv);
+      // (ข) เฉพาะรายการของ INVOICE ชุดนั้น ในไฟล์เดียวกัน
+      const c = all.filter(x => x.m.f === b.f && x.m.invoiceNo === inv);
+      if(!c.length) return fail(b, 'ชุด INVOICE', `INVOICE ${inv} ไม่มีรายการที่ส่งออกได้`, inv);
+      // (ค) Product Code: ตรงตัวก่อน · ไม่มี = เทียบแบบไม่สนเลข 0 นำหน้า (ต้องได้รหัสเดียว) — ไม่แก้รหัสต้นฉบับ
       let cp = c.filter(x => bProd(x.i.it.product) === bProd(b.part_no));
       if(!cp.length){ cp = c.filter(x => bProdN(x.i.it.product) === bProdN(b.part_no));
         const codes = [...new Set(cp.map(x => bProd(x.i.it.product)))];
-        if(codes.length > 1) return fail(b, BOI_LABEL.part_no, `ตรงได้มากกว่า 1 รหัส (${codes.join(', ')})`, inv); }
-      if(!cp.length){ const oth = [...new Set(all.filter(x => x.m.f !== b.f && bProdN(x.i.it.product) === bProdN(b.part_no)).map(x => x.m.f.name))];
-        return fail(b, BOI_LABEL.part_no, oth.length ? `ไม่พบในไฟล์เดียวกับเอกสาร BOI (พบในไฟล์อื่น: ${oth.join(', ')} — ไม่จับคู่ข้ามไฟล์)` : 'ไม่พบในรายการ Invoice', inv); }
-      const one = () => { const s = [...new Set(cp.map(x => x.m.invoiceNo))]; return s.length === 1 ? s[0] : inv; };
-      // (ค) Packing list No. = Delivery note ของรายการ
-      const pl = bDig(b.packing_list_no), po = bDig(b.po_no);
-      if(pl){ const c2 = cp.filter(x => bDig(x.i.it.delivery_ref) === pl); if(!c2.length) return fail(b, BOI_LABEL.packing_list_no, `ไม่พบรายการที่ Delivery note ตรงกับ ${pl}`, one()); cp = c2; }
-      else if(un.includes('packing_list_no')) return fail(b, BOI_LABEL.packing_list_no, 'มีข้อมูลแต่อ่านไม่ได้', one());
-      else if(!inv && !po) return fail(b, BOI_LABEL.packing_list_no, 'เอกสาร BOI ไม่มี Packing list No. / Invoice No. / PO No. ให้เชื่อมโยง', one());
-      // (ง) PO No. = Our Confirmation No. (ตรวจประกอบเมื่อมีข้อมูล)
-      b.poUnk = 0; b.poSkip = 0;
-      if(po){
-        const known = cp.filter(x => confOf(x)), hit = known.filter(x => confOf(x) === po), unk = cp.filter(x => !confOf(x));
-        if(hit.length){ cp = hit; b.poSkip = unk.length; }
-        else if(unk.length && pl){ cp = unk; b.poUnk = unk.length; }           // ไม่มี Our Confirmation No. ให้เทียบ → เชื่อมด้วย Packing list + Product Code (แจ้งเตือน)
-        else if(!known.length) return fail(b, BOI_LABEL.po_no, 'เอกสาร BOI ไม่มี Packing list No. และยืนยัน PO No. ไม่ได้ (ไม่พบ Our Confirmation No. ของรายการ)', one());
-        else return fail(b, BOI_LABEL.po_no, `${po} ไม่ตรงกับ Our Confirmation No. ของรายการใน Invoice (${[...new Set(known.map(x => confOf(x)))].join(', ')})`, one());
-      }
-      const invs = [...new Set(cp.map(x => x.m.invoiceNo))];
-      if(invs.length > 1) return fail(b, 'จับคู่', `พบรายการที่ตรงกันในหลาย Invoice (${invs.join(', ')}) — ยืนยันไม่ได้`, invs.join(' / '));
+        if(codes.length > 1) return fail(b, BOI_LABEL.part_no, `ตรงได้มากกว่า 1 รหัสใน INVOICE ${inv} (${codes.join(', ')})`, inv); }
+      if(!cp.length) return fail(b, BOI_LABEL.part_no, `ไม่พบในรายการของ INVOICE ${inv} (ไม่ค้นหาใน INVOICE ชุดอื่น)`, inv);
+      // (ง) Packing list No. = Delivery note ของรายการ
+      const pl = bDig(b.packing_list_no);
+      if(pl){ const c2 = cp.filter(x => bDig(x.i.it.delivery_ref) === pl); if(!c2.length) return fail(b, BOI_LABEL.packing_list_no, `${pl} ไม่ตรงกับ Delivery note ของ Product Code นี้ใน INVOICE ${inv} (${[...new Set(cp.map(x => bTxt(x.i.it.delivery_ref) || '-'))].join(', ')})`, inv); cp = c2; }
+      else if(un.includes('packing_list_no')) return fail(b, BOI_LABEL.packing_list_no, 'มีข้อมูลแต่อ่านไม่ได้', inv);
+      b.noPl = !pl;
       b.cands = cp; cp.forEach(x => { if(!claims.has(x.i)) claims.set(x.i, []); claims.get(x.i).push(b); });
     });
     // รายการเดียวกันถูกอ้างโดยเอกสาร BOI คนละ Approval = ยืนยันไม่ได้ → ไม่ Override ทั้งคู่
     docs.forEach(b => { if(!b.cands) return;
       if(b.cands.some(x => claims.get(x.i).some(o => o !== b && bTxt(o.approval_number) !== bTxt(b.approval_number)))) b.clash = true; });
     docs.forEach(b => { if(!b.cands) return;
-      if(b.clash) return fail(b, 'จับคู่', 'รายการเดียวกันตรงกับเอกสาร BOI มากกว่า 1 Approval Number', b.cands[0].m.invoiceNo);
+      if(b.clash) return fail(b, 'จับคู่', 'รายการเดียวกันตรงกับเอกสาร BOI มากกว่า 1 Approval Number', b.set);
       b.cands.forEach(x => { if(x.i.boi) return; x.i.boi = b; b.matched.push(x); });
       if(!b.matched.length){ b.status = 'ซ้ำ'; b.why = 'ซ้ำกับเอกสาร BOI อีกหน้าหนึ่ง (Approval Number เดียวกัน)'; return; }
-      b.status = 'จับคู่แล้ว'; b.invoice = b.matched[0].m.invoiceNo;
-      // ช่องที่ "มีข้อมูลแต่ AI อ่านไม่ได้" (หลังอ่านซ้ำแล้ว) = ปัญหาที่ต้องแจ้งก่อน Export · ช่องที่เอกสารว่างจริง = อนุญาตเว้นว่าง
+      b.status = 'จับคู่แล้ว'; b.invoice = b.set;
+      // หัวข้อที่ "อ่านไม่ได้ / ไม่พบหัวข้อ" = ต้องแจ้งก่อน Export · หัวข้อที่มีแต่ค่าว่างจริง = อนุญาตเว้นว่าง
       const bad7 = (b.unreadable || []).filter(k => BOI_NEED.includes(k));
-      bad7.forEach(k => prob(b, 'field', b.invoice, BOI_LABEL[k], 'มีข้อมูลในเอกสารแต่ AI อ่านไม่ได้ (อ่านซ้ำแล้ว) — ช่องนี้ยังไม่มีข้อมูล BOI'));
+      bad7.forEach(k => prob(b, 'field', b.invoice, BOI_LABEL[k], b.via === 'text' ? 'ไม่พบหัวข้อนี้ในหน้า BOI — ช่องนี้ยังไม่มีข้อมูล BOI' : 'มีข้อมูลในเอกสารแต่ AI อ่านไม่ได้ (อ่านซ้ำแล้ว) — ช่องนี้ยังไม่มีข้อมูล BOI'));
       if(bTxt(b.approval_date) && !boiDate(b.approval_date)) prob(b, 'field', b.invoice, BOI_LABEL.approval_date, `"${bTxt(b.approval_date)}" ไม่ใช่รูปแบบ YYYY-MM-DD — ช่อง วันที่ ออก เว้นว่าง`);
       const q = num(bTxt(b.approval_qty) !== '' ? b.approval_qty : b.qty), sum = b.matched.reduce((a, x) => a + (x.i.qty || 0), 0);
       if(q != null && !eq(q, sum)) b.warn.push(`Approval Qty ${fmt(q, 0)} ไม่เท่ากับจำนวนใน Invoice ${fmt(sum, 0)} (${b.matched.length} รายการ) — ใช้ตรวจสอบเท่านั้น ไม่เปลี่ยน Qty`);
-      if(b.poUnk) b.warn.push('ยืนยัน PO No. ไม่ได้ (ไม่พบ Our Confirmation No. ของรายการ) — จับคู่ด้วย Packing list No. + Product Code');
-      if(b.poSkip) b.warn.push(`มีอีก ${b.poSkip} รายการที่ Product Code / Packing list ตรงกัน แต่ยืนยัน PO No. ไม่ได้ — ไม่ Override รายการนั้น`);
-      if(!pl0(b) && !bTxt(b.invoice_no)) b.warn.push('เอกสาร BOI ไม่มี Packing list No. — จับคู่ด้วย PO No. + Product Code');
+      if(b.noPl) b.warn.push('เอกสาร BOI ไม่มี Packing list No. — จับคู่ด้วย Product Code ภายในชุด INVOICE');
       if(!bTxt(b.approval_date) && !bad7.includes('approval_date')) b.warn.push('เอกสาร BOI ไม่มี Approval Date — ช่อง วันที่ ออก เว้นว่าง (ไม่ใช้วันที่ Mapping)');
       if(b.warn.length){ const x = b.matched[0]; b.warn.forEach(t => x.i.warns.push(`BOI หน้า ${b.gpg}: ${t}`)); if(x.i.state === 'ok') x.i.state = 'warn'; }
     });
-    return { docs, loose };
+    return { docs, loose, notes };
   }
   const pl0 = b => bDig(b.packing_list_no);
   // ค่า BOI ของรายการ (null = ไม่มี BOI) — ช่องที่ BOI ไม่มีข้อมูล: E / F / R คงค่าเดิม · S / T / AA เว้นว่างจริง
@@ -10837,28 +10857,34 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     return { E:c.E != null ? c.E : dP, F:c.F != null ? c.F : (ms.th || ''), R:c.R != null ? c.R : cP, S:c.S, T:c.T, Y:c.Y, AA:c.AA };
   }
   window.groheAiBoiFinal = boiFinal;
-  window.groheAiBoiBuild = function(){ const B = build().boi; return { docs:B.docs.map(d => ({ file:d.f && d.f.name, pg:d.gpg, part:d.part_no, status:d.status, why:d.why, invoice:d.invoice || '', items:d.matched.map(x => x.i.it.item_no) })), loose:B.loose.map(x => ({ kind:x.kind, inv:x.inv, product:x.product, topic:x.topic, text:x.text })) }; };
+  window.groheAiBoiBuild = function(){ const B = build().boi; return { sets:G.files.map(f => ((f.boiX && f.boiX.sets) || []).map(s => ({ invoice:s.invoice, from:s.from, to:s.to, boi:s.boi.slice() }))), src:G.files.map(f => f.boiX ? { text:f.boiX.textPages, scan:f.boiX.scanPages, ai:f.boiX.aiPages, note:f.boiX.note, fail:f.boiX.fail } : null),
+      raw:G.files.map(f => ((f.boiX && f.boiX.items) || []).map(b => Object.assign({}, b))), docs:B.docs.map(d => ({ file:d.f && d.f.name, pg:d.gpg, set:d.set, via:d.via, part:d.part_no, status:d.status, why:d.why, invoice:d.invoice || '', items:d.matched.map(x => x.i.it.item_no) })), loose:B.loose.map(x => ({ kind:x.kind, inv:x.inv, product:x.product, topic:x.topic, text:x.text })) }; };
   window.groheAiBoi = function(){ const b = G.boi; return b ? { docs:b.docs.map(d => ({ pg:d.gpg, part:d.part_no, pl:d.packing_list_no, po:d.po_no, approval:d.approval_number, status:d.status, why:d.why, invoice:d.invoice || '', items:d.matched.map(x => x.i.it.item_no) })), loose:b.loose.map(x => x.text) } : null; };
   function rowVab(i, base){ const v = (base || fixVab()).slice(), f = boiFinal(i); if(f){ v[3] = f.Y; v[5] = f.AA; } return v; }
   window.groheAiRowVab = rowVab;
   function boiHtml(built){
     const B = built && built.boi;
-    const fails = G.files.filter(f => f.boiX && f.boiX.fail), wait = G.files.filter(f => !f.boiX && !f.bad && f.parts.length && f.parts.every(p => p.result) && pageMap(f).some(x => x.kind === 'other' || x.kind === 'boi'));
-    const fNote = fails.map(f => `<div class="sai-e">❌ ${esc(f.name)}: ${esc(f.boiX.msg)}</div>`).join('') + (wait.length ? `<div class="sai-repl">เอกสาร BOI ของ ${wait.length} ไฟล์จะถูกอ่านเมื่อกด ⬇ EXPORT EXCEL (เฉพาะหน้าเอกสารประกอบ + หน้า Invoice)</div>` : '');
-    const src = G.files.filter(f => f.boiX && f.boiX.ok).map(f => `${esc(f.name)}: ตรวจหน้าเอกสารประกอบ ${f.boiX.cand.length} หน้า${f.boiX.refPages.size ? ` + หน้า Invoice ${f.boiX.refPages.size} หน้า (ตรวจ PO No.)` : ''}${f.boiX.rereads ? ` · อ่านซ้ำเฉพาะช่อง ${f.boiX.rereads} ช่อง` : ''}${f.boiX.calls && f.boiX.cached === f.boiX.calls ? ' (ใช้ Cache ไม่คิดเงินซ้ำ)' : ''}`).join(' · ');
-    if((!B || !B.docs.length) && !fails.length && !wait.length && G.files.some(f => f.boiX && f.boiX.ok && f.boiX.noBoi)) return `<div class="sai-rep sai-repok" id="gai-boi" data-docs="0" data-none="1"><b>✓ เอกสาร BOI</b><div class="sai-repl">ตรวจหน้าเอกสารประกอบแล้ว — ไม่พบเอกสาร BOI · EXPORT ตามระบบเดิม</div></div>`;
-    if(!B || !B.docs.length) return (fails.length || wait.length) ? `<div class="sai-rep ${fails.length ? 'sai-repwarn' : 'sai-repok'}" id="gai-boi" data-docs="0" data-fail="${fails.length}" data-wait="${wait.length}"><b>${fails.length ? '⚠ ' : ''}เอกสาร BOI</b>${fNote}</div>` : '';
+    const fails = G.files.filter(f => f.boiX && f.boiX.fail), wait = G.files.filter(f => !f.boiX && !f.bad && f.parts.length && f.parts.every(p => p.result));
+    const notes = G.files.filter(f => f.boiX && f.boiX.note);
+    const fNote = fails.map(f => `<div class="sai-e">❌ ${esc(f.name)}: ${esc(f.boiX.msg)}</div>`).join('') + notes.map(f => `<div class="sai-w">⚠ ${esc(f.name)}: ${esc(f.boiX.note)}</div>`).join('')
+      + (wait.length ? `<div class="sai-repl">เอกสาร BOI ของ ${wait.length} ไฟล์จะถูกตรวจเมื่อกด ⬇ EXPORT EXCEL (อ่านจากข้อความใน PDF โดยตรง)</div>` : '');
+    const setTxt = G.files.filter(f => f.boiX && f.boiX.ok).map(f => `<div class="sai-repl" data-sets="${f.boiX.sets.length}"><b>ชุดเอกสาร (${f.boiX.sets.length} INVOICE)</b> ${f.boiX.sets.map(s => `<span class="gai-set" data-inv="${esc(s.invoice)}" data-from="${s.from}" data-to="${s.to}" data-boi="${s.boi.join(',')}">${esc(s.invoice)}: หน้า ${s.from}–${s.to}${s.boi.length ? ` <b>(BOI หน้า ${s.boi.join(', ')})</b>` : ''}</span>`).join(' · ')}</div>`).join('');
+    const src = G.files.filter(f => f.boiX && f.boiX.ok).map(f => `${esc(f.name)}: อ่านจากข้อความใน PDF ${f.boiX.textPages.length} หน้า (ไม่ใช้ AI)${f.boiX.aiPages.length ? ` · AI อ่านหน้าภาพสแกน ${f.boiX.aiPages.length} หน้า${f.boiX.calls && f.boiX.cached === f.boiX.calls ? ' (ใช้ Cache)' : ''}` : ''}${f.boiX.rereads ? ` · อ่านซ้ำเฉพาะช่อง ${f.boiX.rereads} ช่อง` : ''}`).join(' · ');
+    if(!B || !B.docs.length){
+      if(!fails.length && !notes.length && !wait.length && G.files.some(f => f.boiX && f.boiX.ok)) return `<div class="sai-rep sai-repok" id="gai-boi" data-docs="0" data-none="1"><b>✓ เอกสาร BOI</b><div class="sai-repl">ตรวจทุกชุด INVOICE แล้ว — ไม่พบเอกสาร BOI · EXPORT ตามระบบเดิม</div>${setTxt}</div>`;
+      return (fails.length || notes.length || wait.length) ? `<div class="sai-rep ${fails.length || notes.length ? 'sai-repwarn' : 'sai-repok'}" id="gai-boi" data-docs="0" data-fail="${fails.length}" data-note="${notes.length}" data-wait="${wait.length}"><b>${fails.length || notes.length ? '⚠ ' : ''}เอกสาร BOI</b>${fNote}${setTxt}</div>` : '';
+    }
     const ok = B.docs.filter(d => d.status === 'จับคู่แล้ว'), rows = [];
     built.model.forEach(m => { if(m.errs.length) return; m.items.forEach(i => { if(i.errs.length || !i.boi) return; rows.push({ m, i, f:boiFinal(i) }); }); });
-    const dRows = B.docs.map(d => `<tr class="sai-${d.status === 'ตรวจสอบ' ? 'bad' : 'ok'}r"><td>${d.gpg}</td><td class="sai-mono">${esc(bTxt(d.packing_list_no))}</td><td class="sai-mono">${esc(bTxt(d.part_no))}</td><td class="sai-mono">${esc(bTxt(d.po_no))}</td>
+    const dRows = B.docs.map(d => `<tr class="sai-${d.status === 'ตรวจสอบ' ? 'bad' : 'ok'}r"><td>${d.gpg}</td><td class="sai-mono">${esc(d.set || '')}</td><td class="sai-mono">${esc(bTxt(d.packing_list_no))}</td><td class="sai-mono">${esc(bTxt(d.part_no))}</td><td class="sai-mono">${esc(bTxt(d.po_no))}</td>
         <td class="sai-mono">${esc(bTxt(d.approval_number))}</td><td class="sai-mono">${esc(bTxt(d.approval_date))}</td><td class="sai-num">${esc(bTxt(d.approval_qty))}</td>
         <td class="sai-mono">${esc(d.invoice || '')}</td><td class="sai-mono">${esc(d.matched.map(x => x.i.it.item_no || x.i.seq).join(', '))}</td>
         <td>${d.status === 'ตรวจสอบ' ? `<div class="sai-e">❌ ${esc(d.why)}</div>` : esc(d.status)}${d.status !== 'ตรวจสอบ' && d.why ? ` <span class="sai-msg">${esc(d.why)}</span>` : ''}${(d.warn || []).map(t => `<div class="sai-w">⚠ ${esc(t)}</div>`).join('')}</td></tr>`).join('');
     return `<div class="sai-rep ${B.loose.length ? 'sai-repwarn' : 'sai-repok'}" id="gai-boi" data-docs="${B.docs.length}" data-ok="${ok.length}" data-loose="${B.loose.length}" data-rows="${rows.length}" data-fail="${fails.length}">
         <b>${B.loose.length ? '⚠' : '✓'} เอกสาร BOI — พบ ${B.docs.length} รายการ · จับคู่แล้ว ${ok.length} · Override ${rows.length} แถว${B.loose.length ? ` · ต้องตรวจสอบ ${B.loose.length}` : ''}</b>
-        <div class="sai-repl">Override เฉพาะคอลัมน์ E · F · R · S · T · Y · AA ของรายการที่จับคู่ได้ (Packing list No. + Product Code + PO No.) · Qty / ราคา / ยอดเงิน / น้ำหนัก คงตาม Invoice${src ? ' · ' + src : ''}</div>${fNote}
+        <div class="sai-repl">Override เฉพาะคอลัมน์ E · F · R · S · T · Y · AA ของรายการในชุด INVOICE เดียวกับหน้า BOI (Product Code + Packing list No.) · Qty / ราคา / ยอดเงิน / น้ำหนัก คงตาม Invoice${src ? ' · ' + src : ''}</div>${setTxt}${fNote}
         ${B.loose.length ? `<div class="sai-sub">ข้อมูล BOI ที่ยังไม่ครบ (ต้องตรวจสอบก่อน EXPORT)</div><div id="gai-boi-prob">${B.loose.map(x => `<div class="sai-e">❌ ${esc(x.text)}</div>`).join('')}</div>` : ''}
-        <div class="sai-scroll"><table class="sai-tbl" id="gai-boidoc-tbl"><thead><tr><th>หน้า PDF</th><th>Packing list No.</th><th>Part No.</th><th>PO No.</th><th>Approval Number</th><th>Approval Date</th><th>Approval Qty</th><th>INVOICE</th><th>Item</th><th>ผล</th></tr></thead><tbody>${dRows}</tbody></table></div>
+        <div class="sai-scroll"><table class="sai-tbl" id="gai-boidoc-tbl"><thead><tr><th>หน้า PDF</th><th>ชุด INVOICE</th><th>Packing list No.</th><th>Part No.</th><th>PO No.</th><th>Approval Number</th><th>Approval Date</th><th>Approval Qty</th><th>INVOICE</th><th>Item</th><th>ผล</th></tr></thead><tbody>${dRows}</tbody></table></div>
         ${rows.length ? `<div class="sai-sub">ค่าที่จะเขียนลง Excel ของรายการ BOI</div><div class="sai-scroll"><table class="sai-tbl" id="gai-boi-tbl"><thead><tr><th>INVOICE</th><th>Item</th><th>Product</th><th>E<br>EN DESC.</th><th>F<br>TH DESC.</th><th>R<br>COO</th><th>S<br>Product Year</th><th>T<br>TARIFF CODE</th><th>Y<br>เลขที่ใบอนุญาต</th><th>AA<br>วันที่ ออก</th></tr></thead><tbody>${
           rows.map(x => `<tr><td class="sai-mono">${esc(x.m.invoiceNo)}</td><td class="sai-mono">${esc(x.i.it.item_no || '')}</td><td class="sai-mono">${esc(x.i.it.product || '')}</td>${
             ['E','F','R','S','T','Y','AA'].map(k => `<td class="${k === 'E' || k === 'F' ? '' : 'sai-mono'} gai-b${k}">${esc(x.f[k])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : ''}</div>`;
@@ -11089,7 +11115,8 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       items.forEach(i => [...i.errs.map(t => [t, 'err']), ...i.warns.map(t => [t, 'warn'])].forEach(([t, lv]) =>
         issues.push({ invoice:m.invoiceNo || '?', pg:String(i.it.gpg || i.it.pg || ''), item:String(i.it.item_no || i.seq), topic:topicOf(t), text:t, level:lv })));
     });
-    ((built.boi && built.boi.loose) || []).forEach(x => issues.push({ invoice:'-', pg:String(x.b.gpg), item:'-', topic:'BOI', text:x.text, level:'warn' }));
+    ((built.boi && built.boi.loose) || []).forEach(x => issues.push({ invoice:x.inv && x.inv !== 'ไม่ทราบ' ? x.inv : '-', pg:String(x.b.gpg), item:'-', topic:'BOI', text:x.text, level:'warn' }));
+    ((built.boi && built.boi.notes) || []).forEach(x => issues.push({ invoice:'-', pg:String(x.pg), item:'-', topic:'BOI', text:x.text, level:'warn' }));
     const kinds = { invoice:0, packing_list:0, boi:0, other:0, unknown:0 };
     G.files.forEach(f => { const pm = pageMap(f); pm.forEach(x => { kinds[x.kind] = (kinds[x.kind] || 0) + 1; }); kinds.unknown += Math.max(0, (f.pages || 0) - pm.length); });
     return { rows, issues, kinds, pages:G.files.reduce((a, f) => a + (f.pages || 0), 0) };
@@ -11146,11 +11173,10 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     }
     if(filesSig() !== sig0) return { ok:false, msg:'ไฟล์เปลี่ยนระหว่างประมวลผล — กด ⬇ EXPORT EXCEL อีกครั้ง (ใช้ผล AI เดิม)' };
     // local327: อ่านเอกสาร BOI เพิ่มเติม (เฉพาะหน้าที่ขาดจากการอ่านหลัก / Cache เดิม) ก่อนจับคู่ — ล้มเหลว = แจ้งเตือน ไม่บล็อก EXPORT
-    for(const f of G.files){ try{ await readBoi(f); } catch(e){ f.boiX = { sig:'', fail:true, msg:'อ่านเอกสาร BOI ไม่สำเร็จ — ' + ((e && e.message) || e), items:[], refs:new Map(), refPages:new Set(), cand:[], calls:0, cached:0 }; } }
+    for(const f of G.files){ try{ await readBoi(f); } catch(e){ f.boiX = { sig:'', fail:true, msg:'อ่านเอกสาร BOI ไม่สำเร็จ — ' + ((e && e.message) || e), items:[], sets:[], textPages:[], scanPages:[], aiPages:[], note:'', calls:0, cached:0, rereads:0 }; } }
     if(filesSig() !== sig0) return { ok:false, msg:'ไฟล์เปลี่ยนระหว่างประมวลผล — กด ⬇ EXPORT EXCEL อีกครั้ง (ใช้ผล AI เดิม)' };
     setPhase('กำลังตรวจสอบข้อมูล...'); await sleep(0);
     let built = build();
-    try{ if(await boiRetry(built)) built = build(); } catch(e){ console.warn('boiRetry:', e); }   // local328
     // AUTO: Sonnet อ่านทั้งไฟล์แล้ว → ตรวจค่าที่อ่านได้ → ส่งเฉพาะจุดที่ถูกฟ้องให้ Opus ตรวจซ้ำ
     const pagesAll = G.files.reduce((a, f) => a + (f.pages || 0), 0);
     let rc = null, sus = [];
@@ -11171,7 +11197,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     }
     const nWarn = ev.warned.length;
     G.boi = built.boi || null;                                // local326
-    const nLoose = G.boi ? G.boi.loose.length : 0;
+    const nLoose = G.boi ? G.boi.loose.length : 0, nNote = G.boi ? (G.boi.notes || []).length : 0;
     const nPart = ev.pass.filter(m => m.partial).length;     // Invoice ที่อ่านหน้าได้ไม่ครบ = ข้อมูลบางส่วน (ห้ามแสดงว่าครบ)
     const partial = ev.skipped.length > 0;
     const msg = partial ? `EXPORT สำเร็จบางส่วน — ส่งออก ${ev.pass.length} Invoice / ข้าม ${nSkip} Invoice${nFile ? ` · อ่านไม่สำเร็จ ${nFile} ไฟล์` : ''}`
@@ -11192,10 +11218,11 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       if(!go){ G.boiStop = G.boi.loose.map(x => x.text); return { ok:false, msg:`ยังไม่ EXPORT — ข้อมูล BOI ไม่ครบ ${nLoose} รายการ (ดูรายละเอียดในกรอบ "เอกสาร BOI")` }; }
     }
     G.boiStop = null;
-    const msgB = nLoose ? msg0 + ` · ⚠ ข้อมูล BOI ไม่ครบ ${nLoose} รายการ — ผู้ใช้ยืนยันให้ EXPORT ต่อ (ดูกรอบ เอกสาร BOI)` : msg0;
-    G.pend = { kind:partial ? 'partial' : ((nWarn || nLoose) ? 'warn' : 'full'), msg:msgB, exported:ev.pass.map(m => m.invoiceNo), skipped:ev.skipped, warned:ev.warned, rows:rows.length, lic:G.lic };
+    const msgN = nNote ? ` · ⚠ มีหน้าเอกสารประกอบที่เป็นภาพสแกนซึ่งยังตรวจ BOI ไม่ได้ (ดูกรอบ เอกสาร BOI)` : '';
+    const msgB = (nLoose ? msg0 + ` · ⚠ ข้อมูล BOI ไม่ครบ ${nLoose} รายการ — ผู้ใช้ยืนยันให้ EXPORT ต่อ (ดูกรอบ เอกสาร BOI)` : msg0) + msgN;
+    G.pend = { kind:partial ? 'partial' : ((nWarn || nLoose || nNote) ? 'warn' : 'full'), msg:msgB, exported:ev.pass.map(m => m.invoiceNo), skipped:ev.skipped, warned:ev.warned, rows:rows.length, lic:G.lic };
     setPhase('กำลังสร้าง Excel...'); render();
-    return { ok:true, rows, partial, incomplete:nPart > 0, warned:nWarn > 0 || nLoose > 0, msg:msgB, exported:G.pend.exported, skipped:ev.skipped, lic:G.lic };
+    return { ok:true, rows, partial, incomplete:nPart > 0, warned:nWarn > 0 || nLoose > 0 || nNote > 0, msg:msgB, exported:G.pend.exported, skipped:ev.skipped, lic:G.lic };
   };
 
   /* ── TOTAL (ใช้ตัวคำนวณชุดเดียวกับ THE SHELL · แสดงในกรอบของ GROHE) ── */
