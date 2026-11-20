@@ -63,24 +63,39 @@
 }
 .njf-cam canvas { display: none; }
 
-/* ---------- [RUN-224 · local383] Face Login / ลงทะเบียนใบหน้า บนจอเตี้ย (แนวตั้ง) ----------
-   วัดได้จริง: หัวจอ 67 + กล่องกล้อง 3:4 (กว้าง 390 = สูง 520) + แผงล่าง 219–238 = ต้องใช้ความสูง ~806–825 px
-   จอที่เตี้ยกว่านั้น (iPhone ที่แถบ Safari แสดงอยู่ · iPhone SE · Android 360x640 · เบราว์เซอร์ในแอป LINE)
-   -> กล่องกล้องล้นจอ และแผงล่าง + ปุ่ม "ยกเลิก" ตกขอบล่างจนมองไม่เห็น (กล่องกล้องเป็น flex:none ย่อไม่ได้)
-   แก้เฉพาะ "เมื่อจอไม่พอ": ยอมให้กล่องกล้องย่อความสูงลงเท่าที่เหลือ ภาพยังเต็มกล่อง · กึ่งกลาง · คงสัดส่วน (cover)
-   และวงรี/วงแหวนย่อตามความสูงกล่อง (ไม่เกิน 84%) โดยคงสัดส่วน 3:4 และตำแหน่งเดิม
-   จอที่สูงพอ = ค่าเดิมทุกพิกเซล (กล่อง 3:4 เต็มกว้าง · วงรี min(62vw, 260px))
-   ไม่มีผลกับจอสแกนลงเวลา ([data-att-scan="1"] มีกฎของตัวเองและไม่มีวงรีใน DOM) · ไม่แตะ JS / Detector / Threshold */
-/* ทั้งหมดอยู่ใน portrait เท่านั้น — คอมพิวเตอร์ / แท็บเล็ตแนวนอน / มือถือแนวนอน = กฎเดิม 100% */
+/* ---------- [RUN-225 · local384] Face Login · ลงทะเบียนใบหน้า · จอตรวจตำแหน่ง = กรอบสี่เหลี่ยม 4 มุม + แถบ Progress ----------
+   Scope: .njf-overlay[data-face-rect="1"] (ตั้งโดย shell() ของโหมดที่ไม่ใช่สแกนลงเวลา) — จอสแกนลงเวลา IN/OUT ([data-att-scan="1"]) ไม่โดนกฎนี้
+   กรอบ/แถบ ใช้ class เดียวกับ IN/OUT (.njf-frame / .njf-corner / .njf-scanbar ด้านล่างของไฟล์) = หน้าตาเดียวกัน · ขนาดกรอบตรึงโดย rectLock()
+   1 ภาพกล้อง: <video> วางชิดขอบทั้ง 4 ด้านของกล่องกล้อง · cover · กึ่งกลาง · กระจกเงา (กฎเดียวกับ IN/OUT)
+   2 จอแนวตั้งที่เตี้ย (วัดได้: หัวจอ 67 + กล่อง 3:4 + แผงล่าง 219–238 ต้องใช้สูง ~806–825 px): กล่องกล้องย่อเท่าที่เหลือ
+     -> แผงล่างและปุ่ม "ยกเลิก" อยู่ในจอเสมอ (รุ่นก่อน local383 ตกขอบจอ) · จอที่สูงพอ = กล่อง 3:4 เต็มกว้างเท่าเดิม
+   3 จอแนวนอนที่เตี้ย (มือถือแนวนอน · หน้าต่างเตี้ย ≤ 560px): กล้องซ้าย · สถานะ/ปุ่มขวา
+     (รุ่นก่อนกล่องกล้องเหลือ 78x105 px เพราะหัวจอ + แผงล่างกินความสูงเกือบหมด)
+   ไม่แตะ JS ของการตรวจใบหน้า / Detector / Threshold / Liveness */
+.njf-overlay[data-face-rect="1"] { overflow: hidden; }
+.njf-overlay[data-face-rect="1"] .njf-cam video {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+  width: 100%; height: 100%; display: block; background: #000;
+  object-fit: cover; object-position: 50% 50%;
+  transform: scaleX(-1); transform-origin: 50% 50%;
+}
 @media (orientation: portrait) {
-  .njf-overlay:not([data-att-scan="1"]) .njf-cam { flex: 0 1 auto; }
-  .njf-overlay:not([data-att-scan="1"]) .njf-cam video {
-    position: absolute; top: 0; right: 0; bottom: 0; left: 0;
-    object-position: 50% 50%; transform-origin: 50% 50%;
+  .njf-overlay[data-face-rect="1"] .njf-cam { flex: 0 1 auto; }
+}
+@media (orientation: landscape) and (max-height: 560px) {
+  .njf-overlay[data-face-rect="1"] {
+    display: grid; max-width: none; left: 0; transform: none; box-shadow: none;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 44%);
+    grid-template-rows: auto minmax(0, 1fr) auto;
   }
-  .njf-overlay:not([data-att-scan="1"]) .njf-oval,
-  .njf-overlay:not([data-att-scan="1"]) .njf-ring {
-    width: auto; height: min(84%, calc(min(62vw, 260px) * 4 / 3));
+  .njf-overlay[data-face-rect="1"] .njf-top { grid-column: 1 / -1; grid-row: 1; }
+  .njf-overlay[data-face-rect="1"] .njf-cam {
+    grid-column: 1; grid-row: 2; width: 100%; height: 100%;
+    aspect-ratio: auto; max-height: none; min-height: 0; margin: 0;
+  }
+  .njf-overlay[data-face-rect="1"] .njf-scanbar { grid-column: 1; grid-row: 3; }
+  .njf-overlay[data-face-rect="1"] .njf-panel {
+    grid-column: 2; grid-row: 2 / 4; min-height: 0; overflow-y: auto; border-radius: 0;
   }
 }
 

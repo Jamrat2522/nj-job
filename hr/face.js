@@ -2092,9 +2092,7 @@
          โหมดอื่นที่รอไม่ไหว = FACE_INFER_TIMEOUT รหัส/ข้อความเดิมของโหมดนั้น */
       /* งานที่ค้างคือ "รอบอุ่น Backend" ของเราเอง = รอได้เท่าเพดาน inference ปกติ (ต้นทุนเดียวกับที่การสแกนต้องจ่ายเองอยู่แล้ว) */
       /* [RUN-221 · R3] งานที่ค้างคือ "งานครั้งแรกของ Backend" (ยังคอมไพล์อยู่) = รอได้ถึงเพดาน Cold · งานปกติรอเท่าเดิม */
-      /* [RUN-223 · local382] จอสแกนลงเวลา: รอรอบอุ่นได้เท่าเพดานของรอบอุ่นเอง (30 วิ) — มือถือรุ่นเก่าที่คอมไพล์ช้าต้องไม่ถูกตัดก่อน
-         (เดิม 20 วิ ตั้งไว้สำหรับคอมพิวเตอร์ · โหมดอื่นคงค่าเดิม) */
-      var waitMs = INF.cur === INF.warmCur ? Math.max(inferMs, gated ? 30000 : 20000)
+      var waitMs = INF.cur === INF.warmCur ? Math.max(inferMs, 20000)
                  : (gated && INF.cur === INF.coldCur ? Math.max(inferMs, INF_COLD_MS) : INF_WAIT_MS);
       return inferWaitIdle(waitMs).then(function (idle) {
         if (!idle) {
@@ -2166,13 +2164,14 @@
   function aiWarmInfer() {
     try {
       if (INF.warmed || w.NJHR_FACE_NO_WARM_INFER === true) return;
-      /* [RUN-217] เดิม: มือถือ/แท็บเล็ต (Android · iPhone · iPad) ปิดเป็นค่าเริ่มต้น
-         [RUN-223 · local382] เปิดบนมือถือด้วย = "เตรียม AI อัตโนมัติ" ทุกครั้งที่เปิดหน้าลงเวลา (รวมครั้งแรกหลังเปลี่ยน Version)
-           ต้นทุน inference ครั้งแรก (คอมไพล์ Shader/เตรียม Kernel) ย้ายออกจากช่วงที่พนักงานยืนสแกน
-           ใช้ภาพว่าง ไม่เปิดกล้อง ไม่มีข้อมูลบุคคล · โมเดล/Threshold/Liveness/จำนวนเฟรมไม่เปลี่ยน
-           กดสแกนระหว่างอุ่น = รอรอบอุ่นจบตามกลไกเดิม (inferRun คิวเดียว) ไม่ซ้อน ไม่เร็วขึ้นแต่ก็ไม่ช้ากว่าเดิม
-         ปิดเฉพาะมือถือได้ด้วย window.NJHR_FACE_WARM_INFER = false · ปิดทั้งหมดด้วย NJHR_FACE_NO_WARM_INFER = true */
-      if (w.NJHR_FACE_WARM_INFER === false && aiWarmIsMobile()) return;
+      /* [RUN-217] มือถือ/แท็บเล็ต (Android · iPhone · iPad) ปิดเป็นค่าเริ่มต้น · เปิดเองได้ด้วย window.NJHR_FACE_WARM_INFER = true
+         [RUN-225 · local384] local382/383 เคยเปิดบนมือถือเป็นค่าเริ่มต้น — ถอนกลับเป็นแนวทางเดิม เพราะพิสูจน์ได้ว่าไม่ปลอดภัยกับเครื่องช้า:
+           รอบอุ่นทำงานบน Main Thread (คอมไพล์ Shader + อ่านผลจาก GPU แบบ Synchronous) เครื่องช้าใช้ 10–18 วินาที
+           ระหว่างนั้นเบราว์เซอร์ส่งตำแหน่ง GPS ใหม่เข้ามาไม่ได้ -> กดสแกนช่วงนั้น ด่าน GPS (ต้องการตำแหน่งสดไม่เกิน 3 วิ · รอได้ 4 วิ)
+           ไม่ได้ตำแหน่ง = "ไม่สามารถอ่าน GPS ได้" ทั้งที่ GPS ปกติ (ทำซ้ำได้ในชุดทดสอบเมื่อเครื่องทดสอบโหลดหนัก · ปิดรอบอุ่น = สแกนได้ตามปกติ)
+           ด่าน GPS ห้ามแตะ จึงไม่ย้ายต้นทุนครั้งแรกออกจากรอบสแกนบนมือถือ จนกว่าจะมีผลวัดจากเครื่องจริง
+         คอมพิวเตอร์: ทำงานตามเดิม (ผลวัดเดิม ครั้งแรก ~3.3s -> ~0.5s) */
+      if (w.NJHR_FACE_WARM_INFER !== true && aiWarmIsMobile()) return;
       if (!S.guideReady || !S.recogReady || INF.cur || S.root || d.hidden || infBackendLost()) return;
       var f = w.faceapi;
       if (!f || typeof f.detectAllFaces !== 'function') return;
@@ -4571,39 +4570,68 @@
       } catch (eCss) {}
       return el;
     }
+    /* [RUN-225 · local384] Face Login · ลงทะเบียนใบหน้า · จอตรวจตำแหน่ง = กรอบสี่เหลี่ยม 4 มุม "ชุดเดียว" + แถบ Progress แนวนอน
+       (ต้นแบบ = จอสแกนลงเวลา IN/OUT) — ไม่มี .njf-oval / .njf-ring / มุมตกแต่งชุดเก่า ใน DOM เลย (ไม่ใช่ซ่อนด้วย CSS)
+       เป็นงานแสดงผลล้วน: ไม่มี data-att-scan -> ด่านตรวจตำแหน่งใบหน้าของการลงเวลา (attFacePosGateOn) ไม่ทำงานในจอเหล่านี้
+       คงเดิม: ลูกศรบอกทิศ (.njf-turn) · เครื่องหมาย ✓ (.njf-ok) · ข้อความกำกับ (.njf-hint #njf-h1/#njf-h2) · Panel · ปุ่ม · Logic ทั้งหมด */
+    el.setAttribute('data-face-rect', '1');
     el.innerHTML =
       '<div class="njf-top"><button class="njf-back" id="njf-x" aria-label="ปิด">&#10005;</button>' +
       '<div><b>' + esc(title) + '</b><small>' + esc(sub || 'NJL HR') + '</small></div></div>' +
       '<div class="njf-cam"><video id="njf-v" muted playsinline></video><canvas id="njf-c"></canvas>' +
-      '<div class="njf-guide"><span class="njf-corner tl"></span><span class="njf-corner tr"></span>' +
-      '<span class="njf-corner bl"></span><span class="njf-corner br"></span>' +
-      '<div class="njf-oval" id="njf-oval"></div>' +
-      /* [UI] วงแหวนความคืบหน้ารอบใบหน้า — SVG ซ้อนบน .njf-oval พอดี
-         วาดเป็นวงกลม stroke-dasharray แล้วเลื่อน stroke-dashoffset ตามจำนวนมุมที่ผ่าน
-         เป็น overlay ล้วน: pointer-events:none · ไม่แตะ <video> · ไม่แตะ <canvas>
-         ที่ใช้จับภาพ จึงไม่กระทบการตรวจใบหน้า/คุณภาพภาพ/Descriptor เลย */
-      '<svg class="njf-ring" id="njf-ring" viewBox="0 0 120 160" aria-hidden="true">' +
-      /* bg = วงพื้นจาง · dash = เส้นประที่ไหลรอบวง (บอกว่าระบบกำลังทำงาน)
-         hint = ส่วนโค้งไฮไลต์ฝั่งที่ต้องหมุนไป · fg = ความคืบหน้าจริง */
-      '<ellipse class="njf-ring-bg" cx="60" cy="80" rx="57" ry="77"></ellipse>' +
-      '<ellipse class="njf-ring-dash" id="njf-ring-dash" cx="60" cy="80" rx="57" ry="77"></ellipse>' +
-      '<ellipse class="njf-ring-hint" id="njf-ring-hint" cx="60" cy="80" rx="57" ry="77"></ellipse>' +
-      '<ellipse class="njf-ring-live" id="njf-ring-live" cx="60" cy="80" rx="49" ry="68"></ellipse>' +
-      '<ellipse class="njf-ring-fg" id="njf-ring-fg" cx="60" cy="80" rx="57" ry="77"></ellipse>' +
-      '</svg>' +
-      /* ลูกศรโค้งบอกทิศ — แสดงเฉพาะมุมซ้าย/ขวา · ✓ กลางวงเมื่อผ่าน */
+      '<div class="njf-guide">' +
+      '<div class="njf-frame" id="njf-frame" data-state="wait" aria-hidden="true">' +
+      '<span class="njf-corner tl"></span><span class="njf-corner tr"></span>' +
+      '<span class="njf-corner bl"></span><span class="njf-corner br"></span></div>' +
+      /* ลูกศรบอกทิศ — แสดงเฉพาะมุมซ้าย/ขวา · ✓ กลางกรอบเมื่อผ่าน */
       '<div class="njf-turn" id="njf-turn" aria-hidden="true"></div>' +
       '<div class="njf-ok" id="njf-ok" aria-hidden="true">&#10003;</div>' +
       '<div class="njf-hint"><b id="njf-h1">มองกล้องให้อยู่ในกรอบ</b>' +
       '<small id="njf-h2">กรุณาอย่าขยับใบหน้า</small></div></div></div>' +
+      '<div class="njf-scanbar" id="njf-scanbar" data-state="wait" role="progressbar" ' +
+      'aria-label="ความคืบหน้าการสแกนใบหน้า" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>' +
       '<div class="njf-panel" id="njf-panel"></div>';
     d.body.appendChild(el);
     S.root = el;
     S.video = el.querySelector('#njf-v');
     S.canvas = el.querySelector('#njf-c');
     el.querySelector('#njf-x').onclick = function () { camLifeLog('USER_CANCEL_CLOSE'); close('USER_CANCEL_CLOSE'); };
+    rectLock(el);
+    try {
+      (S.cssP || Promise.resolve()).then(function () {
+        if (S.root === el) { rectLock(el); setTimeout(function () { if (S.root === el) rectLock(el); }, 60); }
+      }, function () {});
+      if (typeof w.ResizeObserver === 'function') {      // กล่องกล้องเปลี่ยนขนาด (ข้อความใน Panel ยาวขึ้น · หมุนจอ) = ปรับกรอบให้พอดีเสมอ
+        var ro = new w.ResizeObserver(function () { if (S.root === el) rectLock(el); else { try { ro.disconnect(); } catch (eD) {} } });
+        ro.observe(el.querySelector('.njf-cam'));
+      }
+    } catch (eCss2) {}
     return el;
   }
+  /* [RUN-225 · local384] ขนาดกรอบ 4 มุมของจอ Face Login / ลงทะเบียน / ตรวจตำแหน่ง — สูตรเดียวกับจอลงเวลา (attCamLock)
+     กว้าง = น้อยสุดของ (66% ของความกว้างกล่องกล้อง , 80% ของความสูงกล่องกล้อง x 3/4) · สัดส่วน 3:4 · กึ่งกลางกล่องกล้อง (CSS)
+     -> กรอบไม่ใหญ่เกินพื้นที่กล้องทุกขนาดจอ · เป็นงาน Layout ล้วน ไม่แตะ <video>/<canvas>/Detector */
+  function rectLock(root) {
+    try {
+      root = root || S.root;
+      if (!root || root.getAttribute('data-face-rect') !== '1') return false;
+      var cam = root.querySelector('.njf-cam'), fr = root.querySelector('#njf-frame');
+      if (!cam || !fr) return false;
+      var cb = cam.getBoundingClientRect();
+      if (!(cb.width > 40) || !(cb.height > 40)) return false;
+      var fw = Math.floor(Math.min(cb.width * 0.66, cb.height * 0.80 * 0.75));
+      if (fr.getAttribute('data-fw') === String(fw)) return true;
+      fr.setAttribute('data-fw', String(fw));
+      fr.style.width = fw + 'px';
+      fr.style.height = Math.round(fw * 4 / 3) + 'px';
+      fr.style.maxHeight = 'none';
+      return true;
+    } catch (e) { return false; }
+  }
+  try {
+    w.addEventListener('resize', function () { rectLock(); });
+    w.addEventListener('orientationchange', function () { setTimeout(function () { rectLock(); }, 250); });
+  } catch (eRl) {}
   function hint(a, b) {
     var h1 = S.root && S.root.querySelector('#njf-h1');
     var h2 = S.root && S.root.querySelector('#njf-h2');
@@ -6623,6 +6651,8 @@
         fg.classList.toggle('ok', !!done);
       } catch (e) {}
     }
+    /* [RUN-225 · local384] ความคืบหน้าเดิมของวงแหวน -> แถบ Progress แนวนอน + สีกรอบ 4 มุม (แสดงผลล้วน) */
+    function rectProg(ratio, done) { attFrame(done ? 'ok' : null, Math.max(0, Math.min(1, Number(ratio) || 0))); }
 
     /* [UI] ตั้งทิศทางที่ต้องหมุน + สถานะผ่านของมุมปัจจุบัน
          cam.dataset.dir = ''|'left'|'right'  → CSS เอียงวงรีและวางลูกศร
@@ -6656,6 +6686,7 @@
         }
         var hit = !!pose.test(y);
         cam.dataset.live = hit ? 'hit' : (prog >= 0.7 ? 'near' : 'far');
+        attFrame(hit ? 'ok' : (prog >= 0.7 ? 'run' : 'wait'));   // [RUN-225] สีเดิมของวงแหวนสด: ถึงเกณฑ์ = เขียว · ใกล้ = ฟ้า · ยัง = ขาว
 
         /* วงแหวนชั้นในบอกความคืบหน้าของมุมนี้แบบสด */
         var lv = document.getElementById('njf-ring-live');
@@ -6685,6 +6716,7 @@
         var lv0 = document.getElementById('njf-ring-live');
         if (lv0 && !done) { lv0.style.strokeDashoffset = ''; }
         if (oval) { oval.classList.toggle('ok', !!done); }
+        attFrame(done ? 'ok' : 'wait');                       // [RUN-225] มุมนี้ผ่าน = กรอบเขียว · เริ่มมุมใหม่ = ขาว
         if (turn) { turn.className = 'njf-turn' + (dir && !done ? ' show ' + dir : ''); }
         if (ok) { ok.classList.toggle('show', !!done); }
         if (hintArc) { hintArc.className.baseVal = 'njf-ring-hint' + (dir && !done ? ' ' + dir : ''); }
@@ -6696,6 +6728,7 @@
       var shown = Math.min(idx + (stepDone ? 1 : 0), poses.length);
       var pct = Math.round((shown / poses.length) * 100);
       ringSet(shown / poses.length, !!stepDone);
+      rectProg(shown / poses.length, !!stepDone);
       poseVisual(cur, !!stepDone);
 
       panel(
@@ -7266,11 +7299,12 @@
         perfMark('guide_visible_ms');          // กด Face Login → เห็นกล้อง+กรอบนำทาง
         S.running = true;
         st.live = 'run'; panel(stepsHtml(st, 'กำลังตรวจสอบบุคคลจริง…'));
+        attFrame('run', 0.15);                 // [RUN-225] แสดงผลล้วน: ฟ้า = กำลังตรวจสอบ
         actions([{ label: 'ยกเลิก', style: 'ghost', on: function () {
           close(); if (typeof onCancel === 'function') onCancel();
         } }]);
         hint('มองกล้องให้อยู่ในกรอบ', 'กรุณาอย่าขยับใบหน้า');
-        return grabFrames(6, function (warn) { if (warn) setMsg(warn, true); });
+        return grabFrames(6, function (warn) { if (warn) setMsg(warn, true); attFrame(warn ? 'adjust' : 'run'); });
       })
       .then(function (frames) {
         var lv = passiveLiveness(frames);
@@ -7287,6 +7321,7 @@
       })
       .then(function (ctx) {
         st.live = 'ok'; st.match = 'run';
+        attFrame('run', 0.7);                  // [RUN-225] แสดงผลล้วน
         camLifeLog('FLOW_COMPLETE_CLOSE');
         closeCam('FLOW_COMPLETE_CLOSE');       // ปิดกล้องก่อนยิงเซิร์ฟเวอร์
         panel(stepsHtml(st, 'กำลังยืนยันตัวตน…'));
@@ -7308,6 +7343,7 @@
         perfEnd('total_face_login_ms');
         telEnd(evL, 'OK', { stage: 'DONE', code: 'OK', live: 'PASS', match: 'PASS', cam: 'OK' });   // [RUN-222] เซิร์ฟเวอร์ยืนยันแล้ว
         st.match = 'ok';
+        attFrame('ok', 1);                     // [RUN-225] แสดงผลล้วน
         panel('<div class="njf-check" style="margin:0 auto 12px">&#10003;</div>' +
           '<div class="njf-msg"><b>เข้าสู่ระบบสำเร็จ</b><br>' +
           esc(row.emp_name || row.username || '') + '</div>');
@@ -7327,6 +7363,7 @@
                   cam: evL.sent ? 'OK' : telCam(),
                   live: st.live === 'ok' ? 'PASS' : (/บุคคลจริง/.test(String((e && e.message) || '')) ? 'FAIL' : 'NA'),
                   match: evL.sent ? (netL ? 'UNKNOWN' : 'NOPASS') : 'NA' });   // [RUN-222] บันทึกอย่างเดียว
+        attFrame('bad');                       // [RUN-225] แสดงผลล้วน: แดง = ไม่ผ่าน
         closeCam();
         st.match = 'bad';
         /* ⚠ Error ดิบจากฐานข้อมูล/PostgREST (เช่น schema cache) ห้ามโชว์ให้พนักงาน
