@@ -2487,7 +2487,7 @@
     if (!T.isAdmin()) { page.innerHTML = '<div class="empty">เมนูนี้สำหรับ SUPER_ADMIN / ADMIN เท่านั้น</div>'; return; }
     const F = { q: '', st: '', from: '', to: '' }; let rows = [], seq = 0; const SEL = new Set(); const sa = T.session.role === 'SUPER_ADMIN'; // local188: เลือกได้หลาย INVOICE
     let TAB = 'wait'; const FD = { q: '', st: '', from: '', to: '' }; let docs = [], seqD = 0, docsOk = false; // local193: 2 แท็บ · แต่ละแท็บเก็บตัวกรองของตัวเอง
-    page.innerHTML = `<div class="page-head"><div class="flex"><h1>🧾 ใบเสร็จรับเงิน</h1></div><div class="flex flex-wrap"><button class="btn btn-p" id="rcNew">+ ออกใบเสร็จรับเงิน</button><button class="btn btn-g" id="rcBatch" disabled>🧾 ออกใบเสร็จที่เลือก (0 รายการ)</button><button class="btn" id="rcRep">📊 รายงานใบเสร็จ</button></div></div>
+    page.innerHTML = `<div class="page-head"><div class="flex"><h1>🧾 ใบเสร็จรับเงิน</h1></div><div class="flex flex-wrap"><button class="btn btn-p" id="rcNew">+ ออกใบเสร็จรับเงิน</button><button class="btn btn-g" id="rcBatch" disabled>🧾 ออกใบเสร็จที่เลือก (0 รายการ)</button><button class="btn" id="rcRep">📊 รายงานใบเสร็จ</button><button class="btn btn-g" id="rcXls" disabled>📗 EXPORT EXCEL (0 รายการ)</button></div></div>
       <div class="rc-tabs"><button class="rc-tab blue active" data-rtab="wait">⏳ รอรับชำระ <span class="rc-tc" id="rcTcW">0</span></button><button class="rc-tab green" data-rtab="done">✅ ใบเสร็จที่ออกแล้ว <span class="rc-tc" id="rcTcD">0</span></button></div>
       <div id="rcPaneW">
       <div class="card card-b bl-filter"><div class="flex flex-wrap"><div class="field"><label>ค้นหา</label><input class="inp" id="rcQ" placeholder="เลข INVOICE / JOB No. / Customer" autocomplete="off"></div><div class="field"><label>ตั้งแต่วันที่</label><input type="date" class="inp" id="rcFrom"></div><div class="field"><label>ถึงวันที่</label><input type="date" class="inp" id="rcTo"></div>
@@ -2502,7 +2502,7 @@
     const view = () => { const qq = F.q.toLowerCase(); return rows.filter((x) => x.pay_status !== 'PAID' && (!qq || [x.invoice_no, x.customer_name].concat(x.job_nos || []).some((v) => String(v || '').toLowerCase().includes(qq))) && (!F.st || x.pay_status === F.st)); };
     const selRows = () => rows.filter((y) => SEL.has(y.id) && y.pay_status !== 'PAID');
     const sel = () => { const el = $('#rcSel'); const a = selRows(); if (el) el.textContent = a.length ? `เลือกแล้ว ${a.length} รายการ · คงค้างรวม ${blF(blR2(a.reduce((s2, x) => s2 + (Number(x.outstanding) || 0), 0)))}` : 'ติ๊กเลือก INVOICE ได้หลายรายการ';
-      const b = $('#rcBill'); if (b) b.disabled = !a.length; const bb = $('#rcBatch'); if (bb) { bb.disabled = !a.length; bb.textContent = `🧾 ออกใบเสร็จที่เลือก (${a.length} รายการ)`; }
+      const b = $('#rcBill'); if (b) b.disabled = !a.length; const bb = $('#rcBatch'); if (bb) { bb.disabled = !a.length; bb.textContent = `🧾 ออกใบเสร็จที่เลือก (${a.length} รายการ)`; } const xb = $('#rcXls'); if (xb) { xb.disabled = !a.length; xb.textContent = `📗 EXPORT EXCEL (${a.length} รายการ)`; }
       const all = $('#rcAll'); if (all) { const op = view().filter((x) => x.pay_status !== 'PAID'); all.disabled = !op.length; all.checked = !!op.length && op.every((x) => SEL.has(x.id)); all.indeterminate = !all.checked && op.some((x) => SEL.has(x.id)); } };
     const draw = () => { const tb = $('#rcBody'); if (!tb) return; const v = view();
       tb.innerHTML = v.map((x) => { const s2 = RC_PS[x.pay_status]; const open = x.pay_status !== 'PAID';
@@ -2524,6 +2524,16 @@
     const openSel = () => { const a = selRows(); if (!a.length) return T.toast('กรุณาติ๊กเลือก INVOICE ที่ต้องการรับชำระ', 'warn'); if (a.length === 1) return rcForm(a[0], reloadAll); openBatch(); };
     const openBatch = () => { const a = selRows(); if (!a.length) return T.toast('กรุณาติ๊กเลือก INVOICE ที่ต้องการรับชำระ', 'warn'); rcBatch(a, () => { SEL.clear(); reloadAll(); }); };
     $('#rcAll').onchange = () => { const op = view().filter((x) => x.pay_status !== 'PAID'); if ($('#rcAll').checked) op.forEach((x) => SEL.add(x.id)); else op.forEach((x) => SEL.delete(x.id)); draw(); };
+    // local199: 📗 EXPORT EXCEL เฉพาะ INVOICE ที่ติ๊ก (แท็บรอรับชำระ) · ข้อมูลเดียวกับตาราง · เรียงเลข INVOICE น้อย→มาก · แถว TOTAL · ไม่เปลี่ยนสถานะ / ข้อมูล
+    $('#rcXls').onclick = async () => { const a = selRows().slice().sort((x, y) => String(x.invoice_no || '').localeCompare(String(y.invoice_no || ''))); if (!a.length) return T.toast('กรุณาติ๊กเลือก INVOICE ที่ต้องการ Export', 'warn');
+      try { T.loading(true); await ensureXlsx(); const n = (v) => blR2(Number(v) || 0); const tot = (k) => blR2(a.reduce((s2, x) => s2 + (Number(x[k]) || 0), 0));
+        const aoa = [['เลข INVOICE', 'วันที่', 'ลูกค้า', 'JOB', 'Service (บาท)', 'Advance (บาท)', 'ยอดสุทธิ', 'รับชำระแล้ว', 'คงค้าง', 'สถานะ']]
+          .concat(a.map((x) => [x.invoice_no || '', hlDMY(x.invoice_date), x.customer_name || '', (x.job_nos || []).join(', '), n(x.service_total), n(x.advance_total), n(x.grand_total), n(x.paid), n(x.outstanding), (RC_PS[x.pay_status] || [x.pay_status])[0]]));
+        aoa.push(['TOTAL', `${a.length} รายการ`, '', '', tot('service_total'), tot('advance_total'), tot('grand_total'), tot('paid'), tot('outstanding'), '']);
+        const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [18, 12, 46, 22, 15, 15, 15, 15, 15, 14].map((w) => ({ wch: w })); ws['!autofilter'] = { ref: `A1:J${aoa.length - 1}` };
+        for (let r = 1; r < aoa.length; r++) for (let c = 4; c <= 8; c++) { const cell = ws[XLSX.utils.encode_cell({ r, c })]; if (cell && typeof cell.v === 'number') cell.z = '#,##0.00'; }
+        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'รอรับชำระ'); XLSX.writeFile(wb, `รอรับชำระ_${flBkkToday()}.xlsx`); T.toast(`Export ${a.length} รายการแล้ว`, 'ok'); }
+      catch (e) { T.toast('Export ไม่สำเร็จ', 'err'); } finally { T.loading(false); } };
     $('#rcBatch').onclick = openBatch; $('#rcBill').onclick = openSel; $('#rcNew').onclick = openSel; $('#rcRep').onclick = () => rcReport(reloadAll);
     const go = () => { const f2 = $('#rcFrom').value, t2 = $('#rcTo').value; const re = f2 !== F.from || t2 !== F.to; F.q = $('#rcQ').value.trim(); F.st = $('#rcSt').value; F.from = f2; F.to = t2; if (re) load(); else draw(); };
     $('#rcFind').onclick = go; $('#rcSt').onchange = go; $('#rcQ').addEventListener('input', T.debounce(() => { if (!$('#rcQ')) return; F.q = $('#rcQ').value.trim(); draw(); }, 200));
@@ -2551,7 +2561,7 @@
     $('#rdFind').onclick = goD; $('#rdSt').onchange = goD; $('#rdQ').onkeydown = (e) => { if (e.key === 'Enter') goD(); };
     $('#rdClr').onclick = () => { ['#rdQ', '#rdFrom', '#rdTo', '#rdSt'].forEach((k) => { $(k).value = ''; }); Object.assign(FD, { q: '', st: '', from: '', to: '' }); loadD(); };
     const setTab = (t) => { TAB = t; $$('[data-rtab]').forEach((b) => b.classList.toggle('active', b.dataset.rtab === t)); $('#rcPaneW').hidden = t !== 'wait'; $('#rcPaneD').hidden = t !== 'done';
-      ['#rcNew', '#rcBatch'].forEach((k) => { const b = $(k); if (b) b.style.display = t === 'wait' ? '' : 'none'; }); };
+      ['#rcNew', '#rcBatch', '#rcXls'].forEach((k) => { const b = $(k); if (b) b.style.display = t === 'wait' ? '' : 'none'; }); };
     $$('[data-rtab]').forEach((b) => b.onclick = () => setTab(b.dataset.rtab));
     reloadAll();
   }
