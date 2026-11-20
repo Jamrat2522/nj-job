@@ -1,4 +1,6 @@
 import{m as RPC}from"./chunk-SGWIBJH6.js";import{a as TOAST}from"./chunk-OFOOXWUM.js";import{a as LX}from"./chunk-LAFWE2EM.js";import{files723 as XF}from"./xp-X717.js";
+/* V.905 (RUN-905) : สถานะวางบิล = จับคู่ "ยอดเงิน" ของรายการค่าใช้จ่ายกับยอดของรายการเดียวภายใน INVOICE NJ ของ JOB เดียวกัน (1 : 1 · ทศนิยม 2 ตำแหน่ง · ห้ามรวมยอด · ห้ามจับคู่ซ้ำ)
+   วางบิลแล้ว = จับคู่ได้ · วางบิลแล้วไม่ตรง = มี INVOICE NJ แต่ไม่มีรายการใดยอดตรง · ยังไม่วางบิล = ยังไม่มี INVOICE NJ (ช่องว่าง) · อัปเดตตามข้อมูลล่าสุดทุกครั้งที่เปิด / รีเฟรช */
 /* ═══ V.723 · CASH ADVANCE → EXPENSES : รายงานค่าใช้จ่ายนอกราคาขายจาก DOCUMENT → SERVICE (หัวข้อ 5)
    ข้อมูล : RPC อ่านอย่างเดียว njacc_exp723_list (RUN-723) — เฉพาะ JOB ที่ POST แล้ว · 1 รายการ = 1 แถว · ข้อมูลล่าสุดทุกครั้ง (ไม่บันทึกสถานะ)
    เก็บลูกค้าแล้ว = INVOICE SERVICE ที่ POST แล้วของ JOB เดียวกัน มีบรรทัด DESCRIPTION ตรง + AMOUNT = เก็บลูกค้าได้ (จับคู่ 1 : 1 ที่ Server) · ไม่ใช่การรับชำระเงิน
@@ -76,8 +78,17 @@ function css() {
 }
 function rpc(n, a) { return RPC(n, a); }
 function params(lim, off) { var f = S.f; return { company_id: f.company_id || null, date_from: f.date_from || null, date_to: f.date_to || null, status: f.status || "ALL", q: f.q || null, limit: lim, offset: off }; }
-function badge(x) { return x.cannot_collect ? '<span class="ex7-bd r">✕ เก็บลูกค้าไม่ได้</span>' : x.billed ? '<span class="ex7-bd g">✓ เก็บลูกค้าแล้ว</span>' : '<span class="ex7-bd o">◷ รอเก็บลูกค้า</span>'; }
-function invNo(x) { return x.cannot_collect ? "-" : x.billed ? x.match_no : x.inv_nos; }   /* V.733 : รายการเก็บลูกค้าไม่ได้ = INVOICE NJ "-" */
+/* V.905 : สถานะวางบิลจาก ACCOUNTING — SERVICE (MATCH = วางบิลแล้ว · DIFF = วางบิลแล้วไม่ตรง · NONE = ยังไม่วางบิล · CC = เก็บลูกค้าไม่ได้)
+   ค่า bill_st มาจาก njacc_exp723_list (RUN-905) · ถ้ายังไม่ได้รัน SQL จะคำนวณจาก billed / inv_nos เดิมให้ผลเดียวกัน */
+function bs905(x) { return x.cannot_collect ? "CC" : x.bill_st || (x.billed ? "MATCH" : x.inv_nos ? "DIFF" : "NONE"); }
+var TX905 = { MATCH: "วางบิลแล้ว", DIFF: "วางบิลแล้วไม่ตรง", NONE: "ยังไม่วางบิล", CC: "เก็บลูกค้าไม่ได้" };
+function badge(x) { var b = bs905(x);
+  return b === "CC" ? '<span class="ex7-bd r">✕ ' + TX905.CC + "</span>"
+    : b === "MATCH" ? '<span class="ex7-bd g">● ' + TX905.MATCH + "</span>"
+    : b === "DIFF" ? '<span class="ex7-bd r">● ' + TX905.DIFF + "</span>"
+    : '<span class="ex7-bd o">● ' + TX905.NONE + "</span>"; }
+/* V.905 : เลข INVOICE NJ จาก ACCOUNTING — SERVICE · วางบิลแล้ว = ใบที่จับคู่ยอดได้ · วางบิลแล้วไม่ตรง = ใบของ JOB นั้น · ยังไม่วางบิล = ช่องว่าง (ห้ามสร้างเลขขึ้นเอง) */
+function invNo(x) { var b = bs905(x); return b === "CC" ? "-" : b === "MATCH" ? (x.match_no || x.inv_nos || "") : b === "DIFF" ? (x.inv_nos || "") : ""; }
 function shell() {
   var mob = typeof window !== "undefined" && window.__NJ_MOBILE;
   return '<div class="ex7"><div class="ex7-hd"><span class="ex7-ic">' + IC.coin + '</span><div class="ex7-tt"><b>EXPENSES</b><small>รายงานค่าใช้จ่ายนอกราคาขายจาก DOCUMENT → SERVICE</small></div>' +
@@ -85,7 +96,7 @@ function shell() {
     '<div class="ex7-fc"><h3>' + IC.q + 'ค้นหา / ตัวกรองข้อมูล</h3><form class="ex7-f" data-f autocomplete="off">' +
     '<label class="co">บริษัท (Company)<select name="company_id"><option value="">- ทุกบริษัท -</option></select></label>' +
     '<label class="dt">วันที่ POST<input type="date" name="date_from"></label><label class="dt">ถึงวันที่<input type="date" name="date_to"></label>' +
-    '<label class="st">สถานะเก็บลูกค้า<select name="status"><option value="ALL">ทั้งหมด</option><option value="BILLED">เก็บลูกค้าแล้ว</option><option value="PENDING">รอเก็บลูกค้า</option><option value="UNCOLLECTIBLE">เก็บลูกค้าไม่ได้</option></select></label>' +
+    '<label class="st">สถานะวางบิล<select name="status"><option value="ALL">ทั้งหมด</option><option value="BILLED">วางบิลแล้ว</option><option value="MISMATCH">วางบิลแล้วไม่ตรง</option><option value="PENDING">ยังไม่วางบิล</option><option value="UNCOLLECTIBLE">เก็บลูกค้าไม่ได้</option></select></label>' +
     '<label class="qq">ค้นหาทุกหัวข้อ<span class="qw">' + IC.q + '<input name="q" maxlength="120" placeholder="ค้นหา JOB / บริษัท / ลูกค้า / House / รายละเอียด / INVOICE NJ / ชื่อไฟล์"></span></label>' +
     '<button type="submit" class="ex7-b p">' + IC.q + 'ค้นหา</button><button type="button" class="ex7-b" data-clr>' + IC.clr + 'ล้างตัวกรอง</button>' +
     '<button type="button" class="ex7-b" data-rf>' + IC.rf + 'Refresh</button><button type="button" class="ex7-b g" data-xl>' + IC.xl + 'EXPORT EXCEL</button></form></div>' +
@@ -104,12 +115,12 @@ function rowHTML(x, i) {
   var nf = (x.files || []).length, no = S.off + i + 1;
   return '<tr data-i="' + i + '" tabindex="0"><td class="c">' + no + '</td><td class="nw"><a href="#/job/' + esc(x.job_id) + '" data-lk>' + esc(x.job_no) + "</a></td>" +
     td802(x.company) + td802(x.customer) + '<td class="nw">' + esc(x.hbl || "-") + "</td>" +
-    '<td><span class="ex7-el">' + esc(x.description) + '</span></td><td class="r">' + fm(x.pay_amount) + '</td><td class="r">' + fm(x.collect_amount) + '</td><td class="c">' + badge(x) + '</td><td class="nw c">' + esc(invNo(x) || "-") + "</td>" +
+    '<td><span class="ex7-el">' + esc(x.description) + '</span></td><td class="r">' + fm(x.pay_amount) + '</td><td class="r">' + fm(x.collect_amount) + '</td><td class="c">' + badge(x) + '</td><td class="nw c">' + esc(invNo(x) || "") + "</td>" +
     '<td><div class="ex7-act">' +   /* V.727 : List View แสดงเฉพาะปุ่มลบ — ดูไฟล์ / โหลดไฟล์ อยู่ในหน้าต่างรายละเอียด EXPENSES */
     '<button type="button" class="ex7-ab x" data-a="x" title="ลบออกจาก EXPENSES">' + IC.del + "ลบ</button></div></td></tr>";
 }
 function bodyHTML() {
-  var H = ["#", "JOB No.", "Company", "Customer", "House B/L", "รายละเอียด", "ยอดเงิน", "เก็บลูกค้าได้", "เก็บลูกค้าแล้ว", "INVOICE NJ", "จัดการ"];
+  var H = ["#", "JOB No.", "Company", "Customer", "House B/L", "รายละเอียด", "ยอดเงิน", "เก็บลูกค้าได้", "สถานะวางบิล", "INVOICE NJ", "จัดการ"];
   var W = [44, 130, 120, 120, 130, 0, 110, 110, 130, 130, 84];   /* V.802 : Company / Customer = 120px (10 ตัวอักษร + ...) */   /* V.727 : คอลัมน์จัดการ = ปุ่มลบปุ่มเดียว */
   var rows = S.rows.map(rowHTML).join(""), sm = S.sum || {};
   var n = Math.max(1, Math.ceil((S.total || 0) / S.lim)), c = Math.floor(S.off / S.lim) + 1, from = S.total ? S.off + 1 : 0, to = S.off + S.rows.length, pg = [], k;
@@ -214,10 +225,10 @@ function detail(x) {   /* V.729 : หน้าต่างรายละเอ�
   var o = document.createElement("div"); o.className = "ex7-ov"; o.setAttribute("data-ex7dt", "");
   o.innerHTML = '<div class="ex9-md" role="dialog" aria-modal="true" aria-label="รายละเอียด EXPENSES"><div class="ex9-h"><span class="ex9-hi">' + I9.doc + '</span><b>รายละเอียด EXPENSES</b><button type="button" class="ex9-x" data-x aria-label="ปิด">' + I9.x + "</button></div>" +
     '<div class="ex9-b"><section class="ex9-sum"><span class="ex9-si">' + I9.doc + '</span><div class="ex9-sj"><span>JOB No.</span><b>' + D(x.job_no) + '</b></div><div class="ex9-ss"><span>สถานะ</span>' +
-      (cc ? '<span class="ex9-bd r">' + I9.x + "เก็บลูกค้าไม่ได้</span>" : x.billed ? '<span class="ex9-bd g">' + I9.chk + "เก็บลูกค้าแล้ว</span>" : '<span class="ex9-bd o">' + I9.clk + "รอเก็บลูกค้า</span>") + "</div></section>" +
+      (cc ? '<span class="ex9-bd r">' + I9.x + TX905.CC + "</span>" : bs905(x) === "MATCH" ? '<span class="ex9-bd g">' + I9.chk + TX905.MATCH + "</span>" : bs905(x) === "DIFF" ? '<span class="ex9-bd r">' + I9.chk + TX905.DIFF + "</span>" : '<span class="ex9-bd o">' + I9.clk + TX905.NONE + "</span>") + "</div></section>" +
     '<div class="ex9-g"><section class="ex9-c">' + row(I9.bld, "Company", D(x.company)) + row(I9.usr, "Customer", D(x.customer)) + row(I9.hbl, "House B/L", D(x.hbl)) + row(I9.lay, "รายละเอียด", D(x.description)) +
       row(I9.coin, "ยอดเงิน", '<span class="hl">' + fm(x.pay_amount) + " บาท</span>") + row(I9.hand, "เก็บลูกค้าได้", fm(x.collect_amount) + " บาท") + "</section>" +
-    '<section class="ex9-c">' + row(I9.acc, "AMOUNT (ACCOUNTING)", x.match_amount != null ? fm(x.match_amount) + " บาท" : "—") + row(I9.chk, "เก็บลูกค้าแล้ว", badge(x)) + row(I9.tag, "INVOICE NJ", D(invNo(x))) +
+    '<section class="ex9-c">' + row(I9.acc, "AMOUNT (ACCOUNTING)", x.match_amount != null ? fm(x.match_amount) + " บาท" : "—") + row(I9.chk, "สถานะวางบิล", badge(x)) + row(I9.tag, "INVOICE NJ", D(invNo(x))) +
       (cc ? '<div class="ex9-r"><i>' + I9.lay + '</i><span>หมายเหตุ</span><b class="nt">' + D(x.note) + "</b></div>" : "") +
       row(I9.cal, "วันที่ POST", x.posted_at ? esc(dts(x.posted_at)) : "—") + row(I9.one, "ผู้บันทึก", D(x.created_by)) + (x.created_at ? row(I9.cal, "วันที่บันทึก", esc(dtm9(x.created_at))) : "") +
       (cc ? row(I9.cal, "วันที่ปิดงาน", x.closed_at ? esc(dtm9(x.closed_at)) : "—") : "") + "</section></div>" +
@@ -269,13 +280,13 @@ async function exportXls(btn) {
     var seen = {}; all = all.filter(function (x) { if (seen[x.item_id]) return !1; seen[x.item_id] = 1; return !0; });   /* 1 Expense Item = 1 แถว */
     await LX(XURL); var EX = window.ExcelJS; if (!EX) throw new Error("โหลดไลบรารี Excel ไม่สำเร็จ");
     var wb = new EX.Workbook(), ws = wb.addWorksheet("EXPENSES", { views: [{ state: "frozen", ySplit: 1 }] });
-    var H = ["ลำดับ", "JOB No.", "Company", "Customer", "House B/L", "รายละเอียด", "ยอดเงิน", "เก็บลูกค้าได้", "เก็บลูกค้าแล้ว", "INVOICE NJ", "วันที่ POST", "หมายเหตุ", "ผู้บันทึก", "วันที่ CLOSE"];   /* V.733 : + หมายเหตุ / ผู้บันทึก / วันที่ CLOSE */
+    var H = ["ลำดับ", "JOB No.", "Company", "Customer", "House B/L", "รายละเอียด", "ยอดเงิน", "เก็บลูกค้าได้", "สถานะวางบิล", "INVOICE NJ", "วันที่ POST", "หมายเหตุ", "ผู้บันทึก", "วันที่ CLOSE"];   /* V.733 : + หมายเหตุ / ผู้บันทึก / วันที่ CLOSE */
     ws.columns = [8, 18, 34, 34, 20, 36, 15, 15, 17, 22, 13, 40, 20, 13].map(function (w) { return { width: w }; });
     var TH = { style: "thin", color: { argb: "FFD9E2EC" } }, BD = { top: TH, left: TH, bottom: TH, right: TH };
     var put = function (rn, vals, st) { var row = ws.getRow(rn); for (var c = 0; c < H.length; c++) { var cell = row.getCell(c + 1), v = vals[c]; cell.value = v == null ? "" : v; cell.border = BD; cell.alignment = { vertical: "middle", wrapText: !0, horizontal: c === 6 || c === 7 ? "right" : c === 0 || c === 8 || c === 10 || c === 13 ? "center" : "left" };
       if ((c === 6 || c === 7) && typeof v === "number") cell.numFmt = "#,##0.00"; st && st(cell, c); } row.commit && row.commit(); };
     put(1, H, function (cell) { cell.font = { bold: !0, color: { argb: "FFFFFFFF" } }; cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A8A" } }; cell.alignment = { vertical: "middle", horizontal: "center", wrapText: !0 }; });
-    all.forEach(function (x, i) { put(i + 2, [i + 1, String(x.job_no || ""), x.company || "", x.customer || "", x.hbl || "", x.description || "", Number(x.pay_amount) || 0, Number(x.collect_amount) || 0, x.cannot_collect ? "เก็บลูกค้าไม่ได้" : x.billed ? "เก็บลูกค้าแล้ว" : "รอเก็บลูกค้า", String(invNo(x) || ""), dts(x.posted_at),
+    all.forEach(function (x, i) { put(i + 2, [i + 1, String(x.job_no || ""), x.company || "", x.customer || "", x.hbl || "", x.description || "", Number(x.pay_amount) || 0, Number(x.collect_amount) || 0, TX905[bs905(x)], String(invNo(x) || ""), dts(x.posted_at),
       x.cannot_collect ? String(x.note || "") : "", String(x.created_by || ""), x.cannot_collect && x.closed_at ? dts(x.closed_at) : ""]); });
     var tp = 0, tc = 0; all.forEach(function (x) { tp += Number(x.pay_amount) || 0; tc += Number(x.collect_amount) || 0; });
     put(all.length + 2, ["", "", "", "", "", "รวม", Math.round(tp * 100) / 100, Math.round(tc * 100) / 100, "", "", "", "", "", ""], function (cell) { cell.font = { bold: !0 }; cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF3C7" } }; });
