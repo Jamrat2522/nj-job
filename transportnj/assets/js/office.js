@@ -1102,6 +1102,8 @@
   let flChartReady = null, flXS = null;
   // SheetJS (Export Excel) โหลดเมื่อกด Export ครั้งแรก — ไม่โหลดตอนเปิดระบบ (ไฟล์ ~880 KB)
   const XLSX_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'; let xlsxReady = null;
+  const EXCELJS_URL = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'; let excelJsReady = null; // local200: Excel แบบตกแต่ง (สี / SUM / Freeze / ตั้งค่าหน้าพิมพ์)
+  const ensureExcelJs = () => { if (window.ExcelJS && window.ExcelJS.Workbook) return Promise.resolve(window.ExcelJS); if (!excelJsReady) excelJsReady = flLoadScript(EXCELJS_URL).then(() => window.ExcelJS).catch((e) => { excelJsReady = null; throw e; }); return excelJsReady; };
   const ensureXlsx = () => { if (window.XLSX && window.XLSX.utils) return Promise.resolve(window.XLSX); if (!xlsxReady) xlsxReady = flLoadScript(XLSX_URL).then(() => window.XLSX).catch((e) => { xlsxReady = null; throw e; }); return xlsxReady; };
   function flEnsureChart() {
     if (!flChartReady) flChartReady = (async () => {
@@ -2525,15 +2527,31 @@
     const openBatch = () => { const a = selRows(); if (!a.length) return T.toast('กรุณาติ๊กเลือก INVOICE ที่ต้องการรับชำระ', 'warn'); rcBatch(a, () => { SEL.clear(); reloadAll(); }); };
     $('#rcAll').onchange = () => { const op = view().filter((x) => x.pay_status !== 'PAID'); if ($('#rcAll').checked) op.forEach((x) => SEL.add(x.id)); else op.forEach((x) => SEL.delete(x.id)); draw(); };
     // local199: 📗 EXPORT EXCEL เฉพาะ INVOICE ที่ติ๊ก (แท็บรอรับชำระ) · ข้อมูลเดียวกับตาราง · เรียงเลข INVOICE น้อย→มาก · แถว TOTAL · ไม่เปลี่ยนสถานะ / ข้อมูล
+    // local200: EXPORT EXCEL แบบตกแต่ง (ExcelJS) — หัวรายงานกรมท่า · หัวตารางน้ำเงิน · แถวสลับสี · คงค้างส้มเข้ม · รอรับเงินพื้นเหลือง · TOTAL ใช้ SUM · Freeze หัวตาราง · A4 แนวนอน พอดี 1 หน้า · พิมพ์หัวตารางซ้ำ
     $('#rcXls').onclick = async () => { const a = selRows().slice().sort((x, y) => String(x.invoice_no || '').localeCompare(String(y.invoice_no || ''))); if (!a.length) return T.toast('กรุณาติ๊กเลือก INVOICE ที่ต้องการ Export', 'warn');
-      try { T.loading(true); await ensureXlsx(); const n = (v) => blR2(Number(v) || 0); const tot = (k) => blR2(a.reduce((s2, x) => s2 + (Number(x[k]) || 0), 0));
-        const aoa = [['เลข INVOICE', 'วันที่', 'ลูกค้า', 'JOB', 'Service (บาท)', 'Advance (บาท)', 'ยอดสุทธิ', 'รับชำระแล้ว', 'คงค้าง', 'สถานะ']]
-          .concat(a.map((x) => [x.invoice_no || '', hlDMY(x.invoice_date), x.customer_name || '', (x.job_nos || []).join(', '), n(x.service_total), n(x.advance_total), n(x.grand_total), n(x.paid), n(x.outstanding), (RC_PS[x.pay_status] || [x.pay_status])[0]]));
-        aoa.push(['TOTAL', `${a.length} รายการ`, '', '', tot('service_total'), tot('advance_total'), tot('grand_total'), tot('paid'), tot('outstanding'), '']);
-        const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [18, 12, 46, 22, 15, 15, 15, 15, 15, 14].map((w) => ({ wch: w })); ws['!autofilter'] = { ref: `A1:J${aoa.length - 1}` };
-        for (let r = 1; r < aoa.length; r++) for (let c = 4; c <= 8; c++) { const cell = ws[XLSX.utils.encode_cell({ r, c })]; if (cell && typeof cell.v === 'number') cell.z = '#,##0.00'; }
-        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'รอรับชำระ'); XLSX.writeFile(wb, `รอรับชำระ_${flBkkToday()}.xlsx`); T.toast(`Export ${a.length} รายการแล้ว`, 'ok'); }
-      catch (e) { T.toast('Export ไม่สำเร็จ', 'err'); } finally { T.loading(false); } };
+      try { T.loading(true); const EX = await ensureExcelJs(); const n = (v) => blR2(Number(v) || 0); const today = hlDMY(flBkkToday());
+        const NAVY = 'FF13294B', BLUE = 'FF264E7A', LIGHT = 'FFDCE9F7', ALT = 'FFEEF4FB', ORANGE = 'FFC2410C', YEL = 'FFFFF4D6', GREEN = 'FF0F766E', WHITE = 'FFFFFFFF';
+        const fill = (c) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb: c } }); const thin = { style: 'thin', color: { argb: 'FFC9D6EA' } }; const box = { top: thin, left: thin, bottom: thin, right: thin };
+        const wb = new EX.Workbook(); wb.creator = 'TRANSPORT NJ'; wb.created = new Date();
+        const ws = wb.addWorksheet('รอรับชำระ', { views: [{ state: 'frozen', ySplit: 4, showGridLines: false }], pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true, margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 }, printTitlesRow: '4:4' } });
+        ws.columns = [18, 13, 26, 16, 16, 16, 16, 16, 16, 14].map((w) => ({ width: w }));
+        ws.mergeCells('A1:J1'); const t = ws.getCell('A1'); t.value = 'TRANSPORT NJ  |  รายงานรอรับชำระ'; t.font = { name: 'Calibri', size: 19, bold: true, color: { argb: WHITE } }; t.fill = fill(NAVY); t.alignment = { horizontal: 'center', vertical: 'middle' }; ws.getRow(1).height = 34;
+        ws.mergeCells('A2:J2'); const t2 = ws.getCell('A2'); t2.value = `ACCOUNTS RECEIVABLE  •  วันที่ออกไฟล์ ${today}  •  ${a.length} รายการ  |  สกุลเงิน THB`; t2.font = { name: 'Calibri', size: 11, color: { argb: NAVY } }; t2.fill = fill(LIGHT); t2.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 }; ws.getRow(2).height = 22;
+        ws.getRow(3).height = 6;
+        const hd = ws.getRow(4); hd.values = ['เลข INVOICE', 'วันที่', 'ลูกค้า', 'JOB', 'Service (บาท)', 'Advance (บาท)', 'ยอดสุทธิ', 'รับชำระแล้ว', 'คงค้าง', 'สถานะ']; hd.height = 26;
+        hd.eachCell((c) => { c.font = { name: 'Calibri', size: 11, bold: true, color: { argb: WHITE } }; c.fill = fill(BLUE); c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; c.border = box; });
+        a.forEach((x, i) => { const r = ws.getRow(5 + i); const nm = Array.from(String(x.customer_name || '')).slice(0, 20).join(''); // แสดงไม่เกิน 20 ตัวอักษร (เฉพาะใน Excel)
+          r.values = [x.invoice_no || '', hlDMY(x.invoice_date), nm, (x.job_nos || []).join(', '), n(x.service_total), n(x.advance_total), n(x.grand_total), n(x.paid), n(x.outstanding), (RC_PS[x.pay_status] || [x.pay_status])[0]]; r.height = 20;
+          r.eachCell({ includeEmpty: true }, (c, col) => { c.font = { name: 'Calibri', size: 11, color: { argb: 'FF0F172A' } }; c.fill = fill(i % 2 ? ALT : WHITE); c.border = box; c.alignment = { vertical: 'middle', horizontal: col === 3 ? 'left' : col >= 5 && col <= 9 ? 'right' : 'center' }; if (col >= 5 && col <= 9) c.numFmt = '#,##0.00'; });
+          const o = r.getCell(9); o.font = { name: 'Calibri', size: 11, bold: true, color: { argb: ORANGE } };
+          if (x.pay_status === 'UNPAID') { const st = r.getCell(10); st.fill = fill(YEL); st.font = { name: 'Calibri', size: 11, bold: true, color: { argb: ORANGE } }; } });
+        const last = 4 + a.length, tr = ws.getRow(last + 1); ws.mergeCells(`A${last + 1}:D${last + 1}`); tr.getCell(1).value = `TOTAL  |  ${a.length} รายการ`;
+        ['E', 'F', 'G', 'H', 'I'].forEach((L, k) => { tr.getCell(5 + k).value = { formula: `SUM(${L}5:${L}${last})`, result: blR2(a.reduce((s2, x) => s2 + n([x.service_total, x.advance_total, x.grand_total, x.paid, x.outstanding][k]), 0)) }; });
+        tr.height = 24; for (let col = 1; col <= 10; col++) { const c = tr.getCell(col); c.font = { name: 'Calibri', size: 11, bold: true, color: { argb: WHITE } }; c.fill = fill(col === 9 ? GREEN : NAVY); c.border = box; c.alignment = { vertical: 'middle', horizontal: col <= 4 ? 'left' : col >= 5 && col <= 9 ? 'right' : 'center', indent: col <= 4 ? 1 : 0 }; if (col >= 5 && col <= 9) c.numFmt = '#,##0.00'; }
+        ws.pageSetup.printArea = `A1:J${last + 1}`;
+        const buf = await wb.xlsx.writeBuffer(); const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })); const lk = document.createElement('a'); lk.href = url; lk.download = `TRANSPORT-NJ_Pending-Receipts_${flBkkToday()}.xlsx`; document.body.appendChild(lk); lk.click(); lk.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+        T.toast(`Export ${a.length} รายการแล้ว`, 'ok'); }
+      catch (e) { T.toast('Export ไม่สำเร็จ — ' + (e && e.message ? e.message : 'โหลดตัวสร้าง Excel ไม่ได้'), 'err', 6000); } finally { T.loading(false); } };
     $('#rcBatch').onclick = openBatch; $('#rcBill').onclick = openSel; $('#rcNew').onclick = openSel; $('#rcRep').onclick = () => rcReport(reloadAll);
     const go = () => { const f2 = $('#rcFrom').value, t2 = $('#rcTo').value; const re = f2 !== F.from || t2 !== F.to; F.q = $('#rcQ').value.trim(); F.st = $('#rcSt').value; F.from = f2; F.to = t2; if (re) load(); else draw(); };
     $('#rcFind').onclick = go; $('#rcSt').onchange = go; $('#rcQ').addEventListener('input', T.debounce(() => { if (!$('#rcQ')) return; F.q = $('#rcQ').value.trim(); draw(); }, 200));
