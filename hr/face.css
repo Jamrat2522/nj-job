@@ -63,6 +63,27 @@
 }
 .njf-cam canvas { display: none; }
 
+/* ---------- [RUN-224 · local383] Face Login / ลงทะเบียนใบหน้า บนจอเตี้ย (แนวตั้ง) ----------
+   วัดได้จริง: หัวจอ 67 + กล่องกล้อง 3:4 (กว้าง 390 = สูง 520) + แผงล่าง 219–238 = ต้องใช้ความสูง ~806–825 px
+   จอที่เตี้ยกว่านั้น (iPhone ที่แถบ Safari แสดงอยู่ · iPhone SE · Android 360x640 · เบราว์เซอร์ในแอป LINE)
+   -> กล่องกล้องล้นจอ และแผงล่าง + ปุ่ม "ยกเลิก" ตกขอบล่างจนมองไม่เห็น (กล่องกล้องเป็น flex:none ย่อไม่ได้)
+   แก้เฉพาะ "เมื่อจอไม่พอ": ยอมให้กล่องกล้องย่อความสูงลงเท่าที่เหลือ ภาพยังเต็มกล่อง · กึ่งกลาง · คงสัดส่วน (cover)
+   และวงรี/วงแหวนย่อตามความสูงกล่อง (ไม่เกิน 84%) โดยคงสัดส่วน 3:4 และตำแหน่งเดิม
+   จอที่สูงพอ = ค่าเดิมทุกพิกเซล (กล่อง 3:4 เต็มกว้าง · วงรี min(62vw, 260px))
+   ไม่มีผลกับจอสแกนลงเวลา ([data-att-scan="1"] มีกฎของตัวเองและไม่มีวงรีใน DOM) · ไม่แตะ JS / Detector / Threshold */
+/* ทั้งหมดอยู่ใน portrait เท่านั้น — คอมพิวเตอร์ / แท็บเล็ตแนวนอน / มือถือแนวนอน = กฎเดิม 100% */
+@media (orientation: portrait) {
+  .njf-overlay:not([data-att-scan="1"]) .njf-cam { flex: 0 1 auto; }
+  .njf-overlay:not([data-att-scan="1"]) .njf-cam video {
+    position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+    object-position: 50% 50%; transform-origin: 50% 50%;
+  }
+  .njf-overlay:not([data-att-scan="1"]) .njf-oval,
+  .njf-overlay:not([data-att-scan="1"]) .njf-ring {
+    width: auto; height: min(84%, calc(min(62vw, 260px) * 4 / 3));
+  }
+}
+
 .njf-guide { position: absolute; inset: 0; pointer-events: none; }
 .njf-oval {
   position: absolute; left: 50%; top: 47%; transform: translate(-50%, -50%);

@@ -1,7 +1,7 @@
 /* asset-manifest.js — สร้างอัตโนมัติจาก build.js ห้ามแก้ด้วยมือ
    URL ของ Asset ทุกตัวประกาศที่นี่ที่เดียว · ไม่มีข้อมูลลับ */
 window.NJHR_ASSETS = {
-  "buildId": "njhr-v2-bccd7c32",
+  "buildId": "njhr-v2-1f2dc1d3",
   "runtime": {
     "namespace": "runtime/namespace.js?v=9195db83",
     "core": "runtime/core.js?v=4d9a0944"
