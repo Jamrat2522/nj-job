@@ -1,7 +1,24 @@
 /* Service Worker — static asset เท่านั้น · ไม่ cache ข้อมูลส่วนตัว/Supabase
    Cache Version มาจาก build.js เขียนให้อัตโนมัติ (ค่าเดียวกับ app.js/CSS/index.html ใน build เดียวกัน) */
-const V = 'njhr-v2-711737f4';
+const V = 'njhr-v2-bccd7c32';
 const BUILD = V.replace('njhr-v2-', '');
+/* [RUN-222] Cache Namespace ตามโฟลเดอร์ที่ติดตั้ง — ระบบทดลอง (เช่น /hrtest/) กับ Production (/hr/) ไม่ลบ Cache ข้ามกัน
+   Production (/hr/)  : ชื่อ Cache เดิมทุกตัวอักษร 'njhr-v2-<build>' และล้างเฉพาะ 'njhr-v2-*' ของ Build เก่า (พฤติกรรมเดิม)
+   โฟลเดอร์อื่น       : 'njhrx-<ชื่อโฟลเดอร์>-<build>' และล้างเฉพาะ Namespace ของตัวเอง
+     - ไม่ขึ้นต้นด้วย 'njhr-v2-' -> Service Worker ของ Production (รวมรุ่นเก่า local378) ไม่ลบ Cache ของระบบทดลอง
+     - ระบบทดลองไม่แตะ 'njhr-v2-*' -> ไม่ลบ Cache ของ Production
+   MODEL_CACHE ('njhr-face-models-v1') ใช้ร่วม (เก็บตาม URL เต็ม ไม่ชนกัน) และไม่ถูกลบโดยฝั่งใด
+   ไม่แตะ localStorage / IndexedDB / Session / รายการลงเวลาที่รอตรวจสอบ */
+const PROD_SCOPES = ['/hr/'];
+const CACHE_NS = (() => {
+  try {
+    const p = new URL(self.registration.scope).pathname;
+    if (PROD_SCOPES.indexOf(p) >= 0) return 'njhr-v2-';
+    const slug = p.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 40) || 'root';
+    return 'njhrx-' + slug + '-';
+  } catch (e) { return 'njhr-v2-'; }
+})();
+const CV = CACHE_NS + BUILD;   // Production: CV === V
 const Q = '?v=' + BUILD;
 
 /* A) Core Assets — ต้องอยู่ Build เดียวกันทั้งชุด · build.js เขียนรายการนี้ให้อัตโนมัติ
@@ -10,7 +27,7 @@ const Q = '?v=' + BUILD;
       รายการนี้มีเฉพาะสิ่งที่ต้องใช้ตั้งแต่หน้า Login: index.html · CSS · โลโก้ ·
       Asset Manifest · Runtime Namespace · Runtime Core
       ห้ามใส่ Feature Module หรือ Compatibility Bundle เด็ดขาด */
-const CORE = ["./","./index.html","./asset-manifest.js?v=a95d6a52","./runtime/namespace.js?v=9195db83","./runtime/core.js?v=c1ffdf2e","./styles.css?v=5be6a18e","./mobile.css?v=bc830a8d","./assets/nj-logistic-logo.png"];
+const CORE = ["./","./index.html","./asset-manifest.js?v=821383f4","./runtime/namespace.js?v=9195db83","./runtime/core.js?v=4d9a0944","./styles.css?v=5be6a18e","./mobile.css?v=bc830a8d","./assets/nj-logistic-logo.png"];
 
 /* B) Lazy-loaded static — cache ตอนใช้งานจริง ไม่ดึงตั้งแต่ install
       dashboard.js  → cache ตอนเปิด Dashboard ครั้งแรก (ไม่ precache จึงไม่เพิ่ม Initial Download)
@@ -66,7 +83,7 @@ function swReport(scope, msg) {
 self.addEventListener('install', e => {
   self.skipWaiting();
   // ไม่มี catch กลืน error — core asset ใดพลาด install ล้มเหลว SW เดิมยังทำงานต่อ
-  e.waitUntil(caches.open(V).then(c => c.addAll(CORE)).catch(err => {
+  e.waitUntil(caches.open(CV).then(c => c.addAll(CORE)).catch(err => {
     swReport('install', (err && err.message) || 'addAll failed');
     throw err;                                   // คงพฤติกรรมเดิม: install ต้องล้มเหลวจริง
   }));
@@ -78,7 +95,7 @@ self.addEventListener('activate', e => e.waitUntil(
       // ลบเฉพาะ cache ของระบบนี้ที่เป็น build เก่า — ไม่แตะ cache ของระบบอื่นบน origin เดียวกัน
       /* ลบเฉพาะ 'njhr-v2-*' ของ build เก่า — MODEL_CACHE ('njhr-face-models-v1')
          ไม่ขึ้นต้นด้วย 'njhr-v2-' จึงรอดข้าม Deploy ทุกครั้งโดยตั้งใจ */
-      ks.filter(k => k !== V && k.indexOf('njhr-v2-') === 0).map(k => caches.delete(k))))
+      ks.filter(k => k !== CV && k.indexOf(CACHE_NS) === 0).map(k => caches.delete(k))))   // [RUN-222] เฉพาะ Namespace ของโฟลเดอร์นี้
     .then(() => self.clients.claim())));
 
 /* ================= APP ICON BADGE — PERSISTENT COUNTER =================
@@ -256,7 +273,7 @@ self.addEventListener('fetch', e => {
   if (u.origin !== location.origin) return;                    // ไม่แตะ Supabase/CDN
 
   if (e.request.mode === 'navigate') {                          // network-first สำหรับหน้าเว็บ
-    e.respondWith(fetch(e.request).then(r => r, () => caches.open(V).then(c => c.match('./index.html'))));
+    e.respondWith(fetch(e.request).then(r => r, () => caches.open(CV).then(c => c.match('./index.html'))));
     return;
   }
   if (u.pathname.endsWith('/config.js')) {                      // (50.7/50.8) network-only + no-store
@@ -317,7 +334,7 @@ self.addEventListener('fetch', e => {
 
   /* เทียบ URL แบบตรงตัวรวม ?v= และค้นเฉพาะ cache ของ build ปัจจุบัน
      cache ของ build เก่าจึงคืน asset ให้ build ใหม่ไม่ได้เลย */
-  e.respondWith(caches.open(V).then(c => c.match(e.request).then(hit => {
+  e.respondWith(caches.open(CV).then(c => c.match(e.request).then(hit => {
     if (hit) return hit;
     return fetch(e.request).then(resp => {
       if (resp && resp.ok && (isCore || isLazy || isFont)) c.put(e.request, resp.clone());

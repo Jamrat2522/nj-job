@@ -1,3 +1,46 @@
+NJHR V2 — RELEASE local382   (RUN-223 · FAST FIX ความเร็ว/ความเสถียรการสแกนใบหน้าบนมือถือ บนฐาน local381 · ข้อมูลใบหน้าเดิมใช้ต่อได้ ไม่ต้องลงทะเบียนใหม่)
+SQL: ไม่มี SQL ใหม่ในรุ่นนี้ · RUN-222 / RUN-216 เหมือน local381 (ยังไม่ได้รัน · รออนุมัติแยก)
+RUN-223 (face.js ไฟล์เดียว — face.css · กรอบ 4 มุม · Progress Bar · Model · Threshold · Liveness · GPS · Request ID ไม่ถูกแตะ)
+ 1 เตรียม AI อัตโนมัติบนมือถือ: อุ่น Backend ด้วย inference ภาพว่าง 1 รอบหลังโมเดลพร้อม ทุกครั้งที่เปิดหน้าลงเวลา (เดิมทำเฉพาะคอมพิวเตอร์)
+   -> ต้นทุน inference ครั้งแรกไม่ตกอยู่ในช่วงที่พนักงานยืนสแกน · ไม่เปิดกล้อง · ปิดได้ด้วย NJHR_FACE_WARM_INFER = false
+ 2 เปิดกล้องไม่สำเร็จแบบชั่วคราว = ลองใหม่เอง 1 ครั้งก่อนแจ้งผู้ใช้ (ใช้ร่วมทั้งลงเวลา / Face Login / ลงทะเบียน)
+   NotAllowedError ที่เบราว์เซอร์ยืนยันว่าสิทธิ์ = อนุญาตแล้ว หรือเกิดขณะหน้าไม่อยู่หน้าจอ · NotReadableError/AbortError (กล้องยังไม่ถูกปล่อย)
+   ปฏิเสธจริง (denied/prompt) · ไม่พบกล้อง · หมดเวลา = ข้อความและรหัสเดิมทันที ไม่ลองซ้ำ
+ ผลบนอุปกรณ์จริง (iPhone/Android) = NOT VERIFIED — ทดสอบด้วยกล้อง/เซิร์ฟเวอร์จำลอง + face-api จริงใน Chromium เท่านั้น
+------------------------------------------------------------
+NJHR V2 — RELEASE local381   (RUN-222 · FINAL TARGETED RECOVERY บนฐาน local380 · ข้อมูลใบหน้าเดิมใช้ต่อได้ ไม่ต้องลงทะเบียนใหม่)
+SQL: _archive/RUN-222-FACE-TELEMETRY-PRE-VERIFY.sql -> RUN-222-FACE-TELEMETRY.sql -> RUN-222-FACE-TELEMETRY-POST-VERIFY.sql (ถอน: ...-ROLLBACK.sql)
+     *** ยังไม่ได้รัน · รออนุมัติ *** ไม่รัน = แอปทำงานครบ (เหตุการณ์ FAIL/UNKNOWN ลง njhr_error_logs เดิมผ่าน RPC เดิม 10 พารามิเตอร์)
+     RUN-221-ERROR-LOG*.sql ของ local380 = ยกเลิก (ชื่อชนกับระบบ Error Log เดิมของ Production) · RUN-216 ไม่เปลี่ยน ยังไม่ได้รัน
+RUN-222 (face.js · runtime/core.js · sw.js — face.css และไฟล์อื่นเท่ากับ local378)
+ P0 งาน AI ค้างถาวรหลังปิดจอระหว่างประมวลผล (เกิดตั้งแต่มีตัวคุมคิว AI ใน local373 · local371 ไม่เป็น) -> สแกนครั้งถัดไปไม่ได้จนกว่าจะโหลดหน้าใหม่
+    แก้: ปิดกล้องทันทีตามเดิม แต่ถอด Stream ออกจาก Video หลังงาน AI ที่ค้างอยู่จบ + ปล่อยคิวเมื่อพบงานกำพร้า (closeCam · inferRun · inferWaitIdle)
+    ข้อมูลใบหน้าเดิม / Descriptor / Threshold / Liveness / Model ไม่ถูกแตะ — ขั้นคำนวณ Descriptor เท่ากับ local371 ทุกบรรทัด
+ P0 runtime/core.js: ตัวรายงาน Error ไม่เคยทำงาน (อ้างตัวแปรนอกขอบเขต -> ReferenceError ถูกกลืน) -> แก้ + ตรวจผล HTTP (SUCCESS/REJECTED/NOT_AVAILABLE/NETWORK_ERROR) ไม่ส่งซ้ำ ไม่วน
+ P0 Telemetry ผลสแกน 4 โหมด (IN/OUT/LOGIN/ENROLL) x ผล (OK/FAIL/UNKNOWN/CANCELLED/SESSION_EXPIRED/PENDING) ผ่าน RPC ใหม่ njhr_face_telemetry_write
+    1 เหตุการณ์ = 1 รหัสอ้างอิง (กันนับซ้ำ) · OK เฉพาะเมื่อเซิร์ฟเวอร์ยืนยัน · RPC ใหม่ไม่มี = ใช้ RPC เดิม (เฉพาะ FAIL/UNKNOWN) · ไม่รอผล Log
+ P1 ช่องสถานะ PASS เฉพาะขั้นที่ตรวจจริง · ไม่ได้ตรวจ = NA · ไม่ทราบ = UNKNOWN
+ P1 Session หมดอายุกลางสแกน (ก่อนส่ง / ตอนส่ง / หลังส่งไม่ทราบผล) = แจ้งสาเหตุจริง + ปุ่มเข้าสู่ระบบใหม่ · รายการค้างและ Request ID อยู่ครบ · ไม่ส่งซ้ำ
+ P1 sw.js: Cache แยก Namespace ตามโฟลเดอร์ (/hr/ ใช้ชื่อเดิม njhr-v2-* · โฟลเดอร์อื่น njhrx-<ชื่อ>-*) -> ระบบทดลองกับ Production ไม่ลบ Cache กัน
+คงเดิมจาก local380: R1 ด่านตำแหน่งเฉพาะมือถือ · R3 AI รอบแรก 25 วิ · R4 รอจัดตำแหน่ง 9 วิ / 12 ครั้ง · ลิงก์เดิม hrnj/index.html
+ไม่เปลี่ยน: AI Model · Threshold · Descriptor · Liveness · ข้อมูลใบหน้า · GPS/Geofence · Request ID/Pending/Idempotency · Logic Face Login/ลงทะเบียน · หน้าตากรอบสแกน
+
+NJHR V2 — RELEASE local380   (RUN-221 · TARGETED RECOVERY: แก้เฉพาะต้นเหตุที่มีหลักฐาน บนฐาน Production local378)
+SQL: _archive/RUN-221-ERROR-LOG-PRE-VERIFY.sql -> RUN-221-ERROR-LOG.sql -> RUN-221-ERROR-LOG-POST-VERIFY.sql (ถอน: RUN-221-ERROR-LOG-ROLLBACK.sql)
+     *** ยังไม่ได้รัน · รออนุมัติ *** ไม่รัน = แอปทำงานปกติ (ส่ง Log แล้วได้ 404 = หยุดส่งเอง) · RUN-216 ยังไม่ได้รันเหมือนเดิม
+RUN-221 (face.js เท่านั้น · face.css และไฟล์อื่นเท่ากับ local378)
+ R1 ด่านตรวจตำแหน่งใบหน้า = เฉพาะลงเวลาบนมือถือ (เหมือน local371) · คอมพิวเตอร์/iPad ไม่ติดด่าน จึงไม่โดนกฎกึ่งกลาง/ขนาด/ขอบ
+    พฤติกรรมอื่นของจอลงเวลาบนคอม (Deadline · เฟรมใหม่จริง · ห้าม AI ซ้อน) คงตาม local378 ผ่าน attScanOn()
+ R2 Logic ตำแหน่งบนมือถือ (facePosInFrame) ไม่เปลี่ยนจาก local378 — ไม่มีหลักฐานว่าก่อปัญหาบนมือถือ
+ R3 AI รอบแรกของ Backend ได้เพดาน 25 วิ (เฉพาะจอลงเวลา · งานถัดไป 8/20 วิ เท่าเดิม) · กดลองใหม่ = รองานเดิมก่อน ไม่ซ้อน
+    AI ค้างครั้งแรก = ลองใหม่ได้ ไม่บอกให้โหลดหน้าใหม่ · ปุ่มโหลดหน้าใหม่เฉพาะค้างซ้ำครั้งที่ 2 หรือ Backend กู้ไม่สำเร็จ
+ R4 เวลารอจัดตำแหน่ง 20 -> 9 วิ เริ่มนับเมื่อ AI ให้ผลจริงครั้งแรก · ดูภาพจริงอย่างน้อย 12 ครั้งก่อนตัดสิน · บอกสาเหตุจริง
+    หมดเวลาจัดตำแหน่ง / AI ช้า / กล้อง ไม่ถูกแสดงเป็น "ตรวจคนจริง: ไม่ผ่าน" อีก
+ P1 Session หมดอายุ (เซิร์ฟเวอร์ยืนยัน 403 + ข้อความ) ไม่ถูกแสดงเป็น GPS ไม่ผ่าน -> แจ้งและพาไปเข้าระบบใหม่ครั้งเดียว · ไม่แตะรายการค้าง/อายุ Session
+ R8 รายงานเหตุการณ์สแกน (สำเร็จ/ล้ม) แบบ Fire-and-forget ไป njhr_error_log_write — รหัส/สถานะ/เวลา ไม่มีภาพ/Descriptor/พิกัด/รหัสผ่าน
+ ลิงก์เดิม: hrnj/index.html (1 ไฟล์) เปลี่ยนทางไป hr/ คง #เส้นทาง · ไม่ล้างข้อมูลในเครื่อง · ไม่แตะ Service Worker
+ไม่เปลี่ยน: Face Login · ลงทะเบียนใบหน้า (Logic + หน้าจอ) · GPS/Geofence · Request ID/Pending/ล็อกแท็บ · AI Model · Threshold · Liveness · กะ · 12:00
+
 NJHR V2 — RELEASE local378   (RUN-219 · FINAL FIX: PENDING / STORAGE / ASYNC / CROSS-TAB)
 SQL: _archive/RUN-216-PRE-VERIFY.sql -> RUN-216.sql -> RUN-216-POST-VERIFY.sql (ถอน: RUN-216-ROLLBACK.sql) — *** ยังไม่ได้รัน ***
      RUN-216-UPGRADE.sql ใช้เฉพาะฐานข้อมูลที่เคยติดตั้ง RUN-216 ฉบับ local376 — Production ไม่ต้องรัน (ยังไม่มี Object ของ RUN-216)

@@ -186,6 +186,7 @@
              5xx / ไม่มีรหัส / ตอบผิดรูปแบบ = ไม่ทราบผล (เช่น 504 จาก Gateway ขณะฐานข้อมูลยังทำงานอยู่) */
           eR.definite = r.status >= 400 && r.status < 500 &&
                         /^([0-9A-Z]{5}|PGRST\d+)$/.test(eR.pgCode);
+          sessNote(eR);                           // [RUN-222] จำว่าเซิร์ฟเวอร์ตอบ "Session หมดอายุ" (ใช้แสดงผลให้ตรงต้นเหตุเท่านั้น)
           if (!(quiet404 && r.status === 404)) {
             njfReport('RPC_FAIL', fn, { message: msg },
                       'status=' + r.status + ((j && j.code) ? (' code=' + j.code) : ''));
@@ -219,7 +220,10 @@
           var msg = (j && (j.message || j.error)) || ('เรียก ' + fn + ' ไม่สำเร็จ');
           njfReport('RPC_FAIL', fn, { message: msg },
                     'status=' + r.status + ((j && j.code) ? (' code=' + j.code) : ''));
-          throw njfMark(new Error(msg));
+          var eRr = new Error(msg);                 // [RUN-221] ข้อความเดิม + รหัสจริง (ใช้แยก Session หมดอายุ)
+          eRr.httpStatus = r.status; eRr.pgCode = (j && j.code) ? String(j.code) : '';
+          sessNote(eRr);
+          throw njfMark(eRr);
         }
         if (j == null) return [];
         return Array.isArray(j) ? j : [j];
@@ -1656,6 +1660,271 @@
     e.faceCode = code;
     return e;
   }
+  /* [RUN-221] ผล passiveLiveness ที่ไม่ผ่าน: ติดรหัสแยก "คุณภาพภาพ" (แสง/ความคม/เก็บภาพไม่พอ) ออกจาก "ตรวจคนจริงไม่ผ่าน"
+     ข้อความเดิมทุกตัวอักษร · เกณฑ์ Liveness ไม่เปลี่ยน — ใช้เพื่อแสดงขั้นที่ล้มให้ตรงจริงและบันทึก Log เท่านั้น */
+  function lvErr(reason) {
+    return faceErr(/บุคคลจริง/.test(String(reason || '')) ? 'FACE_LIVENESS_FAIL' : 'FACE_QUALITY_LOW', reason);
+  }
+  /* [RUN-221] ประเภทความล้มเหลวตาม "ขั้นที่ล้มจริง" (ใช้กับจอสแกนลงเวลา)
+     SESSION · MATCH · LIVE · QUALITY · POS · AI · CAM · TIME · GPS · SAVE · OTHER (OTHER = แสดงผลแบบเดิมของ local378) */
+  function failKind(e) {
+    try {
+      if (!e) return 'OTHER';
+      if (e.faceCode === 'SESSION_EXPIRED' || sessGone(e)) return 'SESSION';
+      if (e.punchCode === 'PUNCH_REJECTED') return 'MATCH';
+      var c = String(e.camCode || e.faceCode || e.punchCode || e.faceStage || '');
+      var m = String(e.message || '');
+      if (c === 'FACE_LIVENESS_FAIL') return 'LIVE';
+      if (c === 'FACE_QUALITY_LOW') return 'QUALITY';
+      if (c === 'FACE_POSITION_TIMEOUT' || e.faceStage === 'NO_FACE' || e.faceStage === 'FRAME_TIMEOUT') return 'POS';
+      if (/DEADLINE/.test(c)) return 'TIME';
+      if (/^FACE_(INFER|BACKEND|MODEL|CPU)/.test(c) || /^DETECT_/.test(String(e.faceStage || ''))) return 'AI';
+      if (e.camCode || /^CAM_|^VIDEO_/.test(c) || /^VIDEO_/.test(String(e.faceStage || ''))) return 'CAM';
+      if (/SNAPSHOT|^ATT_|PUNCH_NO_RESPONSE/.test(c)) return 'SAVE';
+      if (/GPS|นอกพื้นที่|พื้นที่ลงเวลา|พื้นที่ที่ได้รับ|ตำแหน่ง/.test(m) && !/ใบหน้า/.test(m)) return 'GPS';
+      return 'OTHER';
+    } catch (x) { return 'OTHER'; }
+  }
+
+  /* ---------- [RUN-221 · P1] Session หมดอายุ: แยกออกจาก "GPS ไม่ผ่าน" ----------
+     ยืนยันจากเซิร์ฟเวอร์เท่านั้น: HTTP 401/403 หรือรหัส 28000 และข้อความ "เซสชันหมดอายุ" ของ njhr_*_guard
+     เดิม: njhr_gf_check ตอบ 403 -> หน้าลงเวลาแสดง "ยังลงเวลาจากตำแหน่งนี้ไม่ได้" + ปุ่มตรวจตำแหน่งอีกครั้ง (ไม่มีทางไปเข้าระบบใหม่)
+     ใหม่: พาไปหน้าเข้าสู่ระบบด้วยตัวออกจากระบบกลางของแอป (NJHR.auth.logout) พร้อมข้อความ — ครั้งเดียวต่อ Token (ไม่วน)
+       ไม่แตะอายุ Session · ไม่แตะรายการลงเวลาที่รอตรวจสอบ (เก็บตามรหัสพนักงาน ตรวจต่อได้หลังเข้าระบบใหม่) */
+  var MSG_SESSION = 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่';
+  var SESS = { tok: '', seen: '' };
+  /* [RUN-222] เซิร์ฟเวอร์ตอบว่า Session หมดอายุให้ Token ปัจจุบัน (จาก RPC ใดก็ตามของโมดูลนี้) */
+  function sessNote(e) { try { if (sessGone(e)) SESS.seen = token(); } catch (x) {} }
+  function sessSeen() { try { var t = token(); return !!t && SESS.seen === t; } catch (x) { return false; } }
+  function sessGone(e) {
+    try {
+      return !!(e && /เซสชันหมดอายุ/.test(String(e.message || '')) &&
+                (e.httpStatus === 401 || e.httpStatus === 403 || e.pgCode === '28000'));
+    } catch (x) { return false; }
+  }
+  function sessLogout(fromUser) {
+    try {
+      var tk = token();
+      if (!tk) return;
+      if (!fromUser && S.root) return;         // มีหน้าจอสแกนเปิดอยู่ = หน้าจอนั้นแจ้งเองพร้อมปุ่ม (ไม่ดึงผู้ใช้ออกกลางหน้าจอ)
+      if (SESS.tok === tk) return;             // Token นี้จัดการไปแล้ว = ไม่ทำซ้ำ (กันวน)
+      SESS.tok = tk;
+      if (!fromUser) faceTel({ mode: 'ATTENDANCE', outcome: 'SESSION_EXPIRED', stage: 'PREFLIGHT', code: 'SESSION_EXPIRED', sess: 'EXPIRED' });   // ครั้งเดียวต่อ Token
+      setTimeout(function () {
+        try {
+          if (token() !== tk) return;          // เข้าระบบใหม่ไปแล้ว
+          if (w.NJHR && w.NJHR.auth && typeof w.NJHR.auth.logout === 'function') {
+            w.NJHR.auth.logout(true);
+            if (w.NJHR.ui && typeof w.NJHR.ui.toast === 'function') w.NJHR.ui.toast(MSG_SESSION, 'error');
+          }
+        } catch (e2) {}
+      }, 0);
+    } catch (e) {}
+  }
+
+  /* ---------- [RUN-222] Telemetry ผลการสแกน (njhr_face_telemetry_write) ----------
+     local380 ส่ง 26 พารามิเตอร์ไปที่ njhr_error_log_write ซึ่งบน Production มีอยู่แล้วแบบ 10 พารามิเตอร์ -> 404 -> หยุดส่ง
+     ของใหม่: RPC ชื่อใหม่ (ไม่ชน Signature เดิม) รับ 1 เหตุการณ์เป็น JSON · RPC เดิมและ Client รุ่นเก่าไม่ถูกแตะ
+       · 1 เหตุการณ์ = 1 รหัสอ้างอิง (id) -> เซิร์ฟเวอร์ไม่นับซ้ำ · ส่งซ้ำได้อย่างปลอดภัยเมื่อเครือข่ายล้ม (จำกัด 1 ครั้ง)
+         เหตุการณ์ที่ส่งคำสั่งลงเวลาแล้ว: id แปลงทางเดียวจากรหัสคำขอ (ไม่ส่งรหัสคำขอจริง) -> UNKNOWN/PENDING ถูกปิดเป็นผลจริงภายหลังในแถวเดิม
+       · ผลลัพธ์: OK (เซิร์ฟเวอร์ยืนยันแล้วเท่านั้น) · FAIL · UNKNOWN (ส่งแล้วไม่ทราบผล) · CANCELLED · SESSION_EXPIRED · PENDING
+       · ตรวจคำตอบ: SUCCESS / REJECTED / NOT_AVAILABLE / NETWORK_ERROR (ดู telResult)
+       · RPC ใหม่ยังไม่ติดตั้ง (404) = ใช้ RPC เดิม 10 พารามิเตอร์ เฉพาะเหตุการณ์ FAIL/UNKNOWN ของผู้ที่เข้าระบบแล้ว (1 เหตุการณ์ไปที่เดียว ไม่ส่งสองที่)
+     Fire-and-forget หลังหน้าจอแสดงผล (requestIdleCallback) · การสแกน/บันทึกเวลาไม่รอผล Log
+     ไม่ส่ง: Token ลงในข้อมูล (ใช้ให้เซิร์ฟเวอร์ระบุตัวเท่านั้น) · รหัสผ่าน · ภาพ · Descriptor · พิกัด · ข้อความดิบจากเซิร์ฟเวอร์
+     ค่าสถานะ: PASS/FAIL เฉพาะขั้นที่ตรวจจริงในรอบนี้ · ไม่ได้ตรวจ = NA · ไม่ทราบผล = UNKNOWN
+     ปิดได้ด้วย window.NJHR_FACE_TEL = false */
+  var TEL = { mode: 'NEW', n: 0, cur: null, pause: 0, bad: 0, legacyBadTok: '',
+              stat: { ok: 0, rejected: 0, na: 0, net: 0, legacy: 0, retry: 0 }, last: '' };
+  var TEL_MAX = 40;                 // ต่อการเปิดหน้า 1 ครั้ง
+  var TEL_NET_MS = 8000;
+  function telOn() { return w.NJHR_FACE_TEL !== false; }
+  function telBackend() {
+    try { var tf = w.faceapi && w.faceapi.tf; return tf && typeof tf.getBackend === 'function' ? String(tf.getBackend() || 'none') : 'none'; }
+    catch (e) { return 'err'; }
+  }
+  function telCam() {
+    try {
+      if (!S.stream) return 'CLOSED';
+      var t = S.stream.getVideoTracks ? S.stream.getVideoTracks()[0] : null;
+      if (!t) return 'NO_TRACK';
+      return String(t.readyState || '').toUpperCase() + (t.muted ? '_MUTED' : '') + (S.video && S.video.videoWidth ? '' : '_NOFRAME');
+    } catch (e) { return 'ERR'; }
+  }
+  function telRecovery() {
+    try {
+      if ((INF.recN || 0) >= INF_RECOVER_MAX && INF.lost) return 'FAILED';
+      if (INF.recovered) return 'RECOVERED';
+      if (INF.recN) return 'ATTEMPTED';
+      return 'NONE';
+    } catch (e) { return 'NA'; }
+  }
+  function telSteps(tl, t0) {
+    try {
+      if (!tl) return '';
+      var o = [], k = ['gps', 'cam', 'ai', 'frames', 'scan', 'send', 'end'];
+      for (var i = 0; i < k.length; i++) if (tl[k[i]]) o.push(k[i] + '=' + Math.max(0, Math.round(tl[k[i]] - t0)));
+      if (tl.lite) o.push('lite=1');
+      if (tl.hand) o.push('hand=1');
+      return o.join(';');
+    } catch (e) { return ''; }
+  }
+  function telHex(n) { return ('00000000' + (n >>> 0).toString(16)).slice(-8); }
+  function telId() {
+    try { if (w.crypto && typeof w.crypto.randomUUID === 'function') return w.crypto.randomUUID(); } catch (e) {}
+    try {
+      var a = new Uint32Array(4); w.crypto.getRandomValues(a);
+      return telFmt(telHex(a[0]) + telHex(a[1]) + telHex(a[2]) + telHex(a[3]));
+    } catch (e2) {}
+    return telFmt(telHex(Math.random() * 4294967296) + telHex(Math.random() * 4294967296) + telHex(Date.now()) + telHex(Math.random() * 4294967296));
+  }
+  function telFmt(h) { return h.slice(0, 8) + '-' + h.slice(8, 12) + '-4' + h.slice(13, 16) + '-a' + h.slice(17, 20) + '-' + h.slice(20, 32); }
+  /* รหัสอ้างอิงเหตุการณ์จากรหัสคำขอ: แปลงทางเดียว (ย้อนกลับเป็นรหัสคำขอไม่ได้) · ค่าเดิมได้ผลเดิมเสมอ -> ปิด UNKNOWN/PENDING ได้ในแถวเดิม */
+  function telIdFrom(s) {
+    try {
+      s = 'njhr-face-event:' + String(s || '');
+      var h = [0x811c9dc5, 0x01000193, 0x9e3779b9, 0x85ebca6b];
+      for (var i = 0; i < s.length; i++) {
+        var c = s.charCodeAt(i);
+        h[0] = Math.imul(h[0] ^ c, 16777619);
+        h[1] = Math.imul(h[1] + c, 2246822519) ^ (h[1] >>> 13);
+        h[2] = Math.imul(h[2] ^ (c + i), 3266489917) ^ (h[2] >>> 15);
+        h[3] = Math.imul(h[3] + (c << (i % 8)), 668265263) ^ (h[3] >>> 11);
+      }
+      for (var k = 0; k < 4; k++) { h[k] ^= h[(k + 1) % 4] >>> 7; h[k] = Math.imul(h[k], 2654435761); }
+      return telFmt(telHex(h[0]) + telHex(h[1]) + telHex(h[2]) + telHex(h[3]));
+    } catch (e) { return telId(); }
+  }
+  /* เหตุการณ์ของ 1 รอบสแกน: เริ่ม -> จบได้ครั้งเดียว (ปิดจอก่อนจบ = close() ปิดให้เป็น CANCELLED หรือ UNKNOWN ถ้าส่งคำสั่งบันทึกไปแล้ว) */
+  function telBegin(mode) {
+    var old = TEL.cur;                        // รอบก่อนที่ไม่ได้จบผ่าน close() (ถูกรอบใหม่แทนที่) = ปิดให้ก่อน ไม่ทิ้งค้าง ไม่นับเป็นสำเร็จ/ล้มเหลว
+    if (old && !old.done) telEnd(old, old.sent ? 'UNKNOWN' : 'CANCELLED', telOpen(old, old.sent ? 'REPLACED_AFTER_SEND' : 'REPLACED', 'SUPERSEDED'));
+    var ev = { id: telId(), mode: mode, t0: Date.now(), done: false, sent: false, cold: !INF.okN, tl: null };
+    TEL.cur = ev;
+    return ev;
+  }
+  /* ช่องสถานะของรอบที่จบก่อนถึงปลายทาง (ปิดจอ / ถูกแทนที่): รายงานเฉพาะขั้นที่ผ่านจริงแล้ว ณ ตอนนั้น · ที่เหลือ = NA */
+  function telOpen(ev, stage, code) {
+    var tl = ev.tl || null;
+    return { stage: stage, code: code, cam: telCam(), steps: telSteps(tl, ev.t0), match: ev.sent ? 'UNKNOWN' : 'NA',
+             gps: (tl && tl.gps) ? 'PASS' : 'NA', pos: (tl && tl.gate && tl.frames && !tl.hand) ? 'PASS' : 'NA',
+             live: tl ? (tl.hand ? 'HANDOFF' : (tl.scan ? 'PASS' : 'NA')) : 'NA' };
+  }
+  function telEnd(ev, outcome, f) {
+    try {
+      if (!ev || ev.done) return;
+      ev.done = true;
+      if (TEL.cur === ev) TEL.cur = null;
+      var o = { id: ev.id, mode: ev.mode, outcome: outcome, ms: Date.now() - ev.t0, start: ev.cold ? 'COLD' : 'WARM' };
+      for (var k in (f || {})) if (Object.prototype.hasOwnProperty.call(f, k)) o[k] = f[k];
+      faceTel(o);
+    } catch (e) {}
+  }
+  function telClean(v, n) { return String(v == null ? '' : v).replace(/[^A-Za-z0-9_]/g, '_').slice(0, n || 40); }      // รหัสสั้นเท่านั้น (ไม่มีจุดทศนิยม/ช่องว่าง)
+  function telVer(v, n) { return String(v == null ? '' : v).replace(/[^A-Za-z0-9_.\-]/g, '_').slice(0, n || 40); }
+  function faceTel(o) {
+    try {
+      if (!telOn() || TEL.mode === 'OFF' || TEL.n >= TEL_MAX || !o) return;
+      var c = sb();
+      if (!c || !c.url || !c.key || typeof w.fetch !== 'function') return;
+      TEL.n++;
+      var dv = deviceInfo();
+      var ev = {
+        id: o.id || telId(), mode: telClean(o.mode, 12).toUpperCase(), outcome: telClean(o.outcome || 'FAIL', 20).toUpperCase(),
+        stage: telClean(o.stage, 40), code: telClean(o.code, 60),
+        ms: Math.max(0, Math.round(Number(o.ms) || 0)), start: telClean(o.start || 'NA', 8),
+        backend: telClean(telBackend(), 12), timeout: Math.max(0, Math.round(Number(o.timeout) || 0)),
+        cam: telClean(o.cam || 'NA', 24), pos: telClean(o.pos || 'NA', 12), live: telClean(o.live || 'NA', 12),
+        match: telClean(o.match || 'NA', 12), gps: telClean(o.gps || 'NA', 12), sess: telClean(o.sess || 'NA', 12),
+        retry: Math.max(0, Math.round(Number(o.retry) || 0)), recovery: telClean(telRecovery(), 12),
+        steps: String(o.steps || ''), build: telVer(w.NJHR_BUILD_VERSION, 40), release: telVer(w.NJHR_RELEASE, 20),
+        device: telClean(dv.device, 12), browser: telClean(dv.browser, 12), os: telClean(dv.os, 12)
+      };
+      var tk = token() || null;                // Token ใช้ให้เซิร์ฟเวอร์ระบุผู้ส่งเท่านั้น (ไม่ถูกเก็บ) · Face Login สำเร็จ = ใช้ Token ใหม่ที่ได้ตอนส่ง
+      var go = function () { try { if (!tk) tk = token() || null; } catch (e0) {} telSend(c, tk, ev, 0); };
+      if (typeof w.requestIdleCallback === 'function') w.requestIdleCallback(go, { timeout: 4000 });
+      else setTimeout(go, 0);
+    } catch (e) {}
+  }
+  function telPost(c, path, body) {
+    var ctl = null, tm = 0;
+    try { if (typeof AbortController === 'function') { ctl = new AbortController(); tm = setTimeout(function () { try { ctl.abort(); } catch (e) {} }, TEL_NET_MS); } } catch (e0) { ctl = null; }
+    var init = { method: 'POST', keepalive: true,
+                 headers: { 'apikey': c.key, 'Authorization': 'Bearer ' + c.key, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                 body: JSON.stringify(body) };
+    if (ctl) init.signal = ctl.signal;
+    return w.fetch(c.url + '/rest/v1/rpc/' + path, init).then(function (r) {
+      return r.text().then(function (t) {
+        clearTimeout(tm);
+        var j = null; try { j = t ? JSON.parse(t) : null; } catch (e) { j = undefined; }
+        return { status: r.status, json: j, raw: t };
+      });
+    }, function (e) { clearTimeout(tm); return { status: 0, json: null, raw: '' }; });
+  }
+  /* จัดประเภทคำตอบของ RPC ใหม่ (คืนชื่อประเภท) */
+  function telResult(r) {
+    var st = r.status, code = (r.json && typeof r.json === 'object' && r.json.code) ? String(r.json.code) : '';
+    if (st === 0) return 'NETWORK_ERROR';
+    if (st === 200) {
+      var s = typeof r.json === 'string' ? r.json : '';
+      if (s === 'OK' || s === 'DUP' || s === 'UPDATED') return 'SUCCESS';
+      return 'REJECTED';                                      // LIMIT / INVALID / BUSY / คำตอบผิดรูปแบบ
+    }
+    if (st === 404 && (code === 'PGRST202' || code === '42883' || !code)) return 'NOT_AVAILABLE';   // ยังไม่ได้ติดตั้ง RPC ใหม่
+    if (st === 429 || st >= 500) return 'SERVER_BUSY';
+    return 'REJECTED';                                        // 400 Payload ไม่ถูกต้อง · 401/403 ไม่มีสิทธิ์ · 404 อื่น ๆ
+  }
+  function telSend(c, tk, ev, attempt) {
+    try {
+      if (TEL.mode === 'OFF') return;
+      if (TEL.mode === 'LEGACY') return telLegacy(c, tk, ev);
+      if (Date.now() < TEL.pause) { TEL.stat.rejected++; TEL.last = 'PAUSED'; return; }
+      telPost(c, 'njhr_face_telemetry_write', { p_token: tk, p_event: ev }).then(function (r) {
+        var k = telResult(r);
+        TEL.last = k + ':' + r.status + (typeof r.json === 'string' ? ':' + r.json : '');
+        if (k === 'SUCCESS') { TEL.stat.ok++; TEL.bad = 0; return; }
+        if (k === 'NOT_AVAILABLE') {                           // ไม่มี RPC ใหม่ = เหตุการณ์นี้ยังไม่ถูกเก็บที่ใด -> ใช้ RPC เดิม (ไม่ซ้ำ)
+          TEL.stat.na++; TEL.mode = 'LEGACY';
+          return telLegacy(c, tk, ev);
+        }
+        if (k === 'NETWORK_ERROR' || k === 'SERVER_BUSY') {
+          if (k === 'NETWORK_ERROR') TEL.stat.net++; else TEL.stat.rejected++;
+          if (r.status === 429) { TEL.pause = Date.now() + 300000; return; }     // ถูกจำกัดอัตรา = พัก 5 นาที ไม่ส่งซ้ำ
+          if (attempt < 1) {                                   // ส่งซ้ำได้ 1 ครั้ง — รหัสอ้างอิงเดิม เซิร์ฟเวอร์ไม่นับซ้ำ
+            TEL.stat.retry++;
+            setTimeout(function () { telSend(c, tk, ev, attempt + 1); }, 3000);
+          } else { TEL.pause = Date.now() + 60000; }
+          return;
+        }
+        TEL.stat.rejected++;                                   // REJECTED: ไม่ส่งซ้ำ ไม่สลับไป RPC เดิม (กันข้อมูลซ้ำ/ข้อมูลผิดรูปแบบ)
+        if (r.status === 200 && r.json === 'LIMIT') TEL.pause = Date.now() + 600000;     // เซิร์ฟเวอร์จำกัดจำนวน = พัก 10 นาที
+        else if (++TEL.bad >= 3) TEL.mode = 'OFF';             // Payload ไม่ถูกต้อง (400/INVALID) หรือไม่มีสิทธิ์ (401/403) ซ้ำ 3 ครั้ง = หยุดทั้งหน้านี้
+      });
+    } catch (e) {}
+  }
+  /* RPC เดิมของ Production: njhr_error_log_write 10 พารามิเตอร์ (ต้องมี Session ที่ใช้ได้ · เซิร์ฟเวอร์จำกัด 30 แถว/ชั่วโมง/คน)
+     ใช้เฉพาะเมื่อ RPC ใหม่ยังไม่ติดตั้ง และเฉพาะ FAIL / UNKNOWN — เป็น "บันทึกข้อผิดพลาด" ไม่ใส่เหตุการณ์สำเร็จ/ยกเลิก */
+  function telLegacy(c, tk, ev) {
+    try {
+      if (!tk || TEL.legacyBadTok === tk) return;
+      if (ev.outcome !== 'FAIL' && ev.outcome !== 'UNKNOWN') return;
+      var msg = 'FACE_EVENT outcome=' + ev.outcome + ' mode=' + ev.mode + ' stage=' + ev.stage + ' code=' + ev.code +
+                ' ms=' + ev.ms + ' ai=' + ev.start + '/' + ev.backend + ' cam=' + ev.cam + ' pos=' + ev.pos + ' live=' + ev.live +
+                ' match=' + ev.match + ' gps=' + ev.gps + ' sess=' + ev.sess + ' retry=' + ev.retry + ' rec=' + ev.recovery +
+                ' steps=' + ev.steps + ' ev=' + ev.id.slice(0, 8);
+      telPost(c, 'njhr_error_log_write', { p_token: tk, p_kind: 'JS_ERROR', p_source: 'face-telemetry/' + ev.mode.toLowerCase(),
+        p_message: msg.slice(0, 900), p_stack: '', p_route: '', p_build: ev.build, p_device: ev.device, p_browser: ev.browser, p_os: ev.os
+      }).then(function (r) {
+        TEL.last = 'LEGACY:' + r.status;
+        if (r.status >= 200 && r.status < 300) { TEL.stat.legacy++; return; }
+        if (r.status === 404) { TEL.stat.na++; TEL.mode = 'OFF'; return; }           // ไม่มีทั้งสอง RPC = หยุด
+        if (r.status === 401 || r.status === 403) { TEL.stat.rejected++; TEL.legacyBadTok = tk; return; }
+        if (r.status === 0) { TEL.stat.net++; return; }                             // RPC เดิมไม่มีรหัสกันซ้ำ = ไม่ส่งซ้ำ
+        TEL.stat.rejected++;
+      });
+    } catch (e) {}
+  }
+
   /* ครอบ Promise ด้วยเพดานเวลา — เกินเวลา = reject ด้วย Error Code จริง
      onTimeout ใช้เก็บกวาด (เช่น ถอด <script> ที่ค้าง) */
   function withTimeout(p, ms, code, msg, onTimeout) {
@@ -1689,17 +1958,48 @@
        · WebGL Context Lost = FACE_BACKEND_LOST (แจ้งสาเหตุ + ให้โหลดหน้าใหม่)
      Face Login / ลงทะเบียนใบหน้า (ไม่ gated): เดินเส้นทางเดิมทุกประการ — นับสถิติอย่างเดียว */
   var INF_WAIT_MS = 8000;
+  /* [RUN-221 · R3] Cold Start แยกจาก Warm Start
+     งาน AI "ครั้งแรก" บน Backend (หลังเปิดหน้า / หลังกู้ Backend) ต้องคอมไพล์ Shader + เตรียม Kernel — ช้ากว่างานถัดไปหลายเท่า
+     local373–378: ครั้งแรกเกินเพดานปกติ (iPhone/คอม 8 วิ) = FACE_INFER_TIMEOUT ทั้งที่งานยังเดินอยู่ -> กดลองใหม่รอได้อีก 8 วิ
+       -> "AI ค้าง" + ปุ่มโหลดหน้าใหม่ -> โหลดหน้า = ต้องคอมไพล์ใหม่ตั้งแต่ต้น วนซ้ำ
+     ของใหม่: เฉพาะงานครั้งแรกของ Backend (และการรองานครั้งแรกนั้น) ใช้เพดาน INF_COLD_MS
+       งานถัดไปทุกงานใช้เพดานเดิมทุกประการ (ไม่เพิ่มเวลารอของการสแกนปกติ) · ยังห้ามรันซ้อน · Deadline รวมของรอบสแกน (60 วิ) และของการลงเวลา (90 วิ) คุมเหมือนเดิม
+     ⚠ ไม่แตะ Model · Threshold · Liveness · Descriptor · จำนวนเฟรม · ไม่ Dispose/สลับ Backend ขณะงานยังเดิน */
+  var INF_COLD_MS = 25000;
   var BACKEND_SWITCH_MS = 10000;
-  var MSG_AI_STUCK = 'ระบบตรวจใบหน้าของเครื่องยังประมวลผลรอบก่อนหน้าไม่เสร็จ กรุณารอสักครู่แล้วลองใหม่ หรือโหลดหน้าใหม่';
+  /* [RUN-221 · R3] ไม่บอกให้โหลดหน้าใหม่ตั้งแต่ครั้งแรก: กด "ลองใหม่" = รองานเดิมให้จบก่อน (ไม่ซ้อน)
+     "โหลดหน้าใหม่" เสนอเฉพาะเมื่อกู้ในหน้านี้ไม่ได้จริง: Backend หลุดและกู้ไม่สำเร็จ หรือรองานเดิมครบเวลาแล้ว 2 ครั้ง */
+  var MSG_AI_STUCK = 'ระบบ AI ของเครื่องยังประมวลผลรอบก่อนหน้าไม่เสร็จ กรุณารอสักครู่แล้วกดลองใหม่';
+  var MSG_AI_STUCK_AGAIN = 'ระบบ AI ของเครื่องยังประมวลผลรอบก่อนหน้าไม่เสร็จ (รอครบเวลาแล้ว 2 ครั้ง) กรุณากดโหลดหน้าใหม่เพื่อเริ่มระบบ AI ใหม่';
   var MSG_AI_LOST = 'ระบบประมวลผลภาพของเครื่องหยุดทำงานชั่วคราว กรุณาโหลดหน้าใหม่แล้วสแกนอีกครั้ง';
   var INF = { cur: null, runs: 0, overlap: 0, late: 0, stuck: 0, lost: false, watch: false, hiddenAt: 0, visAt: 0 };
+  /* [RUN-222] งานกำพร้า = งาน AI ที่ Video ของมันถูกปิดและถอด Stream ไปแล้ว (อ่านภาพต่อไม่ได้อีก) และเกินเวลาสูงสุดของงานนั้นแล้ว
+     งานแบบนี้ไม่มีวันจบเอง (รอ Video ที่ไม่มีวันพร้อม) และไม่ได้ใช้ GPU อยู่ -> ปล่อยคิวให้รอบใหม่ทำงานได้ ไม่ต้องโหลดหน้าใหม่
+     ชั้นสำรองของ infDetachLater (เบราว์เซอร์ที่ลด readyState เองเมื่อกล้องหยุด) · Video ยังใช้งานอยู่ = ไม่เข้าเงื่อนไขนี้ (พฤติกรรมเดิมทุกประการ) */
+  function infOrphan(cur) {
+    try {
+      var v = INF.curVid;
+      if (!cur || INF.cur !== cur || !v || v === S.video) return false;
+      if (v.srcObject || v.readyState >= 3) return false;
+      return (Date.now() - (INF.curT0 || 0)) > (INF.curLim || 8000);
+    } catch (e) { return false; }
+  }
   function inferWaitIdle(ms) {
     var cur = INF.cur;
     if (!cur) return Promise.resolve(true);
     return new Promise(function (res) {
-      var done = false;
-      var tm = setTimeout(function () { if (done) return; done = true; res(false); }, ms);
-      cur.then(function () { if (done) return; done = true; clearTimeout(tm); res(true); });
+      var done = false, iv = 0;
+      var fin = function (v) { if (done) return; done = true; clearTimeout(tm); clearInterval(iv); res(v); };
+      var tm = setTimeout(function () { fin(false); }, ms);
+      var chk = function () {
+        if (!infOrphan(cur)) return;
+        INF.cur = null; if (INF.coldCur === cur) INF.coldCur = null;
+        INF.curVid = null; INF.orphan = (INF.orphan || 0) + 1;
+        fin(true);
+      };
+      iv = setInterval(chk, 250);
+      cur.then(function () { fin(true); });
+      chk();
     });
   }
   function infBackendLost() {
@@ -1744,6 +2044,7 @@
       var fac = tf.findBackendFactory('webgl');
       if (typeof fac !== 'function') throw new Error('no-factory');
       INF.cur = null;                          // งานบน Context ที่ตายแล้ว = ไม่มีวันจบ ปลดออกจากคิว
+      INF.coldCur = null; INF.okN = 0; INF.bgen = (INF.bgen || 0) + 1;   // [RUN-221 · R3] Backend ใหม่ = งานแรกเป็น Cold อีกครั้ง
       ['tinyFaceDetector', 'faceLandmark68Net', 'faceRecognitionNet'].forEach(function (n) {
         try { if (f.nets[n] && typeof f.nets[n].dispose === 'function') f.nets[n].dispose(); } catch (e0) {}
       });
@@ -1781,7 +2082,7 @@
     } catch (e) {}
   }
   function inferRun(make, inferMs, msg, kind) {
-    var gated = attFacePosGateOn();
+    var gated = attScanOn();
     if (gated && infBackendLost()) {
       return infRecover().then(function () { return inferRun(make, inferMs, msg, kind); });
     }
@@ -1790,24 +2091,36 @@
          ปกติ (ไม่มีงานค้าง) ไม่เข้าทางนี้เลย -> Face Login/ลงทะเบียน เดินเส้นทางเดิมทุกประการ
          โหมดอื่นที่รอไม่ไหว = FACE_INFER_TIMEOUT รหัส/ข้อความเดิมของโหมดนั้น */
       /* งานที่ค้างคือ "รอบอุ่น Backend" ของเราเอง = รอได้เท่าเพดาน inference ปกติ (ต้นทุนเดียวกับที่การสแกนต้องจ่ายเองอยู่แล้ว) */
-      return inferWaitIdle(INF.cur === INF.warmCur ? Math.max(inferMs, 20000) : INF_WAIT_MS).then(function (idle) {
+      /* [RUN-221 · R3] งานที่ค้างคือ "งานครั้งแรกของ Backend" (ยังคอมไพล์อยู่) = รอได้ถึงเพดาน Cold · งานปกติรอเท่าเดิม */
+      /* [RUN-223 · local382] จอสแกนลงเวลา: รอรอบอุ่นได้เท่าเพดานของรอบอุ่นเอง (30 วิ) — มือถือรุ่นเก่าที่คอมไพล์ช้าต้องไม่ถูกตัดก่อน
+         (เดิม 20 วิ ตั้งไว้สำหรับคอมพิวเตอร์ · โหมดอื่นคงค่าเดิม) */
+      var waitMs = INF.cur === INF.warmCur ? Math.max(inferMs, gated ? 30000 : 20000)
+                 : (gated && INF.cur === INF.coldCur ? Math.max(inferMs, INF_COLD_MS) : INF_WAIT_MS);
+      return inferWaitIdle(waitMs).then(function (idle) {
         if (!idle) {
           INF.stuck++;
-          throw gated ? faceErr('FACE_BACKEND_STUCK', MSG_AI_STUCK) : faceErr('FACE_INFER_TIMEOUT', msg);
+          throw gated ? faceErr('FACE_BACKEND_STUCK', INF.stuck >= 2 ? MSG_AI_STUCK_AGAIN : MSG_AI_STUCK) : faceErr('FACE_INFER_TIMEOUT', msg);
         }
         return inferRun(make, inferMs, msg, kind);
       });
     }
     var t0 = Date.now(), task, expired = false;
+    /* [RUN-221 · R3] Cold = ยังไม่เคยมีงาน AI จบสำเร็จบน Backend นี้ · เพดาน Cold ใช้เฉพาะจอสแกนลงเวลา (Face Login/ลงทะเบียน เพดานเดิม) */
+    var cold = gated && !INF.okN;
+    var limMs = cold ? Math.max(inferMs, INF_COLD_MS) : inferMs;
+    var myGen = INF.bgen || 0;
     try { task = Promise.resolve(make()); } catch (e) { return Promise.reject(e); }
     INF.runs++;
     if (INF.cur) INF.overlap++;
-    var track = task.then(function () {}, function () {}).then(function () {
+    var track = task.then(function () { if ((INF.bgen || 0) === myGen) INF.okN = (INF.okN || 0) + 1; }, function () {}).then(function () {
       if (expired) INF.late++;                 // งานจบหลังหมดเวลา = ผลถูกทิ้ง
       if (INF.cur === track) INF.cur = null;
+      if (INF.coldCur === track) INF.coldCur = null;
     });
     INF.cur = track;
-    var p = withTimeout(task, inferMs, 'FACE_INFER_TIMEOUT', msg, function () { expired = true; });
+    INF.curVid = S.video || null; INF.curT0 = t0; INF.curLim = limMs;   // [RUN-222] ใช้ตรวจ "งานกำพร้า" (ดู infOrphan)
+    if (cold) { INF.coldCur = track; INF.coldN = (INF.coldN || 0) + 1; }
+    var p = withTimeout(task, limMs, 'FACE_INFER_TIMEOUT', msg, function () { expired = true; });
     if (!gated) return p;
     /* Context Lost ระหว่างงานนี้ = เลิกรอทันที (ไม่ต้องรอจนครบ Timeout) แล้วให้รอบถัดไปกู้ Backend */
     return new Promise(function (res, rej) {
@@ -1853,9 +2166,13 @@
   function aiWarmInfer() {
     try {
       if (INF.warmed || w.NJHR_FACE_NO_WARM_INFER === true) return;
-      /* [RUN-217] มือถือ/แท็บเล็ต (Android · iPhone · iPad) ปิดเป็นค่าเริ่มต้น จนกว่าจะมีผลวัดจากเครื่องจริง
-         เปิดเองได้ด้วย window.NJHR_FACE_WARM_INFER = true · Desktop เปิดตามผลวัด (ครั้งแรก ~3.3s -> ~0.5s บนเครื่องทดสอบ) */
-      if (w.NJHR_FACE_WARM_INFER !== true && aiWarmIsMobile()) return;
+      /* [RUN-217] เดิม: มือถือ/แท็บเล็ต (Android · iPhone · iPad) ปิดเป็นค่าเริ่มต้น
+         [RUN-223 · local382] เปิดบนมือถือด้วย = "เตรียม AI อัตโนมัติ" ทุกครั้งที่เปิดหน้าลงเวลา (รวมครั้งแรกหลังเปลี่ยน Version)
+           ต้นทุน inference ครั้งแรก (คอมไพล์ Shader/เตรียม Kernel) ย้ายออกจากช่วงที่พนักงานยืนสแกน
+           ใช้ภาพว่าง ไม่เปิดกล้อง ไม่มีข้อมูลบุคคล · โมเดล/Threshold/Liveness/จำนวนเฟรมไม่เปลี่ยน
+           กดสแกนระหว่างอุ่น = รอรอบอุ่นจบตามกลไกเดิม (inferRun คิวเดียว) ไม่ซ้อน ไม่เร็วขึ้นแต่ก็ไม่ช้ากว่าเดิม
+         ปิดเฉพาะมือถือได้ด้วย window.NJHR_FACE_WARM_INFER = false · ปิดทั้งหมดด้วย NJHR_FACE_NO_WARM_INFER = true */
+      if (w.NJHR_FACE_WARM_INFER === false && aiWarmIsMobile()) return;
       if (!S.guideReady || !S.recogReady || INF.cur || S.root || d.hidden || infBackendLost()) return;
       var f = w.faceapi;
       if (!f || typeof f.detectAllFaces !== 'function') return;
@@ -2172,6 +2489,46 @@
     return camError('CAM_OPEN_FAILED', 'เปิดกล้องไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
   }
 
+  /* ---------- [RUN-223 · local382] เปิดกล้องไม่สำเร็จแบบ "ชั่วคราว" — ลองใหม่อัตโนมัติ 1 ครั้ง ----------
+     ลองใหม่เฉพาะกรณีที่ชี้ได้ว่าไม่ใช่การปฏิเสธถาวร (ไม่มีการวนซ้ำ · สูงสุด 1 ครั้งต่อการเปิดกล้อง 1 รอบ):
+       GRANTED  NotAllowedError แต่ Permissions API ของเบราว์เซอร์ตอบ state = 'granted' (สิทธิ์อนุญาตอยู่แล้ว)
+       HIDDEN   NotAllowedError ขณะหน้าไม่อยู่หน้าจอ (สลับแอป/ล็อกจอ/แถบแจ้งเตือน) — รอหน้ากลับมาก่อน
+       BUSY     NotReadableError / TrackStartError / AbortError (กล้องยังไม่ถูกปล่อยจากรอบก่อนหรือแอปอื่น)
+     ไม่ลองใหม่: state = 'denied' / 'prompt' · ไม่มี Permissions API · SecurityError · ไม่พบกล้อง · หมดเวลา (CAM_TIMEOUT)
+     -> ข้อความ/Error Code เดิมทุกประการ · ไม่แตะ GPS Gate · ไม่เปิดกล้องก่อนผู้ใช้กด · ไม่เปิด Stream ซ้อน */
+  var CAM_RETRY_WAIT_MS = 600;       // เว้นช่วงให้อุปกรณ์ปล่อยกล้อง
+  var CAM_RETRY_VISIBLE_MS = 4000;   // รอหน้ากลับมาแสดงไม่เกินเท่านี้
+  function camRetryWhy(e) {
+    try {
+      if (!e || e.camCode || isAborted(e)) return Promise.resolve('');
+      var n = e.name || '';
+      if (n === 'NotReadableError' || n === 'TrackStartError' || n === 'AbortError') return Promise.resolve('BUSY');
+      if (n !== 'NotAllowedError') return Promise.resolve('');
+      if (d.hidden) return Promise.resolve('HIDDEN');
+      var pm = navigator.permissions;
+      if (!pm || typeof pm.query !== 'function') return Promise.resolve('');
+      return new Promise(function (res) {
+        var done = false;
+        var t = setTimeout(function () { if (!done) { done = true; res(''); } }, 800);
+        var fin = function (v) { if (done) return; done = true; clearTimeout(t); res(v); };
+        try {
+          pm.query({ name: 'camera' }).then(function (st) { fin(st && st.state === 'granted' ? 'GRANTED' : ''); },
+                                            function () { fin(''); });
+        } catch (e1) { fin(''); }
+      });
+    } catch (e2) { return Promise.resolve(''); }
+  }
+  function camRetryWait(why) {
+    return new Promise(function (res) {
+      var t0 = Date.now();
+      (function tick() {
+        if (!d.hidden && Date.now() - t0 >= CAM_RETRY_WAIT_MS) return res();
+        if (Date.now() - t0 >= CAM_RETRY_VISIBLE_MS) return res();
+        setTimeout(tick, 100);
+      })();
+    });
+  }
+
   /* getUserMedia ที่มีเพดานเวลาแน่นอน
      ⚠ Stream ที่ Resolve มา "หลัง" Timeout ต้องถูก stop เสมอ และห้ามเขียน S.stream
         ใช้ Camera Generation เดิม (myGen) เป็นตัวตัดสิทธิ์ — ไม่มีกล้องคืนชีพ */
@@ -2359,7 +2716,19 @@
       return Promise.reject(pre);
     }
     var myGen = CAM.gen;
-    return camGetStream(myGen).then(function (st) {
+    return camGetStream(myGen)['catch'](function (e0) {
+      /* [RUN-223 · local382] ความล้มเหลว "ชั่วคราว" ของ getUserMedia = ลองใหม่เอง 1 ครั้ง ก่อนแจ้งผู้ใช้
+         (เดิม: NotAllowedError ทุกกรณี = แจ้ง "กล้องไม่ได้รับอนุญาต" ทันที แม้เบราว์เซอร์ยืนยันว่าสิทธิ์ = อนุญาตแล้ว) */
+      return camRetryWhy(e0).then(function (why) {
+        if (!why || myGen !== CAM.gen || !S.video) throw e0;
+        perfBootCount('camera_open_retry');
+        try { perfSet('camera_open_retry_why', why); } catch (eP) {}
+        return camRetryWait(why).then(function () {
+          if (myGen !== CAM.gen || !S.video) throw AbortAttendanceError();
+          return camGetStream(myGen);
+        });
+      });
+    }).then(function (st) {
       /* คำขอนี้หมดอายุแล้ว (ถูก Cancel/Logout/Route Change ระหว่างรอสิทธิ์กล้อง)
          → ปิด Track ทิ้งทันที ห้ามเขียน S.stream ห้าม srcObject ห้าม play()
          แล้วจบแบบ Cancel เงียบ */
@@ -2492,7 +2861,26 @@
       S.stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
       S.stream = null;
     }
-    if (S.video) { try { S.video.pause(); } catch (e) {} S.video.srcObject = null; }
+    if (S.video) {
+      try { S.video.pause(); } catch (e) {}
+      /* [RUN-222] งาน AI ที่เริ่มกับ Video นี้ยังเดินอยู่ = ยังไม่ถอด Stream ออกจาก Element จนกว่างานนั้นจะจบ
+         ต้นเหตุ (พิสูจน์ด้วย face-api จริง): face-api อ่านภาพจาก Video ซ้ำทุกขั้น (ตรวจจับ -> Landmark -> Descriptor) และ "รอจน Video พร้อม" ก่อนอ่าน
+         ถ้าจอถูกปิดระหว่างขั้น (srcObject = null -> readyState 0) การรอนั้นไม่มีวันจบ -> งานค้างถาวร
+         local371 ไม่มีตัวคุมคิว AI งานค้างจึงไม่กระทบรอบถัดไป · ตั้งแต่มีตัวคุมคิว (inferRun) งานค้าง 1 งาน = สแกนไม่ได้อีกเลยจนกว่าจะโหลดหน้าใหม่
+         กล้องถูกปิดจริงแล้วที่ t.stop() ด้านบน (ไฟกล้องดับทันที) — ที่เลื่อนคือการถอด Stream ที่หยุดแล้วออกจาก Element เท่านั้น · ผลของงานเก่าถูกทิ้งตามเดิม */
+      var vC = S.video;
+      if (INF.cur && INF.curVid === vC) infDetachLater(vC, INF.cur);
+      else vC.srcObject = null;
+    }
+  }
+  function infDetachLater(v, job) {
+    var done = false;
+    var go = function () {
+      if (done) return; done = true;
+      try { if (v.srcObject && v.srcObject !== S.stream) v.srcObject = null; } catch (e) {}   // Element ถูกใช้กับกล้องรอบใหม่แล้ว = ไม่แตะ
+    };
+    try { job.then(go, go); } catch (e) {}
+    setTimeout(go, 30000);                      // เพดาน: ไม่ถือ Stream ที่หยุดแล้วไว้เกิน 30 วิ
   }
   /* กล้องยังใช้งานได้จริงไหม — ใช้เป็น "หลักฐาน" ก่อนตัดสินว่า Detection Error เป็น Fatal
      ตายจริงก็ต่อเมื่อ: ไม่มี Stream/Video แล้ว หรือ Track ทุกเส้นอยู่ในสถานะ 'ended'
@@ -2667,9 +3055,25 @@
      grabFrames()/grabFramesLoop() ถูกใช้ร่วมกับ Face Login จึงต้องมีเงื่อนไขชัดเจน
        · จอสแกนลงเวลา : S.root[data-att-scan="1"] ที่ shell(…,'att') ตั้งไว้จุดเดียว
      ทำงานทั้ง Desktop และ Mobile · Flow อื่น (Face Login / ลงทะเบียน) ไม่โดน Gate นี้ */
-  function attFacePosGateOn() {
+  /* ---------- [RUN-221] "จอสแกนใบหน้าเพื่อลงเวลา" (ทุกอุปกรณ์) ----------
+     คุมพฤติกรรมของจอลงเวลาตาม local378 เดิมทุกอย่าง: Deadline รวม · ตรวจเฉพาะเฟรมใหม่จริง · ห้าม AI ซ้อน · กู้ Backend · พักเมื่อปรับ Layout
+       · จอสแกนลงเวลา : S.root[data-att-scan="1"] ที่ doPunch() ตั้งไว้จุดเดียว
+     Flow อื่น (Face Login / ลงทะเบียน) ไม่มีค่านี้ */
+  function attScanOn() {
     try {
       return !!(S.root && S.root.getAttribute('data-att-scan') === '1');
+    } catch (e) { return false; }
+  }
+  /* ---------- [RUN-221 · R1] ด่านตรวจตำแหน่งใบหน้า = เฉพาะ "ลงเวลาด้วยใบหน้าบนมือถือ" (เงื่อนไขเดียวกับ local371) ----------
+     ต้นเหตุ Regression: local372 เปิดด่านนี้บนคอมพิวเตอร์ด้วย -> คอมพิวเตอร์ออฟฟิศปฏิเสธหน้าเยื้องจากกลาง (local372) และหน้าใหญ่/นั่งใกล้กล้อง (local373)
+     ของใหม่: คอมพิวเตอร์ไม่ผ่านด่านนี้เลย (เหมือน local371) จึงไม่โดนทั้งกฎกึ่งกลาง/ขนาด/ขอบ
+       · มือถือ = deviceInfo().device === 'Mobile' (ตัวเดิมในไฟล์นี้) — Logic ของมือถือ (facePosInFrame) ไม่เปลี่ยนจาก local378
+       · iPadOS Safari รายงาน UA เป็น Macintosh = Desktop = ไม่ติดด่าน (พฤติกรรม local371)
+     ด่านนี้เป็นด่านช่วยจัดตำแหน่งเท่านั้น — คุณภาพใบหน้า (q.ratio) · ตรวจคนจริง · เทียบใบหน้า · GPS ยังตรวจทุกอุปกรณ์เหมือนเดิม */
+  function attFacePosGateOn() {
+    try {
+      if (!attScanOn()) return false;
+      return deviceInfo().device === 'Mobile';
     } catch (e) { return false; }
   }
 
@@ -2812,8 +3216,18 @@
        2 live() เป็นเท็จ (Cancel/Route/Logout/Timeout เดิม) -> AbortAttendanceError เดิม
        3 ครบเพดานเวลา FACE_POS_WAIT_MS -> แจ้งข้อความเดิมและจบรอบตามกลไกเดิม
      ⚠ ไม่แตะ Threshold · Descriptor · Liveness · จำนวนเฟรม · เกณฑ์คุณภาพภาพเดิม */
-  var FACE_POS_WAIT_MS = 20000;   // เพดานรอให้ผู้ใช้จัดหน้าเข้ากรอบ
+  var FACE_POS_WAIT_MS = 20000;   // เพดานรอของเส้นทางสำรอง Android แบบ One-shot (ค่าเดิม ไม่เปลี่ยน)
   var FACE_POS_WAIT_TICK_MS = 250;
+  /* [RUN-221 · R4] เส้นทางสแกนลงเวลาปกติ: เวลารอจัดตำแหน่ง ~9 วินาที (local373–378 = 20 วินาที)
+     · เริ่มนับเมื่อ "Detector ตอบผลจริงครั้งแรกของรอบนี้" = กล้องส่งเฟรม + AI ประมวลผลได้แล้ว (ไม่นับเวลาเปิดกล้อง/โหลดโมเดล/AI รอบแรก)
+     · ต้องได้ดูภาพจริงอย่างน้อย ATT_POS_WAIT_MIN_LOOKS ครั้งก่อนตัดสิน — เครื่องที่ AI ช้าไม่ถูกตัดเร็วกว่าที่ได้ดูจริง
+       (local371 ตัดด้วยจำนวนรอบ 96 รอบ ไม่ใช่เวลา)
+     · พบใบหน้าที่ใช้ได้เมื่อไหร่ ตัวนับถูกล้างและเดินต่อทันที ไม่มีการรอให้ครบเวลา */
+  var ATT_POS_WAIT_MS = 9000;
+  var ATT_POS_WAIT_MIN_LOOKS = 12;
+  var POS_WHY = { NOFACE: 'ไม่พบใบหน้าในกล้อง', MULTI: 'พบมากกว่า 1 ใบหน้า', SMALL: 'ใบหน้าอยู่ไกลกล้องเกินไป',
+                  CENTER: 'ใบหน้าไม่อยู่กลางกรอบ', FAR: 'ใบหน้าอยู่ไกลกล้องเกินไป', NEAR: 'ใบหน้าอยู่ใกล้กล้องเกินไป',
+                  EDGE: 'ใบหน้าล้นขอบกรอบ', NOTREADY: 'หน้าจอยังปรับไม่เสร็จ' };
 
   /* [RUN-215] ทุกรอบ: ตรวจ ยกเลิก/Session/Deadline "ก่อน" เรียก Detector และ "หลัง" Detector ตอบ
        ยกเลิกแล้ว/หมดเวลาแล้ว = ไม่เรียก Detector เพิ่มแม้แต่ครั้งเดียว · ผลที่ตอบหลังหมดเวลา = ไม่มีสิทธิ์ผ่าน
@@ -2821,7 +3235,7 @@
   function waitFaceCenter(detectFn, onTick, live, deadline) {
     var att = attFacePosGateOn();
     function expired() { return att && Date.now() >= deadline; }
-    function toErr() { return new Error('หมดเวลาจัดตำแหน่งใบหน้า กรุณาลองใหม่'); }
+    function toErr() { return faceErr('FACE_POSITION_TIMEOUT', 'หมดเวลาจัดตำแหน่งใบหน้า กรุณาลองใหม่'); }   // [RUN-221] ข้อความเดิม + รหัสจริง
     if (!live()) return Promise.reject(AbortAttendanceError());
     if (expired()) return Promise.reject(toErr());
     return (att ? frameFresh(live, deadline) : Promise.resolve(true)).then(function () {
@@ -3000,7 +3414,7 @@
     var out = [];
     /* [RUN-214] จอสแกนลงเวลา: ไม่ยืนรอ Recognition 6.44 MB ก่อนเริ่ม — Guide ตรวจตำแหน่ง/บอกผู้ใช้ได้ทันที
        Descriptor เริ่มสร้างเมื่อ S.recogReady จริงเท่านั้น (Single-flight เดิม · ไม่โหลดซ้ำ) */
-    if (attFacePosGateOn()) {
+    if (attScanOn()) {
       var rec = { e: null };
       recogLoad()['catch'](function (e) { rec.e = e || new Error('โหลดโมเดลยืนยันใบหน้าไม่สำเร็จ'); });
       if (!S.running || !live()) return Promise.reject(AbortAttendanceError());
@@ -3058,29 +3472,42 @@
   function grabFramesLoop(count, onTick, live, out, stopWhen, inferTimeoutMs, deadline, rec) {
     return new Promise(function (res, rej) {
       var tries = 0, stable = 0, badRun = 0;
+      /* [RUN-221 · R3] บอกผู้ใช้ตามจริงระหว่าง AI รอบแรก / ระหว่างรองานเดิมหลังกดลองใหม่ (เฉพาะจอสแกนลงเวลา) */
+      if (attScanOn() && onTick) {
+        try {
+          if (!INF.okN) onTick('กำลังเตรียมระบบ AI…', undefined, 'PREP');
+          else if (INF.cur) onTick('กำลังรอระบบ AI ทำงานรอบก่อนหน้าให้เสร็จ…', undefined, 'PREP');
+        } catch (eP) {}
+      }
       /* [RUN-213] จอสแกนลงเวลา: ระยะรอจัดใบหน้าคุมด้วย "เวลาจริง" เท่ากันทุกอุปกรณ์
          เดิม ไม่พบหน้า/หน้าเล็ก/หลายหน้า หักโควตา tries (จำนวนรอบ) -> เครื่องเร็วหมดรอบใน 2–3 วินาที เครื่องช้า 15+ วินาที
          ใหม่ เฟรมที่ยังใช้ไม่ได้ = แจ้งจัดตำแหน่ง + ตรวจต่อเอง ไม่หักโควตา
-              · อยู่ในสภาพใช้ไม่ได้ต่อเนื่องเกิน FACE_POS_WAIT_MS (20 วิ) = จบรอบ
+              · อยู่ในสภาพใช้ไม่ได้ต่อเนื่องเกิน ATT_POS_WAIT_MS (~9 วิ · RUN-221 R4 · เดิม 20 วิ) = จบรอบ
               · ทั้งลูปยาวเกิน ATT_SCAN_MAX_MS (60 วิ) = จบรอบ  -> ไม่มี Infinite Loop
          Face Login (att=false) ใช้ตรรกะนับรอบเดิมทุกบรรทัด */
-      var att = attFacePosGateOn();
+      var att = attScanOn();                   // พฤติกรรมจอลงเวลา (ทุกอุปกรณ์ — เหมือน local378)
+      var posGate = attFacePosGateOn();        // [RUN-221 · R1] ด่านตำแหน่ง = เฉพาะมือถือ (local371)
       /* [RUN-214] เวลาจริงคุมทั้งหมด (เลิกใช้จำนวนรอบเป็นเงื่อนไขหยุดของจอสแกนลงเวลา)
            dl       = Total Scan Deadline ของรอบสแกนนี้ (ใช้ร่วมกันทั้ง 6 เฟรมแรก + เฟรมเพิ่มกรณีก้ำกึ่ง) ไม่มีการ Reset
            waitUsed = เวลารอ "ผู้ใช้จัดใบหน้า" ต่อเนื่อง 20s ตามเวลาจริง เท่ากันทุกเครื่อง (เครื่องเร็ว/ช้าไม่ต่างกัน)
                       ไม่นับช่วงพักจอ · ช่วงปรับ Layout · ช่วงกล้องค้าง — งบเวลาแยกจาก Timeout ต่อ inference และ dl */
       var loopT0 = Date.now(), lastTick = loopT0, waitUsed = 0;
+      var waitArmed = false, waitLooks = 0, lastWhy = '';   // [RUN-221 · R4]
       var dl = att ? (Number(deadline) > 0 ? Number(deadline) : loopT0 + ATT_SCAN_MAX_MS) : 0;
       var lastSeq = '', noFrameT0 = 0, kicked = false, camRestarting = false;
       var MSG_DL = 'สแกนใบหน้าใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง';
-      function attWait(msg, code) {            // คืน true = ปิดรอบแล้ว (ผู้เรียกต้อง return)
+      function attWait(msg, code, why) {       // คืน true = ปิดรอบแล้ว (ผู้เรียกต้อง return)
         tries--;
         var now = Date.now();
+        if (!waitArmed) { waitArmed = true; lastTick = now; }    // [RUN-221 · R4] ผลจริงครั้งแรกของ Detector = เริ่มนับจากตรงนี้
         if (INF.visAt > lastTick) lastTick = INF.visAt;          // ช่วงพักจอ/สลับแอป ไม่นับเป็นเวลารอของผู้ใช้
         waitUsed += Math.max(0, now - lastTick);
         lastTick = now;
-        if (waitUsed > FACE_POS_WAIT_MS) {
-          failWith('FACE_POSITION_TIMEOUT', 'หมดเวลาจัดตำแหน่งใบหน้า กรุณาลองใหม่');
+        waitLooks++; lastWhy = why || code || '';
+        if (waitUsed > ATT_POS_WAIT_MS && waitLooks >= ATT_POS_WAIT_MIN_LOOKS) {
+          /* บอกสาเหตุจริงของรอบนี้ · ติดรหัสจริง (ไม่ใช่ผลตรวจคนจริง — ยังไม่ได้ตรวจ Liveness) */
+          failWith('FACE_POSITION_TIMEOUT', 'หมดเวลาจัดตำแหน่งใบหน้า' + (POS_WHY[lastWhy] ? ' (' + POS_WHY[lastWhy] + ')' : '') +
+                   ' กรุณาลองใหม่', 'FACE_POSITION_TIMEOUT');
           return true;
         }
         if (onTick) onTick(msg, undefined, code);
@@ -3098,6 +3525,7 @@
         perfSet('face_detect_attempts', tries);
         perfSet('face_frames_collected', out.length);
         try {
+          if (telOn()) throw 0;               // [RUN-222] เหตุการณ์เดียวกันถูกบันทึกทาง Telemetry แล้ว (ไม่ส่ง Log ซ้อน) · ปิด Telemetry = ใช้ทางเดิม
           var dv = deviceInfo();
           njfReport('FACE_CLIENT_FAIL', 'attendance_face',
             { message: stage },
@@ -3114,6 +3542,7 @@
         var e3 = new Error(msg);
         e3.faceStage = stage;
         if (code) e3.faceCode = code;      // คง Error Code จริงไว้ให้ Export อ่านได้
+        if (lastWhy) e3.posWhy = lastWhy;  // [RUN-221 · R8] สถานะจัดตำแหน่งล่าสุด (รหัส ไม่ใช่พิกัด)
         rej(e3);
       }
 
@@ -3194,18 +3623,18 @@
           /* [RUN-214] Detector ตอบกลับหลัง Total Scan Deadline = ไม่มีสิทธิ์ผ่าน (ตรวจก่อนใช้ผลทุกครั้ง) */
           if (att && Date.now() > dl) return failWith('SCAN_DEADLINE', MSG_DL, 'FACE_SCAN_DEADLINE');
           tries++;
-          if (!firstDetect) { firstDetect = 1; perfMark('face_detect_first_ms', tLoop); }
+          if (!firstDetect) { firstDetect = 1; perfMark('face_detect_first_ms', tLoop); try { if (S.tl && !S.tl.ai) S.tl.ai = Date.now(); } catch (eTl) {} }
           if (!res2.length) {
             badRun++;
             /* [SAMSUNG FIX] เฟรมเสียเดี่ยว ๆ ไม่ควรล้างความนิ่งทั้งหมด
                Detector บนมือถือสะดุดเป็นระยะ ถ้ารีเซ็ตทุกครั้งจะไม่มีวันครบ 6 เฟรม */
             if (badRun >= GRAB_BAD_RESET) stable = 0;
-            if (att) { if (attWait('ไม่พบใบหน้า — จัดใบหน้าให้อยู่ในกรอบ', 'NOFACE')) return; }
+            if (att) { if (attWait('ไม่พบใบหน้า — จัดใบหน้าให้อยู่ในกรอบ', 'NOFACE', 'NOFACE')) return; }
             else if (onTick) onTick('ไม่พบใบหน้า — จัดใบหน้าให้อยู่ในกรอบ', undefined, 'NOFACE');
           } else if (res2.length > 1) {
             badRun = 0; stable = 0;
             out.length = 0;
-            if (att) { if (attWait('พบมากกว่า 1 ใบหน้า — ให้มีเพียงคนเดียวในกล้อง', 'ADJUST')) return; }
+            if (att) { if (attWait('พบมากกว่า 1 ใบหน้า — ให้มีเพียงคนเดียวในกล้อง', 'ADJUST', 'MULTI')) return; }
             else if (onTick) onTick('พบมากกว่า 1 ใบหน้า — ให้มีเพียงคนเดียวในกล้อง', undefined, 'ADJUST');
           } else {
             var f0 = res2[0], box = f0.detection.box;
@@ -3214,14 +3643,14 @@
             if (!q || q.ratio < 0.035) {
               badRun++;
               if (badRun >= GRAB_BAD_RESET) stable = 0;
-              if (att) { if (attWait('กรุณาจัดใบหน้าให้อยู่ในกรอบและเข้าใกล้กล้องขึ้น', 'ADJUST')) return; }
+              if (att) { if (attWait('กรุณาจัดใบหน้าให้อยู่ในกรอบและเข้าใกล้กล้องขึ้น', 'ADJUST', 'SMALL')) return; }
               else if (onTick) onTick('กรุณาจัดใบหน้าให้อยู่ในกรอบและเข้าใกล้กล้องขึ้น', undefined, 'ADJUST');
-            } else if (att && (pos = facePosInFrame(box), !(pos.ready && pos.inside))) {
+            } else if (posGate && (pos = facePosInFrame(box), !(pos.ready && pos.inside))) {
               /* [FACE POSITION GATE] ตรวจ "ทุกเฟรม" รวมเฟรมที่กำลังจะใช้สร้าง Descriptor (capturing)
                  ไม่อยู่ในกรอบ (กึ่งกลาง/ขนาด/ขอบ) หรือพิกัดยังไม่พร้อม = ไม่สะสมความนิ่ง ไม่เก็บ Descriptor
-                 ⚠ มีผลเฉพาะจอสแกนลงเวลา — Face Login ข้ามสาขานี้ทั้งหมด */
+                 ⚠ [RUN-221 · R1] มีผลเฉพาะจอสแกนลงเวลา "บนมือถือ" — คอมพิวเตอร์ / Face Login ข้ามสาขานี้ทั้งหมด (local371) */
               stable = 0;
-              if (attWait(facePosMsg(pos), 'ADJUST')) return;
+              if (attWait(facePosMsg(pos), 'ADJUST', pos.ready ? (pos.code || 'CENTER') : 'NOTREADY')) return;
             } else if (!capturing || !f0.descriptor) {
               /* Stage A ผ่าน แต่ยังไม่ถึงคิวสร้าง Descriptor — นับความนิ่งไว้ก่อน */
               badRun = 0; stable++; waitUsed = 0; lastTick = Date.now();
@@ -3313,7 +3742,7 @@
         if (live && !live()) return rej(AbortAttendanceError());   // ก่อน detect
         if (Date.now() - t0 > limitMs) return res(false);
         /* [RUN-215] จอสแกนลงเวลา: แต่ละรอบของการกระพริบตาต้องเป็นเฟรมใหม่จริง (เฟรมซ้ำ/กล้องค้างไม่นับ) */
-        (attFacePosGateOn() ? frameFresh(live, t0 + limitMs) : Promise.resolve(true)).then(function () {
+        (attScanOn() ? frameFresh(live, t0 + limitMs) : Promise.resolve(true)).then(function () {
           if (live && !live()) throw AbortAttendanceError();
           return detectGuide(inferTimeoutMs, inputSize);
         }).then(function (r) {
@@ -3382,7 +3811,7 @@
         dlAll ? Math.max(1000, Math.min(15000, dlAll - Date.now())) : 15000);
     }).then(function (ok) {
       chk();
-      if (!ok) throw new Error('ตรวจสอบบุคคลจริงไม่ผ่าน กรุณากระพริบตาแล้วลองใหม่');
+      if (!ok) throw faceErr('FACE_LIVENESS_FAIL', 'ตรวจสอบบุคคลจริงไม่ผ่าน กรุณากระพริบตาแล้วลองใหม่');
 
       /* 3) Liveness ผ่านแล้วค่อยโหลด Recognition 6.44 MB — ไม่แข่งกับ Guide Detection */
       if (onTick) onTick('กำลังเทียบใบหน้ากับข้อมูลที่ลงทะเบียน…');
@@ -3407,7 +3836,7 @@
             if (attFacePosGateOn() && r && r.length === 1) {
               var ps = facePosInFrame(r[0].detection.box);
               if (!(ps.ready && ps.inside)) {
-                if (Date.now() >= dlShot) throw new Error('หมดเวลาจัดตำแหน่งใบหน้า กรุณาลองใหม่');
+                if (Date.now() >= dlShot) throw faceErr('FACE_POSITION_TIMEOUT', 'หมดเวลาจัดตำแหน่งใบหน้า กรุณาลองใหม่');
                 if (onTick) onTick(facePosMsg(ps), undefined, 'ADJUST');
                 return shot();
               }
@@ -3843,7 +4272,7 @@
         return null;
       }
       perfDur('gps_preflight_ms', t0);   /* [STEP-0B ข้อ 9] ลง boot ด้วย ไม่ผูกกับ Face Flow */
-      GF.key = k; GF.sid = mySid; GF.err = '';
+      GF.key = k; GF.sid = mySid; GF.err = ''; GF.sess = false;
       /* [GPS] Fix แรกของ Session นี้ที่ผ่านการตรวจของเซิร์ฟเวอร์จริง (pass=true)
          แยกจาก gps_first_fix_ms ซึ่งเป็น Fix แรกที่อ่านได้เฉย ๆ
          ไม่ hardcode max_accuracy ฝั่ง Client — ใช้คำตอบจริงจาก njhr_gf_check */
@@ -3867,6 +4296,7 @@
       /* [STEP-0B ข้อ 10] เส้นทาง Error ต้องปิด timing เสมอ ไม่งั้น Baseline ไม่ครบ */
       perfRpcEnd(__rseq, t0, fix, 'ERROR', (e && e.message) ? String(e.message).slice(0, 120) : 'error');
       GF.err = (e && e.message) || 'ตรวจพื้นที่ลงเวลาไม่สำเร็จ';
+      GF.sess = sessGone(e);                    // [RUN-221 · P1] เซิร์ฟเวอร์ยืนยันว่า Session หมดอายุ (ไม่ใช่ผลตรวจพื้นที่)
       njfReport('JS_ERROR', 'face/gps-preflight', e,
                 'gps error_code=- accuracy_m=' + Math.round(fix.accuracy) +
                 ' build=' + String(w.NJHR_BUILD_VERSION || ''));
@@ -3894,6 +4324,11 @@
         reason: G.err || '', hasFix: !!(G.fixes && G.fixes.length) });
     }
     return gfCheck(fix, force).then(function (r) {
+      if (!r && GF.sess) {
+        /* [RUN-221 · P1] Session หมดอายุ ≠ GPS ไม่ผ่าน: ไม่คืนผลเป็น "ตรวจพื้นที่ไม่ผ่าน" · พาไปเข้าระบบใหม่ครั้งเดียว */
+        sessLogout();
+        return { stage: 'SESSION', pass: false, session: true, reason: MSG_SESSION };
+      }
       if (!r) {
         return { stage: 'CHECK', pass: false, accuracy: Math.round(fix.accuracy),
                  reason: GF.err || 'ตรวจพื้นที่ลงเวลาไม่สำเร็จ กรุณาลองใหม่' };
@@ -4235,6 +4670,14 @@
        ปิดเพราะเปลี่ยน Route/Logout/pagehide = ไม่เรียก (หน้าใหม่โหลดข้อมูลเองอยู่แล้ว ไม่วาดทับหน้าอื่น) */
     var doneFn = S.attDone; S.attDone = null;
     var doneNow = !!doneFn && (reason === 'USER_CANCEL_CLOSE' || reason === 'DONE');
+    /* [RUN-222] รอบสแกนที่ยังไม่จบถูกปิดด้วยการปิดจอ (X · ยกเลิก · เปลี่ยนหน้า · ออกจากระบบ)
+       ยังไม่ได้ส่งคำสั่งบันทึก = CANCELLED · ส่งคำสั่งบันทึกไปแล้ว = UNKNOWN (ห้ามนับเป็น OK หรือ FAIL) — บันทึก Log อย่างเดียว */
+    try {
+      var evC = TEL.cur;
+      if (evC && !evC.done) {
+        telEnd(evC, evC.sent ? 'UNKNOWN' : 'CANCELLED', telOpen(evC, evC.sent ? 'CLOSED_AFTER_SEND' : 'CLOSED', telClean(reason || 'CLOSE', 40)));
+      }
+    } catch (eTc) {}
     closeCam(reason);                         // ปิดกล้อง + cancelAnimationFrame (ดู closeCam)
     G.sid++;                                  // Attempt (GPS) ปัจจุบันหมดสิทธิ์ทันที
     opInvalidate();                           // Attendance Operation หมดอายุทันที
@@ -4414,6 +4857,7 @@
       ['catch'](function (e) {
         if (!opAlive(myOp)) return;                        // ถูกยกเลิกระหว่างรอ = ไม่ขึ้น error · ไม่แตะ S.busy ของรอบใหม่
         S.busy = false; S.mode = ''; opInvalidate(); lockRelease();   // จบ Operation นี้ (ไม่มีหน้าจอให้ปิด) = ปล่อยล็อกข้ามแท็บ
+        if (sessGone(e)) { sessLogout(); return; }   // [RUN-221 · P1]
         attendanceStatusError(e);
       });
   }
@@ -4486,6 +4930,7 @@
       if (isAborted(e) || !alive()) return;
       njfReport('JS_ERROR', 'face/gps-preflight', e,
                 'stage=enroll-preflight build=' + String(w.NJHR_BUILD_VERSION || ''));
+      if (GF.sess) { close(); sessLogout(true); return; }   // [RUN-221 · P1] Session หมดอายุ = ไปเข้าระบบใหม่ ไม่แสดงเป็น GPS ไม่ผ่าน
       preflightFail(kind, (e && e.message) || 'ตรวจตำแหน่งไม่สำเร็จ', function () {
         punch(kind, onDone);
       });
@@ -5074,6 +5519,7 @@
     }
     return baseP['catch'](function (eB) {
       if (isAborted(eB)) throw eB;
+      if (sessGone(eB)) throw eB;                // [RUN-222] ยังไม่ได้ส่งอะไร: บอกสาเหตุจริง (Session หมดอายุ) แทนข้อความเครือข่ายทั่วไป
       throw new Error(NOT_SENT);
     }).then(function (base) {
       gate();
@@ -5149,6 +5595,15 @@
   var MSG_BAD = 'อ่านข้อมูลรายการลงเวลาที่ค้างอยู่ในเครื่องไม่ได้ครบ หรือข้อมูลเสียหาย จึงยังไม่เริ่มลงเวลาใหม่ (กันการบันทึกซ้ำ)';
   /* หน้าจอ "รอตรวจสอบผลบันทึก" (รองรับหลายรายการ + ข้อมูลเสียหาย + ข้อมูลขัดแย้ง): ตรวจเองทุก 5s ไม่เกิน 6 ครั้ง · ปิดได้เสมอ · ไม่มีปุ่มลงเวลาซ้ำ
      ทุกรายการต้องทราบผลก่อนจึงอนุญาตลงเวลาใหม่ · เซิร์ฟเวอร์ยืนยันว่าบันทึกแล้ว = รีเฟรชหน้าลงเวลาครั้งเดียว */
+  /* [RUN-222] รายการที่เคย "ไม่ทราบผล" ได้ผลจริงจากเซิร์ฟเวอร์แล้ว -> ปิดเหตุการณ์เดิม (รหัสอ้างอิงเดิม) · บันทึก Log อย่างเดียว */
+  function telResolved(x, kind, outcome) {
+    try {
+      if (!x || !x.id) return;
+      faceTel({ id: telIdFrom(x.id), mode: (kind === 'IN' || kind === 'OUT') ? kind : 'ATTENDANCE', outcome: outcome,
+                stage: 'RESOLVED', code: outcome === 'OK' ? 'OK' : 'PUNCH_NOT_SAVED', match: outcome === 'OK' ? 'PASS' : 'NA', sess: 'OK',
+                ms: x.t ? Math.max(0, Date.now() - x.t) : 0 });
+    } catch (e) {}
+  }
   function attPendingUI(list, onDone, o) {
     var root = S.root, n = 0, busy = false, timer = 0, items = list.slice(), hrShow = false, closed = false;
     var st = o.st || { live: 'ok', match: 'run', gps: 'ok' };
@@ -5172,9 +5627,12 @@
                             ' สถานะ: รอฝ่ายบุคคลตรวจสอบ — ยังลงเวลาใหม่ไม่ได้จนกว่าจะทราบผล';
       if (rj.length) msg += ' · ฝ่ายบุคคลไม่อนุมัติคำขอ' + (rj[0]._hr.why ? ' (' + rj[0]._hr.why + ')' : '') +
                             ' — ยังไม่ทราบผลของรายการเดิม จึงยังไม่ปลดให้ลงเวลาใหม่โดยอัตโนมัติ';
+      var sx = sessSeen();                      // [RUN-222] เซิร์ฟเวอร์ตอบว่า Session หมดอายุ: แสดงสาเหตุจริง · รายการค้างยังถูกเก็บไว้ครบ · ไม่ส่งคำสั่งเดิมซ้ำ
+      if (sx) { msg += ' · ' + MSG_SESSION + ' — รายการนี้ยังถูกเก็บไว้ ระบบจะตรวจผลต่อหลังเข้าสู่ระบบใหม่'; if (/ติดต่อเซิร์ฟเวอร์ไม่ได้/.test(note || '')) note = ''; }
       panel(stepsHtml(st, msg + (note ? ' (' + note + ')' : '') + refTxt(), bad));
       var a = bad ? [{ label: 'ลองอีกครั้ง', style: 'primary', on: o.reread || o.again }]
-                  : [{ label: 'ตรวจสอบอีกครั้ง', style: 'primary', on: function () { check(); } }];
+                  : [{ label: 'ตรวจสอบอีกครั้ง', style: sx ? 'ghost' : 'primary', on: function () { check(); } }];
+      if (sx) a.unshift({ label: 'เข้าสู่ระบบใหม่', style: 'primary', on: function () { close(); sessLogout(true); } });
       if ((hrShow || bad) && items.some(canHr)) {
         a.push({ label: rj.length ? 'ส่งคำขอฝ่ายบุคคลอีกครั้ง' : 'แจ้งฝ่ายบุคคลตรวจสอบ', style: 'ghost', on: hr });
       }
@@ -5269,8 +5727,8 @@
         var left = [], saved = [], note = '';
         vs.forEach(function (v, k) {
           var x = cur[k];
-          if (v.state === 'SAVED') { itemClear(x); saved.push({ p: x, v: v, kind: v.kind || x.kind }); }
-          else if (v.state === 'NOT_SAVED') itemClear(x);
+          if (v.state === 'SAVED') { itemClear(x); saved.push({ p: x, v: v, kind: v.kind || x.kind }); telResolved(x, v.kind || x.kind, 'OK'); }
+          else if (v.state === 'NOT_SAVED') { itemClear(x); telResolved(x, x.kind, 'FAIL'); }
           else { x._manual = v.manual === true; left.push(x); if (v.note) note = v.note; if (v.hr) hrShow = true; }
         });
         if (!left.length) return fin(left, saved, [], note, closing);
@@ -5319,6 +5777,9 @@
     S.attDone = null;
     attFrame('wait', 0);
     netOwn('P' + opP);
+    /* [RUN-222] กดลงเวลาขณะมีรายการเดิมรอตรวจสอบ = PENDING (ไม่ใช่ FAIL / ไม่ใช่ OK / ไม่มีการสแกนหรือส่งคำสั่งใหม่)
+       เป็นเหตุการณ์ของ "การกดครั้งนี้" (รหัสอ้างอิงของตัวเอง) — เหตุการณ์ของรายการเดิมยังเป็น UNKNOWN จนกว่าเซิร์ฟเวอร์จะยืนยันผล */
+    faceTel({ mode: kind, outcome: 'PENDING', stage: 'PENDING_FOUND', code: 'PENDING_' + items.length, match: 'NA' });
     var auto = S.pendAgain < 2;                 // กันวนเอง: ตรวจแล้วเริ่มใหม่เองได้ไม่เกิน 2 ทอดต่อการกด 1 ครั้ง
     attPendingUI(items, onDone, {
       kind: kind,
@@ -5385,6 +5846,11 @@
     var flowT0 = (!hand && S.flowT0) ? S.flowT0 : Date.now();
     var flowDl = flowT0 + (Number(w.NJHR_ATT_FLOW_MAX_MS) > 0 ? Number(w.NJHR_ATT_FLOW_MAX_MS) : ATT_FLOW_MAX_MS);
     var MSG_FLOW = 'ใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง';
+    /* [RUN-221 · R8] เวลาแต่ละขั้นของรอบนี้ (เก็บในหน่วยความจำ · ส่งเฉพาะตอนจบรอบ) */
+    var tl = { gps: 0, cam: 0, ai: 0, frames: 0, scan: 0, send: 0, end: 0, lite: false, hand: !!hand, gate: attFacePosGateOn() };
+    S.tl = tl;
+    var ev = telBegin(kind);                  // [RUN-222] 1 รอบสแกน = 1 เหตุการณ์
+    ev.t0 = flowT0; ev.tl = tl;
     function chkDl() { if (Date.now() > flowDl) throw faceErr('FACE_FLOW_DEADLINE', MSG_FLOW); }
     var logBaseP = null;
 
@@ -5400,12 +5866,14 @@
       function preflight(fix) {
         /* [GF CACHE] ใช้ผลที่ยังสดได้ตามกติกา 3 วินาที — ไม่ Force โดยไม่มีเหตุผล
            Force สงวนไว้ให้ปุ่ม "ตรวจตำแหน่งอีกครั้ง" เท่านั้น */
-        return gfCheck(fix, false).then(function (r) {
+        /* [RUN-221 · P1] การตรวจพื้นที่ครั้งล่าสุดได้คำตอบ "Session หมดอายุ" = ไม่ใช้ผลผ่านที่จำไว้ ถามเซิร์ฟเวอร์ใหม่เสมอ */
+        return gfCheck(fix, GF.sess === true).then(function (r) {
           if (!mine()) return { ok: false, reason: 'ยกเลิกแล้ว' };
           /* [FAIL-CLOSED] ถาม njhr_gf_check ไม่สำเร็จ (RPC Error / Timeout / Network)
              = ห้ามเปิดกล้องเด็ดขาด ห้ามลดความปลอดภัยเพื่อให้ Flow เดินต่อ
              กล้องเปิดได้เมื่อเซิร์ฟเวอร์ตอบ pass=true เท่านั้น
              ⚠ njhr_att_punch_face ยังตรวจ Geofence ซ้ำก่อนบันทึกเหมือนเดิมทุกประการ */
+          if (!r && GF.sess) return { ok: false, sess: true, reason: MSG_SESSION };   // [RUN-221 · P1] ไม่ใช่ GPS ไม่ผ่าน
           if (!r) {
             st.gps = 'bad';
             return { ok: false,
@@ -5468,14 +5936,15 @@
        ไม่มีสะดุด — ได้ทั้งความปลอดภัยตาม Requirement และความเร็ว
        ถ้า GPS ไม่ผ่าน จะไม่เปิดกล้องเลย และ reject ให้ .catch เดิมจัดการตามเส้นทางปกติ */
     var camP = gpsGate.then(function (r) {
-      if (!r.ok) throw new Error(r.reason || 'GPS ยังไม่พร้อม');
+      if (!r.ok) throw (r.sess ? faceErr('SESSION_EXPIRED', r.reason) : new Error(r.reason || 'GPS ยังไม่พร้อม'));
       if (!mine()) throw AbortAttendanceError();
       chkDl();
+      tl.gps = Date.now();
       /* [ROOT CAUSE 7] มีหลักฐานสดจาก Enrollment Run เดิม = ไม่เปิดกล้องรอบที่สอง */
       if (hand) { perfSet('camera_reopen_skipped', 1); return null; }
       var tCam = perfNow();
       attCover('cam', 'กำลังเตรียมกล้อง…');
-      return openCam().then(function (v) { perfMark('camera_open_ms', tCam); myStream = S.stream; return v; });
+      return openCam().then(function (v) { perfMark('camera_open_ms', tCam); myStream = S.stream; tl.cam = Date.now(); return v; });
     });
     /* [ข้อ 3] จอง Signed Upload URL ขนานไปกับ Camera + Model + GPS
        ตัด 1 Network Round-trip ออกจากช่วงท้ายหลังสแกนใบหน้าผ่าน
@@ -5570,6 +6039,7 @@
         /* เครื่อง Android ที่เคย Timeout จริง → ใช้ Low-load Active Liveness + Descriptor 1 ครั้ง
            เครื่องอื่นทุกเครื่องเดิน Flow เดิมด้านล่าง */
         if (attLite) {
+          tl.lite = true;
           perfSet('android_att_lite', 1);
           return androidAttendanceLiteScan(function (warn, ratio, code) {
             if (!mine()) return;
@@ -5587,6 +6057,7 @@
         }, mine, attInferMs, scanDl);
       })
       .then(function (framesOrCtx) {
+        tl.frames = Date.now();                // [RUN-222] เก็บเฟรมครบ (ผ่านด่านคุณภาพ/ตำแหน่งของลูปแล้ว)
         /* Slow-path คืน Context ที่ผ่าน Active Blink แล้ว ไม่ต้องรัน Passive Liveness ซ้ำ */
         if (framesOrCtx && framesOrCtx.lite === true) return framesOrCtx;
         var frames = framesOrCtx;
@@ -5597,7 +6068,7 @@
            ไม่ขอให้ผู้ใช้ทำอะไรเพิ่ม — ยังไม่ผ่านค่อยแจ้งให้กด "ลองใหม่" */
         var lv = passiveLiveness(frames);
         if (lv.pass) return { frames: frames, live: lv };
-        if (!lv.challenge) throw new Error(lv.reason);
+        if (!lv.challenge) throw lvErr(lv.reason);    // [RUN-221] ข้อความเดิม + รหัส (คุณภาพภาพ / ตรวจคนจริงไม่ผ่าน)
         if (!mine()) throw AbortAttendanceError();   // [ข้อ 2] ห้ามเก็บเฟรมเพิ่มต่อหลัง Cancel
         setMsg('กำลังตรวจสอบบุคคลจริง…', false);
         hint('มองกล้องให้อยู่ในกรอบ', 'กรุณาอย่าขยับใบหน้า');
@@ -5618,11 +6089,12 @@
           perfSet('borderline_extra_descriptor_count', Math.max(0, all.length - extra0));
           var lv2 = lvMore || passiveLiveness(all);
           if (lv2.pass) return { frames: all, live: lv2 };
-          throw new Error('ตรวจสอบบุคคลจริงไม่ผ่าน กรุณามองกล้องให้ชัดแล้วลองใหม่');
+          throw faceErr('FACE_LIVENESS_FAIL', 'ตรวจสอบบุคคลจริงไม่ผ่าน กรุณามองกล้องให้ชัดแล้วลองใหม่');
         });
       })
       .then(function (ctx) {
         if (!mine()) throw AbortAttendanceError();   // [ข้อ 3] ยกเลิกก่อน Snapshot/Upload
+        tl.scan = Date.now();
         st.live = 'ok'; st.match = 'run';
         panel(stepsHtml(st, 'กำลังเทียบใบหน้ากับข้อมูลที่ลงทะเบียน…'));
         actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);
@@ -5699,7 +6171,8 @@
         }, {
           mine: mine, chkDl: chkDl, baseP: logBaseP,
           onSent: function (pend) {
-            tSend = pend.t;
+            tSend = pend.t; tl.send = Date.now();
+            ev.sent = true; ev.id = telIdFrom(pend.id);   // [RUN-222] ส่งคำสั่งบันทึกแล้ว: รหัสอ้างอิงผูกกับธุรกรรม (แปลงทางเดียว) · ปิดจอหลังจุดนี้ = UNKNOWN
             clearTimeout(dlTimer);               // ส่งแล้ว = Watchdog ก่อนส่งหมดหน้าที่ · หลังจากนี้ Timeout ไม่ใช่ "ล้มเหลว" แต่คือ "รอตรวจสอบผล"
           }
         }).then(function (r) {
@@ -5738,6 +6211,11 @@
         /* [FIX 2] RPC สำเร็จและ r.ok === true → บันทึกผล แล้วปิด Flow ครั้งเดียว
            ⚠ ต้องบันทึกก่อน perfEnd เสมอ ไม่งั้น PERF.t เป็น null แล้วค่าหาย */
         perfSet('punch_result', 'OK');
+        tl.end = Date.now();
+        telEnd(ev, 'OK', { stage: 'DONE', code: 'OK', timeout: attInferMs, retry: S.attempts,   // [RUN-222] เซิร์ฟเวอร์ยืนยันแล้วเท่านั้น (r.ok === true)
+                  gps: 'PASS', sess: 'OK', match: 'PASS', cam: tl.cam ? 'OK' : 'NA',
+                  pos: (tl.gate && tl.frames && !hand) ? 'PASS' : 'NA', live: hand ? 'HANDOFF' : (tl.scan ? 'PASS' : 'NA'),
+                  steps: telSteps(tl, flowT0) });
         perfSet('final_result', 'SUCCESS');
         perfSet('error_code', null);
         attTfMark('end');
@@ -5790,6 +6268,12 @@
           /* [RUN-216] ส่งคำสั่งบันทึกแล้วแต่ไม่ทราบผล: ไม่นับเป็นความล้มเหลว ไม่มีปุ่มลองใหม่ ไม่สร้างธุรกรรมใหม่
              -> หน้าจอรอตรวจสอบผล (ตรวจรายการเดิมกับเซิร์ฟเวอร์) */
           perfSet('punch_result', 'UNKNOWN'); perfSet('final_result', 'UNKNOWN'); perfSet('error_code', 'PUNCH_UNKNOWN');
+          tl.end = Date.now();
+          ev.id = telIdFrom(e.pend.id);
+          telEnd(ev, 'UNKNOWN', { stage: 'SEND', code: 'PUNCH_UNKNOWN', timeout: attInferMs, retry: S.attempts,   // [RUN-222] ไม่นับเป็น OK หรือ FAIL
+                    gps: tl.gps ? 'PASS' : 'NA', sess: sessSeen() ? 'EXPIRED' : 'UNKNOWN', match: 'UNKNOWN', cam: tl.cam ? 'OK' : 'NA',
+                    pos: (tl.gate && tl.frames && !hand) ? 'PASS' : 'NA', live: hand ? 'HANDOFF' : (tl.scan ? 'PASS' : 'NA'),
+                    steps: telSteps(tl, flowT0) });
           attTfMark('end'); perfEnd('total_attendance_ms');
           closeMyCam(); gpsStop(aid);
           st.match = 'run';
@@ -5806,8 +6290,26 @@
           return;
         }
         var msg = (e && e.message) || 'สแกนไม่สำเร็จ';
+        var fk = failKind(e);                  // [RUN-221] ขั้นที่ล้มจริง
+        /* [RUN-222] เซิร์ฟเวอร์ตอบ "Session หมดอายุ" ให้ Token นี้ระหว่างรอบนี้ (เช่น ตอนจดรหัสรายการก่อนส่ง / ขอที่อัปโหลดรูป)
+           แต่ Error ที่จบรอบเป็นข้อความทั่วไปของขั้นถัดไป -> แสดงต้นเหตุจริง · ยังไม่มีคำสั่งบันทึกถูกส่ง (กรณีส่งแล้วไม่ทราบผลแยกไปด้านบน) */
+        if (fk !== 'SESSION' && fk !== 'MATCH' && sessSeen()) { fk = 'SESSION'; msg = MSG_SESSION; }
+        var telCamNow = telCam();
         attFrame('bad');                       // [RUN-212] กรอบแดง = ตรวจสอบไม่ผ่าน
-        attCover('bad', 'ตรวจสอบไม่ผ่าน');      // [RUN-213] กล้องกำลังปิด = บอกผลบนพื้นที่กล้อง
+        attCover('bad', fk === 'SESSION' ? 'เซสชันหมดอายุ' : 'ตรวจสอบไม่ผ่าน');      // [RUN-213] กล้องกำลังปิด = บอกผลบนพื้นที่กล้อง
+        tl.end = Date.now();
+        telEnd(ev, fk === 'SESSION' ? 'SESSION_EXPIRED' : 'FAIL', {
+                  stage: String((e && e.faceStage) || fk),
+                  code: fk === 'SESSION' ? 'SESSION_EXPIRED'
+                      : String((e && (e.camCode || e.faceCode || e.punchCode || e.faceStage)) || (fk === 'GPS' ? 'GPS_FAIL' : 'FLOW_ERROR')),
+                  timeout: attInferMs, retry: S.attempts, cam: telCamNow,
+                  /* PASS เฉพาะขั้นที่ตรวจจริงและผ่านในรอบนี้ · "กำลังตรวจ" ไม่นับเป็นผ่าน · ไม่ได้ตรวจ = NA */
+                  gps: fk === 'GPS' ? (/นอกพื้นที่/.test(msg) ? 'OUTSIDE' : 'FAIL') : (tl.gps ? 'PASS' : 'NA'),
+                  pos: fk === 'POS' ? String((e && e.posWhy) || 'TIMEOUT') : ((tl.gate && tl.frames && !hand) ? 'PASS' : 'NA'),
+                  live: fk === 'LIVE' ? 'FAIL' : (hand ? 'HANDOFF' : (tl.scan ? 'PASS' : 'NA')),
+                  match: fk === 'MATCH' ? 'REJECT' : 'NA',
+                  sess: fk === 'SESSION' ? 'EXPIRED' : (tl.gps ? 'OK' : 'NA'),
+                  steps: telSteps(tl, flowT0) });
         var androidTimedOut = !!(e && e.faceCode === 'FACE_INFER_TIMEOUT' && deviceInfo().os === 'Android');
         if (androidTimedOut) {
           /* จำเฉพาะเครื่องที่ Timeout จริง: กด Retry รอบถัดไปจะไม่เดินเส้นหนักเดิมอีก */
@@ -5824,7 +6326,7 @@
           (e && e.punchCode) ? e.punchCode : 'FLOW_ERROR');
         attTfMark('end');
         perfEnd('total_attendance_ms');
-        S.attempts++;
+        if (fk !== 'SESSION') S.attempts++;    // [RUN-221 · P1] Session หมดอายุ ไม่ใช่การสแกนไม่ผ่าน
         S.ctx.reason = msg;
         // เก็บรูปหลักฐาน + GPS ไว้ก่อนปิดกล้อง เผื่อพนักงานกดส่งคำขออนุมัติพิเศษ
         var keep = (S.stream && S.video && S.video.videoWidth)
@@ -5851,8 +6353,12 @@
           S.ctx.ready = true;                 // [ข้อ 5] Evidence ของ Attempt นี้พร้อมแล้ว
         }).catch(function () { if (own()) S.ctx.ready = true; })
           .then(function () { gpsStop(aid); });
-        if (st.live === 'run') st.live = 'bad';
-        else if (st.match === 'run') st.match = 'bad';
+        /* [RUN-221] ขั้นที่ "กำลังทำ" ถูกแสดงเป็นไม่ผ่านเฉพาะเมื่อขั้นนั้นคือต้นเหตุจริง
+           เดิม: ทุกสาเหตุระหว่างสแกน (หมดเวลาจัดตำแหน่ง · AI ช้า · กล้อง · Session) ขึ้น "ตรวจคนจริง: ไม่ผ่าน" ทั้งที่ยังไม่ได้ตรวจ
+           OTHER (ไม่ทราบประเภท) = แสดงแบบเดิม */
+        if (st.live === 'run') st.live = (fk === 'LIVE' || fk === 'OTHER') ? 'bad' : 'wait';
+        else if (st.match === 'run') st.match = (fk === 'MATCH' || fk === 'OTHER') ? 'bad' : 'wait';
+        if (fk === 'GPS') st.gps = 'bad';
         panel(stepsHtml(st, msg, true));
         var acts = [{ label: 'ยกเลิก', style: 'plain', on: close }];
         var maxTry = Number(w.NJHR_FACE_MAX_ATTEMPTS || 3);
@@ -5868,12 +6374,20 @@
           acts.unshift({ label: 'ส่งคำขออนุมัติลงเวลา', style: 'primary',
             on: function () { specialRequest(kind, msg, onDone); } });
         }
-        /* [RUN-214] Backend AI ค้าง/หลุด = กู้คืนในหน้านี้ไม่ได้อย่างปลอดภัย -> บอกสาเหตุ + ทางออกที่ชัดเจน */
-        if (e && (e.faceCode === 'FACE_BACKEND_LOST' || e.faceCode === 'FACE_BACKEND_STUCK')) {
+        /* [RUN-214] Backend AI ค้าง/หลุด = กู้คืนในหน้านี้ไม่ได้อย่างปลอดภัย -> บอกสาเหตุ + ทางออกที่ชัดเจน
+           [RUN-221 · R3] "โหลดหน้าใหม่" เฉพาะเมื่อกู้ในหน้าไม่ได้จริง:
+             FACE_BACKEND_LOST = Backend หลุดและกู้อัตโนมัติไม่สำเร็จ (ระบบกู้ให้ก่อนแล้วไม่เกิน INF_RECOVER_MAX ครั้ง)
+             FACE_BACKEND_STUCK ครั้งที่ 2 ขึ้นไป = รองานเดิมครบเวลาแล้วยังไม่จบ
+           STUCK ครั้งแรก = "ลองใหม่" (รองานเดิมก่อน ไม่ซ้อน) — ไม่ส่งผู้ใช้ไปโหลดหน้าใหม่ */
+        if (e && (e.faceCode === 'FACE_BACKEND_LOST' || (e.faceCode === 'FACE_BACKEND_STUCK' && INF.stuck >= 2))) {
           acts.push({ label: 'โหลดหน้าใหม่', style: 'ghost', on: function () {
             close();
             try { w.location.reload(); } catch (eR) {}
           } });
+        }
+        if (fk === 'SESSION') {                 // [RUN-221 · P1] ไม่มีปุ่มลองใหม่/ส่งคำขอ — ต้องเข้าระบบใหม่ก่อน
+          acts = [{ label: 'ยกเลิก', style: 'plain', on: close },
+                  { label: 'เข้าสู่ระบบใหม่', style: 'primary', on: function () { close(); sessLogout(true); } }];
         }
         actions(acts);
         S.busy = false;
@@ -6062,6 +6576,7 @@
     if (S.busy) return;                       // [RUN-219] กันกดซ้ำ "ก่อน" แตะ State ใด ๆ (เดิมเปลี่ยน EN.id / S.mode ของงานที่กำลังทำอยู่ก่อนแล้วค่อยตรวจ)
     var myRun = ++EN.id;
     netOwn('E' + myRun);                      // [ข้อ 4] Network ของ Enrollment Run นี้
+    var evE = telBegin('ENROLL');             // [RUN-222] บันทึก Log อย่างเดียว — Logic/หน้าจอลงทะเบียนไม่เปลี่ยน
     var enAlive = function () {
       if (myRun !== EN.id) return false;                 // Run เก่า = ตายทันที
       return enAtt ? (enOp === null || opAlive(enOp)) : true;
@@ -6271,6 +6786,8 @@
            netOwn(0)   = คำขอเครือข่ายของ Run นี้หมดสิทธิ์
          แล้วแสดง Error ชัดเจนพร้อมทางเลือก ลองใหม่ / ปิด */
       function fatal(reason, useAndroidFallback) {
+        telEnd(evE, 'FAIL', { stage: 'SCAN', cam: telCam(),
+                  code: String((reason && (reason.camCode || reason.faceCode || reason.faceStage)) || 'ENROLL_SCAN_FAIL') });   // [RUN-222] บันทึกอย่างเดียว
         closeCam();
         EN.id++;
         netOwn(0);
@@ -6544,10 +7061,12 @@
       if (!enAlive()) { closeCam(); return; }     // [ข้อ 4] ถูกยกเลิกก่อนส่ง = ห้ามส่ง RPC
       /* [INSTRUMENTATION] นับก่อนยิง RPC จริง — แยกตามชื่อฟังก์ชันที่ใช้จริง */
       if (fnName === 'njhr_face_self_enroll') perfBootCount('njhr_face_self_enroll_calls');
+      evE.sent = true;                           // [RUN-222] ส่งคำสั่งบันทึกแล้ว: ปิดจอหลังจุดนี้ = UNKNOWN (บันทึก Log อย่างเดียว)
       rpc(fnName, body).then(function (r) {
         if (!enAlive()) { closeCam(); return; }   // [ข้อ 4] ถูกยกเลิกหลังส่ง = ไม่แสดงผล ไม่ Handoff
         faceStatusReset();     // [PERF/ถูกต้อง] Enrollment เปลี่ยน = Cache เดิมใช้ไม่ได้
         saveProgressStop();
+        telEnd(evE, 'OK', { stage: 'DONE', code: 'OK', cam: 'OK', sess: 'OK', live: 'PASS' });   // [RUN-222] เซิร์ฟเวอร์บันทึกแล้ว
         perfEnd('total_enrollment_ms');
         /* [UI] หน้าจอสำเร็จ — วงกลมเขียว ✓ + สรุปมุมที่เก็บได้
            ไม่แสดงรูปใบหน้าจริง (Snapshot อยู่ใน bucket private) จึงใช้ป้ายมุมแทน */
@@ -6577,6 +7096,9 @@
       }).catch(function (e) {
         saveProgressStop();
         if (isAborted(e) || !enAlive()) return;   // [ข้อ 5] Run ถูกยกเลิก = เงียบ
+        var sxE = sessGone(e), srvE = !!(e && e.httpStatus);   // [RUN-222] บันทึกอย่างเดียว: เซิร์ฟเวอร์ตอบปฏิเสธ = FAIL · ส่งแล้วไม่มีคำตอบ = UNKNOWN
+        telEnd(evE, sxE ? 'SESSION_EXPIRED' : (srvE ? 'FAIL' : 'UNKNOWN'), { stage: 'SAVE', sess: sxE ? 'EXPIRED' : 'NA',
+                  code: sxE ? 'SESSION_EXPIRED' : (srvE ? 'ENROLL_SAVE_HTTP_' + e.httpStatus : 'ENROLL_SAVE_NO_RESPONSE') });
         drawPoses((e && e.message) || 'บันทึกไม่สำเร็จ', true);
         actions([
           { label: 'ปิด', style: 'plain', on: close },
@@ -6609,6 +7131,7 @@
       /* [ข้อ 3] Run เก่าที่ Reject ทีหลังห้าม closeCam() กล้องของ Run ใหม่
          และห้ามเขียน UI / S.busy ของ Run ใหม่ */
       if (isAborted(e) || !enAlive()) return;
+      telEnd(evE, 'FAIL', { stage: 'CAMERA', cam: telCam(), code: String((e && (e.camCode || e.faceCode)) || 'ENROLL_OPEN_FAIL') });   // [RUN-222] บันทึกอย่างเดียว
       closeCam();                              // ฝั่งใดฝั่งหนึ่งล้มเหลว ต้องไม่ปล่อยกล้องค้างเปิด
       drawPoses((e && e.message) || 'เปิดกล้องไม่สำเร็จ', true);
       actions([{ label: 'ปิด', style: 'plain', on: close }]);
@@ -6684,7 +7207,7 @@
       if (d.hidden) INF.hiddenAt = Date.now();
       else {
         INF.visAt = Date.now();
-        if (attFacePosGateOn()) ATT_LOCK.busyUntil = Math.max(ATT_LOCK.busyUntil || 0, Date.now() + 600);
+        if (attScanOn()) ATT_LOCK.busyUntil = Math.max(ATT_LOCK.busyUntil || 0, Date.now() + 600);
       }
     } catch (eV) {}
     if (d.hidden) {
@@ -6716,6 +7239,7 @@
     if (S.busy) return;
     S.busy = true;
     var myL = ++LG.id;                        // [RUN-219] ปิด/ยกเลิก/เริ่มรอบใหม่ = รอบนี้หมดสิทธิ์
+    var evL = telBegin('LOGIN');              // [RUN-222] บันทึก Log อย่างเดียว — Logic/หน้าจอ Face Login ไม่เปลี่ยน
     S.mode = 'LOGIN';                         // [ข้อ 1/6] Face Login คนละ Context — ห้ามถูก cancelAttendance ปิด
     shell('สแกนใบหน้าเข้าสู่ระบบ', 'มองกล้องให้อยู่ในกรอบ');
     var st = { live: 'wait', match: 'wait' };
@@ -6773,6 +7297,7 @@
         }
         perfMark('client_face_ms');                 // เวลาฝั่ง Client ล้วน (ยังไม่รวม RPC)
         var tRpc = perfNow();
+        evL.sent = true;                            // [RUN-222] ส่งคำขอเข้าระบบแล้ว (บันทึก Log อย่างเดียว)
         return w.NJHR_faceLogin(best.desc, ctx.live.method).then(function (row) {
           perfMark('rpc_ms', tRpc);                 // เวลาฝั่ง Server ล้วน — ห้ามรวมเป็นตัวเลขเดียว
           return row;
@@ -6781,6 +7306,7 @@
       .then(function (row) {
         if (myL !== LG.id) return;             // [RUN-219] รอบเก่า (ถูกปิด/ยกเลิกไปแล้ว) = ไม่แตะ State ไม่ปิดหน้าจอของรอบใหม่
         perfEnd('total_face_login_ms');
+        telEnd(evL, 'OK', { stage: 'DONE', code: 'OK', live: 'PASS', match: 'PASS', cam: 'OK' });   // [RUN-222] เซิร์ฟเวอร์ยืนยันแล้ว
         st.match = 'ok';
         panel('<div class="njf-check" style="margin:0 auto 12px">&#10003;</div>' +
           '<div class="njf-msg"><b>เข้าสู่ระบบสำเร็จ</b><br>' +
@@ -6791,6 +7317,16 @@
       })
       ['catch'](function (e) {
         if (myL !== LG.id) return;             // [RUN-219] รอบเก่า = ไม่ปิดกล้อง/ไม่เขียนหน้าจอ/ไม่แตะ S.busy ของรอบใหม่
+        /* [RUN-222] บันทึกอย่างเดียว: ยังไม่ได้ส่ง = FAIL ที่ขั้นสแกน · ส่งแล้วเซิร์ฟเวอร์ตอบว่าไม่สำเร็จ = FAIL (เซิร์ฟเวอร์ไม่ยืนยันตัวตน)
+           ส่งแล้วไม่มีคำตอบ (fetch ล้ม) = UNKNOWN — คำขอเข้าระบบของ core.js ไม่ส่งรหัส HTTP กลับมา จึงไม่ระบุว่า "ใบหน้าไม่ตรง" (ไม่ทราบจริง) */
+        var netL = !!(e && (e.name === 'TypeError' || e.name === 'AbortError'));
+        telEnd(evL, (evL.sent && netL) ? 'UNKNOWN' : 'FAIL', {
+                  stage: evL.sent ? 'MATCH' : String((e && e.faceStage) || 'SCAN'),
+                  code: evL.sent ? (netL ? 'LOGIN_NO_RESPONSE' : 'LOGIN_NOT_CONFIRMED')
+                                 : String((e && (e.camCode || e.faceCode || e.faceStage)) || 'FLOW_ERROR'),
+                  cam: evL.sent ? 'OK' : telCam(),
+                  live: st.live === 'ok' ? 'PASS' : (/บุคคลจริง/.test(String((e && e.message) || '')) ? 'FAIL' : 'NA'),
+                  match: evL.sent ? (netL ? 'UNKNOWN' : 'NOPASS') : 'NA' });   // [RUN-222] บันทึกอย่างเดียว
         closeCam();
         st.match = 'bad';
         /* ⚠ Error ดิบจากฐานข้อมูล/PostgREST (เช่น schema cache) ห้ามโชว์ให้พนักงาน
@@ -6820,11 +7356,15 @@
     /* [RUN-214] ตัวเลขวินิจฉัย (อ่านอย่างเดียว): งาน AI ซ้อน/ค้าง · เฟรมกล้อง · Tensor · จำนวน Retry */
     diag: function () {
       return { inf: { runs: INF.runs, overlap: INF.overlap, late: INF.late, stuck: INF.stuck,
-                      busy: !!INF.cur, lost: !!INF.lost, recovered: INF.recovered || 0,
+                      busy: !!INF.cur, lost: !!INF.lost, recovered: INF.recovered || 0, orphan: INF.orphan || 0,
                       guideMs: aiMedian(INF.sg), descMs: aiMedian(INF.sd), inferLimitMs: attendanceInferTimeoutMs(),
                       warmMs: INF.warmMs == null ? null : INF.warmMs, modelGen: MODEL.gen },
                req: { server: reqSrvState(), pending: !!pendLoad(), mode: (pendLoad() || {}).mode || null },
                att: { busy: !!S.busy, op: OP.id, lock: LOCK.mode },
+               ai: { okN: INF.okN || 0, coldN: INF.coldN || 0, cold: !INF.okN },
+               tel: { n: TEL.n, mode: TEL.mode, off: TEL.mode === 'OFF', last: TEL.last, ok: TEL.stat.ok, rejected: TEL.stat.rejected,
+                      na: TEL.stat.na, net: TEL.stat.net, legacy: TEL.stat.legacy, retry: TEL.stat.retry, open: !!TEL.cur },
+               gate: { pos: attFacePosGateOn(), att: attScanOn() },
                frame: { rvfc: !!FR.ok, n: FR.n }, tf: tfMem(), attempts: S.attempts,
                stream: !!S.stream, running: !!S.running };
     },
