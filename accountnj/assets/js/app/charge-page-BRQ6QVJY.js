@@ -1219,14 +1219,14 @@ function RC788(t, a) {
   if (why) { SEL788.delete(id); return `<td class="center col-sel radv788-td"><span class="radv788-x" title="${n(why)}">${RM788.has(id) ? "🔒" : "–"}</span></td>`; }
   return `<td class="center col-sel radv788-td"><input type="checkbox" class="radv788-cb" data-radv="${n(id)}"${SEL788.has(id) ? " checked" : ""} aria-label="เลือก ${n(t.job_no || "")}"></td>`;
 }
-function RB788() { ST788(); return '<span class="radv788-bar" id="radv788-bar" hidden><button type="button" class="btn btn-sm radv788-btn" id="radv788-btn" disabled title="ออก RECEIPT ADVANCE จากรายการที่เลือก">🧾 RECEIPT ADVANCE PDF</button><span class="radv788-info" id="radv788-info"></span><button type="button" class="btn btn-sm btn-o" id="radv788-clear" disabled>ล้างรายการที่เลือก</button></span>'; }
+function RB788() { ST788(); return '<span class="radv788-bar" id="radv788-bar" hidden><button type="button" class="btn btn-sm radv788-btn" id="radv788-btn" disabled title="ออก RECEIPT ADVANCE จากรายการที่เลือก">🧾 ADVANCE PDF</button>/* V.917 : ชื่อปุ่มสั้นลง (การทำงาน / Tooltip เดิม) */<span class="radv788-info" id="radv788-info"></span><button type="button" class="btn btn-sm btn-o" id="radv788-clear" disabled>ล้างรายการที่เลือก</button></span>'; }
 function RS788(t) {   /* sync แถบสรุป + หัวตาราง */
   if (!t) return;
   let bar = t.querySelector("#radv788-bar"), btn = t.querySelector("#radv788-btn"), info = t.querySelector("#radv788-info"), clr = t.querySelector("#radv788-clear");
   let can = !!(PERM788 && PERM788.invoice), cnt = SEL788.size, sum = 0;
   SEL788.forEach((r) => { sum += C788(r.advance_amount); });
   if (bar) bar.hidden = !can;
-  if (btn) { btn.disabled = !cnt; btn.textContent = "🧾 RECEIPT ADVANCE PDF" + (cnt ? " (" + cnt + ")" : ""); }
+  if (btn) { btn.disabled = !cnt; btn.textContent = "🧾 ADVANCE PDF"/* V.917 */ + (cnt ? " (" + cnt + ")" : ""); }
   if (clr) clr.disabled = !cnt;
   if (info) info.textContent = cnt ? "เลือก " + cnt.toLocaleString("th-TH") + " รายการ · ADVANCE รวม " + M788(sum / 100) : "";
   let all = t.querySelector("#radv788-all"), cbs = [...t.querySelectorAll("#ch-tbody .radv788-cb[data-radv]")];
@@ -1525,7 +1525,7 @@ function ST788() {
     let s = document.createElement("style"); s.id = "st788-css";
     s.textContent = [
       ".radv788-bar{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}.radv788-bar[hidden]{display:none!important}",
-      ".btn.radv788-btn{background:#1e3a8a!important;border:1px solid #1e3a8a!important;color:#fff!important;font-weight:700;white-space:nowrap}.btn.radv788-btn:disabled{opacity:.55;cursor:not-allowed}",
+      ".btn.radv788-btn{background:#1e3a8a!important;border:1px solid #1e3a8a!important;color:#fff!important;font-weight:700;white-space:nowrap;min-width:0!important;width:auto!important;flex:0 0 auto;padding-left:12px;padding-right:12px}/* V.917 : กว้างพอดีข้อความ */.btn.radv788-btn:disabled{opacity:.55;cursor:not-allowed}",
       ".radv788-info{font-size:12.5px;font-weight:700;color:#1e3a8a;white-space:nowrap}.radv788-x{color:#94a3b8}.btn.radv788-no{background:#eff4fb!important;border:1px solid #1e3a8a!important;color:#1e3a8a!important;font-weight:700;white-space:nowrap;margin-left:4px}.btn.radv788-no:hover{background:#dbe7f7!important}",
       ".radv788-f{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px}.radv788-f label{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px;min-width:220px}",
       ".radv788-hd{margin:6px 0 8px;font-size:13.5px}.radv788-g{border:1px solid #dbe3ef;border-radius:8px;margin-bottom:10px;overflow:hidden}.radv788-gh{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;background:#eff4fb;font-size:13px}",

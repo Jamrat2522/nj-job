@@ -44,6 +44,13 @@ function css() {
     ".ex7-hd{display:flex;align-items:center;gap:12px;margin:0 0 12px;flex-wrap:wrap}.ex7-ic{width:46px;height:46px;border-radius:10px;background:#1d4ed8;color:#fff;display:flex;align-items:center;justify-content:center;flex:none}",
     ".ex7-tt b{display:block;font-size:22px;font-weight:800;color:#1e3a8a;letter-spacing:.3px;line-height:1.1}.ex7-tt small{display:block;font-size:13.5px;font-weight:700;color:#1d4ed8;margin-top:2px}",
     ".ex7-bc{margin-left:auto;display:flex;align-items:center;gap:8px;font-weight:800;color:#1e3a8a;font-size:14px}.ex7-bc a{color:#1e3a8a;text-decoration:none;display:inline-flex}.ex7-bc i{font-style:normal;color:#64748b}",
+    /* V.910 : แท็บเก็บลูกค้าได้ / เก็บลูกค้าไม่ได้ */
+    ".ex910{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 12px}",
+    ".ex910 button{border:0;border-radius:10px;padding:12px 10px;font-family:inherit;font-size:16px;font-weight:800;line-height:1.2;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;opacity:.55;transition:opacity .15s,box-shadow .15s}",
+    ".ex910 button.g{background:#15803d}.ex910 button.r{background:#dc2626}",
+    ".ex910 button.on{opacity:1;box-shadow:0 2px 8px rgba(15,23,42,.25)}",
+    ".ex910 button .n{background:rgba(255,255,255,.22);border-radius:999px;padding:1px 10px;font-size:14px;font-weight:800;min-width:28px;text-align:center}",
+    "@media(max-width:640px){.ex910{grid-template-columns:1fr;gap:8px}}",
     ".ex7-fc{border:1px solid #D9E2EC;border-radius:12px;background:#f8fbff;padding:10px 12px 12px;margin:0 0 12px}.ex7-fc h3{margin:0 0 6px;font-size:14px;color:#1d4ed8;display:flex;align-items:center;gap:6px}",
     ".ex7-f{display:flex;align-items:flex-end;gap:8px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}.ex7-f label{display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:700;color:#0f172a;flex:none}",
     ".ex7-f select,.ex7-f input{height:36px;border:1px solid #cbd5e1;border-radius:8px;padding:0 10px;font-size:13px;font-family:inherit;background:#fff;color:#0f172a;box-sizing:border-box}",
@@ -77,7 +84,7 @@ function css() {
   document.head.appendChild(s);
 }
 function rpc(n, a) { return RPC(n, a); }
-function params(lim, off) { var f = S.f; return { company_id: f.company_id || null, date_from: f.date_from || null, date_to: f.date_to || null, status: f.status || "ALL", q: f.q || null, limit: lim, offset: off }; }
+function params(lim, off) { var f = S.f; return { company_id: f.company_id || null, date_from: f.date_from || null, date_to: f.date_to || null, status: f.status || "ALL", cc_tab: (S.tab === "CC" ? "UNCOLLECTIBLE" : "COLLECTIBLE")/* V.910 */, q: f.q || null, limit: lim, offset: off }; }
 /* V.905 : สถานะวางบิลจาก ACCOUNTING — SERVICE (MATCH = วางบิลแล้ว · DIFF = วางบิลแล้วไม่ตรง · NONE = ยังไม่วางบิล · CC = เก็บลูกค้าไม่ได้)
    ค่า bill_st มาจาก njacc_exp723_list (RUN-905) · ถ้ายังไม่ได้รัน SQL จะคำนวณจาก billed / inv_nos เดิมให้ผลเดียวกัน */
 function bs905(x) { return x.cannot_collect ? "CC" : x.bill_st || (x.billed ? "MATCH" : x.inv_nos ? "DIFF" : "NONE"); }
@@ -93,6 +100,11 @@ function shell() {
   var mob = typeof window !== "undefined" && window.__NJ_MOBILE;
   return '<div class="ex7"><div class="ex7-hd"><span class="ex7-ic">' + IC.coin + '</span><div class="ex7-tt"><b>EXPENSES</b><small>รายงานค่าใช้จ่ายนอกราคาขายจาก DOCUMENT → SERVICE</small></div>' +
     '<nav class="ex7-bc" aria-label="breadcrumb"><a href="#/' + (mob ? "cash-advance" : "") + '" title="หน้าแรก">' + IC.home + '</a><i>›</i><a href="#/cash-advance">CASH ADVANCE</a><i>›</i><span>EXPENSES</span></nav></div>' +
+    /* V.910 : แท็บแยกข้อมูล — เก็บลูกค้าได้ (ค่าเริ่มต้น) / เก็บลูกค้าไม่ได้ */
+    '<div class="ex910" role="tablist">' +
+    '<button type="button" class="g on" data-tab910="OK" role="tab" aria-selected="true">เก็บลูกค้าได้<span class="n" data-n910="OK"></span></button>' +
+    '<button type="button" class="r" data-tab910="CC" role="tab" aria-selected="false">เก็บลูกค้าไม่ได้<span class="n" data-n910="CC"></span></button>' +
+    '</div>' +
     '<div class="ex7-fc"><h3>' + IC.q + 'ค้นหา / ตัวกรองข้อมูล</h3><form class="ex7-f" data-f autocomplete="off">' +
     '<label class="co">บริษัท (Company)<select name="company_id"><option value="">- ทุกบริษัท -</option></select></label>' +
     '<label class="dt">วันที่ POST<input type="date" name="date_from"></label><label class="dt">ถึงวันที่<input type="date" name="date_to"></label>' +
@@ -134,10 +146,24 @@ function bodyHTML() {
     pg.map(function (p) { return p === "…" ? "<span>…</span>" : '<button type="button" data-pg="' + p + '"' + (p === c ? ' class="on"' : "") + ">" + p + "</button>"; }).join("") +
     '<button type="button" data-pg="' + (c + 1) + '"' + (c >= n ? " disabled" : "") + ' aria-label="ถัดไป">›</button><button type="button" data-pg="' + n + '"' + (c >= n ? " disabled" : "") + ' aria-label="หน้าสุดท้าย">»</button></span></div>';
 }
+/* V.910 : อัปเดตแท็บที่เลือกและจำนวนรายการของทั้งสองแท็บ (นับจากตัวกรองปัจจุบัน · ฐานข้อมูลเป็นผู้นับ) */
+function TB910() {
+  if (!S || !S.root || !S.root.isConnected) return;
+  var t = S.tabs910 || null;
+  Array.prototype.forEach.call(S.root.querySelectorAll("[data-tab910]"), function (b) {
+    var k = b.getAttribute("data-tab910"), on = (S.tab || "OK") === k;
+    b.classList.toggle("on", on); b.setAttribute("aria-selected", on ? "true" : "false");
+    var n = b.querySelector("[data-n910]"); if (!n) return;
+    var v = t ? (k === "CC" ? t.cc : t.ok) : null;
+    n.textContent = v == null ? "" : Number(v).toLocaleString("en-US");
+    n.style.display = v == null ? "none" : "";
+  });
+}
 function paint() {
   if (!S || !S.root.isConnected || (S.el && !S.el.isConnected)) return;   /* V.803 */
   var b = S.root.querySelector("[data-body]"), sc = S.root.querySelector(".ex7-tw"), y = sc ? sc.scrollLeft : 0;
   b.innerHTML = bodyHTML(); var t = S.root.querySelector(".ex7-tw"); t && (t.scrollLeft = y);
+  TB910();/* V.910 */
   var sel = S.root.querySelector('[name="company_id"]');
   if (sel && S.companies) { var cur = S.f.company_id || "", h = '<option value="">- ทุกบริษัท -</option>' + S.companies.map(function (c) { return '<option value="' + esc(c.id) + '">' + esc(c.name) + "</option>"; }).join(""); sel.innerHTML !== h && (sel.innerHTML = h); sel.value = cur; }
 }
@@ -148,6 +174,8 @@ async function load() {
     var r = await rpc("njacc_exp723_list", { p: params(S.lim, S.off) });
     if (S !== S0 || my !== S.seq) return;
     S.rows = (r && r.rows) || []; S.total = (r && r.total) || 0; S.sum = (r && r.sum) || {}; S.companies = (r && r.companies) || S.companies || [];
+    S.tabs910 = (r && r.tabs910) || null;/* V.910 */
+    if (!S.tabs910) S.err = "ระบบแยกแท็บเก็บลูกค้าได้ / เก็บลูกค้าไม่ได้ยังไม่พร้อม (ยังไม่ได้รัน RUN-910) — ข้อมูลที่แสดงยังไม่ได้แยกตามแท็บ";/* V.910 */
     if (!S.rows.length && S.off > 0 && S.total > 0) { S.off = Math.max(0, Math.floor((S.total - 1) / S.lim) * S.lim); S.loading = !1; return load(); }
   } catch (e) { if (S !== S0 || my !== S.seq) return; S.rows = []; S.total = 0; S.sum = {}; S.err = errMsg(e); }
   S.loading = !1; paint();
@@ -305,7 +333,7 @@ function tb731() {   /* V.731 : ติด class เฉพาะตอนอย�
 function OFF803(m) { return S !== m || !(m && m.el && m.el.isConnected); }   /* V.803 : หน้าที่ออกไปแล้ว (State เก่า / Element หน้าเดิมไม่อยู่ในจอ) = ไม่รับ Event */
 async function render(root, args) {
   css(); closeDetail(); tb731();
-  S = { root: root, f: { company_id: "", date_from: "", date_to: "", status: "ALL", q: "" }, lim: 20, off: 0, rows: [], total: 0, sum: {}, companies: null, seq: 0, loading: !1, err: "" };
+  S = { root: root, f: { company_id: "", date_from: "", date_to: "", status: "ALL", q: "" }, tab: "OK", tabs910: null/* V.910 */, lim: 20, off: 0, rows: [], total: 0, sum: {}, companies: null, seq: 0, loading: !1, err: "" };
   root.innerHTML = shell();
   var me = S, fo = root.querySelector("[data-f]"); me.el = root.firstElementChild;   /* V.803 */
   var readF = function () { var f = {}; ["company_id", "date_from", "date_to", "status", "q"].forEach(function (k) { var el = fo.elements[k]; f[k] = el ? String(el.value || "").trim() : ""; }); return f; };
@@ -323,6 +351,13 @@ async function render(root, args) {
     if (e.target.closest("[data-lk]")) return;   /* ลิงก์ JOB No. = ทำงานเดิม */
     var b = e.target.closest("button");
     if (!b) { var tr = e.target.closest("tr[data-i]"); if (tr && root.contains(tr) && !(window.getSelection && String(window.getSelection()).trim())) { S.lastTr = tr; detail(S.rows[Number(tr.dataset.i)]); } return; }
+    if (b.hasAttribute("data-tab910")) {   /* V.910 : สลับแท็บ = ล้างตัวกรองและโหลดข้อมูลทันที */
+      var k910 = b.getAttribute("data-tab910") === "CC" ? "CC" : "OK"; if (k910 === (S.tab || "OK")) return;
+      S.tab = k910;
+      ["company_id", "date_from", "date_to", "q"].forEach(function (k) { fo.elements[k] && (fo.elements[k].value = ""); });
+      fo.elements.status && (fo.elements.status.value = "ALL");
+      S.f = readF(); S.off = 0; S.tabs910 = null; TB910(); load(); return;
+    }
     if (b.hasAttribute("data-clr")) { ["company_id", "date_from", "date_to", "q"].forEach(function (k) { fo.elements[k] && (fo.elements[k].value = ""); }); fo.elements.status && (fo.elements.status.value = "ALL"); S.f = readF(); S.off = 0; load(); return; }
     if (b.hasAttribute("data-rf")) { load(); return; }
     if (b.hasAttribute("data-xl")) { exportXls(b); return; }

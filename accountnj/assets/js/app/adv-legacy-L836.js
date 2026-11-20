@@ -46,7 +46,7 @@ function ST836() {
     ".l836-sw button{border:1px solid #cbd5e1;background:#fff;color:#0f2a4d;border-radius:999px;padding:5px 14px;font-weight:700;cursor:pointer;font-size:13px}",
     ".l836-sw button.on{background:#0f2a4d;color:#fff;border-color:#0f2a4d}",
     ".btn.up836{background:#ea580c!important;border:1px solid #ea580c!important;color:#fff!important;font-weight:700;white-space:nowrap}.btn.up836:hover:not(:disabled){background:#c2410c!important}.btn.up836:disabled{opacity:.6;cursor:wait}",
-    ".btn.rp836{background:#1e3a8a!important;border:1px solid #1e3a8a!important;color:#fff!important;font-weight:700;white-space:nowrap}.btn.rp836:disabled{opacity:.5}",
+    ".btn.rp836{background:#1e3a8a!important;border:1px solid #1e3a8a!important;color:#fff!important;font-weight:700;white-space:nowrap;min-width:0!important;width:auto!important;flex:0 0 auto;padding-left:12px;padding-right:12px}/* V.917 */.btn.rp836:disabled{opacity:.5}",
     ".btn.cu836{background:#fff!important;border:1px solid #0f766e!important;color:#0f766e!important;font-weight:700;white-space:nowrap}",
     ".p836 .fbar{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}.p836 .fl836{display:flex;flex-direction:column;gap:2px;font-size:12px;color:#475569}.p836 .fl836 .inp,.p836 .fl836 .sel{min-width:120px}",
     ".p836 .fl836-q .inp{min-width:240px}.sum836{display:flex;flex-wrap:wrap;gap:14px;margin:8px 0;font-size:13px;color:#334155}.sum836 b{color:#0f2a4d}",
@@ -206,7 +206,7 @@ function HP() {
     + `<label class="fl836"><span>ถึง</span><input class="inp" type="date" data-a836="to" value="${n(S.to)}"></label>`
     + `<button type="button" class="btn btn-o btn-sm" data-clr836>ล้างค้นหา</button><button type="button" class="btn btn-sm rf884" data-rf884 title="โหลดข้อมูลล่าสุดจากฐานข้อมูล (คงตัวกรอง / หน้า / แท็บ / ระบบ เดิม)">⟳ รีเฟรช</button>${UB("l836-up")}${SA() ? '<button type="button" class="btn btn-sm hd837" id="l836-hd" title="INVOICE ที่นำออกจากใบเสร็จ — ตรวจสอบการรับชำระก่อนคืนเข้ารอรับชำระ (SUPER_ADMIN)">รอตรวจสอบการรับชำระ</button>' : ""}`   /* V.837 */
     + `<button type="button" class="btn btn-sm xl734" data-xl836>⬇ EXPORT EXCEL</button>`
-    + `<button type="button" class="btn btn-sm rp836" id="l836-rp" disabled hidden>🧾 RECEIPT ADVANCE PDF</button>`
+    + `<button type="button" class="btn btn-sm rp836" id="l836-rp" disabled hidden>🧾 ADVANCE PDF</button>/* V.917 */`
     + `<button type="button" class="btn btn-sm cu836" id="l836-cu" title="ตรวจสอบ / แก้ไข CUSTOMER ของรายการที่เลือก (หรือของลูกค้าที่กรอง)">ตรวจสอบ / แก้ไข CUSTOMER</button>`
     + `<span class="sel836" id="l836-si"></span><button type="button" class="btn btn-sm btn-o" id="l836-clr" disabled>ล้างรายการที่เลือก</button></div>`
     + `<div class="sum836" id="l836-sum"></div><div class="card mt-2" id="l836-pgn"></div>`
@@ -265,7 +265,7 @@ function filt() { return { q: S.q || null, view: S.view, customer_key: S.custome
 function sync(host) {
   let cnt = SEL.size, sum = 0; SEL.forEach((r) => { sum += Math.round(Number(r.advance_amount || 0) * 100); });
   let rp = host.querySelector("#l836-rp"), si = host.querySelector("#l836-si"), cl = host.querySelector("#l836-clr");
-  rp && (rp.hidden = !PERM.issue, rp.disabled = !cnt, rp.textContent = "🧾 RECEIPT ADVANCE PDF" + (cnt ? " (" + cnt + ")" : ""));
+  rp && (rp.hidden = !PERM.issue, rp.disabled = !cnt, rp.textContent = "🧾 ADVANCE PDF"/* V.917 */ + (cnt ? " (" + cnt + ")" : ""));
   si && (si.textContent = cnt ? "เลือก " + N(cnt) + " รายการ · ADVANCE รวม " + M(sum / 100) : "");
   cl && (cl.disabled = !cnt);
   let cbs = [...host.querySelectorAll(".l836-cb")], all = host.querySelector("#l836-all");
