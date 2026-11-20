@@ -2374,6 +2374,60 @@
     return false;
   }
 
+  /* ---------- [RUN-226 · local385] ทางออกจาก "เบราว์เซอร์ในแอป" เมื่อกล้องไม่ได้รับอนุญาต ----------
+     หลักฐานเครื่องจริง 20/11: Android เปิดจากเบราว์เซอร์ในแอป -> NotAllowedError 6 ครั้งติดกัน (คนเดียว) — มีข้อความแนะนำแต่ไม่มีทางไปต่อ
+     ของใหม่: ปุ่มเดียวบนจอแจ้งผล (เฉพาะเมื่ออยู่ในเบราว์เซอร์ในแอป และรหัสคือ CAM_PERMISSION_DENIED)
+       LINE (iPhone/Android)            -> เปิดลิงก์เดิมพร้อม openExternalBrowser=1 (คำสั่งของ LINE ให้เปิดเบราว์เซอร์หลักของเครื่อง)
+       Android ในแอปที่รองรับ intent    -> intent:// เปิดด้วย Chrome (มี browser_fallback_url)
+       อื่น ๆ                           -> คัดลอกลิงก์ แล้วบอกให้วางใน Safari / Chrome
+     ไม่ข้ามสิทธิ์ของอุปกรณ์ · ไม่เปลี่ยนรหัส/ข้อความเดิม · Safari / Chrome / PWA ปกติ = ไม่มีปุ่มนี้ ไม่มีอะไรเปลี่ยน */
+  function camExtTarget() {
+    try {
+      if (!camInApp()) return null;
+      var ua = camUA();
+      var url = String(location.origin || '') + String(location.pathname || '/');
+      var isAnd = /Android/i.test(ua), isIOS = /(iPhone|iPad|iPod)/i.test(ua);
+      if (/Line\//i.test(ua)) {
+        return { mode: 'line', label: isIOS ? 'เปิดด้วย Safari' : 'เปิดด้วยเบราว์เซอร์หลัก',
+                 url: url + (url.indexOf('?') < 0 ? '?' : '&') + 'openExternalBrowser=1', copy: url };
+      }
+      if (isAnd && /(FBAN|FBAV|FB_IAB|Instagram|Messenger)/i.test(ua)) {
+        return { mode: 'intent', label: 'เปิดด้วย Chrome',
+                 url: 'intent://' + url.replace(/^https?:\/\//i, '') +
+                      '#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=' + encodeURIComponent(url) + ';end',
+                 copy: url };
+      }
+      return { mode: 'copy', label: 'คัดลอกลิงก์', url: url, copy: url };
+    } catch (e) { return null; }
+  }
+  function camExtAction(e) {
+    try {
+      if (!e || e.camCode !== 'CAM_PERMISSION_DENIED') return null;
+      var tg = camExtTarget();
+      if (!tg) return null;
+      return { label: tg.label, style: 'primary', on: function () {
+        try { perfBootCount('camera_ext_browser_' + tg.mode); } catch (eP) {}
+        if (tg.mode !== 'copy') { try { location.href = tg.url; } catch (eN) {} return; }
+        var okMsg = 'คัดลอกลิงก์แล้ว — เปิด ' + (/(iPhone|iPad|iPod)/i.test(camUA()) ? 'Safari' : 'Chrome') + ' แล้ววางลิงก์เพื่อเข้าใช้งาน';
+        var manual = 'คัดลอกลิงก์นี้ไปเปิดใน ' + (/(iPhone|iPad|iPod)/i.test(camUA()) ? 'Safari' : 'Chrome') + ': ' + tg.copy;
+        var done = function (ok) { try { setMsg(ok ? okMsg : manual, !ok); } catch (eM) {} };
+        var legacy = function () {
+          try {
+            var ta = d.createElement('textarea'); ta.value = tg.copy; ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed'; ta.style.opacity = '0'; d.body.appendChild(ta); ta.select();
+            var ok = false; try { ok = d.execCommand('copy'); } catch (eC) { ok = false; }
+            d.body.removeChild(ta); done(ok);
+          } catch (eL) { done(false); }
+        };
+        try {
+          if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            navigator.clipboard.writeText(tg.copy).then(function () { done(true); }, legacy);
+          } else { legacy(); }
+        } catch (eW) { legacy(); }
+      } };
+    } catch (e2) { return null; }
+  }
+
   function camStandalone() {
     try {
       if (w.navigator && w.navigator.standalone === true) return true;
@@ -2994,6 +3048,11 @@
   var FACE_POS_SAFE = 0.55;        // จุดกึ่งกลางใบหน้า: ภายใน 55% ของครึ่งกว้าง/ครึ่งสูงของกรอบ (ค่าเดิม)
   var FACE_FRAME_MIN_W = 0.30;     // ใบหน้ากว้างอย่างน้อย 30% ของความกว้างกรอบ
   var FACE_FRAME_MARGIN = 0.15;    // ระยะเผื่อขอบ: ล้นกรอบได้ไม่เกิน 15% ของขนาดกรอบต่อด้าน
+  /* [RUN-226 · local385] ระยะเผื่อของกฎ "ใกล้ไป" (NEAR) — เดิมไม่มีระยะเผื่อ: ใบหน้าที่ AI วัดได้กว้างหรือสูงกว่ากรอบแม้ 1 พิกเซล = NEAR
+     หลักฐานเครื่องจริง 20/11 (Error Log · local382/383): หมดเวลาจัดตำแหน่ง 25 ครั้ง เป็น NEAR 20 ครั้ง (Android 15 · iPhone 5)
+     ของใหม่: กว้าง/สูงเกินกรอบได้ไม่เกิน 15% (ค่าเดียวกับระยะเผื่อขอบ) — กฎ CENTER / EDGE / FAR ไม่เปลี่ยน
+     ด่านนี้เป็นด่านช่วยจัดตำแหน่งบนมือถือเท่านั้น: คุณภาพภาพ · ตรวจคนจริง · Descriptor · Threshold ไม่ถูกแตะ */
+  var FACE_FRAME_NEAR = 0.15;
 
   function facePosInFrame(box) {
     var no = { ready: false, inside: false, code: '' };
@@ -3036,7 +3095,7 @@
 
       var code = '';
       if (bw < FW * FACE_FRAME_MIN_W) code = 'FAR';
-      else if (bw > FW || bh > FH) code = 'NEAR';
+      else if (bw > FW * (1 + FACE_FRAME_NEAR) || bh > FH * (1 + FACE_FRAME_NEAR)) code = 'NEAR';
       else if (Math.abs(fcx - cx) > (FW / 2) * FACE_POS_SAFE || Math.abs(fcy - cy) > (FH / 2) * FACE_POS_SAFE) code = 'CENTER';
       else if (box.x < sx0 - FW * FACE_FRAME_MARGIN || box.x + bw > sx1 + FW * FACE_FRAME_MARGIN ||
                box.y < sy0 - FH * FACE_FRAME_MARGIN || box.y + bh > sy1 + FH * FACE_FRAME_MARGIN) code = 'EDGE';
@@ -6389,6 +6448,8 @@
         if (fk === 'GPS') st.gps = 'bad';
         panel(stepsHtml(st, msg, true));
         var acts = [{ label: 'ยกเลิก', style: 'plain', on: close }];
+        var extA = camExtAction(e);            // [RUN-226] อยู่ในเบราว์เซอร์ในแอป + กล้องไม่ได้รับอนุญาต = ปุ่มไปเบราว์เซอร์หลัก
+        if (extA) acts.push(extA);
         var maxTry = Number(w.NJHR_FACE_MAX_ATTEMPTS || 3);
         if (S.attempts < maxTry) {
           acts.unshift({ label: (androidTimedOut ? 'ลองใหม่ · โหมดสำรอง (' : 'ลองใหม่ (') + S.attempts + '/' + maxTry + ')', style: 'primary',
@@ -7370,14 +7431,17 @@
            แต่ต้องไม่กลบจนตรวจปัญหาไม่ได้ — Console ยังเห็นข้อความจริงเสมอ */
         try { console.error('[FACE LOGIN] ล้มเหลว:', e); } catch (e2) {}
         panel(stepsHtml(st, faceUserMsg(e), true));
-        actions([
+        var actsL = [
           { label: 'เข้าสู่ระบบด้วยรหัสผ่าน', style: 'plain', on: function () {
             close(); if (typeof onCancel === 'function') onCancel();
           } },
           { label: 'ลองใหม่', style: 'primary', on: function () {
             close(); setTimeout(function () { login(onOk, onCancel); }, 60);
           } }
-        ]);
+        ];
+        var extL = camExtAction(e);            // [RUN-226] เบราว์เซอร์ในแอป + กล้องไม่ได้รับอนุญาต
+        if (extL) { extL.style = 'plain'; actsL.splice(1, 0, extL); }
+        actions(actsL);
         S.busy = false;
       });
   }
@@ -7398,6 +7462,8 @@
                       warmMs: INF.warmMs == null ? null : INF.warmMs, modelGen: MODEL.gen },
                req: { server: reqSrvState(), pending: !!pendLoad(), mode: (pendLoad() || {}).mode || null },
                att: { busy: !!S.busy, op: OP.id, lock: LOCK.mode },
+               ext: (function () { var t = camExtTarget(); return t ? { mode: t.mode, label: t.label, url: t.url } : null; })(),   // [RUN-226] ทางออกจากเบราว์เซอร์ในแอป (อ่านอย่างเดียว)
+               pos: { near: FACE_FRAME_NEAR, margin: FACE_FRAME_MARGIN },
                ai: { okN: INF.okN || 0, coldN: INF.coldN || 0, cold: !INF.okN },
                tel: { n: TEL.n, mode: TEL.mode, off: TEL.mode === 'OFF', last: TEL.last, ok: TEL.stat.ok, rejected: TEL.stat.rejected,
                       na: TEL.stat.na, net: TEL.stat.net, legacy: TEL.stat.legacy, retry: TEL.stat.retry, open: !!TEL.cur },
