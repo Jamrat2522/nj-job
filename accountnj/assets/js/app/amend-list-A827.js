@@ -12,7 +12,8 @@ var IC = (function () {
     clr: s('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13 7 4 4"/>', 15), rf: s('<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>', 15),
     xl: s('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/>'), eye: s('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>', 14),
     op: s('<path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/>', 14), x: s('<path d="M6 6l12 12M18 6 6 18"/>', 18),
-    hist: s('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', 15)/* V.915 */ };
+    hist: s('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', 15)/* V.915 */,
+    cal919: s('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>', 15)/* V.919 */ };
 })();
 function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
 function p2(x) { return String(x).padStart(2, "0"); }
@@ -33,13 +34,17 @@ var TL915 = [
 function TLo(v) { v = Number(v || 0); for (var i = 0; i < TL915.length; i++) if (TL915[i].v === v) return TL915[i]; return TL915[0]; }
 function TLtip(x) { var o = TLo(x.tl_step); return o.s + " — " + o.t + (x.tl_at ? " · อัปเดต " + dtm(x.tl_at) + (x.tl_by ? " โดย " + x.tl_by : "") : ""); }
 /* V.915 : ช่อง TIME LINE ของแต่ละแถว (Dropdown + แถบสรุปสี + ปุ่มดูประวัติ) */
+/* V.918 : คอลัมน์ TIME LINE = แสดงผลอย่างเดียว (ข้อความ + สีของขั้นตอน บรรทัดเดียว) · เลือกขั้นตอนที่คอลัมน์จัดการ */
 function TLcell(x) {
   var v = Number(x.tl_step || 0), o = TLo(v), tip = esc(TLtip(x));
-  return '<div class="tl915"><div class="tl915-r">' +
-    '<select class="tl915-s" data-tl="' + esc(x.id) + '" data-prev="' + v + '" title="' + tip + '" style="color:' + o.c + ';background:' + o.b + ';border-color:' + o.c + '">' +
-    TL915.map(function (q) { return '<option value="' + q.v + '"' + (q.v === v ? " selected" : "") + ' title="' + esc(q.t) + '">' + esc(q.s) + "</option>"; }).join("") +
-    '</select><button type="button" class="tl915-h" data-tlh="' + esc(x.id) + '" title="ดูประวัติ TIME LINE">' + IC.hist + "</button></div>" +
-    '<div class="tl915-u" title="' + tip + '"><i class="tl915-d" style="background:' + o.c + '"></i><span style="color:' + o.c + '">' + esc(o.s) + "</span></div></div>";
+  return '<div class="tl915-u" data-tlv="' + esc(x.id) + '" title="' + tip + '"><i class="tl915-d" style="background:' + o.c + '"></i>' +
+    '<span style="color:' + o.c + '">' + esc(o.s) + "</span></div>";
+}
+/* V.918 : ปุ่มเลือกขั้นตอน (สีม่วง) + ปุ่มดูประวัติ — อยู่ในคอลัมน์จัดการ */
+function TLbtn(x) {
+  var v = Number(x.tl_step || 0);
+  return '<button type="button" class="am7-ab tl918-b" data-tlm="' + esc(x.id) + '" data-tlv="' + v + '" title="เลือกขั้นตอน TIME LINE">TIME LINE ▾</button>' +
+    '<button type="button" class="am7-ab tl918-h" data-tlh="' + esc(x.id) + '" title="ดูประวัติ TIME LINE">' + IC.hist + "</button>";
 }
 function stT(x) { return x.document_status === "POSTED" ? "POST แล้ว" : "รอ POST"; }
 function stB(x) { return '<span class="am7-bd ' + (x.document_status === "POSTED" ? "g" : "o") + '">' + stT(x) + "</span>" + (x.returned ? ' <span class="am7-bd r" title="JOB ถูกย้อนกลับมาแก้ไข">ย้อนกลับ</span>' : ""); }
@@ -58,8 +63,38 @@ function css() {
   if (document.getElementById("am827-css")) return;
   var s = document.createElement("style"); s.id = "am827-css";
   s.textContent = [
-    ".am7{padding:6px 18px 24px;color:#0f172a;font-size:13px;max-width:100%;box-sizing:border-box}",/* V.914 : ยุบพื้นที่ว่างด้านบน */
+    ".am7{padding:4px 18px 20px;color:#0f172a;font-size:13px;max-width:100%;box-sizing:border-box}",/* V.919 : ลดพื้นที่ว่างบน-ล่าง */
+    /* ═══ V.919 : แถบค้นหาแถวเดียว ═══ */
+    ".am7-fc{padding:8px 10px!important;margin:0 0 8px!important}",
+    ".am7-f{display:flex!important;flex-wrap:nowrap!important;align-items:flex-end!important;gap:8px!important;width:100%;overflow:visible}",
+    ".am7-f>label,.am7-f>.dr919{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 0}",
+    ".am7-f>label>span,.am7-f .dr919-l,.am7-f>label{font-size:11.5px;font-weight:700;color:#334155}",
+    ".am7-f .q919{flex:2 1 0}",
+    ".am7-f .hid919{display:none!important}",
+    ".am7-f input:not([type=date]),.am7-f select,.am7-f input[type=date],.am7-f .dr919-b{height:36px!important;min-height:36px!important;border-radius:8px!important;border:1px solid #CBD5E1;padding:0 10px;font-family:inherit;font-size:13px;width:100%;box-sizing:border-box;background:#fff;min-width:0}",
+    ".am7-f .bt{display:flex;gap:8px;flex:0 0 auto;width:auto!important;align-items:flex-end}",
+    ".am7-f .bt .am7-b{height:36px!important;min-height:36px!important;border-radius:8px!important;border:1px solid transparent!important;color:#fff!important;font-weight:700;padding:0 12px;white-space:nowrap}",
+    ".am7-f .bt .am7-b svg{color:#fff!important}",
+    ".am7-f .bt .am7-b.p{background:#1D4ED8!important;border-color:#1D4ED8!important}",
+    ".am7-f .bt .am7-b.o919{background:#EA580C!important;border-color:#EA580C!important}",
+    ".am7-f .bt .am7-b.c919{background:#0891B2!important;border-color:#0891B2!important}",
+    ".am7-f .bt .am7-b.g{background:#16A34A!important;border-color:#16A34A!important}",
+    ".dr919{position:relative}",
+    ".dr919-b{display:flex;align-items:center;gap:6px;cursor:pointer;color:#334155;text-align:left}",
+    ".dr919-b i{font-style:normal;margin-left:auto;color:#64748b}.dr919.on .dr919-b{border-color:#1D4ED8;color:#1D4ED8;font-weight:700}",
+    ".dr919-b span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+    ".dr919-p{position:absolute;top:calc(100% + 4px);right:0;z-index:50;background:#fff;border:1px solid #CBD5E1;border-radius:10px;box-shadow:0 12px 28px rgba(15,23,42,.18);padding:10px;display:flex;flex-direction:column;gap:8px;min-width:230px}",
+    ".dr919-p[hidden]{display:none}.dr919-p label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;font-weight:700;color:#334155}",
+    ".dr919-a{display:flex;gap:8px;justify-content:flex-end}.dr919-a .am7-b{height:32px;border-radius:8px}",
+    "@media(max-width:1100px){.am7-f{flex-wrap:wrap!important}.am7-f>label,.am7-f>.dr919{flex:1 1 180px}}",
     /* V.915 : คอลัมน์ TIME LINE */
+    /* V.918 : ปุ่มเลือกขั้นตอนในคอลัมน์จัดการ + เมนูขั้นตอน */
+    ".tl918-b{background:#7C3AED!important;border-color:#7C3AED!important;color:#fff!important;font-weight:800}",
+    ".tl918-b:hover:not(:disabled){filter:brightness(1.07)}.tl918-b:disabled{opacity:.6;cursor:wait}",
+    ".tl918-h{padding:0 8px}",
+    ".tl918-m{position:fixed;z-index:9999;background:#fff;border:1px solid #CBD5E1;border-radius:10px;box-shadow:0 12px 28px rgba(15,23,42,.22);padding:6px;display:flex;flex-direction:column;gap:2px;min-width:250px}",
+    ".tl918-i{display:flex;align-items:center;gap:8px;border:0;background:none;font-family:inherit;font-size:13px;font-weight:700;padding:8px 10px;border-radius:8px;cursor:pointer;text-align:left;white-space:nowrap}",
+    ".tl918-i:hover{background:#F1F5F9}.tl918-i.on{background:#EEF2FF;outline:1px solid #C7D2FE}",
     ".tl915{display:flex;flex-direction:column;gap:3px;min-width:210px}",
     ".tl915-r{display:flex;align-items:center;gap:5px}",
     ".tl915-s{height:32px;border-radius:7px;border:1px solid #CBD5E1;font-family:inherit;font-size:12.5px;font-weight:700;padding:0 6px;max-width:190px;flex:1;cursor:pointer}",
@@ -118,18 +153,21 @@ function css() {
 function shell() {
   return '<div class="am7">' +/* V.914 : ซ่อนหัวข้อ Amend / ไอคอน / ข้อความใต้หัวข้อ / Breadcrumb · ปุ่ม EXPORT EXCEL ย้ายไปแถวปุ่มค้นหา */
     '<div class="am7-fc"><form class="am7-f" data-f autocomplete="off">' +/* V.914 : ซ่อนหัวข้อค้นหา / ตัวกรองข้อมูล */
-    '<label class="dt">วันที่เปิดงาน ตั้งแต่<input type="date" name="date_from"></label><label class="dt">ถึงวันที่<input type="date" name="date_to"></label>' +
-    '<label class="tx">JOB No.<input name="job_no" maxlength="60" placeholder="เช่น OPS26-"></label><label class="tx">JOB NJ<input name="job_nj" maxlength="60" placeholder="เช่น JOB2611-"></label>' +
-    '<label class="tx">INVOICE NJ<input name="inv_nj" maxlength="60" placeholder="เช่น NJL2611-"></label>' +/* V.911 */
+    /* ═══ V.919 : แถบค้นหาแถวเดียว — ค้นหาทั่วไป (รวม JOB No. / JOB NJ / INVOICE NJ / Customer Job No.) ═══ */
+    '<label class="q919">ค้นหาทั่วไป<input name="q" maxlength="80" placeholder="JOB No. / JOB NJ / INVOICE NJ / Customer Job No." title="ค้นหาพร้อมกันทุกหัวข้อ : JOB No. · JOB NJ · INVOICE NJ · Customer Job No."></label>' +
     '<label class="sl">บริษัท<select name="company_id"><option value="">- ทุกบริษัท -</option></select></label><label class="sl">ลูกค้า<select name="customer_id"><option value="">- ทุกลูกค้า -</option></select></label>' +
-    '<label class="tx">Customer Job No.<input name="customer_job_no" maxlength="60"></label>' +
-    '<label class="st">สถานะ<select name="status"><option value="">ทั้งหมด</option><option value="DRAFT" selected>รอ POST</option><option value="POSTED">POST แล้ว</option></select></label>' +
-    /* V.915 : ตัวกรองขั้นตอน TIME LINE */
     '<label class="st">TIME LINE<select name="tl"><option value="">ทุกขั้นตอน</option>' +
     TL915.map(function (q) { return '<option value="' + q.v + '">' + esc(q.s) + "</option>"; }).join("") + "</select></label>" +
-    '<span class="bt"><button type="submit" class="am7-b p">' + IC.q + 'ค้นหา</button><button type="button" class="am7-b" data-clr>' + IC.clr + 'ล้างตัวกรอง</button>' +
-    '<button type="button" class="am7-b" data-rf>' + IC.rf + "รีเฟรช</button>" +
-    '<button type="button" class="am7-b g" data-xl>' + IC.xl + "EXPORT EXCEL</button>"/* V.914 : ปุ่มเดิม ย้ายมาต่อจากรีเฟรช */ +
+    /* V.919 : ช่วงวันที่ — ตัวเลือกเดียว (เก็บช่อง date_from / date_to เดิมไว้ข้างใน จึงไม่เสียความสามารถเดิม) */
+    '<div class="dr919"><span class="dr919-l">ช่วงวันที่</span>' +
+    '<button type="button" class="dr919-b" data-dr919 title="เลือกช่วงวันที่เปิดงาน">' + IC.cal919 + '<span data-dr919-t>เลือกวันที่</span><i>▾</i></button>' +
+    '<div class="dr919-p" data-dr919-p hidden><label>ตั้งแต่<input type="date" name="date_from"></label><label>ถึงวันที่<input type="date" name="date_to"></label>' +
+    '<div class="dr919-a"><button type="button" class="am7-b" data-dr919-c>ล้างวันที่</button><button type="button" class="am7-b p" data-dr919-k>ตกลง</button></div></div></div>' +
+    /* V.919 : Dropdown สถานะถูกซ่อน (ใช้แท็บ รอ POST / POST แล้ว แทน) — ยังอยู่ใน DOM เพื่อให้แท็บและตัวกรองเดิมทำงานเหมือนเดิม */
+    '<label class="st hid919" hidden>สถานะ<select name="status"><option value="">ทั้งหมด</option><option value="DRAFT" selected>รอ POST</option><option value="POSTED">POST แล้ว</option></select></label>' +
+    '<span class="bt"><button type="submit" class="am7-b p">' + IC.q + 'ค้นหา</button><button type="button" class="am7-b o919" data-clr>' + IC.clr + 'ล้าง</button>' +
+    '<button type="button" class="am7-b c919" data-rf>' + IC.rf + "รีเฟรช</button>" +
+    '<button type="button" class="am7-b g" data-xl>' + IC.xl + "EXPORT EXCEL</button>" +
     "</span></form></div>" +
     /* V.913 : แท็บแยกสถานะ รอ POST / POST แล้ว — รูปแบบปุ่มเดียวกับ DOCUMENT — SERVICE */
     '<div class="rep-tabs am913" id="am913-tabs" role="tablist">' +
@@ -148,10 +186,10 @@ function rowHTML(x, i) {
     '<td class="el">' + esc(x.customer_job_no || "-") + '</td><td class="el">' + esc(x.master_bl_no || "-") + '</td><td class="el">' + esc(x.house_bl_no || "-") + "</td>" +
     '<td class="nw" title="' + esc(x.created_by_name || "") + '">' + esc(who(x) || "-") + '</td><td class="c nw">' + stB(x) + "</td>" +
     '<td class="tl915-td">' + TLcell(x) + "</td>"/* V.915 */ +
-    '<td><div class="am7-act"><button type="button" class="am7-ab" data-a="v">' + IC.eye + "ดู</button>" + (canDoc() ? '<button type="button" class="am7-ab o" data-a="o" title="เปิดใน DOCUMENT → SERVICE">' + IC.op + "เปิดงาน</button>" : "") + "</div></td></tr>";
+    '<td><div class="am7-act"><button type="button" class="am7-ab" data-a="v">' + IC.eye + "ดู</button>" + (canDoc() ? '<button type="button" class="am7-ab o" data-a="o" title="เปิดใน DOCUMENT → SERVICE">' + IC.op + "เปิดงาน</button>" : "") + TLbtn(x)/* V.918 */ + "</div></td></tr>";
 }
 function bodyHTML() {
-  var W = [44, 100, 110, 124, 140/* V.911 */, 180, 180, 100, 120, 120, 150, 110, 104, 240/* V.915 */, 150];
+  var W = [44, 100, 110, 124, 140/* V.911 */, 180, 180, 100, 120, 120, 150, 110, 104, 200/* V.918 */, 250];
   var n = Math.max(1, Math.ceil((S.total || 0) / S.lim)), c = Math.floor(S.off / S.lim) + 1, from = S.total ? S.off + 1 : 0, to = S.off + S.rows.length, pg = [], k;
   for (k = 1; k <= n; k++) if (k === 1 || k === n || Math.abs(k - c) <= 2) pg.push(k); else if (pg[pg.length - 1] !== "…") pg.push("…");
   return (S.err ? '<div class="am7-err">' + esc(S.err) + "</div>" : "") +
@@ -170,6 +208,20 @@ function optFill(name, list, all) {
   sel.innerHTML !== h && (sel.innerHTML = h); sel.value = cur;
 }
 /* V.913 : แท็บที่เลือกยึดตามตัวกรองสถานะจริง (DRAFT = รอ POST · POSTED = POST แล้ว) · จำนวน JOB นับจากฐานข้อมูล */
+/* ═══ V.919 · ช่วงวันที่ : ปุ่มเดียวเปิดแผงเลือก "ตั้งแต่ / ถึงวันที่" (ใช้ช่องวันที่เดิม) ═══ */
+function DR919(root) {
+  if (!root) return;
+  var w = root.querySelector(".dr919"); if (!w) return;
+  var f = w.querySelector('[name="date_from"]'), t = w.querySelector('[name="date_to"]'), tx = w.querySelector("[data-dr919-t]");
+  if (!tx) return;
+  var a = f && f.value ? dts(f.value) : "", b = t && t.value ? dts(t.value) : "";
+  tx.textContent = a || b ? (a || "…") + " – " + (b || "…") : "เลือกวันที่";
+  w.classList.toggle("on", !!(a || b));
+}
+function DRtoggle(root, open) {
+  var p = root && root.querySelector("[data-dr919-p]"); if (!p) return;
+  p.hidden = open === undefined ? !p.hidden : !open;
+}
 function TB913() {
   if (!S || !S.root || !S.root.isConnected) return;
   var st = String((S.f || {}).status || ""), c = S.cnt913 || null;
@@ -187,8 +239,9 @@ function paint() {
   b.innerHTML = bodyHTML(); var t = S.root.querySelector(".am7-tw"); t && (t.scrollLeft = y);
   S.opts && (optFill("company_id", S.opts.companies, "- ทุกบริษัท -"), optFill("customer_id", S.opts.customers, "- ทุกลูกค้า -"));
   TB913();/* V.913 */
+  DR919(S.root);/* V.919 */
 }
-var FK = ["date_from", "date_to", "job_no", "job_nj", "inv_nj"/* V.911 */, "company_id", "customer_id", "customer_job_no", "status", "tl"/* V.915 */];
+var FK = ["date_from", "date_to", "q"/* V.919 : ค้นหาทั่วไป */, "company_id", "customer_id", "status", "tl"/* V.915 */];
 function params(extra) { var o = { with_options: true }; FK.forEach(function (k) { S.f[k] && (o[k] = S.f[k]); }); return Object.assign(o, extra || {}); }
 /* V.913 : นับ JOB ของอีกแท็บหนึ่งจากฐานข้อมูล (size 1 · ไม่ดึงตัวเลือก Dropdown) แล้วหักลบกับยอดของแท็บปัจจุบัน */
 async function CT913(S0, my) {
@@ -220,29 +273,58 @@ async function load(silent) {
   var ov = document.querySelector("[data-am7dt]"); if (ov && ov.__id && !S.rows.some(function (x) { return x.id === ov.__id; }) && silent) closeDetail();   /* JOB ที่ CLOSE แล้ว = ปิดหน้าต่างรายละเอียด */
 }
 /* ═══ V.915 · บันทึกขั้นตอน TIME LINE ทันทีที่เลือก (ไม่เปลี่ยนสถานะจริงของ JOB) ═══ */
-async function TLsave(sel) {
-  var id = sel.getAttribute("data-tl"), prev = String(sel.getAttribute("data-prev") || "0"), v = String(sel.value || "0");
+/* V.918 : เลือกขั้นตอนจากปุ่ม TIME LINE ในคอลัมน์จัดการ → บันทึกอัตโนมัติด้วยระบบเดิม (njacc_amend915_set)
+   บันทึกสำเร็จ = อัปเดตข้อความ + สีในคอลัมน์ TIME LINE ทันที · ไม่สำเร็จ = แจ้งเตือนและคงค่าเดิม */
+async function TLset(id, v, btn) {
+  var row = null, i; for (i = 0; i < S.rows.length; i++) if (S.rows[i].id === id) row = S.rows[i];
+  var prev = Number((row && row.tl_step) || 0); v = Number(v || 0);
   if (v === prev) return;
-  sel.disabled = !0;
+  btn && (btn.disabled = !0);
   try {
-    var r = await RPC("njacc_amend915_set", { p: { job_id: id, step: Number(v) } });
-    var row = null, i; for (i = 0; i < S.rows.length; i++) if (S.rows[i].id === id) row = S.rows[i];
-    if (row) { row.tl_step = Number(v); row.tl_at = (r && r.at) || null; row.tl_by = (r && r.by) || null; }
-    sel.setAttribute("data-prev", v); S.sig = ""; TLskin(sel, row);
+    var r = await RPC("njacc_amend915_set", { p: { job_id: id, step: v } });
+    if (row) { row.tl_step = v; row.tl_at = (r && r.at) || null; row.tl_by = (r && r.by) || null; }
+    S.sig = ""; TLskin(id, row, v);
     toast("บันทึก TIME LINE แล้ว — " + TLo(v).s, "ok");
   } catch (e) {
-    sel.value = prev; TLskin(sel, null);
     toast("บันทึก TIME LINE ไม่สำเร็จ — " + errMsg(e), "err");
   }
-  sel.disabled = !1;
+  btn && (btn.disabled = !1);
 }
-function TLskin(sel, row) {
-  var o = TLo(sel.value), td = sel.closest(".tl915");
-  sel.style.color = o.c; sel.style.background = o.b; sel.style.borderColor = o.c;
-  var tip = row ? TLtip(row) : o.s + " — " + o.t;
-  sel.title = tip;
-  if (td) { var d = td.querySelector(".tl915-d"), s = td.querySelector(".tl915-u span"), u = td.querySelector(".tl915-u");
-    d && (d.style.background = o.c); s && (s.style.color = o.c, s.textContent = o.s); u && (u.title = tip); }
+function TLskin(id, row, v) {
+  if (!S || !S.root) return;
+  var o = TLo(v), tip = row ? TLtip(row) : o.s + " — " + o.t;
+  var u = S.root.querySelector('[data-tlv="' + id + '"].tl915-u');
+  if (u) { var d = u.querySelector(".tl915-d"), sp = u.querySelector("span");
+    d && (d.style.background = o.c); sp && (sp.style.color = o.c, sp.textContent = o.s); u.title = tip; }
+  var b = S.root.querySelector('[data-tlm="' + id + '"]'); b && b.setAttribute("data-tlv", String(o.v));
+}
+/* V.918 : เมนูเลือกขั้นตอน (ตัวเลือกเดิมทั้ง 8 รายการ ไม่เปลี่ยนแปลง) */
+function TLmenu(btn) {
+  closeTLM();
+  var id = btn.getAttribute("data-tlm"), cur = Number(btn.getAttribute("data-tlv") || 0);
+  var m = document.createElement("div"); m.className = "tl918-m"; m.setAttribute("data-tl918m", "");
+  m.innerHTML = TL915.map(function (q) {
+    return '<button type="button" class="tl918-i' + (q.v === cur ? " on" : "") + '" data-tlo="' + q.v + '" title="' + esc(q.t) + '">' +
+      '<i class="tl915-d" style="background:' + q.c + '"></i><span style="color:' + q.c + '">' + esc(q.s) + "</span></button>";
+  }).join("");
+  document.body.appendChild(m);
+  var r = btn.getBoundingClientRect();
+  m.style.top = Math.min(window.innerHeight - 24 - m.offsetHeight, r.bottom + 4) + "px";
+  m.style.left = Math.max(8, Math.min(window.innerWidth - 8 - m.offsetWidth, r.left)) + "px";
+  m.addEventListener("click", function (e) {
+    var it = e.target.closest("[data-tlo]"); if (!it) return;
+    closeTLM(); TLset(id, Number(it.getAttribute("data-tlo")), btn);
+  });
+  var away = function (e) { if (!e.target.closest || !e.target.closest("[data-tl918m]")) closeTLM(); };
+  var key = function (e) { e.key === "Escape" && closeTLM(); };
+  m.__away = away; m.__key = key;
+  setTimeout(function () { document.addEventListener("click", away, !0); document.addEventListener("keydown", key); }, 0);
+}
+function closeTLM() {
+  document.querySelectorAll("[data-tl918m]").forEach(function (m) {
+    m.__away && document.removeEventListener("click", m.__away, !0);
+    m.__key && document.removeEventListener("keydown", m.__key); m.remove();
+  });
 }
 /* V.915 : ประวัติการเปลี่ยนขั้นตอนย้อนหลัง (อ่านอย่างเดียว) */
 function closeTLH() { document.querySelectorAll("[data-am7tlh]").forEach(function (o) { o.__key && document.removeEventListener("keydown", o.__key); o.remove(); }); }
@@ -331,15 +413,26 @@ async function render(root, args) {
   var tm = 0; fo.addEventListener("input", function (e) { if (OFF(me) || !e.target.name || e.isComposing || e.target.tagName === "SELECT") return; clearTimeout(tm); tm = setTimeout(apply, e.target.type === "date" ? 0 : 350); });
   fo.addEventListener("change", function (e) { if (OFF(me) || !e.target.name) return; clearTimeout(tm); apply(); });
   root.addEventListener("change", function (e) { if (OFF(me)) return;
-    if (e.target.matches("[data-tl]")) { TLsave(e.target); return; }/* V.915 */
+    if (e.target.matches('[name="date_from"],[name="date_to"]')) DR919(S.root);/* V.919 */
     if (e.target.matches("[data-lim]")) { S.lim = Number(e.target.value) || 20; S.off = 0; load(); } });
+  document.addEventListener("click", function h919(e) {   /* V.919 : คลิกนอกแผงวันที่ = ปิดแผง */
+    if (OFF(me)) { document.removeEventListener("click", h919); return; }
+    if (!e.target.closest || !e.target.closest(".dr919")) DRtoggle(S.root, !1);
+  });
   root.addEventListener("keydown", function (e) { if (OFF(me)) return; var tr = e.target.closest && e.target.closest("tr[data-i]"); if (tr && e.target === tr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); detail(S.rows[Number(tr.dataset.i)]); } });
   root.addEventListener("click", function (e) {
     if (OFF(me)) return;
-    if (e.target.closest(".tl915-s")) return;/* V.915 : เลือกขั้นตอนไม่เปิดหน้าต่างรายละเอียด */
+    if (e.target.closest("[data-tl918m]")) return;/* V.918 : คลิกในเมนูขั้นตอน ไม่เปิดหน้าต่างรายละเอียด */
     var b = e.target.closest("button");
     if (!b) { var tr = e.target.closest("tr[data-i]"); if (tr && root.contains(tr) && !(window.getSelection && String(window.getSelection()).trim())) detail(S.rows[Number(tr.dataset.i)]); return; }
+    if (b.hasAttribute("data-tlm")) { TLmenu(b); return; }/* V.918 : เปิดเมนูเลือกขั้นตอน */
     if (b.hasAttribute("data-tlh")) { TLhist(b.getAttribute("data-tlh")); return; }/* V.915 */
+    if (b.hasAttribute("data-dr919")) { DRtoggle(S.root); return; }/* V.919 */
+    if (b.hasAttribute("data-dr919-k")) { DRtoggle(S.root, !1); return; }/* V.919 */
+    if (b.hasAttribute("data-dr919-c")) {   /* V.919 : ล้างเฉพาะช่วงวันที่ */
+      ["date_from", "date_to"].forEach(function (k) { fo.elements[k] && (fo.elements[k].value = ""); });
+      S.f = readF(); S.off = 0; DR919(S.root); DRtoggle(S.root, !1); load(); return;
+    }
     if (b.hasAttribute("data-tab913")) {   /* V.913 : สลับแท็บ = ล้างตัวกรองอื่น + โหลดข้อมูลทันที (ไม่เปลี่ยนสถานะจริงของ JOB) */
       var k913 = b.getAttribute("data-tab913") === "POSTED" ? "POSTED" : "DRAFT";
       if (k913 === String((S.f || {}).status || "")) return;

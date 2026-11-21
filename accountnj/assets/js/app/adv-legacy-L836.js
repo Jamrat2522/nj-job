@@ -206,7 +206,7 @@ function HP() {
     + `<label class="fl836"><span>ถึง</span><input class="inp" type="date" data-a836="to" value="${n(S.to)}"></label>`
     + `<button type="button" class="btn btn-o btn-sm" data-clr836>ล้างค้นหา</button><button type="button" class="btn btn-sm rf884" data-rf884 title="โหลดข้อมูลล่าสุดจากฐานข้อมูล (คงตัวกรอง / หน้า / แท็บ / ระบบ เดิม)">⟳ รีเฟรช</button>${UB("l836-up")}${SA() ? '<button type="button" class="btn btn-sm hd837" id="l836-hd" title="INVOICE ที่นำออกจากใบเสร็จ — ตรวจสอบการรับชำระก่อนคืนเข้ารอรับชำระ (SUPER_ADMIN)">รอตรวจสอบการรับชำระ</button>' : ""}`   /* V.837 */
     + `<button type="button" class="btn btn-sm xl734" data-xl836>⬇ EXPORT EXCEL</button>`
-    + `<button type="button" class="btn btn-sm rp836" id="l836-rp" disabled hidden>🧾 ADVANCE PDF</button>/* V.917 */`
+    + `<button type="button" class="btn btn-sm rp836" id="l836-rp" disabled hidden>🧾 ADVANCE PDF</button>`   /* V.917 : ชื่อปุ่มสั้นลง · V.921 : ย้าย Comment ออกจากสตริง HTML (เดิมหลุดมาแสดงบนหน้าจอ) */
     + `<button type="button" class="btn btn-sm cu836" id="l836-cu" title="ตรวจสอบ / แก้ไข CUSTOMER ของรายการที่เลือก (หรือของลูกค้าที่กรอง)">ตรวจสอบ / แก้ไข CUSTOMER</button>`
     + `<span class="sel836" id="l836-si"></span><button type="button" class="btn btn-sm btn-o" id="l836-clr" disabled>ล้างรายการที่เลือก</button></div>`
     + `<div class="sum836" id="l836-sum"></div><div class="card mt-2" id="l836-pgn"></div>`
