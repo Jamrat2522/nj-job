@@ -2044,7 +2044,7 @@
       var fac = tf.findBackendFactory('webgl');
       if (typeof fac !== 'function') throw new Error('no-factory');
       INF.cur = null;                          // งานบน Context ที่ตายแล้ว = ไม่มีวันจบ ปลดออกจากคิว
-      INF.coldCur = null; INF.okN = 0; INF.bgen = (INF.bgen || 0) + 1;   // [RUN-221 · R3] Backend ใหม่ = งานแรกเป็น Cold อีกครั้ง
+      INF.coldCur = null; INF.okN = 0; INF.okD = 0; INF.bgen = (INF.bgen || 0) + 1;   // [RUN-221 · R3] Backend ใหม่ = งานแรกเป็น Cold อีกครั้ง
       ['tinyFaceDetector', 'faceLandmark68Net', 'faceRecognitionNet'].forEach(function (n) {
         try { if (f.nets[n] && typeof f.nets[n].dispose === 'function') f.nets[n].dispose(); } catch (e0) {}
       });
@@ -2104,13 +2104,22 @@
     }
     var t0 = Date.now(), task, expired = false;
     /* [RUN-221 · R3] Cold = ยังไม่เคยมีงาน AI จบสำเร็จบน Backend นี้ · เพดาน Cold ใช้เฉพาะจอสแกนลงเวลา (Face Login/ลงทะเบียน เพดานเดิม) */
-    var cold = gated && !INF.okN;
+    /* [RUN-227 · local386] Cold แยกตาม "โครงข่ายที่ยังไม่เคยทำงานสำเร็จ" — ไม่ใช่เฉพาะงานแรกงานเดียว
+       งานชนิด 'd' (ตรวจหน้า + จุดหน้า + Descriptor) งานแรกต้องส่งน้ำหนักโมเดลยืนยันใบหน้า 6.44 MB ขึ้น GPU และคอมไพล์ Shader ของมัน
+       เดิม: งานแรกของ Backend คืองาน Guide (ตรวจตำแหน่ง) -> ได้เพดาน Cold · งาน Descriptor งานแรก "ตามหลัง" จึงถูกตัดที่เพดานปกติ
+             iPhone/คอม = 8 วิ (Android ได้ 20 วิจากเพดานปรับตามเครื่อง)
+       หลักฐานเครื่องจริง 20/11 (njhr_face_telemetry · local385): FACE_INFER_TIMEOUT 7 ครั้ง / 7 คน เป็น iPhone ทั้งหมด เพดาน 8000 ms
+             6 ใน 7 เป็นการสแกนครั้งแรกหลังเปิดหน้า · เสียเวลา 14–32 วิ แล้วต้องกดใหม่ · Android 0 ครั้ง
+       ของใหม่: งาน 'd' งานแรกที่ยังไม่เคยสำเร็จบน Backend นี้ ใช้เพดาน INF_COLD_MS เช่นเดียวกับงานแรกของ Backend
+             งานถัดไปทุกงานใช้เพดานเดิม (ไม่เพิ่มเวลารอของการสแกนปกติ) · เฉพาะจอสแกนลงเวลา (gated) เหมือนเดิม
+       ⚠ ไม่แตะ Model · Threshold · Liveness · Descriptor · จำนวนเฟรม */
+    var cold = gated && (!INF.okN || (kind === 'd' && !INF.okD));
     var limMs = cold ? Math.max(inferMs, INF_COLD_MS) : inferMs;
     var myGen = INF.bgen || 0;
     try { task = Promise.resolve(make()); } catch (e) { return Promise.reject(e); }
     INF.runs++;
     if (INF.cur) INF.overlap++;
-    var track = task.then(function () { if ((INF.bgen || 0) === myGen) INF.okN = (INF.okN || 0) + 1; }, function () {}).then(function () {
+    var track = task.then(function () { if ((INF.bgen || 0) === myGen) { INF.okN = (INF.okN || 0) + 1; if (kind === 'd') INF.okD = (INF.okD || 0) + 1; } }, function () {}).then(function () {
       if (expired) INF.late++;                 // งานจบหลังหมดเวลา = ผลถูกทิ้ง
       if (INF.cur === track) INF.cur = null;
       if (INF.coldCur === track) INF.coldCur = null;
@@ -3159,6 +3168,10 @@
     return 'col';
   }
   function attLayoutBusy() { return Date.now() < ATT_LOCK.busyUntil; }
+  /* [RUN-228 · local387] ขนาดกรอบสแกนลงเวลาบนมือถือ — ใช้ตัวตัดสิน "มือถือ" ตัวเดียวกับด่านตรวจตำแหน่ง (deviceInfo) */
+  var ATT_FRAME_MOBILE_W = 0.72;       // กว้าง 72% ของพื้นที่แสดงกล้อง (ช่วงที่กำหนด 70–75%)
+  var ATT_FRAME_MOBILE_HMAX = 0.88;    // สูงไม่เกิน 88% ของความสูงพื้นที่กล้อง
+  function attFrameMobile() { try { return deviceInfo().device === 'Mobile'; } catch (e) { return false; } }
 
   function attCamLock(force) {
     try {
@@ -3200,17 +3213,28 @@
       cam.style.flex = 'none';
       cam.style.height = h + 'px';
       var fw = Math.floor(Math.min(cw * 0.66, h * 0.80 * 0.75));
+      var fh = Math.round(fw * 4 / 3);
+      /* [RUN-228 · local387] มือถือ (iPhone / Android): กรอบ Responsive ตามพื้นที่กล้องจริง
+         เดิม: กว้าง = min(66% ของกล้อง, 60% ของความสูงกล้อง) -> มือถือที่มีแถบเบราว์เซอร์ (กล่องกล้องเตี้ย) ได้กรอบกว้างแค่ 43–49% ของกล้อง
+         ใหม่: กว้าง 72% ของพื้นที่กล้อง · สูงตามสัดส่วนใบหน้า 3:4 แต่ไม่เกิน 88% ของความสูงกล้อง (เหลือขอบบน/ล่างด้านละ >= 6%)
+               · กรอบไม่กว้างกว่าสูง (จอเตี้ยมาก = ลดความกว้างลง ไม่ล้น ไม่ถูกตัด) · กึ่งกลางพื้นที่กล้องเสมอ (CSS เดิม)
+         คอม/แท็บเล็ตที่ไม่ใช่มือถือ = สูตรเดิมทุกตัวเลข · ด่านตรวจตำแหน่ง (facePosInFrame) ยังเทียบกับกรอบที่เห็นจริงด้วยค่าคงที่เดิม */
+      if (attFrameMobile()) {
+        var fwT = Math.floor(cw * ATT_FRAME_MOBILE_W);
+        fh = Math.min(Math.round(fwT * 4 / 3), Math.floor(h * ATT_FRAME_MOBILE_HMAX));
+        fw = Math.min(fwT, fh);
+      }
       fr.style.width = fw + 'px';
-      fr.style.height = Math.round(fw * 4 / 3) + 'px';
+      fr.style.height = fh + 'px';
       fr.style.maxHeight = 'none';             // ค่าสำรองใน CSS (max-height:76%) ต้องไม่บีบกรอบที่ล็อกแล้ว
       root.setAttribute('data-cam-locked', '1');
       /* พักการเก็บเฟรมเฉพาะเมื่อ "พื้นที่กล้อง/กรอบเปลี่ยนจริง" ระหว่างสแกน
          ล็อกซ้ำแล้วได้ค่าเดิม (เช่น ล็อกยืนยันหลัง CSS โหลด) = ไม่พัก ไม่ขึ้นสีส้ม */
-      var moved = !same || ATT_LOCK.layout !== want || ATT_LOCK.h !== h || ATT_LOCK.fw !== fw ||
+      var moved = !same || ATT_LOCK.layout !== want || ATT_LOCK.h !== h || ATT_LOCK.fw !== fw || ATT_LOCK.fh !== fh ||
                   Math.abs((ATT_LOCK.cw || 0) - cw) > 0.5;
       var keep = ATT_LOCK.busyUntil > Date.now() ? ATT_LOCK.busyUntil : 0;
       ATT_LOCK = { root: root, w: W, vh: VH, dpr: dpr, land: land, layout: want, ok: true,
-                   h: h, fw: fw, cw: cw,
+                   h: h, fw: fw, fh: fh, cw: cw,
                    busyUntil: (same && moved && S.running) ? Math.max(keep, Date.now() + ATT_RELOCK_PAUSE_MS) : keep,
                    gen: (ATT_LOCK.gen || 0) + 1 };
       return true;
@@ -7464,7 +7488,7 @@
                att: { busy: !!S.busy, op: OP.id, lock: LOCK.mode },
                ext: (function () { var t = camExtTarget(); return t ? { mode: t.mode, label: t.label, url: t.url } : null; })(),   // [RUN-226] ทางออกจากเบราว์เซอร์ในแอป (อ่านอย่างเดียว)
                pos: { near: FACE_FRAME_NEAR, margin: FACE_FRAME_MARGIN },
-               ai: { okN: INF.okN || 0, coldN: INF.coldN || 0, cold: !INF.okN },
+               ai: { okN: INF.okN || 0, okD: INF.okD || 0, coldN: INF.coldN || 0, cold: !INF.okN },
                tel: { n: TEL.n, mode: TEL.mode, off: TEL.mode === 'OFF', last: TEL.last, ok: TEL.stat.ok, rejected: TEL.stat.rejected,
                       na: TEL.stat.na, net: TEL.stat.net, legacy: TEL.stat.legacy, retry: TEL.stat.retry, open: !!TEL.cur },
                gate: { pos: attFacePosGateOn(), att: attScanOn() },
