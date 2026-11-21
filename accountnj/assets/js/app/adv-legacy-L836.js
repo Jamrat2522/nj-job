@@ -6,7 +6,7 @@ import { m as RPC } from "./chunk-SGWIBJH6.js";
 import { a as TOAST } from "./chunk-OFOOXWUM.js";
 import { a as MODAL, b as MCLOSE } from "./chunk-LNP7HEMP.js";
 import { e as ESC } from "./chunk-NQOCXXA2.js";
-import { a as XLSX836 } from "./chunk-FHYZBT2Q.js";
+import { a as XLSX836, b as XJS925 } from "./chunk-FHYZBT2Q.js";   /* V.925 : + ExcelJS (EXPORT รายการย่อยชำระ) */
 import { a as APP } from "./chunk-GDT6F23K.js";
 import { a as PGN } from "./chunk-6REVCVGI.js";
 
@@ -1114,4 +1114,184 @@ async function RF884(host, b) {
 export function reset884() {
   Object.assign(S, { q: "", view: "all", customer_key: "", from: "", to: "", page: 1, iq: "", ifrom: "", ito: "", cust850: "", comp850: "", ipage: 1 });
   try { let h = CTX && CTX.host; if (h && h.isConnected) { h.querySelectorAll("[data-a836],[data-i836]").forEach((e) => { e.value = e.dataset.a836 === "view" ? "all" : ""; }); h.querySelector('[data-i836="cust850"]') && OP850(h).catch(() => {}); } } catch (e) {}
+}
+
+/* ═══ V.925 (RUN-925) · FINANCE → RECEIPT / ADVANCE : หน้าต่าง "รายการย่อยชำระ" (READ-ONLY)
+   1 แถว = 1 INVOICE ที่ออกใบเสร็จแล้ว · คอลัมน์ตามตาราง "รอรับชำระ" ของเมนู / ระบบนั้น + Receipt (ADV) + RECEIPT (RCP) ต่อจากเลข INVOICE
+   ข้อมูลทั้งหมดจาก njacc_sub925_list (อ่านอย่างเดียว · จับคู่ด้วยรหัสที่บันทึกไว้จริง · ค้นหา / กรอง / แบ่งหน้า / ยอดรวม ที่ Server ครบทุกหน้า)
+   เลขใบเสร็จ = ลิงก์เปิดรายการในใบเสร็จ (RPC รายการเดิมของแต่ละชนิด) · EXPORT EXCEL = ตามตัวกรอง หรือเฉพาะรายการที่ติ๊กเลือก
+   ไม่มีปุ่มแก้ไข / ออกใบเสร็จ / ย้อนรายการ — ไม่เรียก RPC ที่เขียนข้อมูล · ใช้ร่วมกันทั้ง FINANCE → RECEIPT และ FINANCE → ADVANCE (ระบบใหม่ / ระบบเก่า) ═══ */
+const K925 = { ADV: "njacc_radv811_items", RCP: "njacc_rcp811_items", XADV: "njacc_radv836_items", XLS: "njacc_rcp835_items" };
+const SY925 = { new: "ระบบใหม่ (ACCOUNTING)", xls: "ระบบเก่า (UPLOAD EXCEL)" };
+function CO925(menu, sys) {
+  const T = (l, k) => ({ l, k, t: "t" }), DD = (l, k) => ({ l, k, t: "d" }), NM = (l, k) => ({ l, k, t: "n" });
+  const A = { l: "Receipt (ADV)", k: "adv", t: "a" }, R = { l: "RECEIPT (RCP)", k: "rcp", t: "r" };
+  if (menu === "RECEIPT") return [{ l: "INVOICE NJ", k: "invoice_no", t: "i" }, A, R, DD("DATE", "invoice_date"), T("ลูกค้า", "customer_name"), T("บริษัท INVOICE", "company_invoice"),
+    T("Customer Job No.", "customer_job_no"), T("เลขใบขนสินค้า", "customs_declaration_no"), T("Invoice ต้นทาง (Source)", "source_invoice_no"), T("House B/L No.", "house_bl_no"), T("Master B/L No.", "master_bl_no"),
+    NM("Service charge", "service_amount"), NM("Advance", "advance_amount"), NM("VAT 7%", "vat_amount"), NM("Amount", "subtotal"), NM("WHT 3%", "wht_amount"), NM("Total Amount", "net_payable"),
+    T("ชื่อ USER", "user_name"), T("Billing Note no.", "billing_note_no"), T("Case", "case_no")];
+  if (sys === "xls") return [{ l: "INVOICE ADV ระบบเก่า", k: "invoice_no", t: "i" }, A, R, DD("Date invoice", "invoice_date"), T("ลูกค้า", "customer_name"), T("บริษัท INVOICE", "company_invoice"),
+    T("Customer Job No.", "customer_job_no"), T("Invoice No. *", "source_invoice_no"), NM("ยอด ADVANCE", "advance_amount"), NM("ยอดรวมสำหรับตรวจสอบ", "total_check"), T("Billing Note no.", "billing_note_no"), T("CASE", "case_no")];
+  return [{ l: "INVOICE ADV", k: "invoice_no", t: "i" }, A, R, DD("Date invoice", "invoice_date"), T("Job No.", "job_no"), T("BILLING NOTE NO.", "billing_note_no"), T("ลูกค้า", "customer_name"),
+    T("เลขใบขนสินค้า", "customs_declaration_no"), T("Invoice ต้นทาง (Source)", "source_invoice_no"), T("House B/L No.", "house_bl_no"), T("Master B/L No.", "master_bl_no"), T("Customer Job No.", "customer_job_no"),
+    DD("Date", "job_date"), NM("Advance", "advance_amount"), NM("Total", "total_amount")];
+}
+function ST925() {
+  if (document.getElementById("st925")) return;
+  let s = document.createElement("style"); s.id = "st925";
+  s.textContent = [
+    ".s925 .fbar{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}",
+    ".s925 .fl925{display:flex;flex-direction:column;gap:2px;font-size:12px;font-weight:700;color:#334155}",
+    ".s925 .fl925 .inp,.s925 .fl925 .sel{min-width:118px;height:36px;font-weight:400}.s925 .fl925-q .inp{min-width:250px}.s925 .fl925-s .sel{min-width:150px;max-width:210px}",
+    ".s925 .fbar .btn{height:36px;white-space:nowrap}.s925 .act925{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}",
+    ".sum925{display:flex;flex-wrap:wrap;gap:6px 24px;align-items:center;margin:10px 0 0;padding:9px 14px;background:#f1f5f9;border-radius:10px;font-size:13px;color:#334155}",
+    ".sum925 b{color:#0f172a;font-size:15px;font-variant-numeric:tabular-nums}.sum925 .sl925{margin-left:auto;display:flex;gap:8px;align-items:center;color:#1D4ED8;font-weight:700}",
+    ".t925 th,.t925 td{white-space:nowrap}.t925 td.el925{max-width:190px;overflow:hidden;text-overflow:ellipsis}",
+    ".t925 th.ha925{background:#EDE9FE!important;color:#5B21B6!important}.t925 th.hr925{background:#DBEAFE!important;color:#1E40AF!important}",
+    ".t925 td.ca925{background:#FAF5FF}.t925 td.cr925{background:#EFF6FF}.t925 td.r{font-variant-numeric:tabular-nums}",
+    ".t925 .iv925{font-weight:700;color:#0f2a4d}",
+    ".lk925{display:inline;background:none;border:0;padding:0;margin:0;font:inherit;font-weight:700;text-decoration:underline;cursor:pointer}.lk925.a{color:#7C3AED}.lk925.r{color:#1D4ED8}.lk925:hover{opacity:.75}",
+    ".s925 .fbar .act925 .btn.btn-o[data-rs925]{background:#fff!important;color:#334155!important;border:1px solid #cbd5e1!important}",
+    ".n925{display:inline-block;margin-left:6px;padding:0 7px;border-radius:999px;background:rgba(15,42,77,.12);font-size:11.5px;font-weight:700;line-height:18px}.n925:empty{display:none}",
+    ".d925 .cb925{display:grid;grid-template-columns:max-content 1fr max-content 1fr;gap:4px 14px;margin:0 0 10px;font-size:13px}.d925 .cb925 span{color:#64748b}.d925 td,.d925 th{white-space:nowrap}"
+  ].join("");
+  document.head.appendChild(s);
+}
+function PF925(st, ex) {
+  return Object.assign({ menu: st.menu, sys: st.sys, company_group: "NJ", q: st.q || null, from: st.from || null, to: st.to || null,
+    customers: st.customer ? [st.customer] : [], companies: st.company ? [st.company] : [], invoice_no: st.invoice_no || null, cjob: st.cjob || null }, ex || {});
+}
+function RL925(a, cls) {   /* เลขใบเสร็จ (ลิงก์) — หลายใบ = แสดงครบในช่องเดียว · ไม่มี = - */
+  return Array.isArray(a) && a.length ? a.map((z) => `<button type="button" class="lk925 ${cls}" data-rc925="${n(z.id)}" data-k925="${n(z.k)}" title="เปิดรายการในใบเสร็จ ${n(z.no)}">${n(z.no)}</button>`).join(", ") : "-";
+}
+function RW925(st, r, i) {
+  let no = (st.page - 1) * st.size + i + 1;
+  return `<tr data-id925="${n(r.id)}"><td class="center"><input type="checkbox" class="cb925" data-cb925="${n(r.id)}"${st.sel.has(String(r.id)) ? " checked" : ""} aria-label="เลือก ${n(r.invoice_no)}"></td><td class="center">${no}</td>`
+    + st.cols.map((c) => {
+      let v = r[c.k];
+      if (c.t === "i") return `<td class="iv925">${n(v || "-")}</td>`;
+      if (c.t === "a") return `<td class="ca925">${RL925(r.adv, "a")}</td>`;
+      if (c.t === "r") return `<td class="cr925">${RL925(r.rcp, "r")}</td>`;
+      if (c.t === "d") return `<td>${D(v) || "-"}</td>`;
+      if (c.t === "n") return `<td class="r">${v == null || v === "" ? "-" : M(v)}</td>`;
+      let x = TX(v); return `<td class="el925" title="${n(x)}">${n(x || "-")}</td>`;
+    }).join("") + "</tr>";
+}
+function SM925(host) {
+  let st = host.__s925, r = st.last || {}, sm = r.sum || {}, el = host.querySelector("[data-sum925]"); if (!el) return;
+  let amt = st.menu === "RECEIPT" ? sm.total : sm.advance, k = st.sel.size;
+  el.innerHTML = `<span>รายการย่อยชำระ: <b>${N(r.total || 0)}</b> รายการ</span><span>ใบเสร็จ RCP <b>${N(r.rcp_n || 0)}</b> ใบ</span><span>ใบเสร็จ ADV <b>${N(r.adv_n || 0)}</b> ใบ</span><span>ยอดรวม <b>${M(amt || 0)}</b></span>`
+    + (k ? `<span class="sl925">เลือกแล้ว ${N(k)} รายการ<button type="button" class="btn btn-sm btn-o" data-clr925>ล้างรายการที่เลือก</button></span>` : "");
+  let all = host.querySelector("[data-all925]"), cbs = [...host.querySelectorAll(".cb925")];
+  if (all) { let on = cbs.filter((x) => x.checked).length; all.checked = cbs.length > 0 && on === cbs.length; all.indeterminate = on > 0 && on < cbs.length; }
+}
+async function LD925(host, keep) {
+  let st = host.__s925; if (!st) return; let seq = ++st.seq, tb = host.querySelector("[data-tb925]"), nc = st.cols.length + 2;
+  keep || (tb.innerHTML = `<tr><td colspan="${nc}" class="load-row"><div class="spin"></div></td></tr>`);
+  try {
+    let r = await RPC("njacc_sub925_list", { p: PF925(st, { page: st.page, size: st.size }) });
+    if (seq !== st.seq || !host.isConnected) return;
+    st.last = r; st.rows = r.rows || [];
+    tb.innerHTML = st.rows.length ? st.rows.map((x, i) => RW925(st, x, i)).join("") : `<tr><td colspan="${nc}" class="empty">ไม่พบรายการ INVOICE ที่ออกใบเสร็จแล้วตามเงื่อนไข</td></tr>`;
+    let o = r.opts || {};
+    [["customer", o.customers, "ลูกค้าทั้งหมด"], ["company", o.companies, "บริษัททั้งหมด"]].forEach(([k, a, all]) => {
+      let s = host.querySelector(`[data-s925="${k}"]`); if (!s) return;
+      let L = Array.isArray(a) ? a.slice() : []; st[k] && !L.includes(st[k]) && L.unshift(st[k]);
+      s.innerHTML = `<option value="">${all}</option>` + L.map((v) => `<option value="${n(v)}"${v === st[k] ? " selected" : ""}>${n(v)}</option>`).join("");
+    });
+    PGN(host.querySelector("[data-pg925]"), { page: st.page, size: st.size, total: r.total || 0 }, ({ page: a, size: z }) => { st.page = a; st.size = z; LD925(host); }, { lp: !0 });
+    SM925(host);
+    try { st.onCount && st.onCount(Number(r.total || 0)); } catch (e) {}
+  } catch (e) {
+    if (seq !== st.seq || !host.isConnected) return;
+    tb.innerHTML = `<tr><td colspan="${nc}" class="empty">โหลดรายการย่อยชำระไม่สำเร็จ — ${n(RE836(e))}</td></tr>`;
+  }
+}
+async function DT925(kind, id) {   /* รายการในใบเสร็จ (อ่านอย่างเดียว) — RPC รายการเดิมของใบเสร็จชนิดนั้น */
+  let fn = K925[kind]; if (!fn || !id) return;
+  try {
+    let d = await RPC(fn, { p_id: id }), it = (d.items || []).filter((z) => z.active !== !1), adv = kind === "ADV" || kind === "XADV";
+    let body = `<div class="u836 d925"><div class="cb925"><span>เลขที่ใบเสร็จ</span><b>${n(d.receipt_no)}</b><span>วันที่ออก</span><b>${D(d.receipt_date) || "-"}</b>`
+      + `<span>Customer</span><b>${n(d.customer_name || "-")}</b><span>ประเภท</span><b>${adv ? "Receipt (ADV)" : "RECEIPT (RCP)"} · ${kind === "XADV" || kind === "XLS" ? SY925.xls : SY925.new}</b></div>`
+      + `<div class="tbl-wrap"><table><thead><tr><th>ลำดับ</th><th>INVOICE</th><th>Date invoice</th><th>ลูกค้า</th><th class="r">${adv ? "Advance" : "Payment Received"}</th></tr></thead><tbody>`
+      + it.map((z, j) => `<tr><td>${j + 1}</td><td>${n(z.invoice_no || "-")}</td><td>${D(z.invoice_date) || "-"}</td><td>${n(z.customer_name || "-")}</td><td class="r">${M(z.amount)}</td></tr>`).join("")
+      + `</tbody><tfoot><tr><td colspan="4" class="r"><b>ยอดรวม (${N(it.length)} INVOICE)</b></td><td class="r"><b>${M(d.total)}</b></td></tr></tfoot></table></div></div>`;
+    let f = document.createElement("div"); f.innerHTML = '<button class="btn btn-o" data-close>ปิด</button>';
+    MODAL({ title: (adv ? "Receipt (ADV) " : "RECEIPT (RCP) ") + (d.receipt_no || "") + " — รายการ INVOICE ในใบเสร็จ", body, footer: f, wide: !0 });
+  } catch (e) { TOAST("เปิดรายการในใบเสร็จไม่สำเร็จ — " + RE836(e), "err"); }
+}
+async function XP925(host, b) {   /* EXPORT EXCEL : ติ๊กเลือก = เฉพาะรายการนั้น · ไม่ติ๊ก = ตามผลการค้นหาทั้งหมด (ครบทุกหน้า) */
+  let st = host.__s925; if (!st || b.disabled) return; b.disabled = !0; let lb = b.textContent; b.textContent = "กำลังส่งออก…";
+  try {
+    let ids = [...st.sel.keys()];
+    let r = await RPC("njacc_sub925_list", { p: PF925(st, ids.length ? { ids, all: !0, q: null, from: null, to: null, customers: [], companies: [], invoice_no: null, cjob: null } : { all: !0 }) });
+    let rows = r.rows || []; if (!rows.length) { TOAST("ไม่มีรายการให้ส่งออก", "err"); return; }
+    let XJ = await XJS925(), wb = new XJ.Workbook(), ws = wb.addWorksheet("รายการย่อยชำระ", { views: [{ state: "frozen", xSplit: 2, ySplit: 4 }] });
+    let C = st.cols, NC = C.length + 1, thin = { style: "thin", color: { argb: "FFCBD5E1" } }, bd = { top: thin, left: thin, bottom: thin, right: thin };
+    let ttl = "FINANCE — " + st.menu + " · รายการย่อยชำระ · " + SY925[st.sys];
+    let flt = ids.length ? "เฉพาะรายการที่เลือก " + ids.length + " รายการ"
+      : ([st.q && "ค้นหา: " + st.q, st.from && "ตั้งแต่ " + D(st.from), st.to && "ถึง " + D(st.to), st.customer && "ลูกค้า: " + st.customer, st.company && "บริษัท: " + st.company, st.invoice_no && "INVOICE NO.: " + st.invoice_no, st.cjob && "Customer Job No.: " + st.cjob].filter(Boolean).join(" · ") || "ทั้งหมด (ไม่มีตัวกรอง)");
+    ws.addRow([ttl]); ws.addRow(["ตัวกรอง : " + flt]); ws.addRow(["จำนวน " + rows.length + " INVOICE · ใบเสร็จ RCP " + (r.rcp_n || 0) + " ใบ · ใบเสร็จ ADV " + (r.adv_n || 0) + " ใบ · ส่งออกเมื่อ " + new Date().toLocaleString("th-TH")]);
+    [1, 2, 3].forEach((i) => ws.mergeCells(i, 1, i, NC)); ws.getRow(1).font = { bold: !0, size: 14, color: { argb: "FF0F2A4D" } }; ws.getRow(2).font = { color: { argb: "FF475569" } }; ws.getRow(3).font = { color: { argb: "FF475569" } };
+    let hr = ws.addRow(["#"].concat(C.map((c) => c.l))); hr.height = 24;
+    hr.eachCell((cell, ci) => { let c = C[ci - 2], fill = c && c.t === "a" ? "FFEDE9FE" : c && c.t === "r" ? "FFDBEAFE" : "FF0F2A4D", fg = c && c.t === "a" ? "FF5B21B6" : c && c.t === "r" ? "FF1E40AF" : "FFFFFFFF";
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: fill } }; cell.font = { bold: !0, color: { argb: fg } }; cell.alignment = { vertical: "middle", horizontal: "center", wrapText: !0 }; cell.border = bd; });
+    let tot = {}, jn = (a) => (Array.isArray(a) && a.length ? a.map((z) => z.no).join(", ") : "-");
+    rows.forEach((x, i) => {
+      let row = ws.addRow([i + 1].concat(C.map((c) => c.t === "a" ? jn(x.adv) : c.t === "r" ? jn(x.rcp) : c.t === "d" ? (D(x[c.k]) || "") : c.t === "n" ? (x[c.k] == null || x[c.k] === "" ? null : Number(x[c.k])) : TX(x[c.k]))));
+      C.forEach((c) => { c.t === "n" && x[c.k] != null && x[c.k] !== "" && (tot[c.k] = Math.round(((tot[c.k] || 0) + Number(x[c.k])) * 100) / 100); });
+      row.eachCell({ includeEmpty: !0 }, (cell, ci) => { let c = C[ci - 2]; cell.border = bd; cell.alignment = { vertical: "middle", horizontal: c && c.t === "n" ? "right" : ci === 1 || (c && c.t === "d") ? "center" : "left" };
+        c && c.t === "n" && (cell.numFmt = "#,##0.00"); c && c.t === "a" && (cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFAF5FF" } }); c && c.t === "r" && (cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFF6FF" } }); });
+    });
+    let fr = ws.addRow(["รวม " + rows.length + " INVOICE"].concat(C.map((c) => (c.t === "n" ? (tot[c.k] == null ? null : tot[c.k]) : ""))));
+    fr.eachCell({ includeEmpty: !0 }, (cell, ci) => { let c = C[ci - 2]; cell.border = bd; cell.font = { bold: !0 }; cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F5F9" } };
+      c && c.t === "n" && (cell.numFmt = "#,##0.00", cell.alignment = { horizontal: "right" }); });
+    ws.getColumn(1).width = 7; C.forEach((c, i) => { ws.getColumn(i + 2).width = c.t === "n" ? 16 : c.t === "d" ? 13 : c.t === "a" || c.t === "r" || c.t === "i" ? 22 : 24; });
+    let buf = await wb.xlsx.writeBuffer(), a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    a.download = "FINANCE_" + st.menu + "_SUBPAY_" + (st.sys === "xls" ? "UPLOAD_EXCEL" : "ACCOUNTING") + "_" + TD() + ".xlsx";
+    document.body.appendChild(a); a.click(); setTimeout(() => { try { URL.revokeObjectURL(a.href); a.remove(); } catch (e) {} }, 2000);
+    TOAST("ส่งออก Excel " + rows.length.toLocaleString("th-TH") + " INVOICE แล้ว", "ok");
+  } catch (e) { TOAST("ส่งออก Excel ไม่สำเร็จ — " + RE836(e), "err"); }
+  finally { b.disabled = !1; b.textContent = lb; }
+}
+export function sub925(host, opt) {
+  if (!host) return; ST925(); try { ST836(); } catch (e) {}
+  let o = opt || {}, menu = o.menu === "ADVANCE" ? "ADVANCE" : "RECEIPT", sys = o.sys === "xls" ? "xls" : "new", cur = host.__s925;
+  if (cur && !o.reset && cur.menu === menu && cur.sys === sys && host.querySelector("[data-tb925]")) { cur.onCount = o.onCount || cur.onCount; return; }   /* แผงเดิมยังอยู่ (เช่น Realtime โหลดซ้ำ) = คงตัวกรอง / หน้า / รายการที่เลือก */
+  let st = host.__s925 = { menu, sys, cols: CO925(menu, sys), q: "", from: "", to: "", customer: "", company: "", invoice_no: "", cjob: "", page: 1, size: 20, sel: new Map(), seq: (cur && cur.seq) || 0, rows: [], last: null, onCount: o.onCount || null };
+  host.classList.remove("hd836", "hd811");
+  host.innerHTML = `<div class="ch-panel p836-in s925" data-menu925="${menu}" data-sys925="${sys}"><div class="fbar">`
+    + `<label class="fl925 fl925-q"><span>ค้นหาทั่วไป</span><input class="inp" data-s925="q" placeholder="เลขใบเสร็จ / INVOICE / JOB / ลูกค้า / บริษัท / Customer Job No. / วันที่" autocomplete="off"></label>`
+    + `<label class="fl925"><span>วันที่เริ่มต้น</span><input class="inp" type="date" data-s925="from"></label>`
+    + `<label class="fl925"><span>วันที่สิ้นสุด</span><input class="inp" type="date" data-s925="to"></label>`
+    + `<label class="fl925 fl925-s"><span>ค้นหาลูกค้า</span><select class="sel" data-s925="customer"><option value="">ลูกค้าทั้งหมด</option></select></label>`
+    + `<label class="fl925 fl925-s"><span>ค้นหาบริษัท</span><select class="sel" data-s925="company"><option value="">บริษัททั้งหมด</option></select></label>`
+    + `<label class="fl925"><span>INVOICE NO.</span><input class="inp" data-s925="invoice_no" placeholder="INVOICE NO." autocomplete="off"></label>`
+    + `<label class="fl925"><span>Customer Job No.</span><input class="inp" data-s925="cjob" placeholder="Customer Job No." autocomplete="off"></label>`
+    + `<div class="act925"><button type="button" class="btn btn-p btn-sm" data-go925>ค้นหา</button><button type="button" class="btn btn-o btn-sm" data-rs925>ล้างตัวกรอง</button>`
+    + `<button type="button" class="btn btn-sm rf881" data-rf925 title="โหลดข้อมูลล่าสุดจากฐานข้อมูล (คงตัวกรอง / หน้า เดิม)">⟳ รีเฟรช</button><button type="button" class="btn btn-sm xl734" data-xl925>⬇ EXPORT EXCEL</button></div></div>`
+    + `<div class="sum925" data-sum925></div><div class="card mt-2" data-pg925></div>`
+    + `<div class="tbl-wrap lp-scroll"><table class="tbl t836 t925"><thead><tr><th class="center"><input type="checkbox" data-all925 aria-label="เลือกทั้งหน้า"></th><th class="center">#</th>`
+    + st.cols.map((c) => `<th class="${c.t === "a" ? "ha925" : c.t === "r" ? "hr925" : c.t === "n" ? "r" : ""}">${n(c.l)}</th>`).join("")
+    + `</tr></thead><tbody data-tb925></tbody></table></div></div>`;
+  let rd = () => { host.querySelectorAll("[data-s925]").forEach((e) => { st[e.dataset.s925] = String(e.value || "").trim(); }); }, go = () => { rd(); st.page = 1; LD925(host); };
+  host.onclick = (ev) => {
+    let b = ev.target.closest && ev.target.closest("[data-go925],[data-rs925],[data-rf925],[data-xl925],[data-clr925],[data-rc925]"); if (!b || !host.contains(b)) return;
+    ev.preventDefault();
+    if (b.hasAttribute("data-go925")) go();
+    else if (b.hasAttribute("data-rs925")) { host.querySelectorAll("[data-s925]").forEach((e) => { e.value = ""; }); st.sel.clear(); go(); }
+    else if (b.hasAttribute("data-rf925")) LD925(host);
+    else if (b.hasAttribute("data-xl925")) XP925(host, b);
+    else if (b.hasAttribute("data-clr925")) { st.sel.clear(); host.querySelectorAll(".cb925").forEach((x) => { x.checked = !1; }); SM925(host); }
+    else if (b.dataset.rc925) DT925(b.dataset.k925, b.dataset.rc925);
+  };
+  host.onchange = (ev) => {
+    let e = ev.target; if (!e || !host.contains(e)) return;
+    if (e.hasAttribute && e.hasAttribute("data-all925")) { host.querySelectorAll(".cb925").forEach((x) => { x.checked = e.checked; let r = st.rows.find((z) => String(z.id) === x.dataset.cb925); e.checked ? r && st.sel.set(String(r.id), r) : st.sel.delete(x.dataset.cb925); }); SM925(host); return; }
+    if (e.classList && e.classList.contains("cb925")) { let r = st.rows.find((z) => String(z.id) === e.dataset.cb925); e.checked ? r && st.sel.set(String(r.id), r) : st.sel.delete(e.dataset.cb925); SM925(host); return; }
+    if (e.dataset && e.dataset.s925 && (e.tagName === "SELECT" || e.type === "date")) go();
+  };
+  host.onkeydown = (ev) => { ev.key === "Enter" && ev.target && ev.target.dataset && ev.target.dataset.s925 && (ev.preventDefault(), go()); };
+  return LD925(host);
 }

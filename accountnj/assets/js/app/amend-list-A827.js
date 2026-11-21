@@ -63,7 +63,9 @@ function css() {
   if (document.getElementById("am827-css")) return;
   var s = document.createElement("style"); s.id = "am827-css";
   s.textContent = [
-    ".am7{padding:4px 18px 20px;color:#0f172a;font-size:13px;max-width:100%;box-sizing:border-box}",/* V.919 : ลดพื้นที่ว่างบน-ล่าง */
+    ".am7{padding:4px 0 20px;color:#0f172a;font-size:13px;max-width:100%;box-sizing:border-box}",
+    /* \u2550\u2550\u2550 V.923 : Full Width \u0e40\u0e09\u0e1e\u0e32\u0e30\u0e2b\u0e19\u0e49\u0e32 Amend \u2014 \u0e0a\u0e48\u0e2d\u0e07\u0e27\u0e48\u0e32\u0e07\u0e0b\u0e49\u0e32\u0e22/\u0e02\u0e27\u0e32 10px \u2550\u2550\u2550 */
+    "#app-content:has(>.am7){padding-left:10px!important;padding-right:10px!important}",/* V.919 : ลดพื้นที่ว่างบน-ล่าง */
     /* ═══ V.919 : แถบค้นหาแถวเดียว ═══ */
     ".am7-fc{padding:8px 10px!important;margin:0 0 8px!important}",
     ".am7-f{display:flex!important;flex-wrap:nowrap!important;align-items:flex-end!important;gap:8px!important;width:100%;overflow:visible}",
@@ -128,6 +130,7 @@ function css() {
     ".am7-sm{display:flex;align-items:center;gap:10px;margin:0 0 8px;flex-wrap:wrap;font-size:13.5px}.am7-sm b{font-size:16px;color:#1e3a8a}.am7-sm small{color:#64748b}",
     ".am7-tw{border:1px solid #D9E2EC;border-radius:12px;overflow:auto;background:#fff;max-width:100%}",
     ".am7-t{width:100%;min-width:1500px;border-collapse:collapse;font-size:13px}",
+    ".am7-t.h927-d tr>:nth-child(3),.am7-t.h927-d tr>:nth-child(5),.am7-t.h927-d tr>:nth-child(8),.am7-t.h927-p tr>:nth-child(3),.am7-t.h927-p tr>:nth-child(8){display:none}.am7-t.h927-d{min-width:1150px}.am7-t.h927-p{min-width:1290px}",   /* V.927 */
     ".am7-t th,.am7-t td{border:1px solid #D9E2EC;padding:6px 8px;vertical-align:middle}.am7-t tr>:first-child{border-left:0}.am7-t tr>:last-child{border-right:0}.am7-t thead th{border-top:0}.am7-t tbody tr:last-child td{border-bottom:0}",
     ".am7-t thead th{background:#1e3a8a;color:#fff;font-weight:700;text-align:center;white-space:nowrap;border-color:#2c4a9a}",
     ".am7-t td.c{text-align:center}.am7-t td.nw{white-space:nowrap}.am7-t td.el{min-width:110px;max-width:200px;overflow-wrap:anywhere}.am7-t td.e1{max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.am7-no{color:#94a3b8;font-style:italic;white-space:nowrap}",
@@ -177,6 +180,8 @@ function shell() {
     '<div data-body></div></div>';
 }
 var H = ["#", "วันที่เปิดงาน", "JOB No.", "JOB NJ", "INVOICE NJ"/* V.911 */, "บริษัท", "ลูกค้า", "ประเภทงาน", "Customer Job No.", "Master B/L", "House B/L", "ผู้เปิดงาน", "สถานะ", "TIME LINE"/* V.915 */, "จัดการ"];
+/* V.927 : คอลัมน์ที่ซ่อนตามแท็บ — รอ POST (DRAFT) : JOB No. / INVOICE NJ / ประเภทงาน · POST แล้ว (POSTED) : JOB No. / ประเภทงาน · ข้อมูล / RPC / ค้นหา เดิมทุกอย่าง */
+function HD927() { var st = String(((S || {}).f || {}).status || ""); return st === "DRAFT" ? [2, 4, 7] : st === "POSTED" ? [2, 7] : []; }
 function noTd(v) { return v ? '<td class="nw"><b>' + esc(v) + "</b></td>" : '<td><span class="am7-no">' + NONO + "</span></td>"; }
 function canDoc() { return !!(S && S.canDoc) && MI705("document/service"); }
 function rowHTML(x, i) {
@@ -194,7 +199,7 @@ function bodyHTML() {
   for (k = 1; k <= n; k++) if (k === 1 || k === n || Math.abs(k - c) <= 2) pg.push(k); else if (pg[pg.length - 1] !== "…") pg.push("…");
   return (S.err ? '<div class="am7-err">' + esc(S.err) + "</div>" : "") +
     '<div class="am7-sm">JOB Amendment ที่ยังไม่ CLOSE ทั้งหมด <b data-tot>' + (S.total || 0) + "</b> JOB" + (S.at ? "<small>· อัปเดต " + esc(dtm(S.at)) + "</small>" : "") + "</div>" +
-    '<div class="am7-tw"><table class="am7-t"><thead><tr>' + H.map(function (h, j) { return "<th" + (W[j] ? ' style="width:' + W[j] + 'px"' : "") + ">" + h + "</th>"; }).join("") + "</tr></thead><tbody>" +
+    '<div class="am7-tw"><table class="am7-t' + (HD927().length === 3 ? " h927-d" : HD927().length === 2 ? " h927-p" : "") + '"><thead><tr>' + H.map(function (h, j) { return "<th" + (W[j] ? ' style="width:' + W[j] + 'px"' : "") + ">" + h + "</th>"; }).join("") + "</tr></thead><tbody>" +
     (S.rows.map(rowHTML).join("") || '<tr><td colspan="15" class="am7-em">'/* V.915 */ + (S.loading ? "กำลังโหลด…" : "ไม่มีรายการ") + "</td></tr>") + "</tbody></table></div>" +
     '<div class="am7-pg">แสดง <select data-lim>' + [10, 20, 50, 100].map(function (v) { return '<option value="' + v + '"' + (S.lim === v ? " selected" : "") + ">" + v + "</option>"; }).join("") + "</select> รายการต่อหน้า" +
     "<span>แสดง " + from + " - " + to + " จาก " + (S.total || 0) + ' รายการ</span><span class="am7-pn"><button type="button" data-pg="1"' + (c <= 1 ? " disabled" : "") + ' aria-label="หน้าแรก">«</button><button type="button" data-pg="' + (c - 1) + '"' + (c <= 1 ? " disabled" : "") + ' aria-label="ก่อนหน้า">‹</button>' +
@@ -384,14 +389,15 @@ async function exportXls(btn) {
     var seen = {}; all = all.filter(function (x) { if (seen[x.id]) return !1; seen[x.id] = 1; return !0; });   /* 1 JOB = 1 แถว (JOB ID) */
     await LX(XURL); var EX = window.ExcelJS; if (!EX) throw new Error("โหลดไลบรารี Excel ไม่สำเร็จ");
     var wb = new EX.Workbook(), ws = wb.addWorksheet("AMEND", { views: [{ state: "frozen", ySplit: 1 }] }), HX = H.slice(0, 14).concat(["อัปเดต TIME LINE", "ผู้แก้ไข TIME LINE"]);/* V.915 */
-    ws.columns = [7, 14, 18, 18, 22/* V.911 */, 38, 38, 14, 22, 24, 28, 24, 14, 28, 20, 20/* V.915 */].map(function (w) { return { width: w }; });
+    var hd927 = HD927(), KP = HX.map(function (_, j) { return j; }).filter(function (j) { return hd927.indexOf(j) < 0; });   /* V.927 : คอลัมน์ที่ส่งออก = คอลัมน์ที่แสดง */
+    ws.columns = [7, 14, 18, 18, 22/* V.911 */, 38, 38, 14, 22, 24, 28, 24, 14, 28, 20, 20/* V.915 */].filter(function (_, j) { return KP.indexOf(j) >= 0; }).map(function (w) { return { width: w }; });
     var TH = { style: "thin", color: { argb: "FF94A3B8" } }, BD = { top: TH, left: TH, bottom: TH, right: TH };
-    var put = function (rn, vals, hd) { var row = ws.getRow(rn); for (var c = 0; c < HX.length; c++) { var cell = row.getCell(c + 1), v = vals[c]; cell.value = v == null || v === "" ? null : v; cell.border = BD;   /* ช่องว่าง (เช่น ยังไม่มีเลขงาน) = เซลล์ว่างจริง */
+    var put = function (rn, vals, hd) { var row = ws.getRow(rn); for (var k9 = 0; k9 < KP.length; k9++) { var c = KP[k9], cell = row.getCell(k9 + 1), v = vals[c]; cell.value = v == null || v === "" ? null : v; cell.border = BD;   /* ช่องว่าง (เช่น ยังไม่มีเลขงาน) = เซลล์ว่างจริง */
         cell.alignment = { vertical: "middle", wrapText: !0, horizontal: hd || c === 0 || c === 1 || c === 12 || c === 14/* V.915 */ ? "center" : "left" };
         if (hd) { cell.font = { bold: !0, color: { argb: "FFFFFFFF" } }; cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A8A" } }; } } row.commit && row.commit(); };
     put(1, HX, !0);
     all.forEach(function (x, i) { put(i + 2, [i + 1, dts(x.date), x.job_no || "", x.job_nj || "", x.inv_nj || ""/* V.911 */, x.company || "", x.customer || "", x.job_category || "", x.customer_job_no || "", x.master_bl_no || "", x.house_bl_no || "", x.created_by_name || "", stT(x), TLo(x.tl_step).s/* V.915 */, x.tl_at ? dtm(x.tl_at) : "", x.tl_by || ""]); });
-    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: Math.max(1, all.length + 1), column: HX.length } };
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: Math.max(1, all.length + 1), column: KP.length } };
     var d = new Date(), fn = "AMEND_REPORT_" + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + ".xlsx";
     var buf = await wb.xlsx.writeBuffer(), url = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })), a = document.createElement("a");
     a.href = url; a.download = fn; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
