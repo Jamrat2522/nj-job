@@ -110,9 +110,10 @@ const EX = {
 };
 let _exDraftSeq = 0;
 
+var _exMoneyFmt366=null;/* local366: สร้างตัวจัดรูปแบบครั้งเดียว · ผลเหมือนเดิม */
 function _exMoney(n){
   const v = Number(n||0);
-  return v.toLocaleString('th-TH',{minimumFractionDigits:2, maximumFractionDigits:2});
+  try{ if(!_exMoneyFmt366) _exMoneyFmt366 = new Intl.NumberFormat('th-TH',{minimumFractionDigits:2, maximumFractionDigits:2}); return _exMoneyFmt366.format(v); }catch(_){ return v.toLocaleString('th-TH',{minimumFractionDigits:2, maximumFractionDigits:2}); }
 }
 function _exNum(v){
   const n = parseFloat(String(v==null?'':v).replace(/,/g,'').trim());
