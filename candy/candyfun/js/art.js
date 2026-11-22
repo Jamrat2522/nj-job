@@ -99,11 +99,13 @@
     if (!SPR.ok) {
       if (THEME === 'animals' && x.t === 'c' && !x.sp && x.color >= 0) return '<span class="animal-fallback">' + ANIMAL_EMOJI[x.color] + '</span>';
       if (x.t === 'box') return svg('<use href="#cf-box' + Math.max(1, Math.min(3, x.hp)) + '"/>');
+      if (x.sp === 'animal-orb' && THEME === 'animals') return '<span class="animal-orb-tile"><span class="animal-fallback">' + ANIMAL_EMOJI[x.color] + '</span><i class="orb-aura"></i></span>';
       if (x.sp === 'rainbow' || x.color < 0) return svg('<use href="#cf-rainbow"/>');
       if (x.sp) return svg('<use href="#cf-b' + x.color + '"/><use href="#cf-sp-' + x.sp + '"/>');
       return svg('<use href="#cf-c' + x.color + '"/>');
     }
     if (x.t === 'box') return sp('sp', 2 + Math.max(1, Math.min(3, x.hp)));
+    if (x.sp === 'animal-orb' && THEME === 'animals') return '<span class="animal-orb-tile">' + sp('t', x.color) + '<i class="orb-aura"></i></span>';
     if (x.sp === 'rainbow' || x.color < 0) return sp('sp', 0);
     if (x.sp === 'bomb') return sp('t', x.color) + sp('sp', 1, 'ov bm');
     if (x.sp) return sp('t', x.color) + sp('sp', 2, 'ov rk' + (x.sp === 'v' ? ' rot' : ''));

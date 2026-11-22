@@ -506,3 +506,14 @@ html.animal-theme .map-chapter-label~.more{z-index:6}
 @media(min-width:900px){html.animal-theme body:has(#scr-map.on) #app{max-width:560px}}
 @media(max-width:375px){html.animal-theme .animal-map-node{width:56px;height:56px;margin:-28px 0 0 -28px}}
 @media(prefers-reduced-motion:reduce){html.animal-theme .animal-map-node.cur{animation:none}}
+
+/* local011 ANIMAL POWER — visually quiet, scoped to animal board */
+html.animal-theme .animal-orb-tile {position:absolute;inset:0;display:block;isolation:isolate;overflow:visible}
+html.animal-theme .animal-orb-tile .spr, html.animal-theme .animal-orb-tile .animal-fallback {z-index:1}
+html.animal-theme .animal-orb-tile .orb-aura {pointer-events:none;position:absolute;inset:7%;z-index:2;border:3px solid rgba(255,243,172,.94);border-radius:50%;box-shadow:0 0 7px #e6e9ff, inset 0 0 7px #fff9d4;animation:animal-orb-breathe 2.1s ease-in-out infinite}
+html.animal-theme .animal-orb-tile .orb-aura::after {content:'✦';position:absolute;right:-7px;top:-10px;color:#fff7b2;font-size:17px;text-shadow:0 0 4px #a1d7fd}
+#l-fx .animal-light-ring {z-index:8;border-color:#bdf3ff!important;box-shadow:0 0 10px #a8ecff,0 0 20px rgba(255,229,150,.5);opacity:.85}
+#l-fx .animal-super-ring {border-color:#ffe0a4!important;box-shadow:0 0 12px #ffe9b2,0 0 26px #a4dcff;opacity:.94}
+@keyframes animal-orb-breathe {50%{transform:scale(1.08);opacity:.70}}
+.gfx-low .animal-orb-tile .orb-aura {animation:none;box-shadow:0 0 5px #fff3c5}
+@media(prefers-reduced-motion:reduce){.animal-orb-tile .orb-aura{animation:none}}

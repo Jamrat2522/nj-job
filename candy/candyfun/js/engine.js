@@ -23,6 +23,8 @@
   function Game(level, opts) {
     opts = opts || {};
     this.rand = opts.rand || Math.random;
+    /* New Animal Power Combo is opt-in; original Candy rules remain unchanged. */
+    this.animalPower = opts.animalPower === true;
     this.level = level;
     this.R = level.rows; this.C = level.cols; this.colors = level.colors;
     this.moves = opts.moves != null ? opts.moves : level.moves;
@@ -114,7 +116,7 @@
       var a = g[r][c], b = g[r2][c2];
       if (!a || !b || a.t !== 'c' || b.t !== 'c') continue;
       var ok;
-      if (a.sp === 'rainbow' || b.sp === 'rainbow' || (a.sp && b.sp)) ok = true;
+      if (a.sp === 'rainbow' || b.sp === 'rainbow' || a.sp === 'animal-orb' || b.sp === 'animal-orb' || (a.sp && b.sp)) ok = true;
       else {
         g[r][c] = b; g[r2][c2] = a;
         ok = this._matchAt(r, c) || this._matchAt(r2, c2);
@@ -170,7 +172,7 @@
       if (run.dir === 'h') hasH = true; else hasV = true;
     });
     var sp = null;
-    if (maxLen >= 5) sp = 'rainbow';
+    if (maxLen >= 5) sp = this.animalPower ? 'animal-orb' : 'rainbow';
     else if (hasH && hasV) sp = 'bomb';
     else if (maxLen === 4) sp = this.lastSwap ? (this.lastSwap.horiz ? 'h' : 'v') : longest.dir;
     if (!sp) return null;
@@ -205,6 +207,11 @@
     else if (x.sp === 'bomb') {
       step.fx.push({ kind: 'blast', r: r, c: c, rad: 1 });
       for (i = -1; i <= 1; i++) for (j = -1; j <= 1; j++) queue.push({ r: r + i, c: c + j });
+    } else if (x.sp === 'animal-orb') {
+      /* Animal light ring: radius 1 (3x3), one hit per cell per clear step. */
+      step.fx.push({ kind: 'animal-ring', r: r, c: c, rad: 1 });
+      for (i = -1; i <= 1; i++) for (j = -1; j <= 1; j++) queue.push({ r: r + i, c: c + j });
+      step.score += 120;
     } else if (x.sp === 'rainbow') {
       var cnt = [0, 0, 0, 0, 0, 0], best = 0, to = [];
       for (i = 0; i < this.R; i++) for (j = 0; j < this.C; j++) { var k = this._color(i, j); if (k >= 0) cnt[k]++; }
@@ -245,6 +252,7 @@
     var step = { type: 'clear', removed: [], created: [], boxes: [], jelly: [], fx: [], transformed: [], score: 0, combo: combo };
     var queue = [], seen = {}, boxSeen = {}, creates = [];
     if (extra) {
+      if (extra.bonus) step.score += extra.bonus;
       (extra.transformed || []).forEach(function (t) {
         var x = self.grid[t.r][t.c];
         if (x && x.t === 'c') { x.sp = t.sp; step.transformed.push({ id: x.id, r: t.r, c: t.c, color: x.color, sp: t.sp }); }
@@ -367,6 +375,23 @@
 
   P._swapCombo = function (a, b, pa, pb) {
     var self = this, hits = [], fx = [], transformed = [], i, j;
+    /* Animal-only special: two orbs -> radius 2 (5x5 = 25 cells, ~3x 3x3 area).
+       One orb swapped with another animal -> radius 1. Scores are points, never coins. */
+    var oa = this.animalPower && a.sp === 'animal-orb';
+    var ob = this.animalPower && b.sp === 'animal-orb';
+    if (oa || ob) {
+      var both = oa && ob, p = oa ? pa : pb, range = both ? 2 : 1;
+      if (oa) a.sp = null;
+      if (ob) b.sp = null;
+      for (i = -range; i <= range; i++) for (j = -range; j <= range; j++)
+        hits.push({ r: p.r + i, c: p.c + j });
+      if (!both) {
+        var otherP = oa ? pb : pa;
+        hits.push({ r: otherP.r, c: otherP.c });
+      }
+      fx.push({ kind: both ? 'animal-super' : 'animal-ring', r: p.r, c: p.c, rad: range });
+      return { hits: hits, fx: fx, bonus: both ? 600 : 120 };
+    }
     var ra = a.sp === 'rainbow', rb = b.sp === 'rainbow';
     if (ra && rb) {
       a.sp = b.sp = null;

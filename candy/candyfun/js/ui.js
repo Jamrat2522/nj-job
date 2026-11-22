@@ -324,7 +324,7 @@
     closeModal(); cfToken++; $('#confetti').innerHTML = '';
     var lv = L.get(n), free = {}, k;
     for (k in lv.free) free[k] = lv.free[k];
-    G = { n: n, lv: lv, game: new E.Game(lv), tiles: {}, jel: {}, busy: false, skip: false, sel: null, drag: null, target: null, dir: 'h', free: free,
+    G = { n: n, lv: lv, game: new E.Game(lv, { animalPower: Art.THEME === 'animals' }), tiles: {}, jel: {}, busy: false, skip: false, sel: null, drag: null, target: null, dir: 'h', free: free,
       last: { cleared: 0, specials: 0, combo3: 0 }, hintT: null, hinted: [], cs: 44, needLayout: false };
     show('game'); clearPreview(); clearTimeout(FUN.cheerTimer);
     $('#scr-game').className = 'screen on w' + lv.world;
@@ -549,16 +549,25 @@
   }
   function playFx(f) {
     var g = G.game, cs = G.cs;
-    if (f.kind === 'blast' || f.kind === 'smash' || f.kind === 'nova') {
+    if (f.kind === 'blast' || f.kind === 'smash' || f.kind === 'nova' || f.kind === 'animal-ring' || f.kind === 'animal-super') {
       boardKick('shake-b', 340);
       var fl = fxEl('flash', {}, 400);
       if (fl) { fl.style.setProperty('--fx', (f.c + 0.5) / g.C * 100 + '%'); fl.style.setProperty('--fy', (f.r + 0.5) / g.R * 100 + '%'); }
     }
     if (f.kind === 'row') fxEl('beam', { left: '0', top: (f.r + 0.2) * cs + 'px', width: g.C * cs + 'px', height: cs * 0.6 + 'px' });
     else if (f.kind === 'col') fxEl('beam v', { top: '0', left: (f.c + 0.2) * cs + 'px', height: g.R * cs + 'px', width: cs * 0.6 + 'px' });
-    else if (f.kind === 'blast' || f.kind === 'smash' || f.kind === 'nova') {
+    else if (f.kind === 'blast' || f.kind === 'smash' || f.kind === 'nova' || f.kind === 'animal-ring' || f.kind === 'animal-super') {
       var rad = f.kind === 'nova' ? Math.max(g.R, g.C) : f.kind === 'smash' ? 0.5 : f.rad + 0.7, sz = rad * 2 * cs;
-      fxEl('ring', { left: (f.c + 0.5) * cs - sz / 2 + 'px', top: (f.r + 0.5) * cs - sz / 2 + 'px', width: sz + 'px', height: sz + 'px' });
+      var animal = f.kind === 'animal-ring' || f.kind === 'animal-super';
+      fxEl('ring' + (animal ? ' animal-light-ring' : '') + (f.kind === 'animal-super' ? ' animal-super-ring' : ''),
+        { left: (f.c + 0.5) * cs - sz / 2 + 'px', top: (f.r + 0.5) * cs - sz / 2 + 'px', width: sz + 'px', height: sz + 'px' }, 500);
+      if (animal && !GFX.low) {
+        for (var k = 0; k < (f.kind === 'animal-super' ? 12 : 7); k++) {
+          var a = k * Math.PI * 2 / (f.kind === 'animal-super' ? 12 : 7), d = cs * rad * .62;
+          var sp = fxEl('p', { left: ((f.c + .5) * cs) + 'px', top: ((f.r + .5) * cs) + 'px', background: k % 2 ? '#ffe5a3' : '#c3f4ff' }, 550);
+          if (sp) { sp.style.setProperty('--dx', Math.cos(a) * d + 'px'); sp.style.setProperty('--dy', Math.sin(a) * d + 'px'); }
+        }
+      }
     } else if (f.kind === 'zap') {
       f.to.slice(0, 36).forEach(function (p) {
         var dx = (p[1] - f.c) * cs, dy = (p[0] - f.r) * cs;
@@ -598,6 +607,8 @@
         e.transformed.forEach(function (t) { var tt = G.tiles[t.id]; if (tt) { retile(tt, { t: 'c', color: t.color, sp: t.sp }); tt.el.classList.add('born'); } });
         A.sfx('special'); await wait(330); if (G !== me) return;
       }
+      if (e.fx.some(function (f) { return f.kind === 'animal-super'; })) { comboText('🐾 SUPER COMBO ×3!'); cheer('สุดยอด! สัตว์พลังคู่ระเบิดแล้ว!'); }
+      else if (e.fx.some(function (f) { return f.kind === 'animal-ring'; })) { comboText('✨ ANIMAL POWER!'); cheer('เยี่ยมเลย! สัตว์ยิงแสงทำงานแล้ว!'); }
       e.fx.forEach(playFx);
       var per = e.removed.length > 24 ? 2 : 4;
       e.removed.forEach(function (t) {
@@ -618,7 +629,7 @@
         if (f) f.textContent = '+' + fmt(e.score);
       }
       if (e.combo >= 2) { comboText('🍭 COMBO ×' + e.mult + ' ' + PRAISE[Math.min(5, e.combo)]); boardKick('combo-glow', 620); if (e.combo >= 3) cheer('โอ้โห! คอมโบสุดยอด!'); }
-      else if (e.created.length) cheer('เก่งมาก! ได้ขนมพิเศษด้วย!');
+      else if (e.created.length) cheer(e.created.some(function (x) { return x.sp === 'animal-orb'; }) ? 'จับคู่ 5 ตัว! ได้สัตว์พลังวงกลมแล้ว!' : 'เก่งมาก! ได้ขนมพิเศษด้วย!');
       hudFrom(e.hud);
       await wait(250); if (G !== me) return;
       dying.forEach(function (d) { d.remove(); });
