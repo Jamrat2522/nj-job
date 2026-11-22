@@ -9,16 +9,18 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%8D%AD%3C/text%3E%3C/svg%3E">
 <title>ANIMAL FRIENDS ADVENTURE</title><meta name="description" content="Animal Friends Adventure — เกมจับคู่สัตว์ 3D น่ารัก มีด่าน ตัวช่วยและรางวัล">
-<link rel="stylesheet" href="css/style.css?v=local011">
+<link rel="stylesheet" href="css/style.css?v=local013">
 <script>try{document.documentElement.classList.toggle('animal-theme',localStorage.getItem('cfa_theme_v1')!=='candy');}catch(e){document.documentElement.classList.add('animal-theme');}</script>
-<script>window.CF_VERSION = 'local011'; window.CF_PERF_START = performance.now();</script>
-<script defer src="js/engine.js?v=local011"></script>
-<script defer src="js/levels.js?v=local011"></script>
-<script defer src="js/save.js?v=local011"></script>
-<script defer src="js/audio.js?v=local011"></script>
-<script defer src="js/art.js?v=local011"></script>
-<script defer src="js/photo.js?v=local011"></script>
-<script defer src="js/ui.js?v=local011"></script>
+<script>window.CF_VERSION = 'local013'; window.CF_PERF_START = performance.now();</script>
+<script defer src="js/engine.js?v=local013"></script>
+<script defer src="js/levels.js?v=local013"></script>
+<script defer src="js/save.js?v=local013"></script>
+<script defer src="js/audio.js?v=local013"></script>
+<script defer src="js/art.js?v=local013"></script>
+<script defer src="js/photo.js?v=local013"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.js"></script>
+<script defer src="js/account.js?v=local013"></script>
+<script defer src="js/ui.js?v=local013"></script>
 <style>
 html,body{margin:0;height:100%;background:#ffb3d6;font-family:system-ui,sans-serif}
 #boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:800;text-shadow:0 2px 0 #d6408c}
@@ -26,6 +28,24 @@ html,body{margin:0;height:100%;background:#ffb3d6;font-family:system-ui,sans-ser
 </head>
 <body>
 <div id="boot">🐾 กำลังโหลดเกม…</div>
+<div id="cf-account-gate" data-mode="loading" hidden>
+ <div class="cf-account-card">
+  <div class="cf-account-mascot" aria-hidden="true">🐰 🐼 🦖</div>
+  <h2>ANIMAL FRIENDS</h2><p class="cf-account-sub">สมัครครั้งเดียว แล้วเล่นต่อได้ทุกเครื่อง</p>
+  <div class="cf-account-tabs"><button type="button" data-mode="login">เข้าสู่ระบบ</button><button type="button" data-mode="register">สมัครครั้งแรก</button></div>
+  <form id="cf-account-form">
+   <label class="cf-register-only" for="cf-account-player">ชื่อผู้เล่น</label><input class="cf-register-only" id="cf-account-player" name="player" autocomplete="nickname" maxlength="40" placeholder="ชื่อเล่นในเกม">
+   <label for="cf-account-email">อีเมล</label><input id="cf-account-email" type="email" autocomplete="email" inputmode="email" required placeholder="you@example.com">
+   <label class="cf-no-reset" for="cf-account-password">รหัสผ่าน (อย่างน้อย 8 ตัว)</label><input class="cf-no-reset" id="cf-account-password" type="password" autocomplete="current-password" minlength="8" placeholder="รหัสผ่านของคุณ">
+   <button class="cf-account-submit" type="submit">เริ่มเล่นเกม 🎮</button>
+  </form>
+  <button class="cf-account-link" data-mode="reset" type="button">ลืมรหัสผ่าน?</button>
+  <p id="cf-account-notice" role="status" aria-live="polite"></p>
+  <p class="cf-account-foot">บัญชีส่วนตัว • ด่าน เหรียญ และคะแนนแยกกัน</p>
+  <div id="cf-legacy-choice" hidden><p>พบเซฟเกมเก่าในเครื่องนี้ ต้องการนำเข้าบัญชีนี้หรือไม่?</p><button data-import>นำเข้าเซฟเดิม</button><button data-fresh>เริ่มใหม่ด่าน 1</button></div>
+  <div id="cf-conflict-choice" hidden><p>มีเซฟในเครื่องที่ยังไม่ได้ซิงก์ กรุณาเลือกเวอร์ชันที่จะใช้</p><button data-cloud>ใช้ข้อมูลบนคลาวด์</button><button data-device>ใช้ข้อมูลเครื่องนี้</button></div>
+ </div>
+</div>
 
 <div id="app" hidden>
   <!-- หน้าหลัก -->
@@ -37,6 +57,7 @@ html,body{margin:0;height:100%;background:#ffb3d6;font-family:system-ui,sans-ser
       <div class="pill"><span class="ic3 star">⭐</span><b id="home-stars">0</b></div>
     </div>
     <h1 class="logo"><strong class="animal-logo"><span class="animal-logo-icon">🐾🌿</span><span>ANIMAL</span><em>FRIENDS</em><small>ADVENTURE</small></strong><img class="logo3d" alt="CANDY FUN ADVENTURE" srcset="assets/candy3d/ui/logo-640.webp 640w, assets/candy3d/ui/logo-1200.webp 1200w" sizes="(min-width:700px) 440px, 84vw" src="assets/candy3d/ui/logo-640.webp" onerror="this.remove()"><span class="l1">CANDY</span><span class="l2">FUN</span><span class="l3">ADVENTURE</span></h1>
+    <div class="cf-user-bar"><span>👤 <b id="cf-account-name">ผู้เล่น</b></span><span id="cf-sync-status" aria-live="polite">☁️</span><button id="cf-account-out" type="button" aria-label="ออกจากระบบ">ออกจากระบบ</button></div>
     <div class="home-level">ด่านปัจจุบัน <b id="home-level">1</b> · <span id="home-world"></span></div>
     <div id="fun-panel" class="fun-panel" aria-label="ความคืบหน้าและของรางวัล">
       <div class="fun-row"><span id="fun-message">🎁 มีของขวัญรออยู่</span><button class="fun-action" id="fun-open" type="button">ดูรางวัล ✨</button></div>

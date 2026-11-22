@@ -31,7 +31,27 @@
       if (fromBottom < 3) return Math.min(c, C - 1 - c) >= 3 - fromBottom;
       return true;
     },
-    steps: function (r, c, R, C) { return r + c >= 2 && (R - 1 - r) + (C - 1 - c) >= 2; }
+    steps: function (r, c, R, C) { return r + c >= 2 && (R - 1 - r) + (C - 1 - c) >= 2; },
+    butterfly: function (r, c, R, C) {
+      var top = r <= 2, bottom = r >= R - 3, left = c <= 2, right = c >= C - 3;
+      if ((top && left) || (top && right) || (bottom && left) || (bottom && right)) return true;
+      if (r >= 2 && r <= R - 3 && c >= (C >> 1) - 1 && c <= (C >> 1)) return true;
+      if (c >= 2 && c <= C - 3 && r >= (R >> 1) - 1 && r <= (R >> 1)) return true;
+      return false;
+    },
+    split: function (r, c, R, C) {
+      if (r <= 1 || r >= R - 2) return c >= 1 && c <= C - 2;
+      if (c <= 1 || c >= C - 2) return r >= 2 && r <= R - 3;
+      return (c === (C >> 1) - 1 || c === (C >> 1)) && r >= 1 && r <= R - 2;
+    },
+    islands: function (r, c, R, C) {
+      var tl = r <= 2 && c <= 2, tr = r <= 2 && c >= C - 3, bl = r >= R - 3 && c <= 2, br = r >= R - 3 && c >= C - 3;
+      if (tl || tr || bl || br) return true;
+      if (r >= (R >> 1) - 1 && r <= (R >> 1) && c >= (C >> 1) - 1 && c <= (C >> 1)) return true;
+      if ((r === 2 || r === R - 3) && c >= (C >> 1) - 1 && c <= (C >> 1)) return true;
+      if ((c === 2 || c === C - 3) && r >= (R >> 1) - 1 && r <= (R >> 1)) return true;
+      return false;
+    }
   };
 
   /* puts: [ch, r0, c0, r1, c1, 'x'?]  ('x' = วางแบบตารางหมากรุก) */
@@ -56,36 +76,36 @@
    * ไม่แตะ shape/goals/colors/puts หรือ game engine เพื่อรักษากติกาและความเข้ากันได้กับ save เดิม
    * เทียบผลผ่านของบอท 30 seeds ต่อด่าน ก่อนปล่อยใช้งานจริง */
   var D = [null,
-    { rows: 7, cols: 7, shape: 'full', colors: 4, goals: [SCORE()], moves: 14, ease: 1.4, tip: 'ลากขนมไปสลับกับช่องข้าง ๆ ให้เรียงกัน 3 ชิ้นขึ้นไป' },
-    { rows: 7, cols: 7, shape: 'full', colors: 4, goals: [col(0, 12)], ease: 1.4, tip: 'เก็บขนมให้ครบตามเป้าหมายด้านบนก่อนตาเดินหมด' },
-    { rows: 7, cols: 7, shape: 'corners', colors: 4, goals: [col(2, 14), col(3, 14)], ease: 1.4, free: { hammer: 1 }, tip: 'เรียง 4 ชิ้น = จรวด ทำลายทั้งแถว! ลองใช้ 🔨 ค้อนวิเศษฟรีด้านล่าง' },
+    { rows: 7, cols: 7, shape: 'full', colors: 4, goals: [SCORE()], moves: 14, ease: 1.4, tip: 'ลากสัตว์ไปสลับกับช่องข้าง ๆ ให้เรียงกัน 3 ตัวขึ้นไป' },
+    { rows: 7, cols: 7, shape: 'full', colors: 4, goals: [col(0, 12)], ease: 1.4, tip: 'เก็บสัตว์ให้ครบตามเป้าหมายด้านบนก่อนตาเดินหมด' },
+    { rows: 7, cols: 7, shape: 'corners', colors: 4, goals: [col(2, 14), col(3, 14)], ease: 1.4, free: { hammer: 1 }, tip: 'เริ่มสลับรูปแบบกระดานแล้ว · เรียง 4 ตัว = จรวด · ลองใช้ 🔨 ค้อนวิเศษฟรี' },
     { rows: 8, cols: 8, shape: 'full', colors: 4, goals: [SCORE()], moves: 16, ease: 1.4, free: { rocket: 1 }, tip: 'เรียงเป็นรูปตัว L หรือ T = ระเบิด 3×3 · ลองใช้ 🚀 จรวดฟรี' },
-    { rows: 8, cols: 8, shape: 'corners', colors: 4, goals: [SCORE()], moves: 14, ease: 1.4, bonus: true, presets: 4, free: { bomb: 1 }, tip: 'ด่านโบนัส! เรียง 5 ชิ้น = ลูกอมสายรุ้ง · ลองใช้ 💣 ระเบิดฟรี' },
-    { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [JEL], puts: [['j', 2, 2, 5, 5]], ease: 1.4, free: { shuffle: 1 }, tip: 'จับคู่บนเยลลี่สีชมพูเพื่อล้างให้หมด · ลองใช้ 🔀 สลับมหัศจรรย์ฟรี' },
-    { rows: 8, cols: 8, shape: 'corners2', colors: 5, goals: [col(4, 18), col(1, 18)], ease: 1.4, free: { rainbow: 1 }, tip: 'ลองใช้ 🌈 สายรุ้ง แตะขนมสีที่ต้องการ ลบทั้งกระดาน!' },
-    { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [JEL], puts: [['j', 6, 0, 7, 7]], moves: 28, ease: 1.25, free: { moves5: 1 }, tip: 'ตาเดินใกล้หมด? ใช้ ✨ เพิ่ม 5 ตา ได้เลย (ฟรี 1 ครั้ง)' },
-    { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [BOX], puts: [['b', 4, 1, 4, 6]], ease: 1.25, tip: 'จับคู่ขนมข้าง ๆ กล่องของขวัญ เพื่อเปิดกล่อง' },
-    { rows: 8, cols: 8, shape: 'diamond', colors: 5, goals: [SCORE()], moves: 18, ease: 1.25, bonus: true, presets: 3, tip: 'สลับขนมพิเศษ 2 ชิ้นเข้าหากัน จะเกิดพลังรวมสุดแรง!' },
-    { rows: 8, cols: 8, shape: 'ring', colors: 5, goals: [col(0, 20), col(4, 20)], ease: 1.12 },
+    { rows: 8, cols: 8, shape: 'butterfly', colors: 4, goals: [SCORE()], moves: 15, ease: 1.38, bonus: true, presets: 4, free: { bomb: 1 }, tip: 'ด่านโบนัสรูปผีเสื้อ! เรียง 5 ตัว = พลังพิเศษ · ลองใช้ 💣 ระเบิดฟรี' },
+    { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [JEL], puts: [['j', 2, 2, 5, 5]], ease: 1.4, free: { shuffle: 1 }, tip: 'จับคู่บนเยลลี่เพื่อล้างให้หมด · ลองใช้ 🔀 สลับมหัศจรรย์ฟรี' },
+    { rows: 8, cols: 8, shape: 'butterfly', colors: 5, goals: [col(4, 18), col(1, 18)], ease: 1.32, free: { rainbow: 1 }, tip: 'กระดานรูปผีเสื้อช่วยสร้างคอมโบตรงกลาง · ลองใช้ 🌈 สายรุ้งฟรี' },
+    { rows: 8, cols: 8, shape: 'split', colors: 5, goals: [JEL], puts: [['j', 6, 1, 7, 6]], moves: 28, ease: 1.24, free: { moves5: 1 }, tip: 'กระดานแยกฝั่งแล้ว มีสะพานกลางให้วางแผนเดิน' },
+    { rows: 8, cols: 8, shape: 'split', colors: 5, goals: [BOX], puts: [['b', 4, 2, 4, 5]], ease: 1.2, tip: 'จับคู่ข้าง ๆ กล่องเพื่อเปิดทางในกระดานแบบสะพาน' },
+    { rows: 8, cols: 8, shape: 'diamond', colors: 5, goals: [SCORE()], moves: 18, ease: 1.25, bonus: true, presets: 3, tip: 'สลับสัตว์พิเศษ 2 ตัวเข้าหากัน จะเกิดพลังรวมสุดแรง!' },
+    { rows: 8, cols: 8, shape: 'islands', colors: 5, goals: [col(0, 20), col(4, 20)], ease: 1.12, tip: 'กระดานเกาะแยกกัน ต้องใช้จังหวะเชื่อมกลางให้ดี' },
     { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [JEL], puts: [['j', 0, 1, 0, 6], ['j', 7, 1, 7, 6], ['j', 3, 3, 4, 4]], moves: 23, ease: 1.12 },
     { rows: 8, cols: 8, shape: 'cross', colors: 5, goals: [BOX], puts: [['b', 3, 2, 4, 5]], ease: 1.12 },
-    { rows: 8, cols: 8, shape: 'corners', colors: 5, goals: [JEL], puts: [['j', 3, 0, 4, 7], ['j', 0, 3, 7, 4]], ease: 1.12 },
+    { rows: 8, cols: 8, shape: 'butterfly', colors: 5, goals: [JEL], puts: [['j', 3, 0, 4, 7], ['j', 0, 3, 7, 4]], ease: 1.1, tip: 'ด่านผีเสื้อ + เยลลี่ เน้นคอมโบกลางกระดาน' },
     { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [SCORE()], moves: 16, ease: 1.3, bonus: true, presets: 5 },
-    { rows: 8, cols: 8, shape: 'windows', colors: 5, goals: [col(3, 24), col(2, 24), col(4, 24)], ease: 1.12 },
+    { rows: 8, cols: 8, shape: 'split', colors: 5, goals: [col(3, 24), col(2, 24), col(4, 24)], ease: 1.08, tip: 'เริ่มใช้กระดานสะพานกับเป้าหมายหลายสี' },
     { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [BOX], puts: [['b', 2, 2, 5, 2], ['b', 2, 5, 5, 5]], ease: 1.12 },
-    { rows: 8, cols: 8, shape: 'corners2', colors: 5, goals: [JEL], puts: [['j', 2, 2, 5, 5], ['J', 3, 3, 4, 4]], ease: 1.1 },
-    { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [BOX, col(1, 15)], puts: [['B', 2, 2, 2, 2], ['B', 2, 5, 2, 5], ['B', 5, 2, 5, 2], ['B', 5, 5, 5, 5], ['b', 3, 3, 4, 4]], ease: 1.1 },
+    { rows: 8, cols: 8, shape: 'islands', colors: 5, goals: [JEL], puts: [['j', 2, 2, 5, 5], ['J', 3, 3, 4, 4]], ease: 1.08, tip: 'เกาะหลายส่วนต้องอาศัยพลังพิเศษช่วยข้ามจุดตัน' },
+    { rows: 8, cols: 8, shape: 'split', colors: 5, goals: [BOX, col(1, 15)], puts: [['B', 2, 3, 2, 4], ['B', 5, 3, 5, 4], ['b', 3, 3, 4, 4]], ease: 1.08 },
     { rows: 8, cols: 8, shape: 'ring', colors: 5, goals: [SCORE()], moves: 18, ease: 1.3, bonus: true, presets: 5 },
-    { rows: 9, cols: 8, shape: 'full', colors: 5, goals: [JEL], puts: [['j', 7, 0, 8, 7], ['j', 0, 3, 0, 4]], ease: 1.06 },
+    { rows: 8, cols: 8, shape: 'split', colors: 5, goals: [JEL], puts: [['j', 6, 1, 7, 6], ['j', 0, 3, 0, 4]], ease: 1.08, tip: 'ด่านกลางช่วงหลัง ใช้สะพานกลางเคลียร์เยลลี่ทีละฝั่ง' },
     { rows: 8, cols: 8, shape: 'steps', colors: 5, goals: [col(0, 22), col(3, 22)], ease: 1.06 },
-    { rows: 8, cols: 8, shape: 'full', colors: 6, goals: [SCORE()], moves: 22, ease: 1.12, tip: 'ขนมสีใหม่มาแล้ว! มองหาโอกาสเรียง 4–5 ชิ้น' },
+    { rows: 8, cols: 8, shape: 'full', colors: 6, goals: [SCORE()], moves: 22, ease: 1.12, tip: 'สัตว์สีใหม่มาแล้ว! มองหาโอกาสเรียง 4–5 ตัว' },
     { rows: 8, cols: 8, shape: 'cross', colors: 5, goals: [JEL], puts: [['j', 0, 2, 7, 5], ['J', 2, 2, 5, 5]], moves: 26, ease: 1.05 },
     { rows: 8, cols: 8, shape: 'heart', colors: 5, goals: [SCORE()], moves: 16, ease: 1.3, bonus: true, presets: 6 },
     { rows: 8, cols: 8, shape: 'pillars', colors: 5, goals: [BOX], puts: [['b', 5, 1, 5, 6], ['B', 6, 3, 6, 4]], ease: 1.05 },
     { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [JEL], puts: [['j', 0, 0, 1, 1], ['j', 0, 6, 1, 7], ['j', 6, 0, 7, 1], ['j', 6, 6, 7, 7], ['J', 3, 3, 4, 4]], moves: 33, ease: 1.05 },
-    { rows: 8, cols: 8, shape: 'diamond', colors: 6, goals: [col(5, 16), col(4, 16)], moves: 26, ease: 1.05 },
-    { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [BOX, JEL], puts: [['b', 2, 1, 5, 6, 'x'], ['j', 6, 0, 7, 7]], moves: 30, ease: 1.05 },
-    { rows: 8, cols: 8, shape: 'corners', colors: 5, goals: [SCORE()], moves: 20, ease: 1.3, bonus: true, presets: 6 }
+    { rows: 8, cols: 8, shape: 'islands', colors: 6, goals: [col(5, 16), col(4, 16)], moves: 26, ease: 1.02, tip: 'กระดานเกาะ + 6 สี เป็นด่านท้ายที่ต้องวางแผนมากขึ้น' },
+    { rows: 8, cols: 8, shape: 'split', colors: 5, goals: [BOX, JEL], puts: [['b', 2, 2, 5, 5, 'x'], ['j', 6, 1, 7, 6]], moves: 30, ease: 1.02 },
+    { rows: 8, cols: 8, shape: 'butterfly', colors: 5, goals: [SCORE()], moves: 20, ease: 1.28, bonus: true, presets: 6, tip: 'ด่านโบนัสจบช่วงแรก ใช้คอมโบสัตว์พลังให้คุ้มที่สุด!' }
   ];
   var DESIGNED = D.length - 1;
 
@@ -125,7 +145,8 @@
     var rand = E.makeRng(n * 9973 + salt * 131 + 7);
     var rows = n > 60 && rand() < 0.3 ? 9 : 8, cols = 8;
     var colors = n > 40 && rand() < Math.min(0.4, 0.12 + n / 3000) ? 6 : 5;
-    var shapes = ['full', 'full', 'corners', 'corners2', 'ring', 'cross'];
+    var shapes = ['full', 'full', 'corners', 'corners2', 'ring', 'cross', 'butterfly', 'split'];
+    if (n > 60) shapes.push('islands');
     if (n > 100) shapes.push('diamond', 'windows');
     if (n > 200) shapes.push('steps', 'pillars');
     if (n > 300) shapes.push('heart');

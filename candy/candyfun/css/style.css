@@ -517,3 +517,26 @@ html.animal-theme .animal-orb-tile .orb-aura::after {content:'✦';position:abso
 @keyframes animal-orb-breathe {50%{transform:scale(1.08);opacity:.70}}
 .gfx-low .animal-orb-tile .orb-aura {animation:none;box-shadow:0 0 5px #fff3c5}
 @media(prefers-reduced-motion:reduce){.animal-orb-tile .orb-aura{animation:none}}
+
+/* local012 — minimal, eye-friendly, mandatory account gate */
+#cf-account-gate[hidden]{display:none!important}
+#cf-account-gate{position:fixed;z-index:9999;inset:0;overflow:auto;display:grid;place-items:center;padding:18px;background:linear-gradient(145deg,#d9f2ec 0%,#d7eefd 55%,#f3e6f0 100%);color:#285a5c;font-family:system-ui,sans-serif}
+.cf-account-card{width:min(100%,420px);box-sizing:border-box;background:rgba(255,255,255,.97);padding:clamp(16px,4vw,32px);border-radius:25px;box-shadow:0 18px 44px #477b8950;border:2px solid white;text-align:center}
+.cf-account-mascot{font-size:37px;letter-spacing:9px}.cf-account-card h2{font-size:clamp(23px,6vw,31px);margin:6px 0 2px;color:#34756f;letter-spacing:1px}.cf-account-sub{font-size:14px;margin:4px 0 20px;color:#6c8389}
+.cf-account-tabs{display:flex;gap:8px;margin-bottom:18px}.cf-account-tabs button{flex:1;border:1px solid #cfe8e0;border-radius:12px;background:#e9f5f4;color:#346b68;padding:11px 8px;font-weight:800;cursor:pointer}
+#cf-account-gate[data-mode=login] [data-mode=login],#cf-account-gate[data-mode=register] [data-mode=register]{background:#7bc8b9;color:#113e43;border-color:#7bc8b9}
+#cf-account-form{text-align:left;display:grid;gap:8px}#cf-account-form label{font-size:13px;font-weight:800;color:#356766}#cf-account-form input{height:45px;border-radius:11px;border:1px solid #bfd7d8;box-sizing:border-box;width:100%;padding:0 13px;font-size:16px;color:#284a52;background:#fff;outline-offset:2px}
+.cf-account-submit{min-height:49px;border-radius:14px;border:0;background:#65bfa8;color:#103d3d;font-size:17px;font-weight:900;margin-top:10px;box-shadow:0 4px 0 #4c9e8c;cursor:pointer}.cf-account-submit:disabled{opacity:.6}
+.cf-account-link{background:none;border:0;color:#427f91;cursor:pointer;margin-top:10px;text-decoration:underline;font-weight:650}.cf-account-foot{font-size:12px;color:#6c8c8b;margin:14px 0 0}
+#cf-account-notice{font-size:13px;min-height:18px;color:#247b65;line-height:1.5}#cf-account-notice.bad{color:#bd4141}
+#cf-account-gate[data-mode=loading] .cf-account-tabs,#cf-account-gate[data-mode=loading] form,#cf-account-gate[data-mode=loading] .cf-account-link,#cf-account-gate[data-mode=loading] .cf-account-foot{display:none}
+#cf-account-gate:not([data-mode=register]) .cf-register-only{display:none}
+#cf-account-gate[data-mode=reset] .cf-no-reset,#cf-account-gate[data-mode=reset] .cf-account-tabs{display:none}
+#cf-legacy-choice,#cf-conflict-choice{margin-top:12px;background:#f1f8f1;border:1px solid #bfded1;border-radius:14px;padding:14px;font-size:14px}
+#cf-legacy-choice[hidden],#cf-conflict-choice[hidden]{display:none}
+#cf-legacy-choice button,#cf-conflict-choice button{background:#d9ecf0;border:1px solid #9ec9cd;padding:9px;border-radius:10px;margin:5px;font-weight:800;cursor:pointer}
+.cf-user-bar{display:flex;align-items:center;justify-content:center;gap:10px;font-size:12px;font-weight:800;color:#29656b;max-width:95%;margin:3px auto;flex-wrap:wrap}
+.cf-user-bar #cf-account-out{font-size:12px;border:1px solid #d0e4df;background:#f0faf7;color:#246a65;border-radius:12px;padding:5px 8px;cursor:pointer}
+#cf-sync-status.warn{color:#a44b3a;background:#fff0e6;padding:3px 8px;border-radius:9px}
+
+#cf-account-gate[data-mode=newpass] .cf-account-tabs,#cf-account-gate[data-mode=newpass] #cf-account-email,#cf-account-gate[data-mode=newpass] label[for=cf-account-email],#cf-account-gate[data-mode=newpass] .cf-account-link{display:none}
