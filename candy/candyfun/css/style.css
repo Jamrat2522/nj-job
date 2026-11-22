@@ -464,3 +464,45 @@ html.animal-theme .animal-map-node:focus-visible {outline:3px solid #2b7b89}
 html.animal-theme .more {background:linear-gradient(#fff,#d5f1eb);color:#327469;border:1px solid #c7e8dd;box-shadow:0 4px 0 #a2d0c1;white-space:nowrap}
 @media(max-width:375px){html.animal-theme .animal-map-node{width:56px;height:56px;margin:-28px 0 0 -28px;font-size:18px}html.animal-theme .map-intro{font-size:12px;padding:8px 10px}}
 @media(prefers-reduced-motion:reduce){html.animal-theme .animal-map-node.cur{animation:none}}
+
+/* ================= local010 — Actual premium 3D island world map ================= */
+/* Stop using giant flat vector forest as the DESKTOP background on the map. */
+html.animal-theme body:has(#scr-map.on){background:linear-gradient(125deg,#b5e9e9,#d9eeff 52%,#def6e9)!important}
+html.animal-theme body:has(#scr-map.on)::before{content:"";position:fixed;inset:-50px;pointer-events:none;
+ background:url('../assets/animal3d/map/island-world-3d.webp') center center / cover no-repeat;
+ filter:blur(30px) saturate(.7) brightness(1.08);opacity:.37}
+html.animal-theme body:has(#scr-map.on) #app{position:relative;z-index:1;
+ box-shadow:0 22px 70px rgba(29,78,89,.20);border:1px solid rgba(255,255,255,.8)}
+html.animal-theme #scr-map{background:#cfeefa!important}
+html.animal-theme #map-scroll{background:#bfedfb;overscroll-behavior:contain}
+html.animal-theme .map-scene-3d{position:absolute;left:0;right:0;pointer-events:none;
+ background:#b9e5f5 url('../assets/animal3d/map/island-world-3d.webp') center / cover no-repeat;
+ background-image:image-set(url('../assets/animal3d/map/island-world-3d.webp') type('image/webp'));}
+html.animal-theme .map-scene-3d.w1{filter:hue-rotate(13deg) saturate(.94)}
+html.animal-theme .map-scene-3d.w2{filter:hue-rotate(-12deg) saturate(.92)}
+html.animal-theme .map-scene-3d.w3{filter:hue-rotate(25deg) saturate(.90)}
+html.animal-theme .map-chapter-label{position:absolute;left:50%;transform:translateX(-50%);z-index:2;
+ border:2px solid #fff9ed;border-radius:23px;padding:7px 15px;color:#6a3e30;
+ background:linear-gradient(#fffbe8,#f6dbac);box-shadow:0 3px 0 #c69a69,0 7px 12px rgba(69,55,47,.19);
+ font-weight:900;white-space:nowrap;font-size:13px;pointer-events:none}
+html.animal-theme .animal-map-node{width:58px;height:58px;margin:-29px 0 0 -29px;
+ font-size:20px;border:4px solid #fff7e7;
+ color:#fffef9;text-shadow:0 1px 2px rgba(58,39,27,.45);
+ background:radial-gradient(circle at 34% 26%,#a7f6ff,#4b9fd6 52%,#2260ad 90%);
+ box-shadow:0 4px 0 #2260a5,0 7px 12px rgba(25,55,77,.27);
+ transition:filter .15s ease,transform .13s ease}
+html.animal-theme .animal-map-node.done{background:radial-gradient(circle at 33% 26%,#fff4b0,#f6c34e 62%,#db8e33);
+ box-shadow:0 4px 0 #b57a31,0 7px 12px rgba(25,55,77,.25);color:#755019;text-shadow:0 1px 0 #fff4d0}
+html.animal-theme .animal-map-node.lock{background:radial-gradient(circle at 34% 25%,#f8fcff,#a4b8d0 65%,#7d91b4);
+ color:#fff;box-shadow:0 4px 0 #8293a6,0 6px 11px rgba(25,55,77,.20)}
+html.animal-theme .animal-map-node.cur{background:radial-gradient(circle at 30% 25%,#fff3fb,#ff8dc5 50%,#ee3a94 90%);
+ color:#712a55;text-shadow:0 1px 0 #fff;
+ box-shadow:0 4px 0 #b12e72,0 0 0 6px rgba(255,247,255,.91),0 7px 22px rgba(201,48,143,.4)}
+html.animal-theme .animal-map-node:active{transform:translateY(3px)}
+html.animal-theme .animal-map-node .st{font-size:12px;bottom:-18px;filter:drop-shadow(0 2px 1px #fff)}
+html.animal-theme .animal-map-node .tag{top:-15px;right:-12px;font-size:17px}
+html.animal-theme .map-intro{background:#f9fcfc;color:#3d6e7e;border-bottom:1px solid #ddecee}
+html.animal-theme .map-chapter-label~.more{z-index:6}
+@media(min-width:900px){html.animal-theme body:has(#scr-map.on) #app{max-width:560px}}
+@media(max-width:375px){html.animal-theme .animal-map-node{width:56px;height:56px;margin:-28px 0 0 -28px}}
+@media(prefers-reduced-motion:reduce){html.animal-theme .animal-map-node.cur{animation:none}}
