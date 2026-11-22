@@ -36,6 +36,53 @@
     requestAnimationFrame(tick);
   }
   var board, lCells, lJel, lTiles, lFx;
+  var FUN = { cheerTimer: null, previewCells: [], reactionIndex: 0 };
+  var BOOSTER_NAMES = { hammer: 'ค้อน', bomb: 'ระเบิด', rainbow: 'สายรุ้ง', shuffle: 'สลับ', moves5: '+5 ตา', rocket: 'จรวด' };
+  var BOOSTER_TIPS = {
+    hammer: 'ทุบ 1 ช่อง เหมาะกับกล่องหรือเยลลี่ที่เหลือชิ้นสุดท้าย',
+    bomb: 'ล้างบริเวณ 3×3 เลือกจุดที่มีสิ่งกีดขวางหนาแน่น',
+    rainbow: 'เลือกตัวสัตว์หรือขนมชนิดที่ต้องการ เพื่อลบทั้งหมดที่เหมือนกันบนกระดาน',
+    shuffle: 'สลับตำแหน่งตัวจับคู่ เมื่อหาคู่ไม่เจอ',
+    moves5: 'เพิ่มตาเดิน 5 ครั้งทันที เหมาะกับด่านที่ใกล้ถึงเป้าหมาย',
+    rocket: 'เลือกแนวนอนหรือแนวตั้ง แล้วแตะจุดที่ต้องการยิงทั้งแถว' };
+  function cheer(msg) {
+    if (!G || screenName !== 'game') return;
+    var tip = $('#tip'); if (!tip) return;
+    var bubble = tip.querySelector('.fun-cheer');
+    if (!bubble) { bubble = el('span','fun-cheer'); bubble.setAttribute('aria-live','polite'); tip.appendChild(bubble); }
+    bubble.textContent = '💖 ' + msg; bubble.classList.remove('on'); void bubble.offsetWidth; bubble.classList.add('on');
+    clearTimeout(FUN.cheerTimer);
+    FUN.cheerTimer = setTimeout(function () { bubble.classList.remove('on'); }, 1500);
+  }
+  function clearPreview() {
+    FUN.previewCells.forEach(function (ce) { ce.classList.remove('impact'); }); FUN.previewCells = [];
+  }
+  function drawPreview(r,c) {
+    clearPreview(); if (!G || !G.target || !G.cells) return;
+    var g = G.game, type = G.target, x = g.grid[r] && g.grid[r][c];
+    var add = function (rr,cc) { if (rr < 0 || cc < 0 || rr >= g.R || cc >= g.C || g.hole[rr][cc]) return; var ce=G.cells[rr * g.C+cc]; if (ce) { ce.classList.add('impact'); FUN.previewCells.push(ce); } };
+    if (type === 'hammer') { if (x) add(r,c); }
+    else if (type === 'bomb') { for (var dr=-1;dr<=1;dr++) for(var dc=-1;dc<=1;dc++) add(r+dr,c+dc); }
+    else if (type === 'rocket') { if (G.dir === 'v') for(var rr=0;rr<g.R;rr++) add(rr,c); else for(var cc=0;cc<g.C;cc++) add(r,cc); }
+    else if (type === 'rainbow' && x && x.t === 'c' && x.color >= 0) { for (var rr=0;rr<g.R;rr++) for(var cc=0;cc<g.C;cc++) if (g.grid[rr][cc] && g.grid[rr][cc].t === 'c' && g.grid[rr][cc].color === x.color) add(rr,cc); }
+  }
+  function celebrateBooster(k,r,c) {
+    if (!G || screenName !== 'game') return;
+    comboText(ITEM[k].ic + ' ' + BOOSTER_NAMES[k] + '!'); cheer(['เยี่ยมเลย ใช้ตัวช่วยได้เก่งมาก!', 'เก่งจัง! ไปกันต่อ!', 'ว้าว! ใกล้ผ่านแล้ว!'][FUN.reactionIndex++ % 3]);
+    if (GFX.low || G.skip || r == null || c == null) return;
+    var x=(c+.5)*G.cs, y=(r+.5)*G.cs;
+    for(var i=0;i<8;i++) {
+      var a=i*Math.PI/4, p=fxEl('fun-spark',{left:x+'px',top:y+'px'},580);
+      if(p) { p.textContent=['⭐','✨','🍬','💖'][i%4];p.style.setProperty('--dx',Math.cos(a)*G.cs*1.4+'px');p.style.setProperty('--dy',Math.sin(a)*G.cs*1.4+'px'); }
+    }
+  }
+  function boosterGuide() {
+    var html = '<h2>✨ ตัวช่วยแสนสนุก</h2><p class="muted">ใช้เฉพาะเมื่ออยากได้ความช่วยเหลือ — ทุกด่านเล่นต่อได้ตามปกติ</p><div class="list">' + S.ITEMS.map(function(it,i) {
+      return '<div class="item guide-row"><span class="ic">'+ Art.booster(i,it.ic) + '</span><div class="tx"><b>'+it.name+'</b><span>'+ BOOSTER_TIPS[it.k] +'</span></div><span class="guide-count">'+(G ? avail(it.k) : S.get().inv[it.k])+' ชิ้น</span></div>';
+    }).join('') + '</div><div class="m-btns"><button class="btn green" data-close>เข้าใจแล้ว ▶</button></div>';
+    var card=openModal(html,true,function(){if(G) scheduleHint();});
+    on(card,'[data-close]',function(){closeModal();if(G) scheduleHint();});
+  }
 
   /* ---------------- พื้นฐาน ---------------- */
   function show(name) {
@@ -112,7 +159,17 @@
     $('#home-world').textContent = w.icon + ' ' + w.name;
     var ms = S.missions().some(function (m) { return m.done && !m.claimed; });
     $('#rw-dot').hidden = !(S.dailyInfo().can || S.giftInfo().can || ms);
-    $('#ver').textContent = window.CF_VERSION ? 'v. ' + window.CF_VERSION : '';
+    $('#ver').textContent = window.CF_VERSION ? 'Deploy github ' + window.CF_VERSION : '';
+    var completed = Math.max(0, d.unlocked - 1), next5 = (Math.floor(completed / 5) + 1) * 5;
+    var left = next5 - completed, pct = ((completed % 5) / 5) * 100;
+    var day = S.dailyInfo(), gift = S.giftInfo(), missions = S.missions();
+    var readyMissions = missions.filter(function(m){return m.done && !m.claimed;}).length;
+    var count = (day.can ? 1:0) + (gift.can ? 1:0) + readyMissions;
+    $('#fun-message').textContent = count ? '🎁 รางวัลพร้อมรับ ' + count + ' รายการ!' : '🍭 วันนี้มีเรื่องสนุกให้ทำ!';
+    $('#fun-open').textContent = count ? 'รับเลย ✨' : 'ดูของขวัญ 🎁';
+    $('#fun-mission').textContent = readyMissions ? '✅ ภารกิจสำเร็จ ' + readyMissions : '🎯 ภารกิจวันนี้ ' + missions.filter(function(m){return m.claimed;}).length + '/3';
+    $('#fun-next').textContent = (next5 % 10 === 0 ? '🎁 หีบใหญ่' : '💎 โบนัส') + ' อีก ' + left + ' ด่าน';
+    $('#fun-progress').style.width = pct + '%';
   }
 
   /* ---------------- แผนที่ ---------------- */
@@ -164,10 +221,11 @@
       return '<div class="goal' + (useLeft && g.done ? ' done' : '') + '">' + Art.icon(g.type, g.color) + '<span>' + (useLeft && g.done ? '✓' : num) + '</span></div>';
     }).join('');
   }
+  function themify(s) { return Art.THEME === 'animals' ? String(s).replace(/ลูกอม|ขนม/g, 'สัตว์').replace(/สีเดียวกัน/g, 'ชนิดเดียวกัน') : s; }
   function goalText(lv) {
     return lv.goals.map(function (g) {
       if (g.type === 'score') return 'ทำคะแนนให้ถึง ' + fmt(g.target);
-      if (g.type === 'color') return 'เก็บ' + Art.NAMES[g.color] + ' ' + g.target + ' ชิ้น';
+      if (g.type === 'color') return (Art.THEME === 'animals' ? 'รวบรวม ' : 'เก็บ') + Art.NAMES[g.color] + ' ' + g.target + ' ชิ้น';
       if (g.type === 'jelly') return 'ล้างเยลลี่ให้หมด';
       return 'เปิดกล่องของขวัญให้ครบ';
     }).join(' · ');
@@ -190,10 +248,10 @@
     for (k in lv.free) free[k] = lv.free[k];
     G = { n: n, lv: lv, game: new E.Game(lv), tiles: {}, jel: {}, busy: false, skip: false, sel: null, drag: null, target: null, dir: 'h', free: free,
       last: { cleared: 0, specials: 0, combo3: 0 }, hintT: null, hinted: [], cs: 44, needLayout: false };
-    show('game');
+    show('game'); clearPreview(); clearTimeout(FUN.cheerTimer);
     $('#scr-game').className = 'screen on w' + lv.world;
     $('#g-level').textContent = n + (lv.bonus ? ' 💎' : '');
-    var tip = $('#tip'); tip.hidden = false; tip.innerHTML = lv.tip ? '💡 ' + lv.tip : '🎯 ' + goalText(lv);
+    var tip = $('#tip'); tip.hidden = false; tip.innerHTML = lv.tip ? '💡 ' + themify(lv.tip) : '🎯 ' + goalText(lv);
     if (window.CFPhoto) window.CFPhoto.decorate();
     cancelTarget(); layout(); hud(); boosters(); hideSkip(); scheduleHint();
   }
@@ -262,7 +320,8 @@
     var bar = $('#boosters'); bar.innerHTML = '';
     S.ITEMS.forEach(function (it, idx) {
       var n = avail(it.k), fr = G.free[it.k] > 0;
-      var b = el('button', 'bst' + (G.target === it.k ? ' act' : ''), Art.booster(idx, it.ic) + '<b class="' + (fr ? 'free' : n ? '' : 'zero') + '">' + (fr ? 'ฟรี' : n ? n : '+') + '</b>');
+      var b = el('button', 'bst bst-' + it.k + (G.target === it.k ? ' act' : ''), Art.booster(idx, it.ic) + '<span class="bst-name">' + BOOSTER_NAMES[it.k] + '</span><b class="' + (fr ? 'free' : n ? '' : 'zero') + '">' + (fr ? 'ฟรี' : n ? n : '+') + '</b>');
+      b.setAttribute('aria-label', it.name + ' — ' + it.desc + ' มี ' + n + ' ชิ้น');
       b.title = it.name + ' — ' + it.desc; b.dataset.k = it.k;
       b.onclick = function () {
         A.unlock(); if (!G || G.busy) return; A.sfx('click'); clearHint();
@@ -283,7 +342,7 @@
     });
   }
   function setTarget(k) {
-    G.target = k; G.dir = 'h'; setSel(null);
+    clearPreview(); G.target = k; G.dir = 'h'; setSel(null); cheer('เลือกจุดที่เหมาะที่สุด แล้วแตะได้เลย!');
     board.classList.add('targeting');
     $('#target-bar').hidden = false;
     $('#target-text').textContent = ITEM[k].ic + ' แตะช่องบนกระดานที่ต้องการใช้ ' + ITEM[k].name;
@@ -291,7 +350,7 @@
     boosters();
   }
   function cancelTarget() {
-    if (G) G.target = null;
+    if (G) G.target = null; clearPreview();
     board.classList.remove('targeting'); $('#target-bar').hidden = true;
     if (G) boosters();
   }
@@ -301,8 +360,8 @@
     if (!ev) { A.sfx('bad'); toast('ใช้กับช่องนี้ไม่ได้ ลองช่องอื่นนะ'); return; }
     if (G.free[k] > 0) G.free[k]--; else S.useItem(k);
     S.missionAdd('boost1', 1);
-    cancelTarget(); A.sfx('special');
-    if (k === 'moves5') toast('✨ +5 ตาเดิน!');
+    cancelTarget(); A.sfx('special'); celebrateBooster(k,r,c);
+    if (k === 'moves5') toast('✨ เพิ่ม 5 ตาเดินแล้ว!');
     run(ev);
   }
 
@@ -319,6 +378,11 @@
     if (p) { var x = G.game.grid[p.r][p.c], t = x && G.tiles[x.id]; if (t) t.el.classList.add('sel'); var c1 = G.cells[p.r * C + p.c]; if (c1) c1.classList.add('on'); }
   }
   function bindBoard() {
+    board.addEventListener('pointermove', function (e) {
+      if (!G || !G.target || G.busy || e.pointerType === 'touch') return;
+      var p = cellAt(e); if (!p) clearPreview(); else drawPreview(p.r,p.c);
+    });
+    board.addEventListener('pointerleave',clearPreview);
     board.addEventListener('pointerdown', function (e) {
       A.unlock();
       if (!G || G.busy) return;
@@ -428,7 +492,7 @@
     if (!G || G.skip) return;
     var e = $('#combo'); e.textContent = txt; e.classList.remove('show'); void e.offsetWidth; e.classList.add('show');
   }
-  var PRAISE = ['', '', 'เยี่ยม!', 'สุดยอด!', 'มหัศจรรย์!', 'เทพมาก!'];
+  var PRAISE = ['', '', 'หวานสุด ๆ!', 'สุดยอด!', 'มหัศจรรย์!', 'เทพมาก!'];
   function plusGlow() { var m = $('.hud-m'); m.classList.remove('plus'); void m.offsetWidth; m.classList.add('plus'); setTimeout(function () { m.classList.remove('plus'); }, 950); }
   /* เหรียญรางวัลบินเข้ากระเป๋า (ภาพประกอบเท่านั้น ยอดเหรียญมาจาก Save ตามเดิม) */
   function coinFly(fromEl) {
@@ -475,7 +539,8 @@
         var f = fxEl('float', { left: (cx / n + 0.5) * G.cs + 'px', top: (cy / n + 0.5) * G.cs + 'px' }, 820);
         if (f) f.textContent = '+' + fmt(e.score);
       }
-      if (e.combo >= 2) { comboText('COMBO ×' + e.mult + ' ' + PRAISE[Math.min(5, e.combo)]); boardKick('combo-glow', 620); }
+      if (e.combo >= 2) { comboText('🍭 COMBO ×' + e.mult + ' ' + PRAISE[Math.min(5, e.combo)]); boardKick('combo-glow', 620); if (e.combo >= 3) cheer('โอ้โห! คอมโบสุดยอด!'); }
+      else if (e.created.length) cheer('เก่งมาก! ได้ขนมพิเศษด้วย!');
       hudFrom(e.hud);
       await wait(250); if (G !== me) return;
       dying.forEach(function (d) { d.remove(); });
@@ -564,14 +629,14 @@
   var cfToken = 0;
   function confetti() {
     var tk = ++cfToken, box = $('#confetti'), cols = ['#f43a57', '#ff8d1f', '#ffd420', '#41cb4c', '#2f9dff', '#a34df2', '#fff'], i;
-    for (i = 0; i < 70; i++) {
+    for (i = 0; i < (GFX.low ? 14 : 70); i++) {
       var c = el('i', 'cf');
       c.style.left = Math.random() * 100 + '%'; c.style.background = cols[i % 7];
       c.style.animationDuration = 1.6 + Math.random() * 1.6 + 's'; c.style.animationDelay = Math.random() * 0.6 + 's';
       c.style.setProperty('--dx', (Math.random() * 160 - 80) + 'px'); c.style.setProperty('--rot', (Math.random() * 1440 - 720) + 'deg');
       box.appendChild(c);
     }
-    for (var b = 0; b < 4; b++) (function (b) {
+    for (var b = 0; b < (GFX.low ? 0 : 4); b++) (function (b) {
       setTimeout(function () {
         if (tk !== cfToken) return;
         var x = 15 + Math.random() * 70, y = 10 + Math.random() * 35; A.sfx('blast');
@@ -593,7 +658,9 @@
     A.sfx('win'); confetti();
     for (var s = 1; s <= stars; s++) (function (s) { setTimeout(function () { A.sfx('star', s); }, 350 + s * 330); })(s);
     var items = Object.keys(rw.items).map(function (k) { return '<div><span>🎁 ' + ITEM[k].ic + ' ' + ITEM[k].name + '</span><span>×' + rw.items[k] + '</span></div>'; }).join('');
-    var card = openModal(((window.CFPhoto && window.CFPhoto.winHTML()) || Art.mascot()) + '<h2>ผ่านด่าน ' + n + ' แล้ว! 🎉</h2><div class="stars3">' +
+    var milestone = n % 10 === 0 && rw.items && Object.keys(rw.items).length ? '<div class="fun-milestone big">🎁 เปิดหีบสมบัติแล้ว!<small>โบนัสพิเศษครบ 10 ด่าน · รับได้ครั้งเดียว</small></div>' :
+      n % 5 === 0 && rw.parts.some(function(p){return p.label.indexOf('ครบ 5 ด่าน') >= 0;}) ? '<div class="fun-milestone">💎 ด่านโบนัส!<small>รางวัลครบ 5 ด่าน</small></div>' : '';
+    var card = openModal(((window.CFPhoto && window.CFPhoto.winHTML()) || Art.mascot()) + '<h2>ผ่านด่าน ' + n + ' แล้ว! 🎉</h2>' + milestone + '<div class="stars3">' +
       [1, 2, 3].map(function (i) { return '<span class="' + (i <= stars ? 'on' : '') + '" style="animation-delay:' + (0.3 + i * 0.33) + 's">★</span>'; }).join('') + '</div>' +
       '<div class="muted">คะแนน</div><div class="bigscore">' + fmt(g.score) + '</div>' +
       '<div class="rw">' + rw.parts.map(function (p) { return '<div><span>' + p.label + '</span><span>🪙 +' + p.amt + '</span></div>'; }).join('') + items +
@@ -628,7 +695,7 @@
     on(card, '[data-retry]', function () { startLevel(G.n); });
     on(card, '[data-map]', quitToMap);
   }
-  function quitToMap() { closeModal(); if (G) clearTimeout(G.hintT); G = null; cfToken++; $('#confetti').innerHTML = ''; openMap(); }
+  function quitToMap() { closeModal(); clearPreview(); clearTimeout(FUN.cheerTimer); if (G) clearTimeout(G.hintT); G = null; cfToken++; $('#confetti').innerHTML = ''; openMap(); }
   function toggleRow(label, key) { return '<div class="toggle"><span>' + label + '</span><button class="sw' + (S.get().settings[key] ? ' on' : '') + '" data-sw="' + key + '"></button></div>'; }
   function bindToggles(card) {
     card.querySelectorAll('[data-sw]').forEach(function (b) {
@@ -660,7 +727,7 @@
         '<button class="btn gold" data-deal ' + (deal.bought || d.coins < deal.price ? 'disabled' : '') + '>' + (deal.bought ? 'ซื้อแล้ว' : '🪙 ' + deal.price) + '</button></div><div style="height:8px"></div>';
     }
     html += '<div class="list">' + S.ITEMS.map(function (it) {
-      return '<div class="item"><div class="ic" style="position:relative;height:42px">' + Art.booster(S.ITEMS.indexOf(it), it.ic) + '</div><div class="tx"><b>' + it.name + '<span class="own">มี ' + d.inv[it.k] + '</span></b><span>' + it.desc + '</span></div>' +
+      return '<div class="item"><div class="ic" style="position:relative;height:42px">' + Art.booster(S.ITEMS.indexOf(it), it.ic) + '</div><div class="tx"><b>' + it.name + '<span class="own">มี ' + d.inv[it.k] + '</span></b><span>' + themify(it.desc) + '</span></div>' +
         '<button class="btn gold" data-buy="' + it.k + '" ' + (d.coins < it.price ? 'disabled' : '') + '>🪙 ' + it.price + '</button></div>';
     }).join('') + '</div><p class="muted">ใช้เหรียญจากการเล่นเท่านั้น ไม่มีการเติมเงินจริง</p>';
     var card = openModal(html, true, function () { if (G) { boosters(); scheduleHint(); } });
@@ -689,11 +756,11 @@
     var card = openModal(html, true, refreshHome);
     on(card, '[data-daily]', function () {
       var r = S.claimDaily(); if (!r) return;
-      A.sfx('coin'); toast('📅 วันที่ ' + r.day + ': 🪙 +' + r.coins + (r.item ? ' และ 🌈 สายรุ้ง ×1' : '')); refreshCoins(true); rewards();
+      A.sfx('coin'); toast('🎉 รางวัลรายวัน! 🪙 +' + r.coins + (r.item ? ' และ 🌈 สายรุ้ง ×1' : ''), 2500); refreshCoins(true); rewards();
     });
     on(card, '[data-gift]', function () {
       var r = S.claimGift(); if (!r) return;
-      A.sfx('coin'); toast('🎁 ได้รับ ' + (r.coins ? '🪙 +' + r.coins : r.ic + ' ' + r.name + ' ×1') + '!', 2400); refreshCoins(true); rewards();
+      A.sfx('coin'); toast('🎊 เปิดกล่องแล้ว! ' + (r.coins ? '🪙 +' + r.coins : r.ic + ' ' + r.name + ' ×1') + '!', 2500); refreshCoins(true); rewards();
     });
     card.querySelectorAll('[data-ms]').forEach(function (b) {
       b.onclick = function () { var a = S.claimMission(b.dataset.ms); if (a) { A.sfx('coin'); toast('📋 ภารกิจสำเร็จ 🪙 +' + a); refreshCoins(true); rewards(); } };
@@ -701,11 +768,14 @@
   }
   function settings() {
     var card = openModal('<h2>⚙️ ตั้งค่า</h2><div class="list">' + toggleRow('🔊 เสียงเอฟเฟกต์', 'sfx') + toggleRow('🎵 เพลงประกอบ', 'music') + toggleRow('⚡ แอนิเมชันเร็ว', 'fast') + '</div>' +
+      '<h3>🐾 ธีมเกม (ไม่กระทบด่านหรือเหรียญ)</h3><div class="seg">' + [['animals','🐰 สัตว์ 3D'], ['candy','🍬 Candy เดิม']].map(function(o){return '<button data-theme="'+o[0]+'" class="'+(Art.THEME===o[0]?'on':'')+'">'+o[1]+'</button>';}).join('')+'</div>' +
+      '<p class="muted">สลับธีมได้ตลอด โดยคงความคืบหน้าและเหรียญเดิม</p>' +
       '<h3>🎨 คุณภาพกราฟิก</h3><div class="seg">' + [['auto', 'AUTO'], ['high', 'HIGH'], ['low', 'LOW']].map(function (o) { return '<button data-gfx="' + o[0] + '" class="' + (GFX.mode === o[0] ? 'on' : '') + '">' + o[1] + '</button>'; }).join('') + '</div>' +
       '<p class="muted">AUTO = ระบบเลือกให้ · LOW = ลดเอฟเฟกต์เพื่อความลื่น' + (GFX.mode === 'auto' && GFX.autoLow ? ' (ตอนนี้ AUTO ใช้ระดับ LOW)' : '') + '</p>' +
       '<p class="muted">ความคืบหน้าบันทึกอัตโนมัติในเครื่องนี้ (Local Storage)</p><div class="m-btns"><button class="btn red" data-reset>🗑 ล้างความคืบหน้าทั้งหมด</button></div>' +
-      '<p class="muted">CANDY FUN ADVENTURE ' + (window.CF_VERSION || '') + '<br>กราฟิกและเสียงสร้างขึ้นเองทั้งหมด</p>', true, refreshHome);
+      '<p class="muted">' + (Art.THEME === 'animals' ? 'ANIMAL FRIENDS ADVENTURE ' : 'CANDY FUN ADVENTURE ') + (window.CF_VERSION || '') + '<br>กราฟิกและเสียงสร้างขึ้นเองทั้งหมด</p>', true, refreshHome);
     bindToggles(card);
+    card.querySelectorAll('[data-theme]').forEach(function(b){ b.onclick=function(){var next=b.dataset.theme;if(next===Art.THEME)return;try{localStorage.setItem('cfa_theme_v1',next);}catch(e){}location.reload();};});
     card.querySelectorAll('[data-gfx]').forEach(function (b) { b.onclick = function () { A.unlock(); A.sfx('click'); setGfx(b.dataset.gfx); card.querySelectorAll('[data-gfx]').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
     var armed = false;
     on(card, '[data-reset]', function (e, b) {
@@ -716,6 +786,7 @@
 
   /* ---------------- เริ่มระบบ ---------------- */
   function init() {
+    document.title = Art.THEME === 'animals' ? 'ANIMAL FRIENDS ADVENTURE' : 'CANDY FUN ADVENTURE';
     document.body.insertAdjacentHTML('afterbegin', Art.defs());
     board = $('#board'); lCells = $('#l-cells'); lJel = $('#l-jel'); lTiles = $('#l-tiles'); lFx = $('#l-fx');
     var d = S.init();
@@ -724,10 +795,10 @@
     function tap(sel, fn) { $(sel).onclick = function () { A.unlock(); A.sfx('click'); fn(); }; }
     tap('#btn-play', openMap); tap('#btn-shop', shop); tap('#btn-rewards', rewards); tap('#btn-settings', settings);
     tap('#map-back', function () { show('home'); }); tap('#map-shop', shop);
-    tap('#g-pause', pauseDialog);
+    tap('#g-pause', pauseDialog); tap('#g-guide', boosterGuide); tap('#fun-open', rewards);
     tap('#g-skip', function () { if (G && G.busy) { G.skip = true; board.classList.add('noanim'); } });
     tap('#target-cancel', cancelTarget);
-    tap('#target-dir', function () { G.dir = G.dir === 'h' ? 'v' : 'h'; $('#target-dir').textContent = G.dir === 'h' ? '↔ แนวนอน' : '↕ แนวตั้ง'; });
+    tap('#target-dir', function () { G.dir = G.dir === 'h' ? 'v' : 'h'; $('#target-dir').textContent = G.dir === 'h' ? '↔ แนวนอน' : '↕ แนวตั้ง'; clearPreview(); });
     $('#modal').addEventListener('pointerdown', function (e) { if (e.target === this && this._close) this._close(); });
     bindBoard();
     var rt = null;

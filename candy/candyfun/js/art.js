@@ -5,7 +5,11 @@
     ['#ffb3bd', '#f43a57', '#a50e2e'], ['#ffd79a', '#ff8d1f', '#b55200'], ['#fff7a6', '#ffd420', '#b58300'],
     ['#c4f7a8', '#41cb4c', '#15792a'], ['#b5e6ff', '#2f9dff', '#0e4eae'], ['#e9c6ff', '#a34df2', '#5a1a9a']
   ];
-  var NAMES = ['สตรอว์เบอร์รีฮาร์ต', 'ส้มฝาน', 'ดาวเลมอน', 'เยลลี่แอปเปิล', 'อัญมณีบลูเบอร์รี', 'กัมดรอปองุ่น'];
+  /* ธีมใหม่เปลี่ยนเฉพาะภาพ; color index, item IDs, ด่าน และเซฟเดิมไม่เปลี่ยน */
+  var THEME = 'animals';
+  try { THEME = root.localStorage.getItem('cfa_theme_v1') === 'candy' ? 'candy' : 'animals'; } catch(e) {}
+  var ANIMAL_EMOJI=['🦊','🐴','🐰','🐸','🦖','🐼'];
+  var NAMES = THEME === 'animals' ? ['จิ้งจอก','ม้า','กระต่าย','กบ','ไดโนเสาร์','แพนด้า'] : ['สตรอว์เบอร์รีฮาร์ต', 'ส้มฝาน', 'ดาวเลมอน', 'เยลลี่แอปเปิล', 'อัญมณีบลูเบอร์รี', 'กัมดรอปองุ่น'];
 
   function star(cx, cy, ro, ri) {
     var p = [];
@@ -71,7 +75,7 @@
   }
   function load(cb) {
     var done = false, n = 0, size = pickSize(), q = root.CF_VERSION ? '?v=' + encodeURIComponent(root.CF_VERSION) : '';
-    var files = { t: 'tiles/tiles-' + size + '.webp', sp: 'special/special-' + size + '.webp', b: 'boosters/boosters-160.webp' }, urls = {};
+    var files = { t: (THEME === 'animals' ? 'assets/animal3d/tiles/' : 'assets/candy3d/tiles/') + 'tiles-' + size + '.webp', sp: 'assets/candy3d/special/special-' + size + '.webp', b: 'assets/candy3d/boosters/boosters-160.webp' }, urls = {};
     function fin(ok) {
       if (done) return;
       if (!ok) { done = true; return cb(false); }
@@ -84,7 +88,7 @@
     }
     for (var k in files) (function (k) {
       var im = new Image();
-      try { urls[k] = new URL(SPR.base + files[k] + q, document.baseURI || location.href).href; } catch (e) { urls[k] = SPR.base + files[k] + q; }
+      try { urls[k] = new URL(files[k] + q, document.baseURI || location.href).href; } catch (e) { urls[k] = files[k] + q; }
       im.onload = function () { fin(im.naturalWidth > 0); }; im.onerror = function () { fin(false); };
       im.src = urls[k];
     })(k);
@@ -93,6 +97,7 @@
   function sp(set, i, cls) { return '<i class="spr s-' + set + (cls ? ' ' + cls : '') + '" style="background-position:' + (i * 20) + '% 0"></i>'; }
   function inner(x) {
     if (!SPR.ok) {
+      if (THEME === 'animals' && x.t === 'c' && !x.sp && x.color >= 0) return '<span class="animal-fallback">' + ANIMAL_EMOJI[x.color] + '</span>';
       if (x.t === 'box') return svg('<use href="#cf-box' + Math.max(1, Math.min(3, x.hp)) + '"/>');
       if (x.sp === 'rainbow' || x.color < 0) return svg('<use href="#cf-rainbow"/>');
       if (x.sp) return svg('<use href="#cf-b' + x.color + '"/><use href="#cf-sp-' + x.sp + '"/>');
@@ -107,7 +112,7 @@
   function tile(x) { return '<span class="tin">' + inner(x) + '</span>'; }
   function sig(x) { return x.t === 'box' ? 'box' + x.hp : x.color + ':' + (x.sp || ''); }
   function icon(kind, color) {
-    if (kind === 'color') return SPR.ok ? '<span class="gi">' + sp('t', color) + '</span>' : svg('<use href="#cf-c' + color + '"/>');
+    if (kind === 'color') return SPR.ok ? '<span class="gi">' + sp('t', color) + '</span>' : (THEME === 'animals' ? '<span class="animal-goal">' + ANIMAL_EMOJI[color] + '</span>' : svg('<use href="#cf-c' + color + '"/>'));
     if (kind === 'box') return SPR.ok ? '<span class="gi">' + sp('sp', 3) + '</span>' : svg('<use href="#cf-box1"/>');
     if (kind === 'jelly') return '<span class="ico-jelly"></span>';
     return '<span class="ico-emoji ic3 star">⭐</span>';
@@ -124,5 +129,5 @@
       '<circle cx="82" cy="92" r="6.5" fill="#3b1d3f"/><circle cx="120" cy="92" r="6.5" fill="#3b1d3f"/><circle cx="84" cy="90" r="2.2" fill="#fff"/><circle cx="122" cy="90" r="2.2" fill="#fff"/>' +
       '<path d="M90 100q11 12 22 0" fill="#fff" stroke="#3b1d3f" stroke-width="4" stroke-linejoin="round"/><circle cx="68" cy="100" r="6" fill="#ff5f9e" opacity=".5"/><circle cx="134" cy="100" r="6" fill="#ff5f9e" opacity=".5"/></svg>';
   }
-  root.CFArt = { defs: defs, tile: tile, sig: sig, icon: icon, mascot: mascot, COL: COL, NAMES: NAMES, load: load, booster: booster, SPR: SPR };
+  root.CFArt = { defs: defs, tile: tile, sig: sig, icon: icon, mascot: mascot, COL: COL, NAMES: NAMES, THEME: THEME, load: load, booster: booster, SPR: SPR };
 })(window);
