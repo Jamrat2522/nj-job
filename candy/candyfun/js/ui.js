@@ -173,7 +173,83 @@
   }
 
   /* ---------------- แผนที่ ---------------- */
+  /* local009 — แผนที่ผจญภัยสัตว์: ภาพประกอบโทนสบายตา + ปุ่มด่านจริง
+   * ไม่แก้ L.get(), S.get(), เหรียญ, ดาว, engine หรือ save เดิม */
+  var ANIMAL_MAP_WORLDS = [
+    {name:'หมู่บ้านกระต่าย', icon:'🐰'}, {name:'น้ำตกไดโนเสาร์',icon:'🦖'},
+    {name:'ทุ่งหญ้าผองเพื่อน',icon:'🐴'}, {name:'ปราสาทสัตว์น้อย',icon:'🏰'}
+  ];
+  function renderAnimalMap() {
+    var d = S.get(), cur = Math.max(1, d.unlocked);
+    var from = Math.max(1, mapFrom || cur - 22), to = cur + 9;
+    var SP = 126, padB = 130, padT = 110;
+    var H = padB + padT + (to - from) * SP;
+    var inner = $('#map-inner'); inner.innerHTML = ''; inner.style.height = H + 'px';
+    var world = ANIMAL_MAP_WORLDS[L.worldOf(cur)];
+    var currentWorld = $('#map-world'), currentLevel = $('#map-current');
+    if (currentWorld) currentWorld.textContent = world.icon + ' ' + world.name;
+    if (currentLevel) currentLevel.textContent = 'ด่าน ' + cur;
+    function yOf(n) { return H - padB - (n - from) * SP; }
+    /* ทางเดินไม่ตัดกรอบจอหรือทับไอคอนตกแต่งใหญ่ */
+    function xOf(n) { return 50 + 22 * Math.sin(n * 0.87); }
+    /* วาดภาพเกาะต่อเนื่องทีละ 10 ด่าน ไม่ใช้ภาพแผนที่สำเร็จที่มีเลขด่านฝังไว้ */
+    var fromPart = Math.floor((from - 1) / 10), toPart = Math.floor((to - 1) / 10);
+    for (var part = fromPart; part <= toPart; part++) {
+      var pFrom = Math.max(from, part * 10 + 1), pTo = Math.min(to, (part + 1) * 10);
+      var top = Math.max(0, yOf(pTo) - SP / 2), bot = Math.min(H, yOf(pFrom) + SP / 2);
+      var sc = el('div', 'map-scene w' + (Math.floor(part * 10 / 25) % 4));
+      sc.style.top = top + 'px'; sc.style.height = Math.max(1,bot-top) + 'px';
+      sc.setAttribute('aria-hidden','true'); inner.appendChild(sc);
+    }
+    /* ป้ายพื้นที่ใหม่ทุก 25 ด่าน ไม่แสดงซ้ำเต็มจอ */
+    for (var w = Math.floor((from - 1) / 25); w <= Math.floor((to - 1) / 25); w++) {
+      var first = w * 25 + 1, labelLv = Math.max(from,first), worldInfo = ANIMAL_MAP_WORLDS[w % 4];
+      if (labelLv > to || first <= from) continue;
+      var label = el('div', 'map-world-label', worldInfo.icon + ' ' + worldInfo.name);
+      label.style.top = Math.max(6, yOf(labelLv) - 95) + 'px';
+      if (first >= from || w === Math.floor((from-1)/25)) inner.appendChild(label);
+    }
+    var pts = [];
+    for (var n = from; n <= to; n++) pts.push(xOf(n).toFixed(2) + ',' + yOf(n));
+    inner.insertAdjacentHTML('beforeend',
+      '<svg id="map-path" viewBox="0 0 100 ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
+      '<polyline points="' + pts.join(' ') + '" fill="none" stroke="rgba(66,105,102,.20)" stroke-width="34" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>' +
+      '<polyline points="' + pts.join(' ') + '" fill="none" stroke="#fff9e4" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>' +
+      '<polyline points="' + pts.join(' ') + '" fill="none" stroke="#edd3a2" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>' +
+      '</svg>');
+    for (var n = from; n <= to; n++) (function (num) {
+      var st = d.stars[num] || 0, locked = num > cur;
+      var cls = 'node animal-map-node' + (num === cur ? ' cur' : locked ? ' lock' : ' done');
+      var number = String(num) + (locked ? '<span class="lock-ic" aria-hidden="true">🔒</span>' : '');
+      var starHtml = st ? '<span class="st" aria-hidden="true">' + '★'.repeat(st) + '</span>' : '';
+      var reward = num % 10 === 0 ? '<span class="tag" aria-hidden="true">🎁</span>' : num % 5 === 0 ? '<span class="tag" aria-hidden="true">🏅</span>' : '';
+      var btn = el('button', cls, number + starHtml + reward);
+      btn.type = 'button'; btn.style.left = xOf(num) + '%'; btn.style.top = yOf(num) + 'px';
+      btn.setAttribute('aria-label', 'ด่าน ' + num + (locked ? ' ยังไม่ปลดล็อก' : num === cur ? ' ด่านปัจจุบัน' : ' ผ่านแล้ว ' + st + ' ดาว'));
+      if (num === cur) btn.setAttribute('aria-current','step');
+      btn.onclick = function () { A.unlock(); A.sfx('click'); if (locked) toast('🔒 ผ่านด่าน ' + (num - 1) + ' ก่อนนะ'); else preLevel(num); };
+      inner.appendChild(btn);
+      /* จุดน่าสนใจประกอบแผนที่ — ไม่ปิดปุ่มด่าน */
+      if (num % 10 === 3 || num % 10 === 7) {
+        var icon = (['🏡','🌳','🦖','🌷','🐰','🌲','🏰','💦'][Math.floor(num / 5) % 8]);
+        var sticker = el('div', 'map-landmark', icon);
+        sticker.style.left = (xOf(num) > 50 ? 4 : 81) + '%';
+        sticker.style.top = (yOf(num) + 18) + 'px';
+        sticker.setAttribute('aria-hidden','true'); inner.appendChild(sticker);
+      }
+    })(n);
+    if (from > 1) {
+      var more = el('button', 'btn btn-mini more', '⬇ ดูด่านก่อนหน้า');
+      more.style.position = 'absolute'; more.style.left = '50%'; more.style.bottom = '10px';
+      more.style.transform = 'translateX(-50%)';
+      more.onclick = function () { mapFrom = Math.max(1, from - 25); renderAnimalMap(); };
+      inner.appendChild(more);
+    }
+    $('#map-stars').textContent = fmt(S.totalStars());
+    var scroll = $('#map-scroll'); scroll.scrollTop = Math.max(0, yOf(cur) - scroll.clientHeight / 2);
+  }
   function renderMap() {
+    if (Art.THEME === 'animals') { renderAnimalMap(); return; }
     var d = S.get(), cur = d.unlocked, from = Math.max(1, mapFrom || cur - 45), to = cur + 12;
     var SP = 96, padB = 90, padT = 110, H = padB + padT + (to - from) * SP;
     var inner = $('#map-inner'); inner.innerHTML = ''; inner.style.height = H + 'px';
