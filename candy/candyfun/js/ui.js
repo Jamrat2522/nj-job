@@ -861,7 +861,7 @@
       '<p class="muted">สลับธีมได้ตลอด โดยคงความคืบหน้าและเหรียญเดิม</p>' +
       '<h3>🎨 คุณภาพกราฟิก</h3><div class="seg">' + [['auto', 'AUTO'], ['high', 'HIGH'], ['low', 'LOW']].map(function (o) { return '<button data-gfx="' + o[0] + '" class="' + (GFX.mode === o[0] ? 'on' : '') + '">' + o[1] + '</button>'; }).join('') + '</div>' +
       '<p class="muted">AUTO = ระบบเลือกให้ · LOW = ลดเอฟเฟกต์เพื่อความลื่น' + (GFX.mode === 'auto' && GFX.autoLow ? ' (ตอนนี้ AUTO ใช้ระดับ LOW)' : '') + '</p>' +
-      '<p class="muted">☁️ ความคืบหน้าของคุณบันทึกแยกตามบัญชีผู้เล่น</p><div class="m-btns"><button class="btn red" data-reset>🗑 ล้างความคืบหน้าทั้งหมด</button></div>' +
+      '<p class="muted">📱 ความคืบหน้าบันทึกในเบราว์เซอร์ของเครื่องนี้ ไม่ซิงก์ข้ามเครื่อง</p><div class="m-btns"><button class="btn red" data-reset>🗑 ล้างความคืบหน้าทั้งหมด</button></div>' +
       '<p class="muted">' + (Art.THEME === 'animals' ? 'ANIMAL FRIENDS ADVENTURE ' : 'CANDY FUN ADVENTURE ') + (window.CF_VERSION || '') + '<br>กราฟิกและเสียงสร้างขึ้นเองทั้งหมด</p>', true, refreshHome);
     bindToggles(card);
     card.querySelectorAll('[data-theme]').forEach(function(b){ b.onclick=function(){var next=b.dataset.theme;if(next===Art.THEME)return;try{localStorage.setItem('cfa_theme_v1',next);}catch(e){}location.reload();};});
@@ -878,7 +878,7 @@
     document.title = Art.THEME === 'animals' ? 'ANIMAL FRIENDS ADVENTURE' : 'CANDY FUN ADVENTURE';
     document.body.insertAdjacentHTML('afterbegin', Art.defs());
     board = $('#board'); lCells = $('#l-cells'); lJel = $('#l-jel'); lTiles = $('#l-tiles'); lFx = $('#l-fx');
-    /* No saved data may load before Supabase verifies the account. */
+    /* Do not load legacy save before the named local guest selects their profile. */
     var d = S.init({read:function(){return null;},write:function(){}});
     A.set('sfx', d.settings.sfx); A.set('music', d.settings.music);
     $('#town').innerHTML = townSVG();
@@ -907,7 +907,7 @@
     window.CFGame = { state: function () { return G; }, start: startLevel, save: S, levels: L, gfx: GFX, setGfx: setGfx, modal: openModal, close: closeModal, toast: toast };
     /* FAST START: แสดงเกมทันทีด้วย SVG fallback; ไม่รอรูป 3D หรือ time-out 6 วินาที */
     var boot = $('#boot'); if (boot) boot.remove();
-    /* Account gate prevents another user on the same browser opening a shared save. */
+    /* Name-only local guest profile; no password or cross-device identity. */
     window.CFAccount.start({
       ready:function(){ G=null; $('#app').hidden=false; A.set('sfx',S.get().settings.sfx); A.set('music',S.get().settings.music); show('home'); },
       logout:function(){ G=null; closeModal(); $('#app').hidden=true; }
