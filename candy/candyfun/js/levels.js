@@ -52,6 +52,9 @@
   var SCORE = function () { return { type: 'score' }; }, JEL = { type: 'jelly' }, BOX = { type: 'box' };
 
   /* ---------- ด่านที่ออกแบบจริง 30 ด่าน ---------- */
+  /* local005: ปรับสมดุลเฉพาะ 8/12/24/27/28/29 ด้วยจำนวนตาเดิน
+   * ไม่แตะ shape/goals/colors/puts หรือ game engine เพื่อรักษากติกาและความเข้ากันได้กับ save เดิม
+   * เทียบผลผ่านของบอท 30 seeds ต่อด่าน ก่อนปล่อยใช้งานจริง */
   var D = [null,
     { rows: 7, cols: 7, shape: 'full', colors: 4, goals: [SCORE()], moves: 14, ease: 1.4, tip: 'ลากขนมไปสลับกับช่องข้าง ๆ ให้เรียงกัน 3 ชิ้นขึ้นไป' },
     { rows: 7, cols: 7, shape: 'full', colors: 4, goals: [col(0, 12)], ease: 1.4, tip: 'เก็บขนมให้ครบตามเป้าหมายด้านบนก่อนตาเดินหมด' },
@@ -60,11 +63,11 @@
     { rows: 8, cols: 8, shape: 'corners', colors: 4, goals: [SCORE()], moves: 14, ease: 1.4, bonus: true, presets: 4, free: { bomb: 1 }, tip: 'ด่านโบนัส! เรียง 5 ชิ้น = ลูกอมสายรุ้ง · ลองใช้ 💣 ระเบิดฟรี' },
     { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [JEL], puts: [['j', 2, 2, 5, 5]], ease: 1.4, free: { shuffle: 1 }, tip: 'จับคู่บนเยลลี่สีชมพูเพื่อล้างให้หมด · ลองใช้ 🔀 สลับมหัศจรรย์ฟรี' },
     { rows: 8, cols: 8, shape: 'corners2', colors: 5, goals: [col(4, 18), col(1, 18)], ease: 1.4, free: { rainbow: 1 }, tip: 'ลองใช้ 🌈 สายรุ้ง แตะขนมสีที่ต้องการ ลบทั้งกระดาน!' },
-    { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [JEL], puts: [['j', 6, 0, 7, 7]], ease: 1.25, free: { moves5: 1 }, tip: 'ตาเดินใกล้หมด? ใช้ ✨ เพิ่ม 5 ตา ได้เลย (ฟรี 1 ครั้ง)' },
+    { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [JEL], puts: [['j', 6, 0, 7, 7]], moves: 28, ease: 1.25, free: { moves5: 1 }, tip: 'ตาเดินใกล้หมด? ใช้ ✨ เพิ่ม 5 ตา ได้เลย (ฟรี 1 ครั้ง)' },
     { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [BOX], puts: [['b', 4, 1, 4, 6]], ease: 1.25, tip: 'จับคู่ขนมข้าง ๆ กล่องของขวัญ เพื่อเปิดกล่อง' },
     { rows: 8, cols: 8, shape: 'diamond', colors: 5, goals: [SCORE()], moves: 18, ease: 1.25, bonus: true, presets: 3, tip: 'สลับขนมพิเศษ 2 ชิ้นเข้าหากัน จะเกิดพลังรวมสุดแรง!' },
     { rows: 8, cols: 8, shape: 'ring', colors: 5, goals: [col(0, 20), col(4, 20)], ease: 1.12 },
-    { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [JEL], puts: [['j', 0, 1, 0, 6], ['j', 7, 1, 7, 6], ['j', 3, 3, 4, 4]], ease: 1.12 },
+    { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [JEL], puts: [['j', 0, 1, 0, 6], ['j', 7, 1, 7, 6], ['j', 3, 3, 4, 4]], moves: 23, ease: 1.12 },
     { rows: 8, cols: 8, shape: 'cross', colors: 5, goals: [BOX], puts: [['b', 3, 2, 4, 5]], ease: 1.12 },
     { rows: 8, cols: 8, shape: 'corners', colors: 5, goals: [JEL], puts: [['j', 3, 0, 4, 7], ['j', 0, 3, 7, 4]], ease: 1.12 },
     { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [SCORE()], moves: 16, ease: 1.3, bonus: true, presets: 5 },
@@ -76,12 +79,12 @@
     { rows: 9, cols: 8, shape: 'full', colors: 5, goals: [JEL], puts: [['j', 7, 0, 8, 7], ['j', 0, 3, 0, 4]], ease: 1.06 },
     { rows: 8, cols: 8, shape: 'steps', colors: 5, goals: [col(0, 22), col(3, 22)], ease: 1.06 },
     { rows: 8, cols: 8, shape: 'full', colors: 6, goals: [SCORE()], moves: 22, ease: 1.12, tip: 'ขนมสีใหม่มาแล้ว! มองหาโอกาสเรียง 4–5 ชิ้น' },
-    { rows: 8, cols: 8, shape: 'cross', colors: 5, goals: [JEL], puts: [['j', 0, 2, 7, 5], ['J', 2, 2, 5, 5]], ease: 1.05 },
+    { rows: 8, cols: 8, shape: 'cross', colors: 5, goals: [JEL], puts: [['j', 0, 2, 7, 5], ['J', 2, 2, 5, 5]], moves: 26, ease: 1.05 },
     { rows: 8, cols: 8, shape: 'heart', colors: 5, goals: [SCORE()], moves: 16, ease: 1.3, bonus: true, presets: 6 },
     { rows: 8, cols: 8, shape: 'pillars', colors: 5, goals: [BOX], puts: [['b', 5, 1, 5, 6], ['B', 6, 3, 6, 4]], ease: 1.05 },
-    { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [JEL], puts: [['j', 0, 0, 1, 1], ['j', 0, 6, 1, 7], ['j', 6, 0, 7, 1], ['j', 6, 6, 7, 7], ['J', 3, 3, 4, 4]], ease: 1.05 },
-    { rows: 8, cols: 8, shape: 'diamond', colors: 6, goals: [col(5, 16), col(4, 16)], ease: 1.05 },
-    { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [BOX, JEL], puts: [['b', 2, 1, 5, 6, 'x'], ['j', 6, 0, 7, 7]], ease: 1.05 },
+    { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [JEL], puts: [['j', 0, 0, 1, 1], ['j', 0, 6, 1, 7], ['j', 6, 0, 7, 1], ['j', 6, 6, 7, 7], ['J', 3, 3, 4, 4]], moves: 33, ease: 1.05 },
+    { rows: 8, cols: 8, shape: 'diamond', colors: 6, goals: [col(5, 16), col(4, 16)], moves: 26, ease: 1.05 },
+    { rows: 8, cols: 8, shape: 'full', colors: 5, goals: [BOX, JEL], puts: [['b', 2, 1, 5, 6, 'x'], ['j', 6, 0, 7, 7]], moves: 30, ease: 1.05 },
     { rows: 8, cols: 8, shape: 'corners', colors: 5, goals: [SCORE()], moves: 20, ease: 1.3, bonus: true, presets: 6 }
   ];
   var DESIGNED = D.length - 1;

@@ -84,7 +84,7 @@
     }
     for (var k in files) (function (k) {
       var im = new Image();
-      try { urls[k] = new URL(SPR.base + files[k] + q, location.href).href; } catch (e) { urls[k] = SPR.base + files[k] + q; }
+      try { urls[k] = new URL(SPR.base + files[k] + q, document.baseURI || location.href).href; } catch (e) { urls[k] = SPR.base + files[k] + q; }
       im.onload = function () { fin(im.naturalWidth > 0); }; im.onerror = function () { fin(false); };
       im.src = urls[k];
     })(k);

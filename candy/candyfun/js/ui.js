@@ -68,11 +68,17 @@
   function on(card, sel, fn) { var b = card.querySelector(sel); if (b) b.onclick = function (e) { A.unlock(); A.sfx('click'); fn(e, b); }; return b; }
 
   /* ---------------- เวอร์ชันกลาง (version.json) ---------------- */
-  function checkVersion() {
+  /* ลด network call ซ้ำ: ตรวจเวอร์ชันไม่เกินหนึ่งครั้งต่อ 60 วินาที
+   * ยกเว้นกลับมาออนไลน์หลังออฟไลน์ (force) เพื่อรับเวอร์ชันใหม่เร็วขึ้น */
+  var lastVersionCheck = Date.now(), versionCheckBusy = false;
+  function checkVersion(force) {
     if (!window.CF_VERSION || location.protocol === 'file:' || !window.fetch) return;
-    fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
+    var now = Date.now();
+    if (versionCheckBusy || (!force && now - lastVersionCheck < 60000)) return;
+    versionCheckBusy = true; lastVersionCheck = now;
+    fetch(new URL('version.json?t=' + now, document.baseURI || location.href).href, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw Error('version HTTP ' + r.status); return r.json(); }).then(function (j) {
       if (j && j.version && j.version !== window.CF_VERSION) { if (screenName === 'game' && G) pendingReload = true; else doReload(); }
-    }).catch(function () { /* ออฟไลน์: เล่นต่อได้ */ });
+    }).catch(function () { /* ออฟไลน์: เล่นต่อได้ */ }).then(function () { versionCheckBusy = false; });
   }
   function doReload() {
     pendingReload = false;
@@ -731,14 +737,26 @@
     }
     window.addEventListener('resize', relayout); window.addEventListener('orientationchange', relayout);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) checkVersion(); });
-    window.addEventListener('online', checkVersion); window.addEventListener('focus', checkVersion); window.addEventListener('pageshow', checkVersion);
+    window.addEventListener('online', function () { checkVersion(true); }); window.addEventListener('focus', checkVersion); window.addEventListener('pageshow', checkVersion);
     setInterval(checkVersion, 5 * 60 * 1000);
     document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
     if (root0.matchMedia && root0.matchMedia('(prefers-reduced-motion: reduce)').matches) GFX.autoLow = true;
     if ((navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2) || (navigator.deviceMemory && navigator.deviceMemory <= 2)) GFX.autoLow = true;
     applyGfx(); fpsLoop();
     window.CFGame = { state: function () { return G; }, start: startLevel, save: S, levels: L, gfx: GFX, setGfx: setGfx, modal: openModal, close: closeModal, toast: toast };
-    Art.load(function () { $('#boot').remove(); $('#app').hidden = false; show('home'); });
+    /* FAST START: แสดงเกมทันทีด้วย SVG fallback; ไม่รอรูป 3D หรือ time-out 6 วินาที */
+    var boot = $('#boot'); if (boot) boot.remove();
+    $('#app').hidden = false; show('home');
+    window.CF_PERF_READY = performance.now() - (window.CF_PERF_START || 0);
+    /* โหลดสไปรต์ 3D แบบไม่ขวางหน้า HOME; เมื่อสำเร็จ re-render เฉพาะภาพ
+     * ห้ามกระทบ Game Engine หรือ Save; หากกำลังเล่นอยู่ อย่ารีเซ็ตสถานะเกม */
+    setTimeout(function () {
+      Art.load(function (ok) {
+        if (!ok || !G || screenName !== 'game') return;
+        if (G.busy) { G.needLayout = true; return; }
+        clearHint(); setSel(null); layout(); hud(); boosters(); scheduleHint();
+      });
+    }, 0);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

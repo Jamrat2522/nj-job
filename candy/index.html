@@ -1,13 +1,91 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
+<base href="./candyfun/">
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<meta http-equiv="refresh" content="0; url=./candyfun/">
-<title>Candy Fun Adventure — เปิดเกม</title>
-<style>html,body{min-height:100%;margin:0;display:grid;place-items:center;background:linear-gradient(145deg,#ff91c8,#8f53dc);color:white;font-family:system-ui,sans-serif;text-align:center}.card{padding:28px}.btn{display:inline-block;padding:14px 24px;border-radius:25px;background:#fff;color:#8133a5;text-decoration:none;font-weight:800}</style>
-<script>location.replace('./candyfun/');</script>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#ff7ab8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%8D%AD%3C/text%3E%3C/svg%3E">
+<title>CANDY FUN ADVENTURE</title>
+<link rel="stylesheet" href="css/style.css?v=local006">
+<script>window.CF_VERSION = 'local006'; window.CF_PERF_START = performance.now();</script>
+<script defer src="js/engine.js?v=local006"></script>
+<script defer src="js/levels.js?v=local006"></script>
+<script defer src="js/save.js?v=local006"></script>
+<script defer src="js/audio.js?v=local006"></script>
+<script defer src="js/art.js?v=local006"></script>
+<script defer src="js/photo.js?v=local006"></script>
+<script defer src="js/ui.js?v=local006"></script>
+<style>
+html,body{margin:0;height:100%;background:#ffb3d6;font-family:system-ui,sans-serif}
+#boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:800;text-shadow:0 2px 0 #d6408c}
+</style>
 </head>
-<body><main class="card"><h1>🍭 Candy Fun Adventure</h1><p>กำลังเปิดเกม…</p><a class="btn" href="./candyfun/">▶ เล่นเกม</a></main></body>
+<body>
+<div id="boot">🍭 กำลังโหลด…</div>
+
+<div id="app" hidden>
+  <!-- หน้าหลัก -->
+  <section id="scr-home" class="screen">
+    <div class="sky"><i class="cloud c1"></i><i class="cloud c2"></i><i class="cloud c3"></i></div>
+    <div class="town" id="town"></div>
+    <div class="home-top">
+      <div class="pill"><span class="ic3 coin">🪙</span><b data-coins>0</b></div>
+      <div class="pill"><span class="ic3 star">⭐</span><b id="home-stars">0</b></div>
+    </div>
+    <h1 class="logo"><img class="logo3d" alt="CANDY FUN ADVENTURE" srcset="assets/candy3d/ui/logo-640.webp 640w, assets/candy3d/ui/logo-1200.webp 1200w" sizes="(min-width:700px) 440px, 84vw" src="assets/candy3d/ui/logo-640.webp" onerror="this.remove()"><span class="l1">CANDY</span><span class="l2">FUN</span><span class="l3">ADVENTURE</span></h1>
+    <div class="home-level">ด่านปัจจุบัน <b id="home-level">1</b> · <span id="home-world"></span></div>
+    <button class="btn btn-play" id="btn-play">▶ PLAY</button>
+    <div class="home-row">
+      <button class="btn btn-sq" id="btn-shop"><i>🛒</i>SHOP</button>
+      <button class="btn btn-sq" id="btn-rewards"><i>🎁</i>REWARDS<em id="rw-dot" class="dot" hidden></em></button>
+      <button class="btn btn-sq" id="btn-settings"><i>⚙️</i>SETTINGS</button>
+    </div>
+    <div class="ver" id="ver"></div>
+  </section>
+
+  <!-- แผนที่ -->
+  <section id="scr-map" class="screen">
+    <header class="bar">
+      <button class="btn btn-ic" id="map-back">🏠</button>
+      <div class="pill"><span class="ic3 star">⭐</span><b id="map-stars">0</b></div>
+      <div class="pill"><span class="ic3 coin">🪙</span><b data-coins>0</b></div>
+      <button class="btn btn-ic" id="map-shop">🛒</button>
+    </header>
+    <div id="map-scroll"><div id="map-inner"></div></div>
+  </section>
+
+  <!-- ขณะเล่น -->
+  <section id="scr-game" class="screen">
+    <header class="hud">
+      <div class="hud-l">
+        <div class="hud-lv">ด่าน <b id="g-level">1</b></div>
+        <div class="goals" id="g-goals"></div>
+      </div>
+      <div class="hud-m"><b id="g-moves">0</b><span>ตาเดิน</span></div>
+      <div class="hud-r">
+        <div class="hud-score"><span>คะแนน</span><b id="g-score">0</b></div>
+        <div class="starbar"><i id="g-bar"></i><em style="left:0%" id="g-s1">★</em><em id="g-s2">★</em><em id="g-s3">★</em></div>
+        <div class="hud-btns"><div class="pill sm"><span class="ic3 coin">🪙</span><b data-coins>0</b></div><button class="btn btn-ic sm" id="g-pause">⏸</button></div>
+      </div>
+    </header>
+    <div id="tip" class="tip" hidden></div>
+    <div class="amb" aria-hidden="true"><i class="cloud c1"></i><i class="cloud c2"></i></div>
+    <div id="board-wrap">
+      <div id="board"><div class="lay" id="l-cells"></div><div class="lay" id="l-jel"></div><div class="lay" id="l-tiles"></div><div class="lay" id="l-fx"></div></div>
+      <div id="combo"></div>
+      <button class="btn btn-skip" id="g-skip" hidden>⏩ ข้าม</button>
+    </div>
+    <div id="target-bar" hidden><span id="target-text"></span><button class="btn btn-mini" id="target-dir" hidden>↔ แนวนอน</button><button class="btn btn-mini red" id="target-cancel">ยกเลิก</button></div>
+    <footer class="boosters" id="boosters"></footer>
+  </section>
+
+  <div id="modal" class="modal" hidden><div class="modal-card" id="modal-card"></div></div>
+  <div id="confetti"></div>
+  <div id="toast"></div>
+</div>
+
+</body>
 </html>

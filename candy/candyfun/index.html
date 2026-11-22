@@ -8,6 +8,15 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%8D%AD%3C/text%3E%3C/svg%3E">
 <title>CANDY FUN ADVENTURE</title>
+<link rel="stylesheet" href="css/style.css?v=local006">
+<script>window.CF_VERSION = 'local006'; window.CF_PERF_START = performance.now();</script>
+<script defer src="js/engine.js?v=local006"></script>
+<script defer src="js/levels.js?v=local006"></script>
+<script defer src="js/save.js?v=local006"></script>
+<script defer src="js/audio.js?v=local006"></script>
+<script defer src="js/art.js?v=local006"></script>
+<script defer src="js/photo.js?v=local006"></script>
+<script defer src="js/ui.js?v=local006"></script>
 <style>
 html,body{margin:0;height:100%;background:#ffb3d6;font-family:system-ui,sans-serif}
 #boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:800;text-shadow:0 2px 0 #d6408c}
@@ -77,27 +86,5 @@ html,body{margin:0;height:100%;background:#ffb3d6;font-family:system-ui,sans-ser
   <div id="toast"></div>
 </div>
 
-<script>
-/* ตัวโหลดกลาง: อ่าน Deployment Version จาก version.json (จุดเดียว) แล้วโหลดไฟล์ทั้งหมดด้วย ?v= เพื่อกัน cache เก่า */
-(function () {
-  var files = ['js/engine.js', 'js/levels.js', 'js/save.js', 'js/audio.js', 'js/art.js', 'js/photo.js', 'js/ui.js'];
-  function boot(v) {
-    window.CF_VERSION = v || '';
-    var q = v ? '?v=' + encodeURIComponent(v) : '';
-    var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'css/style.css' + q; document.head.appendChild(l);
-    (function next(i) {
-      if (i >= files.length) return;
-      var s = document.createElement('script'); s.src = files[i] + q;
-      s.onload = function () { next(i + 1); };
-      s.onerror = function () { document.getElementById('boot').textContent = 'โหลดไฟล์ไม่สำเร็จ: ' + files[i]; };
-      document.body.appendChild(s);
-    })(0);
-  }
-  if (location.protocol === 'file:' || !window.fetch) { boot(''); return; }
-  fetch('version.json?t=' + Date.now(), { cache: 'no-store' })
-    .then(function (r) { return r.json(); }).then(function (j) { boot(j && j.version); })
-    .catch(function () { boot(''); });
-})();
-</script>
 </body>
 </html>
