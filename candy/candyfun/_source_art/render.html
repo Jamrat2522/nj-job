@@ -1,0 +1,222 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+</head><body style="margin:0;background:#888"><script type="module">
+import * as T from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+
+const renderer = new T.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+renderer.outputColorSpace = T.SRGBColorSpace; renderer.toneMapping = T.LinearToneMapping; renderer.toneMappingExposure = 1.0;
+document.body.appendChild(renderer.domElement);
+const pm = new T.PMREMGenerator(renderer), ENV = pm.fromScene(new RoomEnvironment(), 0.03).texture;
+const font = await new Promise(r => new FontLoader().load('./node_modules/three/examples/fonts/helvetiker_bold.typeface.json', r));
+
+const glossy = (color, o = {}) => new T.MeshPhysicalMaterial(Object.assign({ color, roughness: 0.16, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: 0.62 }, o));
+const gold = (c = 0xffc21a) => new T.MeshPhysicalMaterial({ color: c, roughness: 0.2, metalness: 0.45, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 1.0, emissive: c, emissiveIntensity: 0.12 });
+const mesh = (g, m) => new T.Mesh(g, m);
+function ext(shape, depth, bev, o = {}) { const g = new T.ExtrudeGeometry(shape, Object.assign({ depth, bevelEnabled: true, bevelThickness: bev, bevelSize: bev * 0.9, bevelSegments: 10, curveSegments: 40 }, o)); g.center(); return g; }
+function starShape(ro, ri, n = 5) { const s = new T.Shape(); for (let i = 0; i < n * 2; i++) { const a = Math.PI / 2 + i * Math.PI / n, r = i % 2 ? ri : ro; s[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r); } s.closePath(); return s; }
+function circleShape(r) { const s = new T.Shape(); s.absarc(0, 0, r, 0, Math.PI * 2); return s; }
+function heartShape() { const s = new T.Shape(), k = 0.062; s.moveTo(0, -11 * k);
+  s.bezierCurveTo(-4 * k, -7 * k, -15 * k, 0, -15 * k, 7 * k); s.bezierCurveTo(-15 * k, 14 * k, -5 * k, 16 * k, 0, 9 * k);
+  s.bezierCurveTo(5 * k, 16 * k, 15 * k, 14 * k, 15 * k, 7 * k); s.bezierCurveTo(15 * k, 0, 4 * k, -7 * k, 0, -11 * k); return s; }
+function swirlTex() { const c = document.createElement('canvas'); c.width = c.height = 512; const x = c.getContext('2d'); const cols = ['#f43a57', '#ff8d1f', '#ffd420', '#41cb4c', '#2f9dff', '#a34df2'];
+  for (let i = 0; i < 12; i++) { x.fillStyle = cols[i % 6]; x.fillRect(i * 512 / 12, 0, 512 / 12 + 1, 512); } const t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; t.wrapS = T.RepeatWrapping; return t; }
+function stripeTex(a, b, n = 8) { const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d'); for (let i = 0; i < n; i++) { x.fillStyle = i % 2 ? a : b; x.fillRect(i * 256 / n, 0, 256 / n + 1, 256); } const t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; t.wrapS = t.wrapT = T.RepeatWrapping; return t; }
+
+const P = { // เม็ดสี (รักษารหัสสีเดิม 0..5)
+  0: 0xf2264b, 1: 0xff8412, 2: 0xffcf0d, 3: 0x2fc440, 4: 0x1f8dff, 5: 0x9a3df0 };
+const B = {};
+B.c0 = () => { const g = new T.Group(); g.add(mesh(ext(heartShape(), 0.5, 0.26), glossy(P[0]))); g.scale.setScalar(1.02); return g; };
+B.c1 = () => { const g = new T.Group(); g.add(mesh(ext(circleShape(0.74), 0.34, 0.2), glossy(P[1])));
+  const inner = mesh(new T.CylinderGeometry(0.62, 0.62, 0.05, 48), glossy(0xffd9a0, { roughness: 0.3 })); inner.rotation.x = Math.PI / 2; inner.position.z = 0.36; g.add(inner);
+  for (let i = 0; i < 3; i++) { const l = mesh(new RoundedBoxGeometry(0.07, 1.2, 0.06, 3, 0.03), glossy(0xfff6e0, { roughness: 0.35 })); l.rotation.z = i * Math.PI / 3; l.position.z = 0.385; g.add(l); }
+  const hub = mesh(new T.SphereGeometry(0.1, 20, 12), glossy(0xfff6e0)); hub.position.z = 0.39; g.add(hub); return g; };
+B.c2 = () => { const g = new T.Group(); g.add(mesh(ext(starShape(0.92, 0.47), 0.4, 0.22), glossy(P[2]))); return g; };
+B.c3 = () => { const g = new T.Group(); g.add(mesh(new RoundedBoxGeometry(1.62, 1.62, 1.0, 10, 0.42), glossy(P[3]))); return g; };
+B.c4 = () => { const g = new T.Group(), m = glossy(P[4], { roughness: 0.05, flatShading: true });
+  const crown = mesh(new T.CylinderGeometry(0.58, 1.02, 0.42, 6), m); crown.rotation.x = Math.PI / 2; crown.position.z = 0.2; g.add(crown);
+  const girdle = mesh(new T.CylinderGeometry(1.02, 1.02, 0.16, 6), m); girdle.rotation.x = Math.PI / 2; girdle.position.z = -0.09; g.add(girdle);
+  const pav = mesh(new T.CylinderGeometry(1.02, 0.3, 0.4, 6), m); pav.rotation.x = Math.PI / 2; pav.position.z = -0.37; g.add(pav); g.rotation.z = Math.PI / 6; return g; };
+B.c5 = () => { const pts = []; for (let i = 0; i <= 40; i++) { const t = i / 40, a = t * Math.PI; const r = Math.sin(a) * (0.86 - 0.42 * t) * (t < 0.5 ? 1 : 1) + 0; pts.push(new T.Vector2(Math.max(0.001, Math.sin(a) * (0.95 - 0.5 * t)), -0.82 + t * 1.85 - 0.25 * Math.sin(a))); }
+  const g = new T.Group(); g.add(mesh(new T.LatheGeometry(pts, 64), glossy(P[5]))); return g; };
+B.rainbow = () => { const g = new T.Group(); const s = mesh(new T.SphereGeometry(0.98, 64, 48), glossy(0xffffff, { map: swirlTex() })); s.rotation.set(0.9, 0.3, 0.5); g.add(s);
+  const st = mesh(ext(starShape(0.34, 0.16), 0.08, 0.04), glossy(0xffffff, { emissive: 0xffffff, emissiveIntensity: 0.35 })); st.position.z = 0.98; g.add(st); return g; };
+function bomb(scale) { const g = new T.Group(); g.add(mesh(new T.SphereGeometry(0.8, 48, 32), glossy(0x241833, { roughness: 0.12 })));
+  const cap = mesh(new T.CylinderGeometry(0.2, 0.24, 0.22, 24), gold(0xb8c0d0)); cap.position.set(0.3, 0.78, 0); cap.rotation.z = -0.36; g.add(cap);
+  const curve = new T.CatmullRomCurve3([new T.Vector3(0.34, 0.86, 0), new T.Vector3(0.5, 1.1, 0), new T.Vector3(0.72, 1.12, 0)]);
+  g.add(mesh(new T.TubeGeometry(curve, 16, 0.05, 8), glossy(0xe8c07a, { roughness: 0.7, clearcoat: 0 })));
+  const sp = mesh(ext(starShape(0.24, 0.1, 6), 0.06, 0.03), new T.MeshBasicMaterial({ color: 0xffe14a })); sp.position.set(0.8, 1.14, 0); g.add(sp);
+  g.scale.setScalar(scale); g.position.y = -0.12 * scale; return g; }
+B.bomb = () => bomb(0.92);
+B.rocketH = () => { const g = new T.Group(); const band = mesh(new T.CapsuleGeometry(0.2, 1.0, 12, 24), glossy(0xffffff)); band.rotation.z = Math.PI / 2; g.add(band);
+  for (const s of [-1, 1]) { const c = mesh(new T.ConeGeometry(0.34, 0.5, 24), glossy(0xff3f95)); c.rotation.z = -s * Math.PI / 2; c.position.x = s * 0.92; g.add(c); } return g; };
+function gift(body, lid, rib, extra) { const g = new T.Group(), mb = typeof body === 'number' ? glossy(body, { roughness: 0.3 }) : body, ml = typeof lid === 'number' ? glossy(lid, { roughness: 0.3 }) : lid, mr = typeof rib === 'number' ? glossy(rib) : rib;
+  const b = mesh(new RoundedBoxGeometry(1.46, 1.02, 1.2, 6, 0.12), mb); b.position.y = -0.3; g.add(b);
+  const l = mesh(new RoundedBoxGeometry(1.64, 0.36, 1.36, 6, 0.1), ml); l.position.y = 0.36; g.add(l);
+  const r1 = mesh(new T.BoxGeometry(0.3, 1.04, 1.23), mr); r1.position.y = -0.3; g.add(r1);
+  const r2 = mesh(new T.BoxGeometry(0.3, 0.38, 1.39), mr); r2.position.y = 0.36; g.add(r2);
+  if (extra === 'h') { const r3 = mesh(new T.BoxGeometry(1.49, 0.26, 1.23), mr); r3.position.y = -0.3; g.add(r3); }
+  if (extra === 'lock') { const k = mesh(new RoundedBoxGeometry(0.42, 0.42, 0.2, 4, 0.08), gold()); k.position.set(0, -0.3, 0.66); g.add(k); const sh = mesh(new T.TorusGeometry(0.15, 0.05, 10, 24, Math.PI), gold(0xd7dbe6)); sh.position.set(0, -0.08, 0.66); g.add(sh);
+    for (const [x, y] of [[-0.6, 0.05], [0.6, 0.05], [-0.6, -0.65], [0.6, -0.65]]) { const rv = mesh(new T.SphereGeometry(0.07, 12, 8), gold(0x8d95a8)); rv.position.set(x, y, 0.6); g.add(rv); } }
+  else for (const s of [-1, 1]) { const bw = mesh(new T.TorusGeometry(0.2, 0.09, 12, 24), mr); bw.position.set(s * 0.24, 0.68, 0); bw.rotation.set(0.3, s * 0.5, s * 0.5); g.add(bw); }
+  const kn = mesh(new T.SphereGeometry(0.13, 16, 12), mr); kn.position.y = 0.62; if (extra !== 'lock') g.add(kn);
+  g.rotation.set(0.1, -0.45, 0); g.scale.setScalar(0.98); return g; }
+B.box1 = () => gift(0xff5fa8, 0xff7fbc, 0xffd420);
+B.box2 = () => gift(0x2f9dff, 0x58b4ff, 0xffd420, 'h');
+B.box3 = () => gift(new T.MeshPhysicalMaterial({ color: 0x9aa3b8, metalness: 0.9, roughness: 0.32 }), new T.MeshPhysicalMaterial({ color: 0xb4bccd, metalness: 0.9, roughness: 0.3 }), new T.MeshPhysicalMaterial({ color: 0x5d667d, metalness: 0.9, roughness: 0.4 }), 'lock');
+B.b_hammer = () => { const g = new T.Group(); const h = mesh(new RoundedBoxGeometry(1.25, 0.7, 0.7, 6, 0.16), glossy(0xff4f9f)); h.position.y = 0.55; g.add(h);
+  for (const s of [-1, 1]) { const c = mesh(new T.CylinderGeometry(0.37, 0.37, 0.12, 32), gold()); c.rotation.z = Math.PI / 2; c.position.set(s * 0.64, 0.55, 0); g.add(c); }
+  const st = mesh(new T.CylinderGeometry(0.11, 0.13, 1.5, 20), glossy(0xc98a4b, { roughness: 0.5, clearcoat: 0.4 })); st.position.y = -0.4; g.add(st); g.rotation.z = 0.6; g.scale.setScalar(0.92); return g; };
+B.b_bomb = () => bomb(1.02);
+B.b_rainbow = () => B.rainbow();
+B.b_shuffle = () => { const g = new T.Group(); for (const s of [0, 1]) { const a = new T.Group(); const t = mesh(new T.TorusGeometry(0.62, 0.15, 14, 40, Math.PI * 1.05), glossy(s ? 0xff4f9f : 0x2f9dff)); a.add(t);
+    const c = mesh(new T.ConeGeometry(0.34, 0.5, 24), glossy(s ? 0xff4f9f : 0x2f9dff)); c.position.set(-0.62 * Math.cos(Math.PI * 0.02), 0.62 * Math.sin(Math.PI * 1.05) - 0.16, 0); c.rotation.z = Math.PI; a.add(c); a.rotation.z = s * Math.PI + 0.25; g.add(a); } return g; };
+B.b_moves5 = () => { const g = new T.Group(); g.add(mesh(ext(starShape(0.98, 0.5), 0.3, 0.16), gold()));
+  const tg = new TextGeometry('+5', { font, size: 0.52, height: 0.12, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.02, bevelSegments: 4 }); tg.center(); const tx = mesh(tg, glossy(0xffffff)); tx.position.set(0, -0.06, 0.42); g.add(tx); return g; };
+B.b_rocket = () => { const g = new T.Group(); const pts = []; for (let i = 0; i <= 30; i++) { const t = i / 30; pts.push(new T.Vector2(0.36 * Math.sin(Math.min(1, t * 1.25) * Math.PI / 2) * (1 - Math.pow(Math.max(0, t - 0.55) / 0.45, 2)) + 0.001, -0.75 + t * 1.6)); }
+  g.add(mesh(new T.LatheGeometry(pts, 48), glossy(0xffffff)));
+  const nose = mesh(new T.ConeGeometry(0.2, 0.42, 32), glossy(0xf2264b)); nose.position.y = 0.92; g.add(nose);
+  const win = mesh(new T.SphereGeometry(0.15, 24, 16), glossy(0x2f9dff)); win.position.set(0, 0.25, 0.32); g.add(win);
+  for (let i = 0; i < 3; i++) { const f = mesh(new RoundedBoxGeometry(0.1, 0.5, 0.42, 3, 0.04), glossy(0xf2264b)); const a = i * 2.094 + 0.5; f.position.set(Math.sin(a) * 0.42, -0.6, Math.cos(a) * 0.42); f.rotation.y = a; g.add(f); }
+  const fl = mesh(new T.ConeGeometry(0.2, 0.5, 20), new T.MeshBasicMaterial({ color: 0xffb21a })); fl.rotation.z = Math.PI; fl.position.y = -1.0; g.add(fl);
+  g.rotation.z = -0.7; g.scale.setScalar(0.9); return g; };
+B.coin = () => { const g = new T.Group(); const c = mesh(new T.CylinderGeometry(0.95, 0.95, 0.2, 64), gold()); c.rotation.x = Math.PI / 2; g.add(c);
+  const rim = mesh(new T.TorusGeometry(0.87, 0.09, 14, 64), gold(0xffd34d)); rim.position.z = 0.1; g.add(rim);
+  const st = mesh(ext(starShape(0.5, 0.24), 0.06, 0.04), gold(0xffe27a)); st.position.z = 0.14; g.add(st); g.rotation.y = -0.3; return g; };
+B.star = () => { const g = new T.Group(); g.add(mesh(ext(starShape(0.98, 0.5), 0.34, 0.2), gold(0xffc400))); return g; };
+
+function shadowPlane() { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); const gr = x.createRadialGradient(64, 64, 4, 64, 64, 62); gr.addColorStop(0, 'rgba(40,5,60,.55)'); gr.addColorStop(1, 'rgba(40,5,60,0)'); x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+  const m = mesh(new T.PlaneGeometry(2.2, 0.5), new T.MeshBasicMaterial({ map: new T.CanvasTexture(c), transparent: true, depthWrite: false })); m.position.set(0.05, -1.08, -1.5); return m; }
+function lights(scene) { scene.environment = ENV; scene.add(new T.AmbientLight(0xffffff, 0.3));
+  const k = new T.DirectionalLight(0xffffff, 1.9); k.position.set(-3, 5, 6); scene.add(k);
+  const r = new T.DirectionalLight(0xffc0f0, 1.2); r.position.set(4, 1, -3); scene.add(r); }
+
+window.renderItem = (name, S, noShadow) => {
+  renderer.setPixelRatio(1); renderer.setSize(S, S); renderer.setClearColor(0, 0);
+  const scene = new T.Scene(); lights(scene);
+  const obj = B[name](), piv = new T.Group(); piv.add(obj);
+  if (!/^box|rocketH/.test(name)) piv.rotation.set(-0.28, -0.3, 0);
+  const box = new T.Box3().setFromObject(piv), sz = box.getSize(new T.Vector3()), ct = box.getCenter(new T.Vector3());
+  const k = (name === 'c4' ? 2.06 : name === 'c5' ? 1.95 : 1.86) / Math.max(sz.x, sz.y); piv.scale.setScalar(k); piv.position.set(-ct.x * k, -ct.y * k + 0.05, 0);
+  scene.add(piv); if (!noShadow) scene.add(shadowPlane());
+  const cam = new T.OrthographicCamera(-1.18, 1.18, 1.18, -1.18, 0.1, 50); cam.position.z = 10;
+  renderer.render(scene, cam); return renderer.domElement.toDataURL('image/png');
+};
+
+window.renderLogo = (W, H) => {
+  renderer.setSize(W, H); renderer.setClearColor(0, 0);
+  const scene = new T.Scene(); lights(scene);
+  const lines = [['CANDY', 1.5, 0xff3f95, 1.55], ['FUN', 1.3, 0xffb515, 0.02], ['ADVENTURE', 0.78, 0x6a4bff, -1.25]], root = new T.Group();
+  for (const [txt, size, col, y] of lines) {
+    const row = new T.Group(); let x = 0; const parts = [];
+    for (const ch of txt) { const g = new TextGeometry(ch, { font, size, height: size * 0.34, curveSegments: 10, bevelEnabled: true, bevelThickness: size * 0.07, bevelSize: size * 0.055, bevelSegments: 8 });
+      g.computeBoundingBox(); const w = g.boundingBox.max.x - g.boundingBox.min.x; g.translate(-g.boundingBox.min.x, 0, 0); parts.push([g, x, w]); x += w + size * 0.1; }
+    parts.forEach(([g, px], i) => { const back = mesh(g, glossy(0xffffff, { roughness: 0.3 })); back.scale.set(1.0, 1.0, 1); const m = mesh(g, glossy(col)); m.position.set(px - x / 2, y + Math.sin(i * 1.3) * size * 0.05, 0); m.rotation.z = Math.sin(i * 2.1) * 0.06; row.add(m); });
+    root.add(row);
+  }
+  root.rotation.set(-0.12, -0.16, -0.05); scene.add(root);
+  const box = new T.Box3().setFromObject(root), sz = box.getSize(new T.Vector3()), ct = box.getCenter(new T.Vector3()); root.position.sub(ct);
+  const half = Math.max(sz.x / 2 * 1.04, sz.y / 2 * 1.06 * W / H), cam = new T.OrthographicCamera(-half, half, half * H / W, -half * H / W, 0.1, 100); cam.position.z = 20;
+  renderer.render(scene, cam); return renderer.domElement.toDataURL('image/png');
+};
+
+/* ---------- ฉาก Candy Fantasy World ---------- */
+function rng(seed) { let a = seed; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const matte = (c, r = 0.55) => new T.MeshStandardMaterial({ color: c, roughness: r, envMapIntensity: 0.5 });
+function house(c1, c2, s) { const g = new T.Group(); const b = mesh(new RoundedBoxGeometry(2, 1.8, 2, 5, 0.25), glossy(c1, { roughness: 0.4, clearcoat: 0.5 })); b.position.y = 0.9; g.add(b);
+  const roof = mesh(new T.SphereGeometry(1.55, 40, 24, 0, Math.PI * 2, 0, Math.PI / 2), glossy(c2)); roof.position.y = 1.7; roof.scale.y = 1.15; g.add(roof);
+  for (let i = 0; i < 9; i++) { const d = mesh(new T.SphereGeometry(0.3, 16, 12), glossy(0xffffff, { roughness: 0.3 })); const a = i / 9 * 6.283; d.position.set(Math.cos(a) * 1.5, 1.72, Math.sin(a) * 1.5); g.add(d); }
+  const ch = mesh(new T.SphereGeometry(0.32, 24, 16), glossy(0xf2264b)); ch.position.y = 3.6; g.add(ch);
+  const door = mesh(new RoundedBoxGeometry(0.6, 1.0, 0.12, 4, 0.2), glossy(0x8a4a1e, { roughness: 0.5 })); door.position.set(0, 0.5, 1.02); g.add(door);
+  for (const x of [-0.62, 0.62]) { const w = mesh(new RoundedBoxGeometry(0.42, 0.42, 0.1, 3, 0.1), new T.MeshStandardMaterial({ color: 0xfff3a0, emissive: 0xffd95a, emissiveIntensity: 0.7 })); w.position.set(x, 1.2, 1.02); g.add(w); }
+  g.scale.setScalar(s); return g; }
+function lolly(col, h, r) { const g = new T.Group(); const st = mesh(new T.CylinderGeometry(0.07, 0.07, h, 12), glossy(0xffffff)); st.position.y = h / 2; g.add(st);
+  const head = mesh(new T.SphereGeometry(r, 40, 28), glossy(0xffffff, { map: stripeTex(col, '#ffffff', 10) })); head.scale.z = 0.4; head.position.y = h + r * 0.7; head.rotation.z = 0.4; g.add(head); return g; }
+function cane(h) { const curve = new T.CatmullRomCurve3([new T.Vector3(0, 0, 0), new T.Vector3(0, h * 0.75, 0), new T.Vector3(0.1, h, 0), new T.Vector3(0.45, h * 1.1, 0), new T.Vector3(0.8, h, 0), new T.Vector3(0.85, h * 0.85, 0)]);
+  const t = stripeTex('#f2264b', '#ffffff', 2); t.repeat.set(14, 1); return mesh(new T.TubeGeometry(curve, 60, 0.15, 14), glossy(0xffffff, { map: t })); }
+function mountain(c, s) { const g = new T.Group(); const m = mesh(new T.ConeGeometry(3, 6, 48), matte(c, 0.45)); m.position.y = 3; g.add(m);
+  const cap = mesh(new T.ConeGeometry(1.25, 2.5, 48), glossy(0xffffff, { roughness: 0.3 })); cap.position.y = 4.8; g.add(cap);
+  for (let i = 0; i < 7; i++) { const d = mesh(new T.SphereGeometry(0.42, 16, 12), glossy(0xffffff, { roughness: 0.3 })); const a = i / 7 * 6.283; d.position.set(Math.cos(a) * 1.15, 3.62, Math.sin(a) * 1.15); g.add(d); } g.scale.setScalar(s); return g; }
+function cloud(s) { const g = new T.Group(), m = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 1, emissive: 0xffe6f4, emissiveIntensity: 0.35 }); for (const [x, y, r] of [[0, 0, 1], [1.1, -0.1, 0.8], [-1.1, -0.15, 0.75], [0.5, 0.45, 0.75], [-0.5, 0.35, 0.7], [1.9, -0.3, 0.5], [-1.9, -0.3, 0.5]]) { const b = mesh(new T.SphereGeometry(r, 24, 16), m); b.position.set(x, y, 0); g.add(b); } g.scale.set(s, s * 0.8, s * 0.6); return g; }
+window.renderBg = (W, H, wide) => {
+  renderer.setSize(W, H);
+  const scene = new T.Scene(), R = rng(wide ? 11 : 7);
+  const c = document.createElement('canvas'); c.width = 8; c.height = 512; const x = c.getContext('2d'), gr = x.createLinearGradient(0, 0, 0, 512);
+  gr.addColorStop(0, '#3fa9ff'); gr.addColorStop(0.4, '#8fd0ff'); gr.addColorStop(0.62, '#ffc4e4'); gr.addColorStop(1, '#ff9fd0'); x.fillStyle = gr; x.fillRect(0, 0, 8, 512);
+  const sky = new T.CanvasTexture(c); sky.colorSpace = T.SRGBColorSpace; scene.background = sky; scene.fog = new T.Fog(0xffc4e4, 34, 95);
+  scene.environment = ENV; scene.add(new T.HemisphereLight(0xcfe9ff, 0xff9fd0, 0.55));
+  const sun = new T.DirectionalLight(0xfff2d8, 1.7); sun.position.set(-8, 14, 10); scene.add(sun);
+  const add = (o, px, py, pz, ry = 0) => { o.position.set(px, py, pz); o.rotation.y = ry; scene.add(o); return o; };
+  const hill = (col, px, py, pz, sx, sy, sz) => { const h = mesh(new T.SphereGeometry(1, 64, 40), matte(col, 0.6)); h.scale.set(sx, sy, sz); add(h, px, py, pz); };
+  hill(0x6fd44f, 0, -30, 2, 46, 30, 30); hill(0xff6fb6, -15, -10, -14, 16, 13, 12); hill(0xffb347, 15, -11, -16, 17, 14, 12); hill(0x9a7bff, 0, -9, -30, 22, 14, 12);
+  add(mountain(0xff5fa8, 2.3), -11, 1.2, -36); add(mountain(0x45c9a5, 2.9), 3, 2.5, -42); add(mountain(0xa070ff, 2.2), 15, 1.5, -38);
+  const xs = wide ? [-17, -10, -3.5, 4, 10.5, 17] : [-5.2, 0.4, 5.4, -1.8];
+  const hc = [[0xfff0c2, 0xff5fa8], [0xd7efff, 0x9a3df0], [0xffdcec, 0x2fc440], [0xfff0c2, 0x2f9dff], [0xe9ffd9, 0xff8412], [0xffe9f4, 0xf2264b]];
+  xs.forEach((px, i) => add(house(hc[i % 6][0], hc[i % 6][1], 0.85 + R() * 0.45), px, -0.25 - Math.abs(px) * 0.02, -3 - (i % 2) * 5 - R() * 2, (R() - 0.5) * 0.7));
+  const lc = ['#f2264b', '#ff8412', '#2f9dff', '#9a3df0', '#2fc440', '#ff3f95'];
+  for (let i = 0; i < (wide ? 22 : 12); i++) { const px = (R() - 0.5) * (wide ? 44 : 15), pz = 1.5 - R() * 14; add(lolly(lc[i % 6], 1.4 + R() * 1.6, 0.5 + R() * 0.4), px, -0.3, pz, (R() - 0.5)); }
+  for (let i = 0; i < (wide ? 8 : 4); i++) add(cane(1.6 + R()), (R() - 0.5) * (wide ? 40 : 13), -0.2, 2.5 - R() * 6, R() * 3);
+  for (let i = 0; i < (wide ? 46 : 26); i++) { const gd = mesh(new T.SphereGeometry(0.28 + R() * 0.2, 20, 14, 0, 6.283, 0, 1.7), glossy([0xf2264b, 0xff8412, 0xffcf0d, 0x2fc440, 0x1f8dff, 0x9a3df0][i % 6])); add(gd, (R() - 0.5) * (wide ? 46 : 16), -0.12, 5 - R() * 9); }
+  for (let i = 0; i < (wide ? 9 : 6); i++) add(cloud(1.1 + R() * 1.3), (R() - 0.5) * (wide ? 70 : 26), (wide ? 9 : 12) + R() * (wide ? 8 : 16), -22 - R() * 16);
+  const cam = new T.PerspectiveCamera(wide ? 38 : 52, W / H, 0.1, 200); cam.position.set(0, wide ? 3.2 : 7.5, wide ? 21 : 21); cam.lookAt(0, wide ? 3.6 : 9.2, -12);
+  renderer.render(scene, cam); return renderer.domElement.toDataURL('image/jpeg', 0.95);
+};
+
+/* ---------- ตัวการ์ตูนประจำเกม (ออกแบบเอง สไตล์ chibi 3D) ---------- */
+function seg(a, b, r, mat) { const A = new T.Vector3(...a), Bv = new T.Vector3(...b), d = Bv.clone().sub(A), len = d.length();
+  const m = mesh(new T.CapsuleGeometry(r, len, 10, 20), mat); m.position.copy(A).add(Bv).multiplyScalar(0.5); m.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), d.normalize()); return m; }
+function character(pose) {
+  const g = new T.Group(), win = pose === 'win';
+  const skin = new T.MeshPhysicalMaterial({ color: 0xffd3b8, roughness: 0.5, clearcoat: 0.3, envMapIntensity: 0.45 });
+  const hair = glossy(0x33201a, { roughness: 0.3, clearcoat: 0.7 }), tee = new T.MeshPhysicalMaterial({ color: 0xa3a6ad, roughness: 0.8, envMapIntensity: 0.35 });
+  const dark = glossy(0x2a171c), put = (o, x, y, z, par) => { o.position.set(x, y, z); (par || g).add(o); return o; };
+  const head = new T.Group(); head.position.set(0, 2.0, 0);
+  const face = mesh(new T.SphereGeometry(1, 64, 48), skin); face.scale.set(1, 0.96, 0.94); head.add(face);
+  const cap = mesh(new T.SphereGeometry(1.08, 64, 48, 0, Math.PI * 2, 0, Math.PI * 0.6), hair); cap.rotation.x = -0.55; put(cap, 0, 0.05, -0.08, head);
+  for (const s of [-1, 1]) {
+    const b = mesh(new T.SphereGeometry(1, 32, 24), hair); b.scale.set(0.62, 0.34, 0.34); b.rotation.z = s * -0.5; put(b, s * 0.47, 0.74, 0.56, head);
+    put(seg([s * 0.98, 0.35, 0.3], [s * 1.0, -0.75, 0.38], 0.17, hair), 0, 0, 0, head).position.add(new T.Vector3(0, 0, 0));
+    put(seg([s * 0.88, -0.6, 0.2], [s * 0.8, -2.5, 0.42], 0.24, hair), 0, 0, 0, head);
+    put(mesh(new T.SphereGeometry(0.11, 16, 12), skin), s * 0.99, -0.08, 0.05, head);
+    const bl = mesh(new T.SphereGeometry(0.17, 20, 14), new T.MeshBasicMaterial({ color: 0xff8fa5, transparent: true, opacity: 0.55 })); bl.scale.set(1, 0.6, 0.25); put(bl, s * 0.58, -0.27, 0.74, head);
+    const br = seg([s * 0.24, 0.32, 0.9], [s * 0.5, 0.36, 0.82], 0.028, hair); head.add(br);
+    if (win) { const e = mesh(new T.TorusGeometry(0.15, 0.045, 10, 24, Math.PI), dark); put(e, s * 0.36, -0.02, 0.88, head); }
+    else { const e = mesh(new T.SphereGeometry(0.15, 24, 18), dark); e.scale.set(1, 1.28, 0.55); put(e, s * 0.36, 0.0, 0.85, head);
+      put(mesh(new T.SphereGeometry(0.05, 12, 8), new T.MeshBasicMaterial({ color: 0xffffff })), s * 0.36 + 0.05, 0.08, 0.94, head); }
+  }
+  const back = mesh(new T.CapsuleGeometry(0.78, 2.3, 12, 32), hair); back.scale.set(1.22, 1, 0.5); put(back, 0, -1.35, -0.5, head);
+  const sc = mesh(new T.TorusGeometry(0.24, 0.11, 14, 28), glossy(0xff8fc0)); sc.rotation.x = Math.PI / 2 - 0.4; put(sc, 0, 1.06, -0.28, head);
+  const tail = new T.CatmullRomCurve3([new T.Vector3(0, 1.05, -0.28), new T.Vector3(0.08, 1.5, -0.42), new T.Vector3(0.42, 1.5, -0.85), new T.Vector3(0.72, 0.8, -1.0), new T.Vector3(0.8, -0.3, -0.9)]);
+  head.add(mesh(new T.TubeGeometry(tail, 40, 0.25, 14), hair));
+  if (win) { const m = mesh(new T.SphereGeometry(0.17, 24, 16), glossy(0xb3243c)); m.scale.set(1.15, 0.95, 0.4); put(m, 0, -0.4, 0.84, head); }
+  else { const m = mesh(new T.TorusGeometry(0.15, 0.036, 10, 24, Math.PI), glossy(0xd43c5c)); m.rotation.z = Math.PI; put(m, 0, -0.3, 0.88, head); }
+  head.rotation.set(win ? -0.06 : 0.16, 0, win ? 0.07 : -0.04); g.add(head);
+  put(mesh(new T.CylinderGeometry(0.26, 0.3, 0.45, 24), skin), 0, 0.95, 0);
+  const torso = mesh(new T.CapsuleGeometry(0.68, 0.9, 14, 32), tee); torso.scale.set(1.14, 1, 0.8); put(torso, 0, 0.0, 0);
+  const nk = mesh(new T.TorusGeometry(0.36, 0.07, 10, 28), tee); nk.rotation.x = Math.PI / 2; put(nk, 0, 0.8, 0.02);
+  put(mesh(new T.CylinderGeometry(0.8, 0.95, 1.1, 32), tee), 0, -1.25, 0).scale.z = 0.8;
+  const belt = mesh(new T.TorusGeometry(0.74, 0.07, 10, 32), glossy(0x6b3d22, { roughness: 0.5 })); belt.rotation.x = Math.PI / 2; belt.scale.y = 0.8; put(belt, 0, -0.72, 0);
+  for (const s of [-1, 1]) {
+    const sh = [s * 0.82, 0.52, 0], el = win ? [s * 1.3, 1.0, 0.15] : [s * 0.98, -0.32, 0.3], hd = win ? [s * 1.5, 2.0, 0.25] : [s * 0.3, 0.02, 0.88];
+    g.add(seg(sh, [sh[0] + (el[0] - sh[0]) * 0.55, sh[1] + (el[1] - sh[1]) * 0.55, sh[2] + (el[2] - sh[2]) * 0.55], 0.24, tee));
+    g.add(seg(sh, el, 0.16, skin)); g.add(seg(el, hd, 0.15, skin)); put(mesh(new T.SphereGeometry(0.2, 20, 14), skin), hd[0], hd[1], hd[2]);
+  }
+  if (!win) { const ph = new T.Group(); ph.add(mesh(new RoundedBoxGeometry(0.56, 0.98, 0.1, 5, 0.08), glossy(0xff8fc0)));
+    const scn = mesh(new RoundedBoxGeometry(0.47, 0.88, 0.04, 4, 0.05), glossy(0x1b1622)); scn.position.z = -0.05; ph.add(scn);
+    for (const [x, y] of [[-0.12, 0.3], [0.08, 0.3], [-0.12, 0.12]]) { const c = mesh(new T.CylinderGeometry(0.07, 0.07, 0.04, 20), glossy(0x1b1622)); c.rotation.x = Math.PI / 2; c.position.set(x, y, 0.07); ph.add(c); }
+    ph.rotation.x = -0.3; put(ph, 0, 0.2, 0.98); }
+  return g;
+}
+window.renderChar = (pose, W, H) => {
+  renderer.setSize(W, H); renderer.setClearColor(0, 0);
+  const scene = new T.Scene(); lights(scene);
+  const c = character(pose); c.rotation.y = pose === 'win' ? -0.12 : -0.3; scene.add(c);
+  const cy = pose === 'profile' ? 2.08 : 1.25, hh = pose === 'profile' ? 1.5 : 2.6, hw = hh * W / H;
+  const cam = new T.OrthographicCamera(-hw, hw, cy + hh, cy - hh, 0.1, 50); cam.position.set(0, 0, 12);
+  renderer.render(scene, cam); return renderer.domElement.toDataURL('image/png');
+};
+window.READY = true;
+</script></body></html>
