@@ -9629,12 +9629,30 @@ async function exportMappingCombined(_mapDry){   // _mapDry===true → โหม
     const rmUnmatched = [];         // {billing,item,matTrim,reason}
     const rmStatus = [];            // per RM data row (for RM FINAL): {status,src,mBill,mQty,mNet}
     const rmParts  = [];            // per RM data row (aligned with rmStatus): [ {entry,itemNo,share} ] — >1 = แตกบรรทัด
+    // ADDITIVE (local321): แถวที่ไม่มี Billing Document และไม่มีข้อมูลรายการจริง (แถวว่างที่จัดรูปแบบ / แถวสรุปยอด) → ข้ามเฉพาะขั้นประมวลผล
+    //   • ไม่ลบต้นฉบับ (RM FINAL คงแถวเดิม + สถานะ SKIPPED) · ไม่นับ UNMATCHED · ไม่สร้าง Sheet UNDEFINED
+    //   • ไม่มี Billing แต่มีข้อมูลรายการ (Item/Material/Description/Qty/Net value ตัวเลข) → ประมวลผลตาม Logic เดิม + แจ้งเตือน (ไม่ข้ามอัตโนมัติ)
+    const _skBlank = v => (v==null || String(v).trim()==='');
+    const _skNumber = v => (typeof v==='number' && isFinite(v)) || (typeof v==='string' && v.trim()!=='' && isFinite(Number(v.replace(/,/g,''))));
+    const _skRaw = (r,c) => { if(c<0) return null; const cl=rmWs[XLSX.utils.encode_cell({r,c})]; return cl ? cl.v : null; };
+    const _skHasItem = r => [cItem,cMaterial,cDesc,cMatTrim,cMatName2,cQty].some(c=>c>=0 && !_skBlank(_skRaw(r,c))) || (cNetVal>=0 && _skNumber(_skRaw(r,cNetVal)));
+    const _skRowHasAny = r => { for(let c=rng.s.c;c<=rng.e.c;c++){ if(!_skBlank(_skRaw(r,c))) return true; } return false; };
+    const rmSkipped = [];    // {row, kind:'blank'|'summary'}
+    const rmNoBillWarn = []; // แถวที่ไม่มี Billing แต่มีข้อมูลรายการ (ประมวลผลตามเดิม)
 
     for(let r=headerRow+1;r<=rng.e.r;r++){
       const bRaw = getV(r,cBilling);
       const itemNo = String(getV(r,cItem)).trim();
       const isEmpty = (String(bRaw).trim()==='' && itemNo==='');
       if(isEmpty){ rmStatus.push({status:'',src:'',mBill:'',mQty:'',mNet:''}); rmParts.push([{entry:'',itemNo:'',share:1}]); continue; }
+      if(_skBlank(_skRaw(r,cBilling))){
+        if(!_skHasItem(r)){
+          const _k=_skRowHasAny(r)?'summary':'blank'; rmSkipped.push({row:r+1,kind:_k});
+          rmStatus.push({status:'SKIPPED — ไม่มี Billing Document ('+(_k==='summary'?'แถวสรุปยอด':'แถวว่าง')+')',src:'',mBill:'',mQty:'',mNet:''});
+          rmParts.push([{entry:'',itemNo:'',share:1}]); continue;
+        }
+        rmNoBillWarn.push(r+1);
+      }
 
       const billing = String(bRaw).trim();
       const rmMatFull = String(getV(r,cMaterial)).trim();
@@ -9927,7 +9945,11 @@ async function exportMappingCombined(_mapDry){   // _mapDry===true → โหม
     // ADDITIVE (สถานะการอ่าน): เก็บสถิติจริงของรอบนี้ · โหมดตรวจสอบ (_mapDryRun) จบที่นี่ — ไม่ดาวน์โหลด · ไม่มีผลต่อไฟล์ EXPORT
     window._mapLastStat={ countries:countries.length, pdfTotal:allPdfEntries.length, pdfMatched:allPdfEntries.filter(e=>e.used).length,
       rmRows:rmStatus.length, rmUnmatched:rmUnmatched.length, pdfUnmatched:pdfUnmatched.length, pdfFail:pdfParseFailures.length, totalUn:totalUn,
-      cooRows:_rmRefRows, cooMatched:_rrMatched, cooAmbig:_rrAmbig, cooNotFound:_rrNotFound };
+      cooRows:_rmRefRows, cooMatched:_rrMatched, cooAmbig:_rrAmbig, cooNotFound:_rrNotFound,
+      rmSkipped:rmSkipped.length, rmSkippedBlank:rmSkipped.filter(x=>x.kind==='blank').length, rmSkippedSummary:rmSkipped.filter(x=>x.kind==='summary').length,
+      rmNoBillWarn:rmNoBillWarn.slice() };   // ADDITIVE (local321)
+    // ADDITIVE (local321): แถวไม่มี Billing แต่มีข้อมูลรายการ → แจ้งเตือนให้ตรวจสอบ (ไม่ข้าม)
+    if(rmNoBillWarn.length && typeof toast==='function') toast('ตรวจสอบ RM: พบ '+rmNoBillWarn.length+' แถวที่ไม่มี Billing Document แต่มีข้อมูลรายการ (แถว '+rmNoBillWarn.slice(0,20).join(', ')+(rmNoBillWarn.length>20?' …':'')+') — ไม่ได้ข้าม ประมวลผลตามเดิม','warning');
     if(_mapDry===true) return;
 
     // -- Download --
@@ -9946,6 +9968,7 @@ async function exportMappingCombined(_mapDry){   // _mapDry===true → โหม
             (totalUn?(' · unmatched '+totalUn):''),'success');
       // รายงานการเติม Import entry no. / Item no. จากไฟล์ RM
       setTimeout(()=>toast('เติม COO_RM (Import entry no. + Item no.) '+_rrSheets+' Sheet · RM อ้างอิง '+_rmRefRows+' แถว · Match '+_rrMatched+' · แตกบรรทัด '+_rrSplit+'→'+_rrSplitRows+' · AMBIGUOUS '+_rrAmbig+' · ไม่พบ '+_rrNotFound,'success'), 900);
+      if(rmSkipped.length) setTimeout(()=>toast('ข้ามแถว RM ที่ไม่มี Billing Document '+rmSkipped.length+' แถว (แถวว่าง '+rmSkipped.filter(x=>x.kind==='blank').length+' · แถวสรุปยอด '+rmSkipped.filter(x=>x.kind==='summary').length+') — ดูสถานะ SKIPPED ใน RM FINAL','info'), 1800);   // ADDITIVE (local321)
     }
     console.log('[MAPPING COMBINED] countries:',countries.length,'| sheets:',sheetOrder.length,
                 '| RM rows:',rmStatus.length,'| PDF items:',allPdfEntries.length,
@@ -10218,6 +10241,7 @@ function _mapxRender(){
   if(d && d.stat && !d.errs.length){ const s=d.stat;
     h+=line('🔗','MATCHED / UNMATCHED','PDF matched '+s.pdfMatched+'/'+s.pdfTotal+' · RM '+s.rmRows+' แถว (ไม่พบคู่ '+s.rmUnmatched+') · PDF ไม่พบ RM '+s.pdfUnmatched
       +' · COO_RM Match '+s.cooMatched+' · AMBIGUOUS '+s.cooAmbig+' · ไม่พบ '+s.cooNotFound+' · '+s.countries+' ประเทศ', G);
+    if(s.rmSkipped) h+='<div style="color:var(--t2);padding-left:22px;font-size:11px">· ข้ามแถว RM ที่ไม่มี Billing Document '+s.rmSkipped+' แถว (แถวว่าง '+s.rmSkippedBlank+' · แถวสรุปยอด '+s.rmSkippedSummary+') — ไม่นับ UNMATCHED · ดูสถานะ SKIPPED ใน RM FINAL</div>';   // ADDITIVE (local321)
     d.warns.forEach(w=>{ h+='<div style="color:'+Y+';padding-left:22px;font-size:11px">⚠ '+_mapxEsc(w)+'</div>'; });
     ready=!mix && V.pdfOk===P.length;
   } else if(d && d.errs.length){ h+=line('🔗','MATCHED / UNMATCHED','✕ '+_mapxEsc(d.errs.join(' · ')),R); }
@@ -10226,6 +10250,14 @@ function _mapxRender(){
   _mapx.notes.forEach(nn=>{ const c=nn.t==='err'?R:nn.t==='warn'?Y:T; h+='<div style="color:'+c+';font-size:11px">'+(nn.t==='err'?'✕ ':nn.t==='warn'?'⚠ ':'· ')+_mapxEsc(nn.m)+'</div>'; });
   // พร้อม / ไม่พร้อม
   const busy=_mapx.running||!!_mapx.prog;
+  // ADDITIVE (local320): ขาดใบขนขาออก → แจ้งชัดว่า "ยังไม่พบใบขนขาออกที่รองรับ" + ระบุไฟล์ที่ต้องเพิ่ม (ข้อความเท่านั้น · ไม่แตะ Logic/EXPORT)
+  if(!busy && (P.length||S.rm||S.coo) && (!S.ie || (X.ie && !okX.ie))){
+    const _ieBadNames=[]; if(S.ie && X.ie && !okX.ie) _ieBadNames.push(S.ie.name);
+    _mapx.notes.forEach(nn=>{ if(nn.ieHint){ const m=/^(.+?) · Sheet /.exec(nn.m); if(m) _ieBadNames.push(m[1]); } });
+    h+='<div style="margin-top:6px;color:'+R+'">⛔ <b>ยังไม่พบใบขนขาออกที่รองรับ</b>'
+      +(_ieBadNames.length?(' — ไฟล์ '+_mapxEsc([...new Set(_ieBadNames)].join(' , '))+' ใช้เป็นใบขนไม่ได้'):'')
+      +'<div style="padding-left:22px;font-size:11px">ต้องเพิ่ม: ไฟล์ Excel ใบขนขาออก (Import Entry)'+(rmNo?(' ของ RM '+_mapxEsc(rmNo)):'')+' ที่ Sheet แรกมีหัวคอลัมน์ <b>Product Code</b> และ <b>Qty.</b> · ลงช่อง "ใบขนขาออก EXCEL"</div></div>';
+  }
   if(ready && !busy) h+='<div style="margin-top:6px;font-weight:700;color:'+G+'">✅ พร้อม EXPORT</div>';
   else if(!busy){
     const why=[]; if(!P.length) why.push('INVOICE PDF'); if(!S.rm) why.push('RM ไม่มีเลขอ้างอิง'); if(!S.coo) why.push('RM มีเลขอ้างอิง'); if(!S.ie) why.push('ใบขนขาออก EXCEL');
