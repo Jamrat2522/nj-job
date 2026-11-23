@@ -1133,6 +1133,21 @@ input[type=file]{display:none}
             <span style="font-size:10px;color:#3fb950;font-family:'IBM Plex Mono',monospace;text-transform:none;letter-spacing:0;">✓ v2026.06-CLEAN3</span>
           </div>
 
+          <!-- ───── ZONE 0 (ADDITIVE): 📦 อัปโหลด ZIP ทั้งชุด — แตกไฟล์ + แยกประเภทเข้า 4 ช่องเดิมอัตโนมัติ ───── -->
+          <div style="margin-bottom:16px;">
+            <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:8px;">📦 อัปโหลด ZIP ทั้งชุด</div>
+            <div id="mappingZipDropzone"
+                 style="border:2px dashed rgba(210,153,34,.40);border-radius:8px;padding:14px;cursor:pointer;text-align:center;background:rgba(210,153,34,.05);transition:.15s;"
+                 onclick="document.getElementById('mappingZipInput').click()"
+                 ondragover="event.preventDefault();this.style.borderColor='#d29922';this.style.background='rgba(210,153,34,.12)';"
+                 ondragleave="this.style.borderColor='rgba(210,153,34,.40)';this.style.background='rgba(210,153,34,.05)';"
+                 ondrop="event.preventDefault();this.style.borderColor='rgba(210,153,34,.40)';this.style.background='rgba(210,153,34,.05)';handleMappingZipUpload({target:{files:event.dataTransfer.files}})">
+              <div style="font-size:12px;color:var(--t2);">คลิกหรือลากไฟล์ <b>.zip</b> ทั้งชุดมาวางที่นี่ (หรือวาง PDF + Excel หลายไฟล์พร้อมกัน)</div>
+              <div style="font-size:10px;color:var(--t3);margin-top:3px;">ระบบแตกไฟล์ทุกโฟลเดอร์ย่อย แล้วจัดเข้าช่อง INVOICE PDF · RM ไม่มีเลขอ้างอิง · RM มีเลขอ้างอิง · ใบขนขาออก จากชื่อ Sheet + หัวคอลัมน์ · ยังอัปโหลดแยกทีละช่องได้เหมือนเดิม</div>
+            </div>
+            <input type="file" id="mappingZipInput" accept=".zip,.pdf,.PDF,.xlsx,.xls" multiple style="display:none" onchange="handleMappingZipUpload(event)">
+          </div>
+
           <!-- 3 UPLOAD ZONES -->
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;align-items:start;margin-bottom:18px;">
 
@@ -1151,7 +1166,7 @@ input[type=file]{display:none}
                 <div style="font-size:12px;color:var(--t2);">คลิกหรือลากไฟล์ PDF (เลือกได้หลายไฟล์)</div>
                 <div style="font-size:10px;color:var(--t3);margin-top:3px;">Invoice / Packing List · PDF Mapping สร้างอัตโนมัติ</div>
               </div>
-              <input type="file" id="mappingPdfMultiInput" accept=".pdf" multiple style="display:none" onchange="handleMappingPdfMultiUpload(event)">
+              <input type="file" id="mappingPdfMultiInput" accept=".pdf,.PDF,application/pdf" multiple style="display:none" onchange="handleMappingPdfMultiUpload(event)">
               <div id="mappingPdfMultiList" style="display:flex;flex-direction:column;gap:6px;"></div>
             </div>
 
@@ -1214,6 +1229,9 @@ input[type=file]{display:none}
             </div>
 
           </div>
+
+          <!-- ADDITIVE: สถานะการอ่านไฟล์แบบละเอียด (แสดงเมื่อมีไฟล์ · ไม่มีไฟล์ = ซ่อนทั้งกรอบ) -->
+          <div id="mappingReadStatus" style="display:none;margin-bottom:18px;border:1px solid var(--bd);border-radius:8px;padding:12px 14px;background:var(--s2);font-size:12px;line-height:1.7;"></div>
 
           <!-- SINGLE EXPORT BUTTON -->
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
@@ -1444,13 +1462,13 @@ input[type=file]{display:none}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
           <div>
             <div class="sec-lbl" style="margin-bottom:8px;color:var(--blue);">📋 ใบขน (Import Entry)</div>
-            <div class="dz" id="mz-a" style="padding:20px;min-height:110px;" onclick="document.getElementById('mfi-a').click()" title="คลิกหรือวางไฟล์ — รับทุกประเภท">
+            <div class="dz" id="mz-a" style="padding:20px;min-height:110px;" onclick="document.getElementById('mfi-a-merge').click()" title="คลิกหรือวางไฟล์ — รับทุกประเภท">
               <div class="dz-icon" style="width:34px;height:34px;margin:0 auto 8px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
               <div id="mf-a-name" style="font-size:12px;color:var(--t2);">คลิกหรือวางไฟล์</div>
               <div id="mf-a-info" style="font-size:10px;color:var(--t3);margin-top:3px;"></div>
               <div id="mf-a-auto" style="font-size:10px;color:var(--g);margin-top:3px;display:none;">⚡ Auto-filled จาก Export</div>
             </div>
-            <input type="file" id="mfi-a" accept=".xlsx,.xls" multiple style="display:none">
+            <input type="file" id="mfi-a-merge" accept=".xlsx,.xls" multiple style="display:none">
           </div>
           <div>
             <div class="sec-lbl" style="margin-bottom:8px;color:var(--amber);">📊 EXPORT EXCEL</div>
@@ -3665,7 +3683,7 @@ const _mergeListenersDone = new WeakSet();
 function initMergeDrops(){
   if(mergeDropsInited) return; mergeDropsInited=true;
   ['a','b'].forEach(key=>{
-    const inp  = document.getElementById('mfi-'+key);
+    const inp  = (key==='a' ? document.querySelector('#page-mapping #mfi-a') : null) || document.getElementById('mfi-'+key);   // FIX: จับ input ของหน้า Mapping โดยตรง (ไม่อาศัยลำดับ id ซ้ำ)
     const zone = document.getElementById('slot-'+key);
     if(!inp || !zone || _mergeListenersDone.has(inp)) return;
     _mergeListenersDone.add(inp);
@@ -8479,6 +8497,7 @@ let mappingRmRefFile = null;   // ไฟล์ RM (อ้างอิง) — �
 
 function handleMappingPdfMultiUpload(event){
   const fileList = (event && event.target && event.target.files) ? event.target.files : [];
+  if(typeof _mapxZipRoute==='function' && _mapxZipRoute(fileList)) return;   // ADDITIVE: มี .zip → ตัวรับ ZIP
   const incoming = [...fileList].filter(f => /\.pdf$/i.test(f.name));
   if(incoming.length === 0){
     if(typeof toast === 'function') toast('กรุณาเลือกไฟล์ .pdf เท่านั้น', 'warning');
@@ -8498,6 +8517,7 @@ function handleMappingPdfMultiUpload(event){
   if(_dupCount > 0 && typeof toast === 'function') toast('ข้ามไฟล์ซ้ำ ' + _dupCount + ' ไฟล์', 'info');
   const inp = document.getElementById('mappingPdfMultiInput');
   if(inp) inp.value = '';   // reset so same filename can be re-selected later
+  if(typeof _mapxSchedule==='function') _mapxSchedule();   // ADDITIVE: สถานะการอ่าน
 }
 
 function renderMappingPdfMultiList(){
@@ -8522,6 +8542,7 @@ function removeMappingPdfFile(index){
   if(index < 0 || index >= mappingPdfFiles.length) return;
   mappingPdfFiles.splice(index, 1);
   renderMappingPdfMultiList();
+  if(typeof _mapxSchedule==='function') _mapxSchedule();   // ADDITIVE: สถานะการอ่าน
 }
 
 // ── Number formatter for the Mapping export ──────────────────────
@@ -8903,6 +8924,7 @@ function _rmBuildKey3(billing, qty, netVal){
 
 function handleMappingRmUpload(event){
   const fl = (event && event.target && event.target.files) ? event.target.files : [];
+  if(typeof _mapxZipRoute==='function' && _mapxZipRoute(fl)) return;   // ADDITIVE: มี .zip → ตัวรับ ZIP
   const file = fl && fl.length ? fl[0] : null;
   if(!file){ return; }
   if(!/\.(xlsx|xls)$/i.test(file.name)){
@@ -8914,11 +8936,13 @@ function handleMappingRmUpload(event){
   if(lbl) lbl.textContent = '✓ ' + file.name;
   const inp = document.getElementById('mappingRmInput');
   if(inp) inp.value = '';
+  if(typeof _mapxSchedule==='function') _mapxSchedule();   // ADDITIVE: สถานะการอ่าน
 }
 
 // ── กล่อง RM (อ้างอิง) — ใช้เติม Import entry no. / Item no. ก่อน Export Final ──
 function handleMappingRmRefUpload(event){
   const fl = (event && event.target && event.target.files) ? event.target.files : [];
+  if(typeof _mapxZipRoute==='function' && _mapxZipRoute(fl)) return;   // ADDITIVE: มี .zip → ตัวรับ ZIP
   const file = fl && fl.length ? fl[0] : null;
   if(!file){ return; }
   if(!/\.(xlsx|xls)$/i.test(file.name)){
@@ -8930,6 +8954,7 @@ function handleMappingRmRefUpload(event){
   if(lbl) lbl.textContent = '✓ ' + file.name;
   const inp = document.getElementById('mappingRmRefInput');
   if(inp) inp.value = '';
+  if(typeof _mapxSchedule==='function') _mapxSchedule();   // ADDITIVE: สถานะการอ่าน
 }
 
 // ── Clear/Reset: wipes ONLY the "Upload PDF หลายไฟล์ + RM Mapping" section
@@ -9224,13 +9249,23 @@ let mappingImportEntryFile = null;
 // Capture the raw Import Entry file on both click-select and drag-drop, in
 // addition to the existing slot-a flow (which still drives the ✓ UI + mDataA).
 (function _wireMappingIeCapture(){
-  const inp = document.getElementById('mfi-a');
+  const inp = document.querySelector('#page-mapping #mfi-a') || document.getElementById('mfi-a');   // FIX: input ของหน้า Mapping เท่านั้น
   if(inp) inp.addEventListener('change', e=>{
-    const f = e.target.files && e.target.files[0]; if(f) mappingImportEntryFile = f;
+    const f = e.target.files && e.target.files[0]; if(f){ mappingImportEntryFile = f; if(typeof _mapxSchedule==='function') _mapxSchedule(); }
   });
   const zone = document.getElementById('slot-a');
   if(zone) zone.addEventListener('drop', e=>{
-    const fs = e.dataTransfer && e.dataTransfer.files; if(fs && fs[0]) mappingImportEntryFile = fs[0];
+    const fs = e.dataTransfer && e.dataTransfer.files; if(fs && fs[0]){ mappingImportEntryFile = fs[0]; if(typeof _mapxSchedule==='function') _mapxSchedule(); }
+  });
+})();
+// FIX (id ซ้ำ): หน้า Merge ใช้ input ของตัวเอง (mfi-a-merge) → ทำงานแบบเดิมของหน้า Merge แต่ไม่เข้ามาเปลี่ยนไฟล์ใบขนของ Mapping Excel
+(function _wireMergePageInputA(){
+  const inp = document.getElementById('mfi-a-merge'); if(!inp) return;
+  inp.addEventListener('change', e=>{
+    const files=[...e.target.files];
+    if(files.length>=2){ processMultiFiles(files[0],files[1]); }
+    else if(files.length===1){ loadMergeFile('a',files[0]); }
+    e.target.value='';
   });
 })();
 
@@ -9307,6 +9342,7 @@ function _mapCtryCode(name){
 function clearMappingIe(){
   mappingImportEntryFile = null;
   if(typeof clearSlot === 'function') clearSlot('a');
+  if(typeof _mapxSchedule==='function') _mapxSchedule();   // ADDITIVE: สถานะการอ่าน
 }
 function clearMappingAll(){
   if(typeof clearMappingPdfRm === 'function') clearMappingPdfRm();   // PDF + RM
@@ -9314,6 +9350,7 @@ function clearMappingAll(){
   mappingState.pdfFiles=[]; mappingState.pdfRows=[]; mappingState.rmFile=null;
   mappingState.rmRows=[]; mappingState.importEntryFile=null;
   mappingState.importEntryRows=[]; mappingState.unmatchedRows=[];
+  if(typeof _mapxReset==='function') _mapxReset();   // ADDITIVE: ล้างสถานะการอ่าน
 }
 
 // Country of Origin: code -> full name (B). Fallback = original value (never blank).
@@ -9327,7 +9364,7 @@ function _mapCountryName(code){
   return (full||baseRaw) + suf;                // fallback: original base (never blank) + suffix
 }
 
-async function exportMappingCombined(){
+async function exportMappingCombined(_mapDry){   // _mapDry===true → โหมดตรวจสอบของสถานะการอ่าน (ปุ่ม EXPORT เรียกแบบไม่มี argument = ทำงานเดิม)
   // sync central state from the per-zone globals
   mappingState.pdfFiles        = (typeof mappingPdfFiles!=='undefined' && mappingPdfFiles) ? mappingPdfFiles : [];
   mappingState.rmFile          = (typeof mappingRmFile!=='undefined') ? mappingRmFile : null;
@@ -9887,6 +9924,12 @@ async function exportMappingCombined(){
     const tail=['RM FINAL','UNMATCHED'].filter(n=>wb.SheetNames.includes(n));
     wb.SheetNames = ['SUMMARY', ...sheetOrder, ...tail].filter(n=>wb.SheetNames.includes(n));
 
+    // ADDITIVE (สถานะการอ่าน): เก็บสถิติจริงของรอบนี้ · โหมดตรวจสอบ (_mapDryRun) จบที่นี่ — ไม่ดาวน์โหลด · ไม่มีผลต่อไฟล์ EXPORT
+    window._mapLastStat={ countries:countries.length, pdfTotal:allPdfEntries.length, pdfMatched:allPdfEntries.filter(e=>e.used).length,
+      rmRows:rmStatus.length, rmUnmatched:rmUnmatched.length, pdfUnmatched:pdfUnmatched.length, pdfFail:pdfParseFailures.length, totalUn:totalUn,
+      cooRows:_rmRefRows, cooMatched:_rrMatched, cooAmbig:_rrAmbig, cooNotFound:_rrNotFound };
+    if(_mapDry===true) return;
+
     // -- Download --
     const rmName=(mappingState.rmFile.name||'RM').replace(/\.[^.]+$/,'');
     const outArr=XLSX.write(wb,{bookType:'xlsx',type:'array',cellStyles:true});
@@ -9917,6 +9960,296 @@ async function exportMappingCombined(){
     if(load) load.style.display='none';
   }
 }
+// ══════════════════════════════════════════════════════════════════════════════
+//  Mapping Excel — SCHAEFFLER · ADDITIVE: 📦 ZIP ทั้งชุด + สถานะการอ่านแบบละเอียด  (prefix _mapx)
+//  • ไม่เปลี่ยนกฎจับคู่ / โครงสร้าง EXPORT เดิม — ZIP เพียง "ส่งไฟล์เข้า 4 ช่องเดิม" ผ่าน handler เดิม
+//  • ตรวจ Schema ด้วยเงื่อนไขชุดเดียวกับที่ exportMappingCombined ใช้ (อ่านอย่างเดียว)
+//  • MATCHED / UNMATCHED = ผลจริงจาก exportMappingCombined ในโหมดตรวจสอบ (ไม่ดาวน์โหลด)
+//  • ไม่แตะ Mapping BEN / โหมดอื่น · ไม่แตะฐานข้อมูล
+// ══════════════════════════════════════════════════════════════════════════════
+const _mapx={ cache:new Map(), running:false, again:false, timer:null, notes:[], dry:null, drySig:'', prog:null, src:'' };
+const _mapxKey = f => f ? (f.name+'|'+f.size+'|'+(f.lastModified||0)) : '';
+const _mapxEsc = v => String(v==null?'':v).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const _mapxNorm = h => String(h==null?'':h).trim().toLowerCase().replace(/\s+/g,' ');
+const _mapxRmNo = n => { const m=/RM[\s._-]*(\d{6,})/i.exec(String(n||'')); return m?m[1]:''; };
+
+// ── ตรวจ Excel 1 ไฟล์: ชื่อ Sheet + หัวคอลัมน์ (เงื่อนไขเดียวกับ exportMappingCombined) → ประเภท + สิ่งที่ขาด ──
+async function _mapxInspectExcel(file){
+  const o={ name:file.name, kind:'unknown', sheets:[], sheet:'', sheetCoo:'', rows:0, rowsCoo:0, rowsIe:0, missRm:[], missCoo:[], missIe:[], invoiceLike:false, err:'' };
+  let wb;
+  try{ wb=XLSX.read(await file.arrayBuffer(),{type:'array'}); }
+  catch(e){ o.kind='bad'; o.err='เปิดไฟล์ Excel ไม่ได้ ('+e.message+')'; return o; }
+  o.sheets=wb.SheetNames.slice();
+  if(!wb.SheetNames.length){ o.kind='bad'; o.err='ไม่มี Sheet ในไฟล์'; return o; }
+  const first=wb.SheetNames[0]; o.sheet=first;
+  const aoaOf=sn=>{ const ws=wb.Sheets[sn]; return (ws&&ws['!ref'])?XLSX.utils.sheet_to_json(ws,{header:1,defval:''}):[]; };
+  const A=aoaOf(first); const H=(A[0]||[]).map(_mapxNorm);
+  const has=(hd,c)=>c.some(x=>hd.indexOf(x)!==-1);
+  const cnt=(aoa,hd,c)=>{ const i=hd.findIndex(h=>c.indexOf(h)!==-1); if(i<0) return 0; let n=0; for(let r=1;r<aoa.length;r++){ if(String((aoa[r]||[])[i]==null?'':(aoa[r]||[])[i]).trim()!=='') n++; } return n; };
+  // ใบขนขาออก: Product Code + Qty. (แถวหัว = แถวแรกของ Sheet แรก)
+  if(!has(H,['product code','product code.'])) o.missIe.push('Product Code');
+  if(!has(H,['qty.','qty'])) o.missIe.push('Qty.');
+  o.rowsIe=cnt(A,H,['product code','product code.']);
+  // RM ไม่มีเลขอ้างอิง (MASTER): Billing Document + Qty + Net value + (Description | Material - Trim | Material)
+  if(!has(H,['billing document'])) o.missRm.push('Billing Document');
+  if(!has(H,['invoiced quantity','billing qty in sku','invoiced qty'])) o.missRm.push('Billing qty in SKU / Invoiced Quantity');
+  if(!has(H,['net value'])) o.missRm.push('Net value');
+  if(!has(H,['description','material - trim','material (trim)','material trim','material'])) o.missRm.push('Material / Description');
+  o.rows=cnt(A,H,['billing document']);
+  // RM มีเลขอ้างอิง (COO_RM): Billing Document + Material + Import entry(.no) + Item no / รายการ  (RM 89960996 → Sheet VL06O ตามกฎเดิม)
+  o.sheetCoo=(/89960996/.test(file.name) && wb.Sheets['VL06O'])?'VL06O':first;
+  const AC=(o.sheetCoo===first)?A:aoaOf(o.sheetCoo); const HC=(AC[0]||[]).map(_mapxNorm);
+  if(!has(HC,['billing document'])) o.missCoo.push('Billing Document');
+  if(!has(HC,['material'])) o.missCoo.push('Material');
+  if(!has(HC,['import entry no.','import entry no','import entry'])) o.missCoo.push('Import entry / Import entry no.');
+  if(!has(HC,['item no.','item no','รายการ'])) o.missCoo.push('รายการ / Item no / Item no.');
+  o.rowsCoo=cnt(AC,HC,['billing document']);
+  // เอกสารรูปแบบ INVOICE (ไม่ใช่ตารางรายการ) — ใช้อธิบายสาเหตุเท่านั้น
+  for(let r=0;r<Math.min(A.length,15)&&!o.invoiceLike;r++){ for(const c of (A[r]||[])){ const s=String(c==null?'':c).trim(); if(/^INVOICE$/i.test(s)||/^INV\.?\s*NO\.?\s*:/i.test(s)){ o.invoiceLike=true; break; } } }
+  const hintCoo=/COO[\s_-]*RM/i.test(file.name), hintRm=/Export[\s_-]*Data[\s_-]*RM/i.test(file.name);
+  // ลำดับ: Schema ใบขน → ชื่อไฟล์ (COO_RM / Export_Data_RM) ชี้ช่อง แล้วให้ช่องนั้นตรวจ Schema + แจ้งคอลัมน์ที่ขาด → ไม่มีชื่อบอก = ดู Schema อย่างเดียว
+  if(!o.missIe.length) o.kind='ie';
+  else if(hintCoo) o.kind='coo';
+  else if(hintRm) o.kind='rm';
+  else if(!o.missCoo.length) o.kind='coo';
+  else if(!o.missRm.length) o.kind='rm';
+  return o;
+}
+// ── ตรวจ PDF 1 ไฟล์: เปิดได้ · นับหน้า · อ่านข้อความทุกหน้า · พบรายการ Invoice จริง (ใช้ตัวอ่านเดิม) ──
+async function _mapxInspectPdf(file,onPage){
+  const o={ name:file.name, ok:false, pages:0, read:0, items:0, chars:0, err:'' };
+  const lib=(typeof getPdfJs==='function')?getPdfJs():null;
+  if(!lib){ o.err='pdf.js ยังไม่โหลด'; return o; }
+  try{
+    const buf=await file.arrayBuffer();
+    const doc=await lib.getDocument({data:buf.slice(0)}).promise;
+    o.pages=doc.numPages;
+    for(let p=1;p<=doc.numPages;p++){
+      const tc=await (await doc.getPage(p)).getTextContent();
+      tc.items.forEach(i=>{ if(i.str) o.chars+=i.str.trim().length; });
+      o.read=p; if(onPage) onPage(p,doc.numPages);
+    }
+    const built=await buildMappingRowsFromPdfFiles([file]);
+    o.items=(built&&built.itemsFound)||0;
+    if(built&&built.parseFailures&&built.parseFailures.length) o.err='อ่านโครงสร้าง PDF ไม่สำเร็จ';
+    else if(o.chars===0) o.err='ไม่มีข้อความใน PDF (อาจเป็นไฟล์สแกน)';
+    else if(o.items===0) o.err='ไม่พบรายการสินค้ารูปแบบ Invoice';
+    else o.ok=true;
+  }catch(e){ o.err='เปิด PDF ไม่ได้ ('+(e&&e.message?e.message:e)+')'; }
+  return o;
+}
+
+// ── รับไฟล์ทั้งชุด: ZIP (โฟลเดอร์ซ้อนกี่ชั้นก็ได้ · ZIP ซ้อน ZIP) หรือไฟล์ PDF/Excel หลายไฟล์ → แยกประเภท → ส่งเข้า 4 ช่องเดิม ──
+function handleMappingZipUpload(event){
+  const fl=(event&&event.target&&event.target.files)?[...event.target.files]:[];
+  const inp=document.getElementById('mappingZipInput'); if(inp) inp.value='';     // เลือกไฟล์เดิมซ้ำได้
+  if(!fl.length) return;
+  _mapxIntake(fl);
+}
+// ถ้ามี .zip ปนมาในช่องเดิม → ส่งทั้งหมดเข้าตัวรับ ZIP (ไม่มี .zip = false → handler เดิมทำงานตามเดิม 100%)
+function _mapxZipRoute(fileList){
+  const fl=[...(fileList||[])]; if(!fl.some(f=>/\.zip$/i.test(f.name))) return false;
+  _mapxIntake(fl); return true;
+}
+async function _mapxIntake(files){
+  const notes=[]; const loose=[]; let zipCount=0;
+  _mapx.prog={label:'กำลังเตรียมไฟล์…',cur:0,total:0}; _mapxRender();
+  const junk=/(^|\/)(__MACOSX\/|\.DS_Store$|Thumbs\.db$|~\$)/i;
+  const openZip=async (blob,zname,depth)=>{
+    if(typeof JSZip==='undefined'){ notes.push({t:'err',m:'แตก ZIP ไม่ได้: '+zname+' — JSZip ยังไม่โหลด (refresh หน้าใหม่)'}); return; }
+    let z; try{ z=await JSZip.loadAsync(await blob.arrayBuffer()); }
+    catch(e){ notes.push({t:'err',m:'แตก ZIP ไม่ได้: '+zname+' — '+(e&&e.message?e.message:e)}); return; }
+    zipCount++;
+    const ents=Object.values(z.files).filter(e=>!e.dir && !junk.test(e.name));
+    let n=0;
+    for(const e of ents){
+      const base=e.name.split('/').pop();
+      _mapx.prog={label:'แตก ZIP: '+base,cur:++n,total:ents.length}; _mapxRender();
+      try{
+        if(/\.(pdf|xlsx|xls)$/i.test(base)){ const b=await e.async('blob'); loose.push(new File([b],base,{type:/\.pdf$/i.test(base)?'application/pdf':'',lastModified:(e.date&&e.date.getTime&&e.date.getTime())||0})); }
+        else if(/\.zip$/i.test(base) && depth<3){ await openZip(await e.async('blob'),base,depth+1); }
+        else notes.push({t:'info',m:'ข้ามไฟล์ที่ไม่รองรับใน ZIP: '+e.name});
+      }catch(er){ notes.push({t:'err',m:'อ่านไฟล์ใน ZIP ไม่ได้: '+e.name+' — '+(er&&er.message?er.message:er)}); }
+    }
+    if(!ents.length) notes.push({t:'err',m:'ZIP ว่าง: '+zname});
+  };
+  for(const f of files){
+    if(/\.zip$/i.test(f.name)) await openZip(f,f.name,0);
+    else if(/\.(pdf|xlsx|xls)$/i.test(f.name)) loose.push(f);
+    else notes.push({t:'info',m:'ข้ามไฟล์ที่ไม่รองรับ: '+f.name});
+  }
+  const pdfs=loose.filter(f=>/\.pdf$/i.test(f.name));
+  const xls =loose.filter(f=>/\.xlsx?$/i.test(f.name));
+  const grp={rm:[],coo:[],ie:[]};
+  let n=0;
+  for(const f of xls){
+    _mapx.prog={label:'ตรวจ Excel: '+f.name,cur:++n,total:xls.length}; _mapxRender();
+    let ins; try{ ins=await _mapxInspectExcel(f); }catch(e){ ins={kind:'bad',err:String(e&&e.message?e.message:e),sheet:'',sheets:[]}; }
+    _mapx.cache.set(_mapxKey(f)+'#x',ins);
+    if(ins.kind==='rm'||ins.kind==='coo'||ins.kind==='ie') grp[ins.kind].push(f);
+    else if(ins.kind==='bad') notes.push({t:'err',m:f.name+' — '+ins.err});
+    else notes.push({t:'err',m:f.name+' · Sheet "'+ins.sheet+'" — '+(ins.invoiceLike
+        ?'เป็นเอกสารรูปแบบ INVOICE ไม่ใช่ตารางรายการใบขน (ไม่พบคอลัมน์ Product Code / Qty.) · ไม่นำเข้าช่องใด'
+        :'ไม่ตรงรูปแบบที่รองรับ (ใบขนขาด: '+ins.missIe.join(', ')+' · RM ขาด: '+ins.missRm.join(', ')+') · ไม่นำเข้าช่องใด'), ieHint:!!ins.invoiceLike});
+  }
+  const LBL={rm:'RM ไม่มีเลขอ้างอิง',coo:'RM มีเลขอ้างอิง',ie:'ใบขนขาออก EXCEL'};
+  const CUR={rm:()=>mappingRmFile,coo:()=>mappingRmRefFile,ie:()=>mappingImportEntryFile};
+  ['rm','coo','ie'].forEach(k=>{
+    const g=grp[k]; if(!g.length) return;
+    if(g.length>1){ notes.push({t:'err',m:'พบไฟล์ประเภท "'+LBL[k]+'" มากกว่า 1 ไฟล์ ('+g.map(f=>f.name).join(' , ')+') — ไม่นำเข้าอัตโนมัติ (ป้องกันจับคู่ข้ามชุด) กรุณาเลือกไฟล์ลงช่องเอง'}); return; }
+    const f=g[0], old=CUR[k]();
+    if(old && _mapxKey(old)!==_mapxKey(f)) notes.push({t:'warn',m:'ช่อง "'+LBL[k]+'": แทนที่ไฟล์เดิม '+old.name+' ด้วย '+f.name});
+    if(k==='rm') handleMappingRmUpload({target:{files:[f]}});
+    else if(k==='coo') handleMappingRmRefUpload({target:{files:[f]}});
+    else { mappingImportEntryFile=f; if(typeof loadMergeFile==='function') loadMergeFile('a',f); }
+  });
+  if(pdfs.length) handleMappingPdfMultiUpload({target:{files:pdfs}});
+  if(!loose.length && !notes.some(x=>x.t==='err')) notes.push({t:'err',m:'ไม่พบไฟล์ PDF / Excel ที่รองรับ'});
+  _mapx.notes=notes; _mapx.src=(zipCount?('ZIP '+files.filter(f=>/\.zip$/i.test(f.name)).map(f=>f.name).join(' , ')):'');
+  _mapx.prog=null; _mapxSchedule();
+}
+
+function _mapxSchedule(){ clearTimeout(_mapx.timer); _mapx.timer=setTimeout(_mapxRun,120); }
+async function _mapxRun(){
+  if(_mapx.running){ _mapx.again=true; return; }
+  _mapx.running=true;
+  try{ do{ _mapx.again=false; await _mapxPass(); }while(_mapx.again); }
+  catch(e){ console.warn('[MAPPING STATUS]',e); }
+  finally{ _mapx.running=false; _mapx.prog=null; _mapxRender(); }
+}
+function _mapxSlots(){ return { rm:(typeof mappingRmFile!=='undefined')?mappingRmFile:null, coo:(typeof mappingRmRefFile!=='undefined')?mappingRmRefFile:null, ie:mappingImportEntryFile }; }
+async function _mapxPass(){
+  const pdfs=(mappingPdfFiles||[]).slice();
+  const todo=pdfs.filter(f=>!_mapx.cache.has(_mapxKey(f)));
+  let i=0;
+  for(const f of todo){
+    i++; _mapx.prog={label:'อ่าน PDF: '+f.name,cur:i-1,total:todo.length}; _mapxRender();
+    const r=await _mapxInspectPdf(f,(p,n)=>{ _mapx.prog={label:'อ่าน PDF: '+f.name+' · หน้า '+p+'/'+n,cur:(i-1)+(p/n),total:todo.length}; _mapxRender(); });
+    _mapx.cache.set(_mapxKey(f),r);
+  }
+  const S=_mapxSlots();
+  for(const k of ['rm','coo','ie']){
+    const f=S[k]; if(!f) continue; const key=_mapxKey(f)+'#x';
+    if(_mapx.cache.has(key)) continue;
+    _mapx.prog={label:'ตรวจ Excel: '+f.name,cur:0,total:1}; _mapxRender();
+    let ins; try{ ins=await _mapxInspectExcel(f); }catch(e){ ins={kind:'bad',err:String(e&&e.message?e.message:e),sheet:'',sheets:[],missRm:[],missCoo:[],missIe:[]}; }
+    _mapx.cache.set(key,ins);
+  }
+  // MATCHED / UNMATCHED จริง: รัน exportMappingCombined โหมดตรวจสอบ (ไม่ดาวน์โหลด) เมื่อครบ 4 ช่องและผ่าน Schema
+  const V=_mapxEval();
+  if(V.schemaOk){
+    if(_mapx.drySig!==V.sig){
+      _mapx.prog={label:'จับคู่ข้อมูล (MATCH)…',cur:0,total:0}; _mapxRender();
+      // รอให้ EXPORT จริง (ถ้ากำลังทำงาน) จบก่อน — ไม่ทำงานซ้อนกัน
+      const _xb=document.getElementById('mappingCombinedExportBtn');
+      for(let w=0; w<600 && _xb && _xb.disabled; w++) await new Promise(r=>setTimeout(r,200));
+      const cap=[]; const t0=window.toast;
+      window._mapLastStat=null; window.toast=function(m,k){ cap.push({m:String(m),k:k||'info'}); };
+      try{ await exportMappingCombined(true); }catch(e){ cap.push({m:String(e&&e.message?e.message:e),k:'error'}); }
+      finally{ window.toast=t0; }
+      _mapx.dry={stat:window._mapLastStat,errs:cap.filter(x=>x.k==='error').map(x=>x.m),warns:cap.filter(x=>x.k==='warning').map(x=>x.m)};
+      _mapx.drySig=V.sig;
+    }
+  } else { _mapx.dry=null; _mapx.drySig=''; }
+}
+// สรุปผลตรวจจาก cache (ไม่อ่านไฟล์)
+function _mapxEval(){
+  const pdfs=(mappingPdfFiles||[]); const S=_mapxSlots();
+  const P=pdfs.map(f=>({f,r:_mapx.cache.get(_mapxKey(f))||null}));
+  const X={}; ['rm','coo','ie'].forEach(k=>{ X[k]=S[k]?(_mapx.cache.get(_mapxKey(S[k])+'#x')||null):null; });
+  const okX={ rm:!!(X.rm&&X.rm.kind!=='bad'&&!X.rm.missRm.length&&X.rm.rows>0), coo:!!(X.coo&&X.coo.kind!=='bad'&&!X.coo.missCoo.length&&X.coo.rowsCoo>0), ie:!!(X.ie&&X.ie.kind!=='bad'&&!X.ie.missIe.length&&X.ie.rowsIe>0) };
+  const pdfOk=P.filter(x=>x.r&&x.r.ok).length, pdfPending=P.filter(x=>!x.r).length;
+  const pages=P.reduce((s,x)=>s+((x.r&&x.r.pages)||0),0), read=P.reduce((s,x)=>s+((x.r&&x.r.read)||0),0);
+  const schemaOk = pdfs.length>0 && pdfPending===0 && pdfOk>0 && !!S.rm && !!S.coo && !!S.ie && okX.rm && okX.coo && okX.ie;
+  const sig=pdfs.map(_mapxKey).join(';')+'||'+_mapxKey(S.rm)+'||'+_mapxKey(S.coo)+'||'+_mapxKey(S.ie);
+  return {P,X,S,okX,pdfOk,pdfPending,pages,read,schemaOk,sig};
+}
+function _mapxRetry(){
+  // อ่านซ้ำเฉพาะไฟล์ที่ผิดพลาด — ผลที่สำเร็จแล้วคงอยู่ใน cache
+  for(const [k,v] of [..._mapx.cache.entries()]){ const bad = k.endsWith('#x') ? (v.kind==='bad') : !v.ok; if(bad) _mapx.cache.delete(k); }
+  _mapx.dry=null; _mapx.drySig=''; _mapxSchedule();
+}
+function _mapxReset(){
+  clearTimeout(_mapx.timer); _mapx.cache.clear(); _mapx.notes=[]; _mapx.dry=null; _mapx.drySig=''; _mapx.prog=null; _mapx.src='';
+  const zi=document.getElementById('mappingZipInput'); if(zi) zi.value='';
+  [['mappingRmFileName','#3fb950'],['mappingRmRefFileName','#388bfd']].forEach(([id,c])=>{ const e=document.getElementById(id); if(e) e.style.color=c; });
+  _mapxRender();
+}
+function _mapxRender(){
+  const box=document.getElementById('mappingReadStatus'); if(!box) return;
+  const V=_mapxEval(); const {P,X,S,okX}=V;
+  const any = P.length || S.rm || S.coo || S.ie || _mapx.notes.length || _mapx.prog;
+  if(!any){ box.style.display='none'; box.innerHTML=''; return; }
+  const G='#3fb950', R='#f85149', Y='#d29922', T='var(--t3)';
+  const line=(ico,title,txt,col)=>'<div><span>'+ico+'</span> <b style="color:var(--t1)">'+title+'</b> — <span style="color:'+col+'">'+txt+'</span></div>';
+  const rmNos=[_mapxRmNo(S.rm&&S.rm.name),_mapxRmNo(S.coo&&S.coo.name)].filter(Boolean);
+  const rmNo=rmNos[0]||_mapxRmNo(_mapx.src);
+  let h='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:4px">📦 '+(rmNo?('RM '+_mapxEsc(rmNo)):'สถานะการอ่านไฟล์')+(_mapx.src?' <span style="font-weight:400;color:var(--t3);font-size:11px">· '+_mapxEsc(_mapx.src)+'</span>':'')+'</div>';
+  // Progress
+  if(_mapx.prog){ const pr=_mapx.prog; const pct=pr.total?Math.max(2,Math.min(100,Math.round(pr.cur/pr.total*100))):100;
+    h+='<div style="margin:4px 0 8px"><div style="font-size:11px;color:var(--t2);margin-bottom:3px">⏳ '+_mapxEsc(pr.label)+(pr.total?(' ('+Math.min(pr.total,Math.floor(pr.cur)+1)+'/'+pr.total+')'):'')+'</div>'
+      +'<div style="height:6px;border-radius:3px;background:var(--s1);border:1px solid var(--bd);overflow:hidden"><div style="height:100%;width:'+pct+'%;background:#1f6feb;transition:width .15s"></div></div></div>'; }
+  // PDF
+  if(P.length){
+    const bad=P.filter(x=>x.r&&!x.r.ok);
+    h+=line('📄','Invoice PDF',V.pdfOk+'/'+P.length+' ไฟล์'+(V.pdfPending?' · รออ่าน '+V.pdfPending:''), (V.pdfOk===P.length)?G:(V.pdfPending?Y:R));
+    h+=line('📖','อ่าน PDF',V.read+'/'+V.pages+' หน้า'+(V.pdfPending?' (กำลังอ่าน)':''), (V.pdfPending?Y:(V.read===V.pages&&V.pages>0?G:R)));
+    bad.forEach(x=>{ h+='<div style="color:'+R+';padding-left:22px;font-size:11px">✕ '+_mapxEsc(x.f.name)+' — '+_mapxEsc(x.r.err)+(x.r.pages?(' · '+x.r.read+'/'+x.r.pages+' หน้า'):'')+'</div>'; });
+  } else h+=line('📄','Invoice PDF','ยังไม่มีไฟล์',T);
+  // Excel 3 ช่อง
+  const xl=(ico,title,k,missKey,rowsKey,sheetKey)=>{
+    const f=S[k], x=X[k];
+    if(!f){ const hint=(k==='ie')?_mapx.notes.find(n=>n.ieHint):null; return line(ico,title,hint?'ขาดข้อมูลใบขนรูปแบบที่รองรับ (ดูรายละเอียดด้านล่าง)':'ยังไม่มีไฟล์',hint?R:T); }
+    if(!x) return line(ico,title,'กำลังตรวจ '+_mapxEsc(f.name)+'…',Y);
+    if(x.kind==='bad') return line(ico,title,'✕ '+_mapxEsc(f.name)+' — '+_mapxEsc(x.err),R);
+    const sh=x[sheetKey]||x.sheet;
+    if(x[missKey].length) return line(ico,title,'✕ '+_mapxEsc(f.name)+' · Sheet "'+_mapxEsc(sh)+'" — '+((k==='ie'&&x.invoiceLike)?'เป็นเอกสารรูปแบบ INVOICE ไม่ใช่ตารางรายการใบขน · ':'')+'ไม่พบคอลัมน์ '+_mapxEsc(x[missKey].join(' · ')),R);
+    if(!(x[rowsKey]>0)) return line(ico,title,'✕ '+_mapxEsc(f.name)+' · Sheet "'+_mapxEsc(sh)+'" — ไม่มีแถวข้อมูล',R);
+    return line(ico,title,'อ่านสำเร็จ · '+_mapxEsc(f.name)+' · Sheet "'+_mapxEsc(sh)+'" · '+x[rowsKey]+' แถว',G);
+  };
+  h+=xl('📗','Export_Data_RM (RM ไม่มีเลขอ้างอิง)','rm','missRm','rows','sheet');
+  h+=xl('📘','COO_RM (RM มีเลขอ้างอิง)','coo','missCoo','rowsCoo','sheetCoo');
+  h+=xl('📋','ใบขนขาออก','ie','missIe','rowsIe','sheet');
+  // ชุด RM ไม่ตรงกัน (จากชื่อไฟล์)
+  const mix = rmNos.length===2 && rmNos[0]!==rmNos[1];
+  if(mix) h+='<div style="color:'+R+'">⚠ เลข RM ในชื่อไฟล์ไม่ตรงกัน ('+_mapxEsc(rmNos.join(' ≠ '))+') — ตรวจสอบว่าเป็นไฟล์ชุดเดียวกันก่อน EXPORT</div>';
+  // MATCH
+  const d=_mapx.dry; let ready=false;
+  if(d && d.stat && !d.errs.length){ const s=d.stat;
+    h+=line('🔗','MATCHED / UNMATCHED','PDF matched '+s.pdfMatched+'/'+s.pdfTotal+' · RM '+s.rmRows+' แถว (ไม่พบคู่ '+s.rmUnmatched+') · PDF ไม่พบ RM '+s.pdfUnmatched
+      +' · COO_RM Match '+s.cooMatched+' · AMBIGUOUS '+s.cooAmbig+' · ไม่พบ '+s.cooNotFound+' · '+s.countries+' ประเทศ', G);
+    d.warns.forEach(w=>{ h+='<div style="color:'+Y+';padding-left:22px;font-size:11px">⚠ '+_mapxEsc(w)+'</div>'; });
+    ready=!mix && V.pdfOk===P.length;
+  } else if(d && d.errs.length){ h+=line('🔗','MATCHED / UNMATCHED','✕ '+_mapxEsc(d.errs.join(' · ')),R); }
+  else h+=line('🔗','MATCHED / UNMATCHED',V.schemaOk?'กำลังจับคู่…':'รอไฟล์ครบและผ่านการตรวจสอบ',V.schemaOk?Y:T);
+  // หมายเหตุจากการรับไฟล์ (ZIP)
+  _mapx.notes.forEach(nn=>{ const c=nn.t==='err'?R:nn.t==='warn'?Y:T; h+='<div style="color:'+c+';font-size:11px">'+(nn.t==='err'?'✕ ':nn.t==='warn'?'⚠ ':'· ')+_mapxEsc(nn.m)+'</div>'; });
+  // พร้อม / ไม่พร้อม
+  const busy=_mapx.running||!!_mapx.prog;
+  if(ready && !busy) h+='<div style="margin-top:6px;font-weight:700;color:'+G+'">✅ พร้อม EXPORT</div>';
+  else if(!busy){
+    const why=[]; if(!P.length) why.push('INVOICE PDF'); if(!S.rm) why.push('RM ไม่มีเลขอ้างอิง'); if(!S.coo) why.push('RM มีเลขอ้างอิง'); if(!S.ie) why.push('ใบขนขาออก EXCEL');
+    const nBad=P.filter(x=>x.r&&!x.r.ok).length;
+    h+='<div style="margin-top:6px;font-weight:700;color:'+R+'">⛔ ยังไม่พร้อม EXPORT'+(why.length?(' — ขาด: '+_mapxEsc(why.join(' · '))):(nBad?(' — PDF อ่านไม่สำเร็จ '+nBad+' ไฟล์ (ลบไฟล์นั้นออก หรือกดอ่านซ้ำ)'):' — แก้รายการ ✕ / ⚠ ด้านบนก่อน'))+'</div>';
+  }
+  const hasBad=[..._mapx.cache.entries()].some(([k,v])=>k.endsWith('#x')?(v.kind==='bad'):!v.ok) && (P.some(x=>x.r&&!x.r.ok) || ['rm','coo','ie'].some(k=>X[k]&&X[k].kind==='bad'));
+  if(hasBad && !busy) h+='<button onclick="_mapxRetry()" style="margin-top:8px;background:none;border:1px solid var(--bd);color:var(--t2);border-radius:5px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:var(--font);">↻ อ่านซ้ำเฉพาะไฟล์ที่ผิดพลาด</button>';
+  box.innerHTML=h; box.style.display='block';
+  // ป้ายชื่อไฟล์ในช่องเดิม: แสดง ✓ เฉพาะเมื่ออ่านข้อมูลจริงได้ (ไม่ใช่แค่รับไฟล์ได้)
+  [['rm','mappingRmFileName','#3fb950'],['coo','mappingRmRefFileName','#388bfd']].forEach(([k,id,c])=>{
+    const e=document.getElementById(id); if(!e||!S[k]) return; const x=X[k];
+    if(!x){ e.textContent='⏳ '+S[k].name; e.style.color=Y; }
+    else if(okX[k]){ e.textContent='✓ '+S[k].name; e.style.color=c; }
+    else { e.textContent='✕ '+S[k].name+' — อ่านข้อมูลไม่ได้ (ดูสถานะด้านล่าง)'; e.style.color=R; }
+  });
+  if(S.ie && X.ie && !okX.ie){
+    const nm=document.getElementById('slot-a-name'), inf=document.getElementById('slot-a-info');
+    const fix=()=>{ if(!nm || mappingImportEntryFile!==S.ie) return; if(/^⏳/.test(nm.textContent)){ setTimeout(fix,300); return; }
+      nm.textContent='✕ '+S.ie.name+' — ไม่ใช่ตารางใบขนที่รองรับ'; nm.style.color=R; if(inf){ inf.textContent='ไม่พบคอลัมน์ '+X.ie.missIe.join(' · '); inf.style.color=R; } };
+    fix();
+  }
+}
+
 // round to 3 dp, drop trailing zeros, return number (or '' for 0-from-blank handled by caller)
 function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
 
