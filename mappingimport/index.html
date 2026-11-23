@@ -13319,11 +13319,32 @@ const TX_SPLIT_MAXPG = 100;                  // เพดานจำนวน�
 const TX_SPLIT_FIX   = 3;                    // จำนวนครั้งสูงสุดที่ย่นชุดเพื่อไม่ให้ตัดกลาง INVOICE
 function txPdfLibReady(){ return typeof PDFLib !== 'undefined' && PDFLib && PDFLib.PDFDocument; }
 function txB64OfBytes(u8){ let bin = ''; const CH = 0x8000; for(let i = 0; i < u8.length; i += CH) bin += String.fromCharCode.apply(null, u8.subarray(i, i + CH)); return btoa(bin); }
-async function txSubPdf(doc, from, to){                                  // สร้างไฟล์ PDF ย่อย หน้า from..to (1-based)
-  const out = await PDFLib.PDFDocument.create(), idx = [];
-  for(let p = from; p <= to; p++) idx.push(p - 1);
-  (await out.copyPages(doc, idx)).forEach(pg => out.addPage(pg));
+async function txSubPdf(doc, list, extra){                               // สร้างไฟล์ PDF ย่อยจากรายการหน้า (1-based · ไม่ต้องต่อเนื่อง) + หน้าจากไฟล์เสริม (ถ้ามี)
+  const out = await PDFLib.PDFDocument.create();
+  (await out.copyPages(doc, list.map(p => p - 1))).forEach(pg => out.addPage(pg));
+  if(extra) (await out.copyPages(extra, extra.getPageIndices())).forEach(pg => out.addPage(pg));
   return await out.save({ useObjectStreams:false });
+}
+/* [485] รายการ INVOICE ที่ Server แจ้งว่าหน้าไม่ครบ: "Invoice 123: พบหน้า 1/2" → [{inv,k,N}] */
+function txCutList(msg){
+  const o = []; let m; const re = /Invoice\s+(\S+):\s*พบหน้า\s*(\d+)\s*\/\s*(\d+)/g;
+  while((m = re.exec(String(msg == null ? '' : msg)))) o.push({ inv:m[1], k:Number(m[2]), N:Number(m[3]) });
+  return o;
+}
+function txPgLabel(list){                                                // ป้ายช่วงหน้า เช่น 28–54 (เว้น 29)
+  const a = list[0], b = list[list.length - 1], skip = [];
+  for(let p = a; p <= b; p++) if(list.indexOf(p) < 0) skip.push(p);
+  return { a, b, skip, txt: a + '–' + b + (skip.length ? ' (เว้น ' + skip.join(', ') + ')' : ''), file: '_p' + a + '-' + b + skip.map(p => 'x' + p).join('') };
+}
+/* แผนชุดของแต่ละไฟล์ — เก็บเฉพาะเลขหน้า (ไม่มีเนื้อหาเอกสาร) เพื่อให้เปิดหน้าใหม่แล้วยังส่งชุดเดิม = ได้ Cache ของ Server */
+const TX_PLAN_KEY = 'TX_SPLIT_PLAN_V1';
+function txPlanAll(){
+  if(!txState.plan){ let o = {}; try{ o = JSON.parse(localStorage.getItem(TX_PLAN_KEY) || '{}') || {}; }catch(_e){} txState.plan = o; }
+  return txState.plan;
+}
+function txPlanSave(){
+  try{ const P = txPlanAll(), ks = Object.keys(P); while(ks.length > 40) delete P[ks.shift()];
+       localStorage.setItem(TX_PLAN_KEY, JSON.stringify(P, (k, v) => k === 'fix' ? undefined : v)); }catch(_e){}
 }
 function txCutPages(msg){                                                // "Invoice 123: พบหน้า 1/2" → 1 (จำนวนหน้าของ INVOICE ที่ถูกตัดซึ่งอยู่ในชุดนี้)
   let k = 0, m; const re = /พบหน้า\s*(\d+)\s*\/\s*(\d+)/g;
@@ -13373,62 +13394,120 @@ async function txAiReadBig(file, onProg){
   if(!(pages > TX_SPLIT_MAXPG || bytes.length > TX_SPLIT_BYTES)){
     try{
       const j = await txAiSend(file.name, bytes, sec => onProg({ phase:'one', pages, sec }));
-      return { parts:[{ from:1, to:pages || 0, j }], pages, bad:[], split:false, batches:1 };
+      return { parts:[{ list:null, j }], pages, bad:[], miss:[], split:false, batches:1 };
     }catch(err){
       const m = String((err && err.message) || err || '');
-      if(!doc || !/ใหญ่เกิน|too_large|HTTP 413|ยาวเกินเพดาน|รายการมากเกินไป/i.test(m)) throw err;
+      if(!doc || !/ใหญ่เกิน|too_large|HTTP 413|ยาวเกินเพดาน|รายการมากเกินไป|พบหน้า\s*\d+\s*\/\s*\d+/i.test(m)) throw err;
       onProg({ phase:'fallback', pages, msg:m });
     }
   }
   if(!doc) throw new Error('ไฟล์ใหญ่เกิน ' + Math.round(TX_SPLIT_BYTES / 1048576) + ' MB และยังแบ่งชุดไม่ได้ (pdf-lib ยังโหลดไม่สำเร็จ) กรุณาลองใหม่');
-  /* แผนชุดของไฟล์นี้ (จำไว้ในหน่วยความจำของหน้า) — กด ↻ = อ่านซ้ำเฉพาะช่วงหน้าที่ล้มเหลว
-     ชุดที่สำเร็จแล้วถูกส่งด้วยช่วงหน้าเดิมทุกประการ → ได้ผลจาก Cache ของ Server · ไม่เรียก AI ซ้ำ */
+  /* [485] แผนชุดของไฟล์นี้: ok = ชุดที่สำเร็จ · bad = ชุดที่ AI/Server ล้มเหลวจริง · miss = หน้าของ INVOICE ที่เอกสารต้นฉบับไม่ครบ
+     กด ↻ = อ่านซ้ำเฉพาะ bad · ชุด ok ถูกส่งด้วยรายการหน้าเดิมทุกประการ → ได้ผลจาก Cache ของ Server ไม่เรียก AI ซ้ำ
+     INVOICE ที่เอกสารไม่ครบถูกกันหน้าออกจากชุด → INVOICE อื่นในชุดเดียวกันอ่านได้ตามปกติ (ทั้งชุดไม่ล้มเหลว) */
   const base = String(file.name).replace(/\.pdf$/i, ''), pkey = file.name + '|' + bytes.length + '|' + txPickModel();
-  const old = (txState.plan || (txState.plan = {}))[pkey];
-  const segs = (old && old.bad.length) ? old.bad.map(x => ({ from:x.from, to:x.to })) : [{ from:1, to:pages }];
-  const keep = (old && old.bad.length) ? old.ok.slice() : [];
+  const old = txPlanAll()[pkey];
+  const miss = new Map(((old && old.miss) || []).map(x => [x.inv, { inv:x.inv, N:x.N, pages:x.pages.slice() }]));
+  const fixed = (old && old.fix) || [];                                   // ผลของ INVOICE ที่แนบหน้าเอกสารเพิ่มแล้ว (อยู่ในหน่วยความจำของหน้า)
+  const segs = old ? old.bad.map(x => x.slice()) : [Array.from({ length:pages }, (_, i) => i + 1)];
+  const keep = old ? old.ok.map(x => x.slice()) : [];
   const parts = [], bad = []; let k = 0;
-  const send = async (from, to, sub) => {                                // ส่ง 1 ชุด (แสดงสถานะทันที)
-    k++; onProg({ phase:'batch', k, from, to, pages, sec:0 });
-    return await txAiSend(base + '_p' + from + '-' + to + '.pdf', sub, sec => onProg({ phase:'batch', k, from, to, pages, sec }));
+  const send = async (list, tag, extra) => {                              // ส่ง 1 ชุด (แสดงสถานะทันที)
+    const L = txPgLabel(list); k++; onProg({ phase: tag ? 'probe' : 'batch', k, txt:L.txt, pages, sec:0, tag });
+    const sub = await txSubPdf(doc, list, extra);
+    if(sub.length > TX_SPLIT_BYTES) throw new Error('ชุดหน้า ' + L.txt + ' ใหญ่เกิน ' + Math.round(TX_SPLIT_BYTES / 1048576) + ' MB — ไม่ส่งให้ AI');
+    return await txAiSend(base + L.file + (extra ? '_add' : '') + '.pdf', sub, sec => onProg({ phase: tag ? 'probe' : 'batch', k, txt:L.txt, pages, sec, tag }));
   };
-  for(const r of keep.sort((x, y) => x.from - y.from)){                   // ชุดที่เคยสำเร็จ → ช่วงหน้าเดิม = Cache
-    try{ parts.push({ from:r.from, to:r.to, j: await send(r.from, r.to, await txSubPdf(doc, r.from, r.to)) }); }
-    catch(err){ bad.push({ from:r.from, to:r.to, msg:String((err && err.message) || err || 'อ่านไม่สำเร็จ') }); }
+  const addMiss = (inv, N, pg) => { const e = miss.get(inv) || { inv, N, pages:[] }; if(e.pages.indexOf(pg) < 0) e.pages.push(pg); e.N = N || e.N; miss.set(inv, e); };
+  /* หาหน้าของ INVOICE ที่หน้าไม่ครบภายในชุด (แบ่งครึ่งค้นหา · ดูเฉพาะว่า Server เอ่ยถึงเลข INVOICE นั้นหรือไม่) */
+  const locate = async (list, inv) => {
+    const has = async q => { try{ await send(q, inv); return false; }
+      catch(e){ const m = String((e && e.message) || e || ''); if(!/พบหน้า/.test(m)) throw e; return txCutList(m).some(x => x.inv === inv); } };
+    let lo = 0, hi = list.length - 1;
+    try{
+      while(lo < hi){ const mid = (lo + hi) >> 1; if(await has(list.slice(lo, mid + 1))) hi = mid; else lo = mid + 1; }
+      return (await has([list[lo]])) ? list[lo] : 0;                      // ยืนยันด้วยหน้าเดียวก่อนตัดสิน
+    }catch(_e){ return 0; }
+  };
+  for(const r of keep.sort((x, y) => x[0] - y[0])){                       // ชุดที่เคยสำเร็จ → รายการหน้าเดิม = Cache
+    try{ parts.push({ list:r, j: await send(r) }); }
+    catch(err){ bad.push({ list:r, msg:String((err && err.message) || err || 'อ่านไม่สำเร็จ') }); }
   }
-  for(const sg of segs){
-    let from = sg.from, loose = false, head = false;                     // loose = ชุดก่อนหน้าล้มเหลว → ยังไม่รู้ว่าหน้าเริ่มตรงต้น INVOICE หรือไม่
-    while(from <= sg.to){
-      let size = Math.min(TX_SPLIT_PAGES, TX_SPLIT_MAXPG, sg.to - from + 1), fix = 0;
+  for(const S of segs){
+    let i = 0, loose = false, head = false;                              // loose = ชุดก่อนหน้าล้มเหลว → ยังไม่รู้ว่าหน้าเริ่มตรงต้น INVOICE หรือไม่
+    while(i < S.length){
+      let size = Math.min(TX_SPLIT_PAGES, TX_SPLIT_MAXPG, S.length - i), fix = 0, iso = 0, prev = null;
       for(;;){
-        let to = Math.min(from + size - 1, sg.to), sub = await txSubPdf(doc, from, to), guard = 0;
-        while(sub.length > TX_SPLIT_BYTES && size > 1 && guard++ < 8){   // ตรวจขนาดก่อนส่ง — เกินข้อจำกัด = ลดจำนวนหน้าแล้วสร้างใหม่
-          size = Math.max(1, Math.floor(size * TX_SPLIT_BYTES / sub.length));
-          to = Math.min(from + size - 1, sg.to); sub = await txSubPdf(doc, from, to);
-        }
-        if(sub.length > TX_SPLIT_BYTES){                                 // หน้าเดียวยังเกิน = ไม่ส่ง (กัน HTTP 413 ของ Edge Function)
-          bad.push({ from, to, msg:'หน้า ' + from + ' ใหญ่เกิน ' + Math.round(TX_SPLIT_BYTES / 1048576) + ' MB — ไม่ส่งให้ AI' });
-          from = to + 1; loose = true; head = false; break;
+        let P = S.slice(i, i + size), guard = 0;
+        while(size > 1 && guard++ < 8){                                  // ตรวจขนาดก่อนส่ง — เกินข้อจำกัด = ลดจำนวนหน้า
+          const n = (await txSubPdf(doc, P)).length; if(n <= TX_SPLIT_BYTES) break;
+          size = Math.max(1, Math.floor(size * TX_SPLIT_BYTES / n)); P = S.slice(i, i + size);
         }
         try{
-          parts.push({ from, to, j: await send(from, to, sub) }); from = to + 1; loose = false; head = false; break;
+          parts.push({ list:P, j: await send(P) }); i += P.length; loose = false; head = false; break;
         }catch(err){
-          const msg = String((err && err.message) || err || 'อ่านไม่สำเร็จ'), cut = txCutPages(msg), len = to - from + 1;
-          if(cut > 0 && cut < len && loose && !head && bad.length){      // ชุดก่อนหน้าล้มเหลว + ชุดนี้เริ่มกลาง INVOICE → ยกหน้าเศษไปรวมกับช่วงที่ล้มเหลว
-            head = true; bad[bad.length - 1].to = from + cut - 1; from += cut;
-            onProg({ phase:'fix', k, from, to, pages }); break;
+          const msg = String((err && err.message) || err || 'อ่านไม่สำเร็จ'), L = txCutList(msg);
+          const cut = L.reduce((v, x) => Math.max(v, x.k), 0), rep = prev ? L.find(x => prev.has(x.inv)) : null;
+          if(rep && iso < 6){                                            // INVOICE เดิมยังหน้าไม่ครบแม้ปรับขอบชุดแล้ว = เอกสารของ INVOICE นี้ไม่ครบในช่วงนี้ → กันหน้าออก
+            onProg({ phase:'iso', inv:rep.inv, txt:txPgLabel(P).txt, pages });
+            const pg = await locate(P, rep.inv);
+            if(pg){ iso++; addMiss(rep.inv, rep.N, pg); S.splice(S.indexOf(pg), 1); size = Math.min(TX_SPLIT_PAGES, S.length - i); fix = 0; prev = new Set([rep.inv]); if(!size) break; continue; }
           }
-          if(cut > 0 && cut < len && fix < TX_SPLIT_FIX){                 // ชุดจบกลาง INVOICE → ย่นท้ายชุดลง k หน้า แล้วอ่านใหม่
-            fix++; size = (to - cut) - from + 1; onProg({ phase:'fix', k, from, to: to - cut, pages }); continue;
+          if(cut > 0 && cut < P.length && loose && !head && bad.length){ // ชุดก่อนหน้าล้มเหลว + ชุดนี้เริ่มกลาง INVOICE → ยกหน้าเศษไปรวมกับช่วงที่ล้มเหลว
+            head = true; bad[bad.length - 1].list = bad[bad.length - 1].list.concat(P.slice(0, cut)); i += cut; break;
           }
-          bad.push({ from, to, msg }); from = to + 1; loose = true; head = false; break;
+          if(cut > 0 && cut < P.length && fix < TX_SPLIT_FIX){            // ชุดจบกลาง INVOICE → ย่นท้ายชุดลง k หน้า แล้วอ่านใหม่
+            fix++; size = P.length - cut; prev = new Set(L.map(x => x.inv)); onProg({ phase:'fix', k, txt:txPgLabel(P.slice(0, size)).txt, pages }); continue;
+          }
+          if(L.length === 1 && P.length <= L[0].N && L[0].k === P.length){ // เหลือเฉพาะหน้าของ INVOICE ที่ไม่ครบ
+            P.forEach(pg => addMiss(L[0].inv, L[0].N, pg)); S.splice(i, P.length); break;
+          }
+          bad.push({ list:P, msg }); i += P.length; loose = true; head = false; break;
         }
       }
     }
   }
-  parts.sort((x, y) => x.from - y.from); bad.sort((x, y) => x.from - y.from);
-  txState.plan[pkey] = { pages, ok: parts.map(x => ({ from:x.from, to:x.to })), bad: bad.map(x => ({ from:x.from, to:x.to })) };
-  return { parts, pages, bad, split:true, batches:k };
+  /* ค้นทั้งไฟล์แล้ว: INVOICE ที่หน้ากระจายอยู่คนละที่แต่ครบจำนวน → รวมหน้าแล้วอ่านใหม่ · ไม่ครบจริง = เอกสารต้นฉบับไม่ครบ */
+  for(const e of [...miss.values()]){
+    if(!e.N || e.pages.length < e.N) continue;
+    e.pages.sort((x, y) => x - y);
+    try{ parts.push({ list:e.pages.slice(), j: await send(e.pages) }); miss.delete(e.inv); }catch(_e){}
+  }
+  for(const fx of fixed){ if(miss.has(fx.inv)){ parts.push({ list:fx.list, j:fx.j }); miss.delete(fx.inv); } }
+  parts.sort((x, y) => x.list[0] - y.list[0]); bad.sort((x, y) => x.list[0] - y.list[0]);
+  const missOut = [...((old && old.miss) || []).filter(x => fixed.some(f => f.inv === x.inv)), ...miss.values()];
+  txPlanAll()[pkey] = { pages, ok: parts.filter(x => !fixed.some(f => f.j === x.j)).map(x => x.list), bad: bad.map(x => x.list),
+                        miss: [...new Map(missOut.map(x => [x.inv, { inv:x.inv, N:x.N, pages:x.pages.slice().sort((p, q) => p - q) }])).values()], fix: fixed };
+  txPlanSave();
+  return { parts, pages, bad: bad.map(x => ({ list:x.list, txt:txPgLabel(x.list).txt, msg:x.msg })), miss: [...miss.values()], split:true, batches:k, pkey };
+}
+/* [485] แนบหน้าเอกสารที่ขาดของ INVOICE — รวมกับหน้าที่มีอยู่ในไฟล์ต้นฉบับ แล้วให้ AI อ่านเฉพาะ INVOICE นั้น (ผลเดิมของ INVOICE อื่นไม่ถูกแตะ) */
+function txAttachMissing(fi, inv){
+  const f = txState.pdfs[fi]; if(!f || _txRunning) return;
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/pdf,.pdf'; inp.id = 'tx-miss-input'; inp.style.display = 'none';
+  inp.onchange = async () => { const sup = inp.files && inp.files[0]; inp.remove(); if(sup) await txAttachMissingFile(fi, inv, sup); };
+  document.body.appendChild(inp); inp.click();
+}
+async function txAttachMissingFile(fi, inv, sup){
+  const f = txState.pdfs[fi]; if(!f || _txRunning) return;
+  try{
+    txSetStatus('กำลังอ่านหน้าเอกสารที่แนบเพิ่มของ INVOICE ' + inv + ' …');
+    const bytes = new Uint8Array(await f.arrayBuffer()), pkey = f.name + '|' + bytes.length + '|' + txPickModel(), plan = txPlanAll()[pkey];
+    const e = plan && (plan.miss || []).find(x => x.inv === inv); if(!e) throw new Error('ไม่พบรายการ INVOICE ' + inv + ' ที่รอเอกสาร');
+    const doc = await PDFLib.PDFDocument.load(bytes, { ignoreEncryption:true });
+    const ext = await PDFLib.PDFDocument.load(new Uint8Array(await sup.arrayBuffer()), { ignoreEncryption:true });
+    if(ext.getPageCount() > 10) throw new Error('ไฟล์ที่แนบเพิ่มมี ' + ext.getPageCount() + ' หน้า — แนบเฉพาะหน้าที่ขาดของ INVOICE นี้ (ไม่เกิน 10 หน้า)');
+    const sub = await txSubPdf(doc, e.pages, ext);
+    const j = await txAiSend(String(f.name).replace(/\.pdf$/i, '') + '_inv' + inv + '_add.pdf', sub, null);
+    const got = ((j.result && j.result.invoices) || []).map(x => String(x.inv));
+    if(got.indexOf(String(inv)) < 0) throw new Error('หน้าที่แนบไม่ใช่ของ INVOICE ' + inv + (got.length ? ' (พบ ' + got.join(', ') + ')' : ''));
+    j.result = { invoices: j.result.invoices.filter(x => String(x.inv) === String(inv)), complete:true, remarks:'' };   // รับเฉพาะ INVOICE ที่ระบุ — ไม่ปนกับฉบับอื่น
+    (plan.fix || (plan.fix = [])).push({ inv, list: e.pages.concat(Array.from({ length: ext.getPageCount() }, () => e.pages[e.pages.length - 1])), j });
+    await txRun();
+  }catch(err){
+    const m = String((err && err.message) || err || '');
+    txSetStatus('✗ แนบหน้าเอกสารของ INVOICE ' + inv + ' ไม่สำเร็จ: ' + (/พบหน้า/.test(m) ? 'หน้าที่แนบยังไม่ครบ (' + (txCutList(m).map(x => x.k + '/' + x.N)[0] || '') + ')' : m), 'err');
+  }
 }
 async function txAiRead(file, onTick){
   const pdf = await txB64Of(file);
@@ -13677,7 +13756,7 @@ async function txRun(){
     if(!_txAiOk && !(await txAiProbe())) throw new Error(TX_AI_NOT_READY);
     const map = new Map(), unclear = [], pp = new Map();
     let cost = 0, inTok = 0, outTok = 0, reqs = 0, allCached = true, modelUsed = '', nCached = 0, nRead = 0;
-    let nBatch = 0, nBad = 0; txState.badParts = {};                    // [484] สรุปจำนวนชุด + ชุดที่อ่านไม่สำเร็จ
+    let nBatch = 0, nBad = 0, nMiss = 0; txState.badParts = {}; txState.miss = {};   // [484] สรุปจำนวนชุด + ชุดที่อ่านไม่สำเร็จ · [485] INVOICE ที่เอกสารไม่ครบ
     for(let i = 0; i < txState.pdfs.length; i++){
       const f = txState.pdfs[i];
       txState.stat[f.name] = 'processing'; txRenderLists();
@@ -13686,13 +13765,18 @@ async function txRun(){
         const head = 'กำลังให้ AI อ่านไฟล์ ' + (i + 1) + '/' + txState.pdfs.length + ' · ' + f.name;
         const B = await txAiReadBig(f, p => {                            // [484] สถานะชัดเจนทุกชุด — ไม่ค้างที่ "กำลังอ่าน"
           if(p.phase === 'one')      txSetStatus(head + (p.pages ? ' · ' + p.pages + ' หน้า' : '') + ' … ' + (p.sec || 0) + ' วินาที');
-          else if(p.phase === 'fallback') txSetStatus(head + ' · เกินข้อจำกัดของคำขอเดียว (' + p.msg + ') → แบ่งเป็นชุดอัตโนมัติ …');
-          else if(p.phase === 'fix') txSetStatus(head + ' · ปรับชุดที่ ' + p.k + ' ไม่ให้ตัดกลาง INVOICE → หน้า ' + p.from + '–' + p.to + ' …');
-          else                       txSetStatus(head + ' · ชุดที่ ' + p.k + ' · หน้า ' + p.from + '–' + p.to + ' จาก ' + p.pages + ' หน้า … ' + (p.sec || 0) + ' วินาที');
+          else if(p.phase === 'fallback') txSetStatus(head + ' · อ่านทั้งไฟล์ในคำขอเดียวไม่ได้ (' + p.msg + ') → แบ่งเป็นชุดอัตโนมัติ …');
+          else if(p.phase === 'fix') txSetStatus(head + ' · ปรับชุดที่ ' + p.k + ' ไม่ให้ตัดกลาง INVOICE → หน้า ' + p.txt + ' …');
+          else if(p.phase === 'iso') txSetStatus(head + ' · INVOICE ' + p.inv + ' หน้าไม่ครบในชุดหน้า ' + p.txt + ' → กำลังแยกออกเพื่ออ่านฉบับอื่นต่อ …');
+          else if(p.phase === 'probe') txSetStatus(head + ' · ค้นหาหน้าของ INVOICE ' + p.tag + ' ในหน้า ' + p.txt + ' … ' + (p.sec || 0) + ' วินาที');
+          else                       txSetStatus(head + ' · ชุดที่ ' + p.k + ' · หน้า ' + p.txt + ' จาก ' + p.pages + ' หน้า … ' + (p.sec || 0) + ' วินาที');
         });
         let partCached = B.parts.length > 0;
         for(const pt of B.parts){
-          txFromAi(pt.j.result, f.name, map, unclear, pt.from - 1, pp);  // รวมผลตามลำดับหน้าเดิม (บวก Offset ของชุด)
+          /* รวมผลตามลำดับหน้าเดิม: เลขหน้าในชุด → เลขหน้าจริงของไฟล์ (ทำบนสำเนา ไม่แก้ผลที่เก็บไว้) */
+          const R0 = pt.j.result || {}, R1 = !pt.list ? R0 : { remarks:R0.remarks, invoices:(R0.invoices || []).map(iv =>
+            Object.assign({}, iv, { items:(iv.items || []).map(x => Object.assign({}, x, { pg: pt.list[(x.pg || 1) - 1] || pt.list[pt.list.length - 1] })) })) };
+          txFromAi(R1, f.name, map, unclear, 0, pp);
           const u = pt.j.usage || {};
           reqs += (u.cached ? 0 : 1); cost += Number(u.cost_usd_est || 0);
           inTok += Number(u.input_tokens || 0); outTok += Number(u.output_tokens || 0);
@@ -13700,13 +13784,18 @@ async function txRun(){
           modelUsed = u.model || modelUsed || TX_AI_MODEL;
         }
         nBatch += B.batches || B.parts.length;
+        txState.miss[f.name] = B.miss || [];
+        for(const ms of (B.miss || [])){ nMiss++;
+          unclear.push({ inv: ms.inv, item:'—', pg: ms.pages.join(', '), why:'เอกสารต้นฉบับไม่ครบ — พบเพียง ' + ms.pages.length + '/' + (ms.N || '?') + ' หน้า (ไม่อยู่ใน Excel จนกว่าจะแนบหน้าที่ขาด)' }); }
         if(B.bad.length){                                                // อ่านไม่ครบ = แจ้งชุดที่ผิดพลาด + เปิดให้อ่านซ้ำเฉพาะชุดนั้น
           nBad += B.bad.length; txState.badParts[f.name] = B.bad;
           txState.stat[f.name] = 'error:อ่านไม่สำเร็จ ' + B.bad.length + ' ชุด (หน้า ' +
-            B.bad.map(b => b.from + '–' + b.to).join(', ') + ') — ' + (B.bad[0].msg || '') +
+            B.bad.map(b => b.txt).join(', ') + ') — ' + (B.bad[0].msg || '') +
             ' · กด ↻ เพื่ออ่านซ้ำเฉพาะชุดที่ผิดพลาด (ชุดที่สำเร็จแล้วใช้ Cache ไม่เสียค่า API เพิ่ม)';
-        }else if(!B.parts.length){
+        }else if(!B.parts.length && !(B.miss || []).length){
           txState.stat[f.name] = 'error:ไม่ได้ผลจาก AI';
+        }else if((B.miss || []).length){                                 // [485] เอกสารต้นฉบับไม่ครบ ≠ AI อ่านไม่สำเร็จ → เตือน · ไม่ต้องอ่านซ้ำ · Export ฉบับที่ครบได้
+          txState.stat[f.name] = 'warn'; if(partCached) nCached++; else nRead++;
         }else{
           txState.stat[f.name] = partCached ? 'cached' : 'success';
           if(partCached) nCached++; else nRead++;
@@ -13718,7 +13807,7 @@ async function txRun(){
       txRenderLists();
     }
     const bad = txState.pdfs.filter(f => String(txState.stat[f.name] || '').indexOf('error') === 0);
-    if(!map.size) throw new Error(bad.length ? 'อ่าน PDF ไม่สำเร็จทุกไฟล์ — กดลองใหม่เฉพาะไฟล์ที่ผิดพลาดได้' : 'ไม่พบ Invoice ในไฟล์ที่แนบ');
+    if(!map.size) throw new Error(bad.length ? 'อ่าน PDF ไม่สำเร็จทุกไฟล์ — กดลองใหม่เฉพาะไฟล์ที่ผิดพลาดได้' : nMiss ? 'เอกสารต้นฉบับไม่ครบทุก INVOICE ที่พบ — แนบหน้าเอกสารที่ขาดเพื่ออ่านเพิ่ม' : 'ไม่พบ Invoice ในไฟล์ที่แนบ');
     /* เรียง Invoice จากน้อยไปมาก · ภายใน Invoice เรียงตาม PDF (เรียงไว้แล้วใน txFromAi) */
     const list = [...map.values()].sort((a, b) => {
       const na = Number(a.inv), nb = Number(b.inv);
@@ -13745,7 +13834,9 @@ async function txRun(){
         ? 'AI อ่าน Invoice สำเร็จ · ใช้ข้อมูล Cache เดิม · ไม่เสียค่า API เพิ่ม' + tail
         : 'AI อ่าน Invoice สำเร็จ' + tail + ' · Token เข้า ' + inTok.toLocaleString() + ' / ออก ' + outTok.toLocaleString() +
           ' · ค่า API $' + cost.toFixed(4) + (nCached ? ' · ใช้ Cache ' + nCached + ' ไฟล์ · อ่านใหม่ ' + nRead + ' ไฟล์' : '')) +
-        (bad.length ? ' · ⚠ อ่านไม่สำเร็จ ' + bad.length + ' ไฟล์' + (nBad ? ' (' + nBad + ' ชุด)' : '') : ''), bad.length ? '' : 'ok'); }
+        (bad.length ? ' · ⚠ อ่านไม่สำเร็จ ' + bad.length + ' ไฟล์' + (nBad ? ' (' + nBad + ' ชุด)' : '') : '') +
+        (nMiss ? ' · ⚠ เอกสารต้นฉบับไม่ครบ ' + nMiss + ' INVOICE (' + [].concat(...Object.keys(txState.miss).map(k => txState.miss[k].map(x => x.inv))).join(', ') + ') — ไม่รวมใน Excel' : ''),
+        (bad.length || nMiss) ? '' : 'ok'); }
     await txMatch();
   }catch(e){
     txSetStatus('✗ ' + (e && e.message ? e.message : e), 'err');
@@ -13937,14 +14028,19 @@ function txRenderLists(){
   if(p) p.innerHTML = txState.pdfs.map((f, i) => {
     const st = String(txState.stat[f.name] || '');
     const bad = st.indexOf('error') === 0;
+    const ms = (txState.miss && txState.miss[f.name]) || [];
     const lab = bad ? '❌ ' + txEscHtml(st.slice(6) || 'อ่านไม่สำเร็จ')
+      : st === 'warn'       ? '⚠️ อ่าน INVOICE ที่เอกสารครบสำเร็จทั้งหมด · เอกสารต้นฉบับไม่ครบ ' + ms.length + ' INVOICE'
       : st === 'processing' ? '⏳ กำลังอ่าน…'
       : st === 'cached'     ? '✅ ใช้ผลเดิม (ไม่เสียค่า API)'
       : st === 'success'    ? '✅ อ่านสำเร็จ' : '• รอ AI อ่าน';
     return '<div class="doa-file-entry"><span class="dfn">📄 ' + txEscHtml(f.name) +
       ' <span style="color:' + (bad ? '#b91c1c' : st === 'processing' ? '#b45309' : '#64748b') + '">— ' + lab + '</span></span>' +
       (bad ? '<button class="drm" title="ลองใหม่เฉพาะไฟล์นี้" onclick="event.stopPropagation();txRetry(' + i + ')">↻</button>' : '') +
-      '<button class="drm" title="ลบไฟล์นี้" onclick="event.stopPropagation();txRemovePdf(' + i + ')">✕</button></div>';
+      '<button class="drm" title="ลบไฟล์นี้" onclick="event.stopPropagation();txRemovePdf(' + i + ')">✕</button></div>' +
+      ms.map(x => '<div class="doa-file-entry tx-miss" style="background:#fffbeb;border-color:#f59e0b"><span class="dfn" style="color:#92400e">⚠️ INVOICE ' + txEscHtml(x.inv) +
+        ' — พบเพียง ' + x.pages.length + '/' + (x.N || '?') + ' หน้า (หน้า ' + x.pages.join(', ') + ' ของไฟล์) · ไม่พบหน้าที่เหลือใน PDF ต้นฉบับ — เอกสารต้นฉบับไม่ครบ (ไม่ใช่ AI อ่านไม่สำเร็จ)</span>' +
+        '<button class="drm" style="width:auto;padding:0 8px" title="แนบหน้าเอกสารที่ขาดของ INVOICE นี้" onclick="event.stopPropagation();txAttachMissing(' + i + ',\'' + txEscHtml(x.inv) + '\')">📎 แนบหน้าเอกสารที่ขาด</button></div>').join('');
   }).join('');
   const ps = document.getElementById('tx-pdf-stat');
   if(ps){ ps.textContent = txState.pdfs.length ? ('✓ แนบแล้ว ' + txState.pdfs.length + ' ไฟล์') : 'ยังไม่ได้แนบไฟล์';
@@ -27996,7 +28092,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local484';
+const DEPLOY_VERSION = 'local485';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
