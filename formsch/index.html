@@ -8498,6 +8498,7 @@ let mappingRmRefFile = null;   // ไฟล์ RM (อ้างอิง) — �
 function handleMappingPdfMultiUpload(event){
   const fileList = (event && event.target && event.target.files) ? event.target.files : [];
   if(typeof _mapxZipRoute==='function' && _mapxZipRoute(fileList)) return;   // ADDITIVE: มี .zip → ตัวรับ ZIP
+  if(typeof _mapxImpRoute==='function' && _mapxImpRoute(event, fileList)) return;   // ADDITIVE (local322): ตรวจเนื้อหาหน้าแรก → ใบขนขาเข้า PDF ไปตัวอ่านเฉพาะ · ไฟล์อื่นกลับเข้า handler นี้ตามเดิม
   const incoming = [...fileList].filter(f => /\.pdf$/i.test(f.name));
   if(incoming.length === 0){
     if(typeof toast === 'function') toast('กรุณาเลือกไฟล์ .pdf เท่านั้น', 'warning');
@@ -9996,6 +9997,300 @@ const _mapxEsc = v => String(v==null?'':v).replace(/[&<>"']/g, m => ({'&':'&amp;
 const _mapxNorm = h => String(h==null?'':h).trim().toLowerCase().replace(/\s+/g,' ');
 const _mapxRmNo = n => { const m=/RM[\s._-]*(\d{6,})/i.exec(String(n||'')); return m?m[1]:''; };
 
+// ══ ใบขนสินค้าขาเข้า PDF (กศก. 99/1) — ตัวอ่านเฉพาะรูปแบบ · ADDITIVE (prefix _mapxi) ══
+//   • อ่านจากพิกัดข้อความจริงของ pdf.js ทุกหน้า · ไม่เดาค่า · ค่าที่ไม่พบ = '' และนับเป็น "ข้อมูลไม่ครบ"
+//   • ตรวจยอดรวมท้ายหน้าเทียบผลรวมรายการ (มูลค่าต่างประเทศ / มูลค่าบาท / น้ำหนักสุทธิ / ปริมาณ) ทุกหน้า
+//   • ราคาของ = ราคาตามใบขน (ฐาน CIF ตามเอกสาร) — ไม่ใช่ FOB · ไม่มีน้ำหนักรวมระดับรายการ (มีเฉพาะระดับแผ่น)
+const _mapxiNum = s => { const v=Number(String(s==null?'':s).replace(/,/g,'')); return isFinite(v)?v:NaN; };
+const _mapxiR = v => Math.round(v*1000)/1000;
+function _mapxiLines(tc, H){
+  const it=tc.items.filter(i=>i.str && i.str.trim()).map(i=>({x:i.transform[4], y:H-i.transform[5], s:i.str.replace(/\s+/g,' ').trim()}));
+  it.sort((a,b)=>a.y-b.y||a.x-b.x);
+  return it;
+}
+// หน้าแรก: เป็นใบขนสินค้าขาเข้า กศก. 99/1 หรือไม่ (ตรวจจากเนื้อหา ไม่ใช่ชื่อไฟล์)
+function _mapxiIsDeclText(items){
+  const t=items.map(i=>i.s).join(' ').replace(/\s+/g,'');
+  return /ใบขนสินค้าขาเข้า/.test(t) && /กศก\.?99\/1/.test(t);
+}
+async function _mapxiProbe(lib, buf){
+  const doc=await lib.getDocument({data:buf}).promise;
+  try{
+    const p=await doc.getPage(1); const vp=p.getViewport({scale:1});
+    const its=_mapxiLines(await p.getTextContent(), vp.height);
+    return { isDecl:_mapxiIsDeclText(its), pages:doc.numPages };
+  } finally { try{ await doc.destroy(); }catch(e){} }
+}
+// อ่านรายการของ 1 หน้า
+function _mapxiParsePage(its, pageNo, carry){
+  const R={ page:pageNo, sheet:'', declNo:'', items:[], tot:null, check:null };
+  for(const i of its){
+    let m=/^\*?(A\d{13})\*?$/.exec(i.s); if(m && !R.declNo) R.declNo=m[1];
+    m=/^เลขที่ใบขน\s*(A\d{13})$/.exec(i.s); if(m && !R.declNo) R.declNo=m[1];
+    m=/(?:^|\s)(?:ใบต่อ)?แผ่นที่\s*(\d+)\s*\/\s*(\d+)/.exec(i.s); if(m && !R.sheet) R.sheet=m[1]+'/'+m[2];
+  }
+  // หัวตารางรายการ (บรรทัด "ประเภทพิกัด") → รายการอยู่ด้านล่าง
+  const hdr=its.find(i=>/^ประเภทพิกัด$/.test(i.s)); if(!hdr) return R;
+  const anchors=its.filter(i=>i.x<60 && i.y>hdr.y+20 && /^\d{1,4}$/.test(i.s)
+      && its.some(j=>Math.abs(j.y-i.y)<=8 && j.x>200 && j.x<250 && /%|บาท/.test(j.s)));
+  if(!anchors.length) return R;
+  const totStart = its.find(i=>/^รวมน้ำหนักสุทธิ$|^CIF$|^C&F$|^FOB$|^รวม$/.test(i.s) && i.y>anchors[anchors.length-1].y+40);
+  const lastY = anchors[anchors.length-1].y;
+  anchors.forEach((a,k)=>{
+    const y0=a.y-32, y1=(k+1<anchors.length)?anchors[k+1].y-32:(lastY+60);
+    const B=its.filter(i=>i.y>=y0 && i.y<y1);
+    const o={ page:pageNo, itemNo:Number(a.s), hs:'', stat:'', unitCode:'', cur:'', fval:'', thb:'', duty:'', priv:'',
+              productCode:'', desc:'', material:'', descTh:'', brand:'', origin:'', qty:'', unit:'', nw:'', invoiceNo:'' };
+    const fv=B.find(i=>i.y<a.y-15 && i.x>125 && i.x<215 && /^[A-Z]{3}\s+[\d,]+\.\d+$/.test(i.s));
+    if(fv){ const m=/^([A-Z]{3})\s+([\d,]+\.\d+)$/.exec(fv.s); o.cur=m[1]; o.fval=_mapxiNum(m[2]); }
+    const hs=B.find(i=>i.x<125 && i.y<a.y && /^\d{4}\.\d{2}\.\d{2}$/.test(i.s)); if(hs) o.hs=hs.s;
+    const st=B.find(i=>i.x<125 && i.y<=a.y+1 && i.y>a.y-12 && /^\d{3}\/\S+$/.test(i.s));
+    if(st){ o.stat=st.s; o.unitCode=st.s.split('/')[1];
+      const th=B.find(i=>Math.abs(i.y-st.y)<=2 && i.x>125 && i.x<215 && /^[\d,]+\.\d+$/.test(i.s)); if(th) o.thb=_mapxiNum(th.s); }
+    const du=B.find(i=>Math.abs(i.y-a.y)<=8 && i.x>200 && i.x<250 && /%|บาท/.test(i.s)); if(du) o.duty=du.s;
+    const nw=B.find(i=>i.y>a.y && i.x>125 && i.x<215 && /^[\d,]+\.\d+\s+KGM$/.test(i.s)); if(nw) o.nw=_mapxiNum(nw.s.split(' ')[0]);
+    // ปริมาณ: ค่าปกติ = ปริมาณตามหน่วยสถิติ · ค่าในวงเล็บ (ถ้ามี) = ปริมาณที่สำแดงตามหน่วยสินค้า → Qty. ใช้ค่าในวงเล็บ
+    const q=B.find(i=>i.y>a.y && i.x>225 && i.x<305 && /^[\d,]+\.\d+\s+\S+$/.test(i.s));
+    if(q){ const m=/^([\d,]+\.\d+)\s+(\S+)$/.exec(q.s); o.qtyStat=_mapxiNum(m[1]); o.unitStat=m[2]; o.qty=o.qtyStat; o.unit=o.unitStat; }
+    const qp=B.find(i=>i.y>a.y && i.x>225 && i.x<305 && /^\([\d,]+\.\d+\s+\S+?\)$/.test(i.s));
+    if(qp){ const m=/^\(([\d,]+\.\d+)\s+(\S+?)\)$/.exec(qp.s); o.qty=_mapxiNum(m[1]); o.unit=m[2]; }
+    const pv=B.find(i=>i.y>a.y+10 && i.x>75 && i.x<110 && /^\d{3}$/.test(i.s)); if(pv) o.priv=pv.s;
+    const inv=B.find(i=>i.y>a.y+30 && i.x>190 && i.x<270 && /^[A-Z0-9][A-Z0-9\-\/\.]{4,}$/.test(i.s) && /\d{2,}/.test(i.s)); if(inv) o.invoiceNo=inv.s;
+    const og=B.filter(i=>i.y>a.y && i.y<a.y+20 && i.x>=495);   // ยี่ห้อ (เช่น FAG / INA / SCHAEFFLER) + รหัสประเทศกำเนิด
+    const ogc=og.find(i=>i.x>=540 && /^[A-Z]{2}$/.test(i.s)); if(ogc) o.origin=ogc.s;
+    const br=og.filter(i=>i!==ogc).map(i=>i.s).join(' ').trim(); if(br) o.brand=br;
+    // คอลัมน์รายละเอียด (x 300–500): บรรทัดแรก = รหัสสินค้า · ถัดไป = รายละเอียด (อังกฤษ) · Material · ไทย
+    const col=B.filter(i=>i.y>a.y+5 && i.x>=295 && i.x<495 && !/^(ชนิดของ|ปริมาณ|รหัสสิทธิพิเศษ|น้ำหนักสุทธิ)$/.test(i.s)).sort((p,r)=>p.y-r.y||p.x-r.x);
+    const lines0=[]; col.forEach(i=>{ const L=lines0[lines0.length-1]; if(L && Math.abs(L.y-i.y)<=2) L.s+=' '+i.s; else lines0.push({y:i.y,s:i.s}); });
+    // บรรทัดใบอนุญาต/หนังสือรับรอง รูปแบบ "<เลขที่> ลว.<วันที่>" (เช่น EXEMPT99 ลว.13/11/2560) → แยกเก็บ ไม่ใช่รหัสสินค้า
+    const _isPermit=l=>/^\S+\s+ลว\.\s*\d{1,2}\/\d{1,2}\/\d{4}$/.test(l.s);
+    o.permit=lines0.filter(_isPermit).map(l=>l.s).join(' | ');
+    const lines=lines0.filter(l=>!_isPermit(l));
+    // ลำดับบรรทัด: รหัสสินค้า → รายละเอียด (อังกฤษ) → Material/รุ่น (ก่อนบรรทัดไทย) → รายละเอียดไทย (บรรทัดไทยแรกและทุกบรรทัดถัดไป = ส่วนต่อ)
+    const iTh=lines.findIndex(l=>/[฀-๿]/.test(l.s));
+    const lat=(iTh<0?lines:lines.slice(0,iTh));
+    if(lat[0]) o.productCode=lat[0].s;
+    if(lat[1]) o.desc=lat[1].s;
+    if(lat.length>=3) o.material=lat.slice(2).map(l=>l.s).join(' ');
+    o.extraLatin = lat.length>3;
+    o.descTh=(iTh<0?[]:lines.slice(iTh)).map(l=>l.s).join(' ');
+    R.items.push(o);
+  });
+  // ยอดรวมท้ายแผ่น
+  const T=its.filter(i=>i.y>lastY+55);
+  const tot={ fval:{}, thb:NaN, nw:NaN, gw:NaN, qty:{}, qtyStat:{} };
+  T.forEach(i=>{ let m;
+    if(i.x>225 && i.x<305 && (m=/^([\d,]+\.\d+)\s+([A-Z][A-Z0-9]*)$/.exec(i.s)) && m[2]!=='KGM') tot.qtyStat[m[2]]=(tot.qtyStat[m[2]]||0)+_mapxiNum(m[1]);
+    if(i.x>125 && i.x<215 && (m=/^([A-Z]{3})\s+([\d,]+\.\d+)$/.exec(i.s))) tot.fval[m[1]]=(tot.fval[m[1]]||0)+_mapxiNum(m[2]);
+    else if(i.x>125 && i.x<215 && (m=/^([\d,]+\.\d+)\s+KGM$/.exec(i.s))){ if(isNaN(tot.nw)) tot.nw=_mapxiNum(m[1]); else if(isNaN(tot.gw)) tot.gw=_mapxiNum(m[1]); }
+    else if(i.x>125 && i.x<215 && /^[\d,]+\.\d+$/.test(i.s) && isNaN(tot.thb)) tot.thb=_mapxiNum(i.s);
+    // ยอดในวงเล็บ: ค่าแรกของแต่ละหน่วย = ยอดสะสมที่สำแดง (บรรทัดถัดไปเป็นยอดย่อยของกลุ่มหน่วยสถิติอื่น เช่น LTR)
+    else if((m=/^\(([\d,]+\.\d+)\s+(\S+?)\)$/.exec(i.s))){ if(!(m[2] in tot.qty)) tot.qty[m[2]]=_mapxiNum(m[1]); }
+  });
+  R.tot=tot;
+  // ตรวจยอด: ผลรวมรายการ = ยอดรวมท้ายแผ่น
+  // ยอดท้ายแผ่นเป็นยอดสะสมยกไป (C/F) → เทียบกับผลรวมรายการสะสมตั้งแต่แผ่นแรกถึงแผ่นนี้
+  const sum=carry||{ fval:{}, thb:0, nw:0, qty:{}, qtyStat:{} };
+  R.items.forEach(o=>{ if(o.cur) sum.fval[o.cur]=(sum.fval[o.cur]||0)+(+o.fval||0); sum.thb+=(+o.thb||0); sum.nw+=(+o.nw||0); if(o.unit) sum.qty[o.unit]=(sum.qty[o.unit]||0)+(+o.qty||0);
+    if(o.unitStat) sum.qtyStat[o.unitStat]=(sum.qtyStat[o.unitStat]||0)+(+o.qtyStat||0); });
+  const bad=[]; const near=(a,b)=>Math.abs(a-b)<0.006;
+  const curs=new Set([...Object.keys(sum.fval),...Object.keys(tot.fval)]);
+  curs.forEach(c=>{ if(!near(sum.fval[c]||0,tot.fval[c]||0)) bad.push('มูลค่า '+c+' รายการ '+_mapxiR(sum.fval[c]||0)+' ≠ ยอดแผ่น '+_mapxiR(tot.fval[c]||0)); });
+  if(!near(sum.thb,tot.thb)) bad.push('มูลค่าบาท รายการ '+_mapxiR(sum.thb)+' ≠ ยอดแผ่น '+tot.thb);
+  if(!near(sum.nw,tot.nw)) bad.push('น้ำหนักสุทธิ รายการ '+_mapxiR(sum.nw)+' ≠ ยอดแผ่น '+tot.nw);
+  const units=new Set([...Object.keys(sum.qty),...Object.keys(tot.qty)]);
+  units.forEach(u=>{ if(!near(sum.qty[u]||0,tot.qty[u]||0)) bad.push('ปริมาณ '+u+' รายการ '+_mapxiR(sum.qty[u]||0)+' ≠ ยอดแผ่น '+_mapxiR(tot.qty[u]||0)); });
+  const ust=new Set([...Object.keys(sum.qtyStat),...Object.keys(tot.qtyStat)]);
+  ust.forEach(u=>{ if(!near(sum.qtyStat[u]||0,tot.qtyStat[u]||0)) bad.push('ปริมาณ(สถิติ) '+u+' รายการ '+_mapxiR(sum.qtyStat[u]||0)+' ≠ ยอดแผ่น '+_mapxiR(tot.qtyStat[u]||0)); });
+  R.check={ ok:!bad.length, bad }; R.carry=sum;
+  return R;
+}
+// อ่านใบขนทั้งไฟล์ (ทุกหน้า) — คืนผลครบหรือแจ้งข้อผิดพลาดจริง
+async function _mapxiParseFile(lib, buf, fileName, onPage){
+  const o={ name:fileName, ok:false, pages:0, read:0, declNo:'', declOk:false, refNo:'', invoices:[], invoicesAll:[], sheets:0, items:[], pageChecks:[], gw:0, incomplete:0, errs:[] };
+  let doc;
+  try{
+    doc=await lib.getDocument({data:buf}).promise; o.pages=doc.numPages;
+    const sheetSeen=new Set(); let sheetTotal=0; const declSeen=new Set(); let carry={ fval:{}, thb:0, nw:0, qty:{}, qtyStat:{} };
+    for(let p=1;p<=doc.numPages;p++){
+      const pg=await doc.getPage(p); const vp=pg.getViewport({scale:1});
+      const its=_mapxiLines(await pg.getTextContent(), vp.height);
+      if(p===1){
+        if(!_mapxiIsDeclText(its)) throw new Error('หน้าแรกไม่ใช่ใบขนสินค้าขาเข้า กศก. 99/1');
+        const ref=its.find(i=>/^เลขที่ใบขนฯ\s+\S+$/.test(i.s)); if(ref) o.refNo=ref.s.split(/\s+/).pop();
+        // เลขที่บัญชีราคาสินค้า : ข้อความหลายบรรทัดจนถึง "ใบตราส่งเลขที่"
+        const i0=its.findIndex(i=>/เลขที่บัญชีราคาสินค้า/.test(i.s)), i1=its.findIndex(i=>/ใบตราส่งเลขที่/.test(i.s));
+        if(i0>=0){ const y0=its[i0].y-1, y1=(i1>=0?its[i1].y-1:y0+60);
+          const txt=its.filter(i=>i.y>=y0 && i.y<y1 && i.x<480).map(i=>i.s).join(' ');
+          const re=/([A-Z0-9][A-Z0-9\-\/\.]{3,})\s*:\s*(\d{2}\/\d{2}\/\d{4})/g; let m; while((m=re.exec(txt))) o.invoices.push({no:m[1],date:m[2]}); }
+      }
+      // หน้าแนบ "ชื่ออินวอยส์ทั้งหมด" = รายการเลขที่บัญชีราคาสินค้าครบทั้งฉบับ (หน้า 1 แสดงเพียงบางส่วน)
+      if(its.some(i=>/ชื่ออินวอยส์ทั้งหมด/.test(i.s))){
+        const txt=its.map(i=>i.s).join(' '); const re=/([A-Z0-9][A-Z0-9\-\/\.]{3,})\s*:\s*(\d{2}\/\d{2}\/\d{4})/g; let m;
+        while((m=re.exec(txt))) o.invoicesAll.push({no:m[1],date:m[2]});
+      }
+      const R=_mapxiParsePage(its,p,carry); if(R.carry) carry=R.carry;
+      if(R.declNo) declSeen.add(R.declNo);
+      if(R.sheet){ sheetSeen.add(R.sheet.split('/')[0]); sheetTotal=Math.max(sheetTotal,+R.sheet.split('/')[1]); }
+      if(R.items.length){ o.items.push(...R.items); o.pageChecks.push({page:p, items:R.items.length, ok:R.check.ok, bad:R.check.bad}); if(!isNaN(R.tot.gw)) o.gw=R.tot.gw; }   // Total Gross Weight เป็นยอดสะสม → ใช้ค่าแผ่นสุดท้าย
+      o.read=p; if(onPage) onPage(p,doc.numPages);
+      pg.cleanup();
+    }
+    o.sheets=sheetTotal;
+    const stem=String(fileName).replace(/\.pdf$/i,'').trim();
+    o.declNo=[...declSeen][0]||'';
+    if(declSeen.size>1) o.errs.push('พบเลขใบขนมากกว่า 1 เลขในไฟล์: '+[...declSeen].join(', '));
+    o.declOk = declSeen.size===1 && o.declNo===stem;
+    if(!o.declNo) o.errs.push('ไม่พบเลขที่ใบขนในเอกสาร');
+    else if(o.declNo!==stem) o.errs.push('เลขใบขนในเอกสาร '+o.declNo+' ไม่ตรงกับชื่อไฟล์ '+stem);
+    if(!o.items.length) o.errs.push('ไม่พบรายการสินค้า');
+    // ลำดับรายการต่อเนื่อง 1..N ไม่ซ้ำ
+    const nos=o.items.map(x=>x.itemNo); const dup=nos.filter((n,i)=>nos.indexOf(n)!==i);
+    if(dup.length) o.errs.push('ลำดับรายการซ้ำ: '+[...new Set(dup)].join(', '));
+    for(let k=1;k<=nos.length;k++){ if(nos[k-1]!==k){ o.errs.push('ลำดับรายการไม่ต่อเนื่อง (คาด '+k+' พบ '+nos[k-1]+')'); break; } }
+    // แผ่นรายการครบตามที่เอกสารระบุ (แผ่นที่ x/N)
+    if(sheetTotal && sheetSeen.size!==sheetTotal) o.errs.push('แผ่นรายการ '+sheetSeen.size+'/'+sheetTotal+' แผ่น');
+    const pcBad=o.pageChecks.filter(c=>!c.ok); if(pcBad.length) o.errs.push('ยอดรวมท้ายแผ่นไม่ตรง '+pcBad.length+' หน้า (หน้า '+pcBad.map(c=>c.page).slice(0,10).join(', ')+')');
+    // เลข Invoice ระดับรายการต้องอยู่ในรายการ "เลขที่บัญชีราคาสินค้า" ของหัวใบขน (เมื่อหัวใบขนระบุ)
+    // แหล่งอ้างอิงเลข Invoice = หน้า "ชื่ออินวอยส์ทั้งหมด" (ครบทั้งฉบับ) · ไม่มีหน้านี้ → ใช้รายการจากหน้า 1
+    if(o.invoicesAll.length) o.invoices=o.invoicesAll.slice();
+    const _invRef = o.invoices;
+    if(_invRef.length){ const hv=new Set(_invRef.map(v=>v.no)); const nf=[...new Set(o.items.map(x=>x.invoiceNo).filter(v=>v && !hv.has(v)))];
+      if(nf.length) o.errs.push('เลข Invoice ระดับรายการไม่อยู่ในหัวใบขน: '+nf.slice(0,5).join(', ')); }
+    const REQ=['hs','productCode','desc','qty','unit','nw','cur','fval','thb','invoiceNo','origin'];
+    o.items.forEach(x=>{ x.missing=REQ.filter(k=>x[k]===''||x[k]==null||(typeof x[k]==='number'&&isNaN(x[k]))); if(x.missing.length) o.incomplete++; });
+    o.ok = !o.errs.length;
+  }catch(e){ o.errs.push(String(e&&e.message?e.message:e)); o.ok=false; }
+  finally{ if(doc){ try{ await doc.destroy(); }catch(e){} } }
+  return o;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  ADDITIVE (local322): ใบขนสินค้าขาเข้า PDF (กศก. 99/1) — แยกจาก Invoice PDF Parser · ใช้ช่องอัปโหลดเดิม
+//  • ตรวจประเภทจาก "เนื้อหาหน้าแรก" → ใบขนขาเข้าไม่ถูกส่งเข้า mappingPdfFiles / Invoice Parser เดิม
+//  • อ่านทีละไฟล์ (ปล่อยหน่วยความจำหลังแต่ละไฟล์) · เก็บผลสำเร็จใน cache · ไฟล์ผิดพลาดอ่านซ้ำเฉพาะไฟล์นั้น
+//  • จับคู่กับ COO_RM ด้วยคีย์ที่ตรวจสอบได้: Import entry no. + Item no. → รหัสสินค้า = Material (แสดงในสถานะเท่านั้น)
+//  • ไม่แตะ Logic จับคู่ / การคำนวณ / โครงสร้าง EXPORT เดิม
+// ══════════════════════════════════════════════════════════════════════════════
+_mapx.imp=[]; _mapx.impCache=new Map(); _mapx.impPages=new Map(); _mapx.cooRef=null; _mapx.impRT=0;
+function _mapxImpRoute(event, fileList){
+  if(event && event._mapxiPassed) return false;                       // ไฟล์ที่ตรวจแล้ว → handler เดิมทำงานตามเดิม
+  const fl=[...(fileList||[])]; const pdfs=fl.filter(f=>/\.pdf$/i.test(f.name));
+  if(!pdfs.length) return false;                                       // ไม่มี PDF → พฤติกรรมเดิม 100%
+  const lib=(typeof getPdfJs==='function')?getPdfJs():null; if(!lib) return false;
+  try{ const inp=document.getElementById('mappingPdfMultiInput'); if(inp) inp.value=''; }catch(e){}
+  _mapx.impProbing=(_mapx.impProbing||0)+1;   // ระหว่างตรวจประเภท = กำลังทำงาน (ไม่แสดงผลสรุปก่อนตรวจเสร็จ)
+  (async()=>{
+    try{
+    const isImp=new Set(); let n=0;
+    for(const f of pdfs){
+      _mapx.prog={label:'ตรวจประเภท PDF: '+f.name,cur:n++,total:pdfs.length}; _mapxRender();
+      try{ const r=await _mapxiProbe(lib, new Uint8Array(await f.arrayBuffer())); if(r.isDecl){ isImp.add(f); _mapx.impPages.set(_mapxKey(f),r.pages); } }
+      catch(e){ /* เปิดไม่ได้ → ไม่ใช่ใบขนขาเข้า · ส่งต่อ handler เดิมตามเดิม */ }
+    }
+    const have=new Set(_mapx.imp.map(_mapxKey)); let dup=0;
+    for(const f of isImp){ if(have.has(_mapxKey(f))){ dup++; continue; } have.add(_mapxKey(f)); _mapx.imp.push(f); }
+    if(dup && typeof toast==='function') toast('ใบขนขาเข้า: ข้ามไฟล์ซ้ำ '+dup+' ไฟล์','info');
+    _mapx.prog=null;
+    const rest=fl.filter(f=>!isImp.has(f));
+    if(rest.length) handleMappingPdfMultiUpload({target:{files:rest}, _mapxiPassed:true});
+    } finally { _mapx.impProbing=Math.max(0,(_mapx.impProbing||1)-1); _mapxSchedule(); }
+  })();
+  return true;
+}
+// อ่าน COO_RM (ช่อง RM มีเลขอ้างอิง) → แถวที่มี Import entry no. + Item no. (ชีตเดียวกับกฎเดิม: 89960996 → VL06O)
+async function _mapxImpCooRows(f){
+  const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
+  const sn=(/89960996/.test(f.name) && wb.Sheets['VL06O'])?'VL06O':wb.SheetNames[0];
+  const A=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:''}); const H=(A[0]||[]).map(_mapxNorm);
+  const fi=c=>{ for(const k of c){ const i=H.indexOf(k); if(i>=0) return i; } return -1; };
+  const cE=fi(['import entry no.','import entry no','import entry']), cI=fi(['item no.','item no','รายการ']), cM=fi(['material']), cB=fi(['billing document']);
+  const rows=[]; if(cE<0||cI<0||cM<0) return {rows, sheet:sn, ok:false};
+  for(let r=1;r<A.length;r++){ const x=A[r]||[]; const e=String(x[cE]==null?'':x[cE]).trim(), it=String(x[cI]==null?'':x[cI]).trim();
+    if(!e||!it) continue; rows.push({row:r+1, entry:e, itemNo:it, mat:String(x[cM]==null?'':x[cM]).trim(), billing:cB>=0?String(x[cB]==null?'':x[cB]).trim():''}); }
+  return {rows, sheet:sn, ok:true};
+}
+async function _mapxImpPass(){
+  const lib=(typeof getPdfJs==='function')?getPdfJs():null;
+  const imps=_mapx.imp.slice(); const todo=imps.filter(f=>!_mapx.impCache.has(_mapxKey(f)));
+  if(todo.length && lib){
+    const done0=imps.length-todo.length; let i=0;
+    for(const f of todo){
+      const k=_mapxKey(f);
+      _mapx.prog={label:'อ่านใบขนขาเข้า: '+f.name,cur:done0+i,total:imps.length}; _mapxRender();
+      let r;
+      try{ r=await _mapxiParseFile(lib, new Uint8Array(await f.arrayBuffer()), f.name, (p,n)=>{
+          _mapx.impLive={k,p,n};
+          const now=Date.now(); if(now-_mapx.impRT>200){ _mapx.impRT=now; _mapx.prog={label:'อ่านใบขนขาเข้า: '+f.name+' · หน้า '+p+'/'+n,cur:done0+i+(p/n),total:imps.length}; _mapxRender(); } }); }
+      catch(e){ r={name:f.name, ok:false, pages:_mapx.impPages.get(k)||0, read:0, items:[], pageChecks:[], incomplete:0, errs:[String(e&&e.message?e.message:e)]}; }
+      _mapx.impLive=null; _mapx.impCache.set(k,r); i++;
+    }
+  }
+  // COO_RM สำหรับจับคู่ (อ่านเฉพาะเมื่อมีใบขนขาเข้า · cache ตามไฟล์)
+  const coo=(typeof mappingRmRefFile!=='undefined')?mappingRmRefFile:null;
+  if(imps.length && coo){ const kc=_mapxKey(coo); if(!_mapx.cooRef || _mapx.cooRef.key!==kc){ try{ _mapx.cooRef=Object.assign({key:kc},await _mapxImpCooRows(coo)); }catch(e){ _mapx.cooRef={key:kc,rows:[],ok:false,err:String(e&&e.message?e.message:e)}; } } }
+  else if(!coo) _mapx.cooRef=null;
+}
+function _mapxImpEval(){
+  const F=_mapx.imp.map(f=>({f,k:_mapxKey(f),r:_mapx.impCache.get(_mapxKey(f))||null}));
+  const V={ n:F.length, F, pagesTotal:0, pagesRead:0, ok:0, pending:0, failed:[], declOk:0, items:0, incomplete:0, pcTotal:0, pcOk:0, dupDecl:[], match:null };
+  const live=_mapx.impLive;
+  F.forEach(x=>{ const pg=(x.r&&x.r.pages)||_mapx.impPages.get(x.k)||0; V.pagesTotal+=pg;
+    if(!x.r){ V.pending++; if(live&&live.k===x.k) V.pagesRead+=live.p; return; }
+    V.pagesRead+=x.r.read||0; if(x.r.ok) V.ok++; else V.failed.push(x);
+    if(x.r.declOk) V.declOk++; V.items+=(x.r.items||[]).length; V.incomplete+=x.r.incomplete||0;
+    V.pcTotal+=(x.r.pageChecks||[]).length; V.pcOk+=(x.r.pageChecks||[]).filter(c=>c.ok).length; });
+  // เลขใบขนซ้ำหลายไฟล์
+  const byDecl=new Map(); F.forEach(x=>{ if(x.r&&x.r.declNo){ (byDecl.get(x.r.declNo)||byDecl.set(x.r.declNo,[]).get(x.r.declNo)).push(x.r); } });
+  byDecl.forEach((a,d)=>{ if(a.length>1) V.dupDecl.push(d); });
+  // COO_RM ↔ ใบขนขาเข้า
+  const C=_mapx.cooRef;
+  if(C && C.ok && !V.pending){
+    const M={ matched:0, unmatched:0, ambig:0, notUploaded:0, ex:[] };
+    const norm=v=>String(v==null?'':v).trim().toUpperCase();
+    C.rows.forEach(row=>{
+      const ds=byDecl.get(row.entry);
+      if(!ds){ M.notUploaded++; return; }
+      const n=Number(row.itemNo); const hits=[]; ds.forEach(d=>(d.items||[]).forEach(it=>{ if(it.itemNo===n) hits.push(it); }));
+      const uniq=[...new Set(hits.map(h=>norm(h.productCode)))];
+      if(!hits.length){ M.unmatched++; if(M.ex.length<8) M.ex.push('UNMATCHED แถว '+row.row+' · '+row.entry+' รายการ '+row.itemNo+' — ไม่พบรายการนี้ในใบขน'); }
+      else if(uniq.length>1){ M.ambig++; if(M.ex.length<8) M.ex.push('AMBIGUOUS แถว '+row.row+' · '+row.entry+' รายการ '+row.itemNo+' — พบหลายค่า: '+uniq.join(' / ')); }
+      else if(uniq[0]===norm(row.mat)) M.matched++;
+      else { M.unmatched++; if(M.ex.length<8) M.ex.push('UNMATCHED แถว '+row.row+' · '+row.entry+' รายการ '+row.itemNo+' — Material '+row.mat+' ≠ รหัสสินค้าในใบขน '+hits[0].productCode); }
+    });
+    V.match=M;
+  }
+  V.allRead = V.n>0 && !V.pending && V.ok===V.n;
+  return V;
+}
+function _mapxImpHtml(rmNo, slotRmNos){
+  const V=_mapxImpEval(); if(!V.n) return {html:'',V};
+  // ชุดใบขน (เลข RM จากชื่อ ZIP) ต้องเป็น RM เดียวกับไฟล์ RM / COO_RM ในช่อง — ไม่ตรง = ห้ามถือว่าพร้อม (ไม่จับคู่ข้าม RM)
+  const _oth=[...new Set((slotRmNos||[]).filter(Boolean))]; V.rmMix = !!rmNo && _oth.length>0 && _oth.some(x=>x!==rmNo);
+  const G='#3fb950', R='#f85149', Y='#d29922', T='var(--t3)';
+  const fmt=n=>Number(n||0).toLocaleString('en-US');
+  const line=(ico,title,txt,col)=>'<div><span>'+ico+'</span> <b style="color:var(--t1)">'+title+'</b> — <span style="color:'+col+'">'+txt+'</span></div>';
+  let h='<div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--bd)"><div style="font-weight:700;color:var(--t1)">📑 '+(rmNo?('RM '+_mapxEsc(rmNo)+' — '):'')+'ใบขนขาเข้า PDF (กศก. 99/1)</div>';
+  if(V.rmMix) h+='<div style="color:'+R+'">⚠ เลข RM ของชุดใบขนขาเข้า ('+_mapxEsc(rmNo)+') ไม่ตรงกับไฟล์ RM / COO_RM ในช่อง ('+_mapxEsc(_oth.join(', '))+') — ผลจับคู่ด้านล่างใช้ตรวจสอบเท่านั้น ห้ามใช้ข้าม RM</div>';
+  h+=line('📁','พบไฟล์',fmt(V.n)+' PDF · '+fmt(V.pagesTotal)+' หน้าที่ต้องตรวจ',T);
+  h+=line('📄','อ่านสำเร็จ',fmt(V.ok)+' / '+fmt(V.n)+' ไฟล์'+(V.pending?' · รออ่าน '+V.pending:''), V.ok===V.n?G:(V.pending?Y:R));
+  h+=line('📖','อ่านหน้า',fmt(V.pagesRead)+' / '+fmt(V.pagesTotal)+' หน้า', (V.pagesRead===V.pagesTotal&&V.pagesTotal>0)?G:Y);
+  h+=line('🔢','เลขใบขนที่ตรวจสอบผ่าน',fmt(V.declOk)+' (เลขในเอกสาร = ชื่อไฟล์)'+(V.dupDecl.length?' · ⚠ เลขใบขนซ้ำหลายไฟล์: '+_mapxEsc(V.dupDecl.slice(0,5).join(', ')):''), (V.declOk===V.n&&!V.dupDecl.length)?G:(V.pending?Y:R));
+  h+=line('📦','จำนวนรายการสินค้าที่อ่านได้',fmt(V.items)+' รายการ · ยอดรวมท้ายแผ่นตรง '+fmt(V.pcOk)+'/'+fmt(V.pcTotal)+' หน้า', (V.pcOk===V.pcTotal&&V.items>0)?G:(V.pending?Y:R));
+  h+=line('⚠','ข้อมูลไม่ครบ',fmt(V.incomplete)+' รายการ', V.incomplete?R:G);
+  V.failed.forEach(x=>{ h+='<div style="color:'+R+';padding-left:22px;font-size:11px">✕ '+_mapxEsc(x.f.name)+' — '+_mapxEsc((x.r.errs||[]).join(' · '))+(x.r.pages?(' · อ่าน '+x.r.read+'/'+x.r.pages+' หน้า'):'')+'</div>'; });
+  const C=_mapx.cooRef;
+  if(!C) h+=line('🔗','MATCHED / UNMATCHED / AMBIGUOUS','รอไฟล์ COO_RM (RM มีเลขอ้างอิง) — ใช้ Import entry no. + Item no. จับคู่กับใบขน',T);
+  else if(!C.ok) h+=line('🔗','MATCHED / UNMATCHED / AMBIGUOUS','✕ COO_RM ไม่มีคอลัมน์ Import entry no. / Item no. / Material'+(C.err?' ('+_mapxEsc(C.err)+')':''),R);
+  else if(!V.match) h+=line('🔗','MATCHED / UNMATCHED / AMBIGUOUS','รออ่านใบขนครบ',Y);
+  else { const M=V.match;
+    h+=line('🔗','COO_RM ↔ ใบขนขาเข้า','MATCHED '+fmt(M.matched)+' · UNMATCHED '+fmt(M.unmatched)+' · AMBIGUOUS '+fmt(M.ambig)+' · อ้างใบขนที่ไม่ได้อัปโหลด '+fmt(M.notUploaded)+' แถว', (M.unmatched||M.ambig)?R:G);
+    M.ex.forEach(e=>{ h+='<div style="color:'+R+';padding-left:22px;font-size:11px">✕ '+_mapxEsc(e)+'</div>'; }); }
+  h+='</div>';
+  return {html:h,V};
+}
+
+
 // ── ตรวจ Excel 1 ไฟล์: ชื่อ Sheet + หัวคอลัมน์ (เงื่อนไขเดียวกับ exportMappingCombined) → ประเภท + สิ่งที่ขาด ──
 async function _mapxInspectExcel(file){
   const o={ name:file.name, kind:'unknown', sheets:[], sheet:'', sheetCoo:'', rows:0, rowsCoo:0, rowsIe:0, missRm:[], missCoo:[], missIe:[], invoiceLike:false, err:'' };
@@ -10150,6 +10445,7 @@ async function _mapxPass(){
     const r=await _mapxInspectPdf(f,(p,n)=>{ _mapx.prog={label:'อ่าน PDF: '+f.name+' · หน้า '+p+'/'+n,cur:(i-1)+(p/n),total:todo.length}; _mapxRender(); });
     _mapx.cache.set(_mapxKey(f),r);
   }
+  if(typeof _mapxImpPass==='function' && _mapx.imp && _mapx.imp.length) await _mapxImpPass();   // ADDITIVE (local322): ใบขนขาเข้า PDF
   const S=_mapxSlots();
   for(const k of ['rm','coo','ie']){
     const f=S[k]; if(!f) continue; const key=_mapxKey(f)+'#x';
@@ -10190,10 +10486,12 @@ function _mapxEval(){
 function _mapxRetry(){
   // อ่านซ้ำเฉพาะไฟล์ที่ผิดพลาด — ผลที่สำเร็จแล้วคงอยู่ใน cache
   for(const [k,v] of [..._mapx.cache.entries()]){ const bad = k.endsWith('#x') ? (v.kind==='bad') : !v.ok; if(bad) _mapx.cache.delete(k); }
+  if(_mapx.impCache) for(const [k,v] of [..._mapx.impCache.entries()]){ if(!v.ok) _mapx.impCache.delete(k); }   // ADDITIVE (local322): อ่านซ้ำเฉพาะใบขนขาเข้าที่ผิดพลาด
   _mapx.dry=null; _mapx.drySig=''; _mapxSchedule();
 }
 function _mapxReset(){
   clearTimeout(_mapx.timer); _mapx.cache.clear(); _mapx.notes=[]; _mapx.dry=null; _mapx.drySig=''; _mapx.prog=null; _mapx.src='';
+  if(_mapx.imp){ _mapx.imp=[]; _mapx.impCache.clear(); _mapx.impPages.clear(); _mapx.cooRef=null; _mapx.impLive=null; }   // ADDITIVE (local322)
   const zi=document.getElementById('mappingZipInput'); if(zi) zi.value='';
   [['mappingRmFileName','#3fb950'],['mappingRmRefFileName','#388bfd']].forEach(([id,c])=>{ const e=document.getElementById(id); if(e) e.style.color=c; });
   _mapxRender();
@@ -10201,7 +10499,7 @@ function _mapxReset(){
 function _mapxRender(){
   const box=document.getElementById('mappingReadStatus'); if(!box) return;
   const V=_mapxEval(); const {P,X,S,okX}=V;
-  const any = P.length || S.rm || S.coo || S.ie || _mapx.notes.length || _mapx.prog;
+  const any = P.length || S.rm || S.coo || S.ie || _mapx.notes.length || _mapx.prog || (_mapx.imp && _mapx.imp.length);   // ADDITIVE (local322): + ใบขนขาเข้า
   if(!any){ box.style.display='none'; box.innerHTML=''; return; }
   const G='#3fb950', R='#f85149', Y='#d29922', T='var(--t3)';
   const line=(ico,title,txt,col)=>'<div><span>'+ico+'</span> <b style="color:var(--t1)">'+title+'</b> — <span style="color:'+col+'">'+txt+'</span></div>';
@@ -10233,6 +10531,8 @@ function _mapxRender(){
   h+=xl('📗','Export_Data_RM (RM ไม่มีเลขอ้างอิง)','rm','missRm','rows','sheet');
   h+=xl('📘','COO_RM (RM มีเลขอ้างอิง)','coo','missCoo','rowsCoo','sheetCoo');
   h+=xl('📋','ใบขนขาออก','ie','missIe','rowsIe','sheet');
+  const _impR=(typeof _mapxImpHtml==='function')?_mapxImpHtml(_mapxRmNo(_mapx.src), rmNos):{html:'',V:{n:0}};   // ADDITIVE (local322): ใบขนขาเข้า PDF
+  h+=_impR.html;
   // ชุด RM ไม่ตรงกัน (จากชื่อไฟล์)
   const mix = rmNos.length===2 && rmNos[0]!==rmNos[1];
   if(mix) h+='<div style="color:'+R+'">⚠ เลข RM ในชื่อไฟล์ไม่ตรงกัน ('+_mapxEsc(rmNos.join(' ≠ '))+') — ตรวจสอบว่าเป็นไฟล์ชุดเดียวกันก่อน EXPORT</div>';
@@ -10248,8 +10548,15 @@ function _mapxRender(){
   else h+=line('🔗','MATCHED / UNMATCHED',V.schemaOk?'กำลังจับคู่…':'รอไฟล์ครบและผ่านการตรวจสอบ',V.schemaOk?Y:T);
   // หมายเหตุจากการรับไฟล์ (ZIP)
   _mapx.notes.forEach(nn=>{ const c=nn.t==='err'?R:nn.t==='warn'?Y:T; h+='<div style="color:'+c+';font-size:11px">'+(nn.t==='err'?'✕ ':nn.t==='warn'?'⚠ ':'· ')+_mapxEsc(nn.m)+'</div>'; });
+  // ADDITIVE (local322): มีใบขนขาเข้า → ต้องอ่านครบ ข้อมูลครบ และจับคู่กับ COO_RM ไม่ขัดแย้ง ก่อนแสดง "พร้อม EXPORT"
+  const _impV=_impR.V; const _impWhy=[];
+  if(_impV.n){ if(!_impV.allRead) _impWhy.push('ใบขนขาเข้าอ่านไม่ครบ ('+_impV.ok+'/'+_impV.n+' ไฟล์)'); if(_impV.incomplete) _impWhy.push('ข้อมูลรายการไม่ครบ '+_impV.incomplete+' รายการ');
+    if(_impV.dupDecl&&_impV.dupDecl.length) _impWhy.push('เลขใบขนซ้ำหลายไฟล์');
+    if(_impV.rmMix) _impWhy.push('เลข RM ของชุดใบขนไม่ตรงกับ RM / COO_RM');
+    if(_impV.match&&(_impV.match.unmatched||_impV.match.ambig)) _impWhy.push('COO_RM ↔ ใบขน UNMATCHED '+_impV.match.unmatched+' · AMBIGUOUS '+_impV.match.ambig);
+    if(_impWhy.length) ready=false; }
   // พร้อม / ไม่พร้อม
-  const busy=_mapx.running||!!_mapx.prog;
+  const busy=_mapx.running||!!_mapx.prog||!!_mapx.impProbing;   // local322: + ระหว่างตรวจประเภท PDF
   // ADDITIVE (local320): ขาดใบขนขาออก → แจ้งชัดว่า "ยังไม่พบใบขนขาออกที่รองรับ" + ระบุไฟล์ที่ต้องเพิ่ม (ข้อความเท่านั้น · ไม่แตะ Logic/EXPORT)
   if(!busy && (P.length||S.rm||S.coo) && (!S.ie || (X.ie && !okX.ie))){
     const _ieBadNames=[]; if(S.ie && X.ie && !okX.ie) _ieBadNames.push(S.ie.name);
@@ -10264,8 +10571,10 @@ function _mapxRender(){
     const nBad=P.filter(x=>x.r&&!x.r.ok).length;
     h+='<div style="margin-top:6px;font-weight:700;color:'+R+'">⛔ ยังไม่พร้อม EXPORT'+(why.length?(' — ขาด: '+_mapxEsc(why.join(' · '))):(nBad?(' — PDF อ่านไม่สำเร็จ '+nBad+' ไฟล์ (ลบไฟล์นั้นออก หรือกดอ่านซ้ำ)'):' — แก้รายการ ✕ / ⚠ ด้านบนก่อน'))+'</div>';
   }
+  if(!busy && _impWhy.length) h+='<div style="margin-top:4px;font-weight:700;color:'+R+'">⛔ ใบขนขาเข้า PDF — '+_mapxEsc(_impWhy.join(' · '))+'</div>';   // ADDITIVE (local322)
   const hasBad=[..._mapx.cache.entries()].some(([k,v])=>k.endsWith('#x')?(v.kind==='bad'):!v.ok) && (P.some(x=>x.r&&!x.r.ok) || ['rm','coo','ie'].some(k=>X[k]&&X[k].kind==='bad'));
   if(hasBad && !busy) h+='<button onclick="_mapxRetry()" style="margin-top:8px;background:none;border:1px solid var(--bd);color:var(--t2);border-radius:5px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:var(--font);">↻ อ่านซ้ำเฉพาะไฟล์ที่ผิดพลาด</button>';
+  if(!busy && !hasBad && _impV.n && _impV.failed && _impV.failed.length) h+='<button onclick="_mapxRetry()" style="margin-top:8px;background:none;border:1px solid var(--bd);color:var(--t2);border-radius:5px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:var(--font);">↻ อ่านซ้ำเฉพาะไฟล์ที่ผิดพลาด</button>';   // ADDITIVE (local322)
   box.innerHTML=h; box.style.display='block';
   // ป้ายชื่อไฟล์ในช่องเดิม: แสดง ✓ เฉพาะเมื่ออ่านข้อมูลจริงได้ (ไม่ใช่แค่รับไฟล์ได้)
   [['rm','mappingRmFileName','#3fb950'],['coo','mappingRmRefFileName','#388bfd']].forEach(([k,id,c])=>{
