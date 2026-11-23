@@ -159,3 +159,12 @@
   .shgeo .shgeo-item b{font-size:13.5px}
   .shgeo .shgeo-item small{font-size:11.5px}
 }
+
+/* [RUN-229 · local388] ปุ่ม COPY เดือนก่อน ในแถบเครื่องมือหน้า "รายการเงินเดือน" — กฎเดิมของ .pe-bar ไม่ถูกแก้
+   .pe-bar-acts = แถบของผู้มีสิทธิ์แก้ไข (SUPER_ADMIN / HR) · .pe-actgrp = กลุ่มปุ่ม [COPY เดือนก่อน][+ กำหนดให้พนักงาน]
+   จอคอมที่กว้างไม่พอสำหรับแถวเดียว: กลุ่มปุ่มลงแถวที่สองชิดขวาพร้อมกัน แทนการล้นขอบจอ */
+.pe-bar .pe-copybtn{white-space:nowrap}
+.pe-bar .pe-actgrp{display:flex;flex-direction:column;gap:8px;width:100%}
+@media (max-width:1023px){.pe-bar .pe-copybtn{width:100%;min-height:48px}}
+@media (min-width:1024px){.pe-bar.pe-bar-acts{flex-wrap:wrap;row-gap:10px}.pe-bar.pe-bar-acts .pe-search{flex:1 1 140px}.pe-bar .pe-actgrp{flex-direction:row;flex-wrap:nowrap;align-items:center;gap:12px;width:auto;margin-left:auto}.pe-bar .pe-actgrp>*{height:48px;flex:none}.pe-bar .pe-copybtn{padding:0 16px;border-radius:10px;font-size:14px}.pe-bar .pe-actgrp .pe-addbtn{margin-left:0}}
+@media (min-width:1024px) and (max-width:1200px){.pe-bar.pe-bar-acts .pe-search{flex-basis:96px}.pe-bar .pe-actgrp{gap:10px}.pe-bar .pe-copybtn{padding:0 12px}}
