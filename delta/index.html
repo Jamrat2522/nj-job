@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <!-- Build Metadata (local316): เลข Version ของ Build นี้ — กำหนดที่บรรทัดนี้ที่เดียว ใช้ทั้งเว็บไซต์ (ป้ายมุมขวาบนอ่านจากที่นี่) -->
-<meta name="nj-build" content="local329">
+<meta name="nj-build" content="local330">
 <title>Mapping Export Hi-Tech HTML</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -11010,7 +11010,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   const EXEMPT = { agency:'กรมการค้าต่างประเทศ', lic:'EXEMPT99', org:'0994000159561', issued:'2017-11-13', preview:'01' };
   /* local324: ชุดค่า FIX ของคอลัมน์ V–AB (GROHE SIAM) — ใช้ทุกแถวทุก Item · ไม่ดึงจาก MASTER / PDF · เก็บเป็นข้อความทุกช่อง
      AA = วันที่ทำ Mapping (วันที่ของเครื่องขณะ Export) รูปแบบ DD-MM-YYYY */
-  const FIXVAB = { brand:'GROHE', boi:'Y', lic:'244(4)/2549,60-0180-1-00-1-0', lic2:'BOI0105538028665', org:'0994000740964', preview:'01' };
+  const FIXVAB = { brand:'GROHE', boi:'Y', lic:'1244(4)/2549,60-0180-1-00-1-0', lic2:'BOI0105538028665', org:'0994000740964', preview:'01' };
   const FIXVAB_COLS = [['V','brandName'],['W','สิทธิประโยชน์ BOI'],['X','BOI License No'],['Y','เลขที่ใบอนุญาต'],['Z','หน่วยงาน'],['AA','วันที่ ออก (วันที่ทำ Mapping)'],['AB','พีวิวโชว์']];
   function fixDate(d){ d = (d instanceof Date && !isNaN(d)) ? d : new Date(); const p = n => String(n).padStart(2, '0'); return p(d.getDate()) + '-' + p(d.getMonth() + 1) + '-' + d.getFullYear(); }
   function fixVab(d){ return [FIXVAB.brand, FIXVAB.boi, FIXVAB.lic, FIXVAB.lic2, FIXVAB.org, fixDate(d), FIXVAB.preview].map(String); }
