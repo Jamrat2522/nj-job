@@ -2172,12 +2172,43 @@
       <div class="ft"><div class="rm"><b>หมายเหตุ :</b>\n${h(b.note || '')}${(co.bank_accounts || []).length ? `\n\n<b>ชำระเงินโดยโอนเข้าบัญชี :</b>\n${co.bank_accounts.map((a) => h([a.bank, a.name, a.no].filter(Boolean).join(' · '))).join('\n')}` : ''}</div><div class="sum"><div><span>ยอดรวม</span><b>${blF(b.amount_total)}</b></div><div><span>หัก ณ ที่จ่าย</span><span>${blF(b.wht_total)}</span></div><div class="g"><span>ยอดสุทธิที่ต้องชำระ</span><span>${blF(b.net_total)}</span></div></div></div>
       <div class="sig"><div><b>ผู้รับวางบิล</b><div class="line"></div>วันที่ ........ / ........ / ........</div><div><b>ผู้วางบิล</b>${h(b.created_by_name || '')}<div class="line"></div>วันที่ ${hlDMY(b.billing_date)}</div></div><div class="bar"></div></div></body></html>`;
   }
+  // local206: 📑 ใบสรุปวางบิล → แบบฟอร์ม DB — หัวเอกสาร INVOICE / ใบแจ้งหนี้ · ตาราง No. | MASTER | HAWB | เลขใบขน | ยอดเงิน | WHT | ยอดสุทธิ
+  //   MASTER / HAWB / เลขใบขน = ข้อมูล JOB ต้นทางของแต่ละ INVOICE (RUN-52 tnj_bill_db_rows · อ่านอย่างเดียว · ไม่มี = ช่องว่าง) · ยอดเงิน / สรุปยอด / หมายเหตุ / ลายมือชื่อ = ค่าเดิมของใบวางบิล (ไม่คำนวณใหม่)
+  const blDbCss = `.dbf table.it td{height:auto;padding:3px 6px;vertical-align:middle;line-height:1.35}.dbf table.it th{padding:5px 6px}.dbf td.dbx{font-variant-numeric:tabular-nums;overflow-wrap:anywhere;word-break:normal}.dbf .row{margin-top:8px}.dbf .ft{margin-top:8px}.dbf .sig{margin-top:8px}.dbf .sig>div{min-height:62px}.dbf .rm{min-height:54px}.dbf .line{margin:18px 10px 4px}.dbf table.it td{padding:2px 6px;font-size:10.5px;line-height:1.3}`;
+  const blDbVal = (a) => (Array.isArray(a) ? a : []).map((v) => h(v)).join('<br>');
+  function blBillDocDB(b, co, ex) {
+    const inv = b.invoices || []; const E = ex || {}; const rows = inv.map((x, i) => { const e = E[x.id] || {}; return `<tr><td class="c">${i + 1}</td><td class="dbx">${blDbVal(e.master)}</td><td class="dbx">${blDbVal(e.hawb)}</td><td class="dbx">${blDbVal(e.decl)}</td><td class="r">${blF(x.subtotal)}</td><td class="r">${blF(x.wht_amount)}</td><td class="r">${blF(x.grand_total)}</td></tr>`; });
+    for (let i = rows.length; i < 8; i++) rows.push('<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>');
+    return `<!doctype html><html><head><meta charset="utf-8"><title>${h(b.billing_no)} - ${h(b.customer_name)}</title><style>${blDocCss}${blDbCss}</style></head><body>${b.status === 'CANCELLED' ? '<div class="wm">ยกเลิก</div>' : ''}<div class="doc dbf">${blCoHtml(co, 'INVOICE / ใบแจ้งหนี้')}
+      <div class="row">${blCustBox(b)}<div class="box" style="flex:.8"><span class="lb">BILLING DETAILS</span><div class="kv"><div class="k">Billing No. :</div><div class="v num">${h(b.billing_no)}</div><div class="k">วันที่วางบิล :</div><div class="v">${hlDMY(b.billing_date)}</div><div class="k">ครบกำหนดชำระ :</div><div class="v">${hlDMY(b.due_date)}</div><div class="k">จำนวน INVOICE :</div><div class="v">${inv.length} ใบ</div></div></div></div>
+      <table class="it"><thead><tr><th class="c" style="width:9mm">No.</th><th style="width:34mm">MASTER</th><th style="width:34mm">HAWB</th><th>เลขใบขน</th><th class="r" style="width:25mm">ยอดเงิน</th><th class="r" style="width:19mm">WHT</th><th class="r" style="width:26mm">ยอดสุทธิ</th></tr></thead>
+      <tbody>${rows.join('')}<tr class="tot"><td></td><td colspan="3">TOTAL</td><td class="r">${blF(b.amount_total)}</td><td class="r">${blF(b.wht_total)}</td><td class="r">${blF(b.net_total)}</td></tr></tbody></table>
+      <div class="ft"><div class="rm"><b>หมายเหตุ :</b>\n${h(b.note || '')}${(co.bank_accounts || []).length ? `\n\n<b>ชำระเงินโดยโอนเข้าบัญชี :</b>\n${co.bank_accounts.map((a) => h([a.bank, a.name, a.no].filter(Boolean).join(' · '))).join('\n')}` : ''}</div><div class="sum"><div><span>ยอดรวม</span><b>${blF(b.amount_total)}</b></div><div><span>หัก ณ ที่จ่าย</span><span>${blF(b.wht_total)}</span></div><div class="g"><span>ยอดสุทธิที่ต้องชำระ</span><span>${blF(b.net_total)}</span></div></div></div>
+      <div class="sig"><div><b>ผู้รับวางบิล</b><div class="line"></div>วันที่ ........ / ........ / ........</div><div><b>ผู้วางบิล</b>${h(b.created_by_name || '')}<div class="line"></div>วันที่ ${hlDMY(b.billing_date)}</div></div><div class="bar"></div></div></body></html>`;
+  }
+  // local206: Preview ใบสรุปวางบิล + Dropdown แบบฟอร์ม (DEFAULT / DB) — สลับได้ทันทีด้วยเลขเอกสารเดิม (ไม่ออกเลขใหม่ · ไม่บันทึกข้อมูล)
+  const BN_FORMS = [['DEFAULT', 'แบบฟอร์มเดิม (DEFAULT)'], ['DB', 'แบบฟอร์ม DB']];
+  const bnFormGet = () => { try { return localStorage.getItem('tnj.bn.form') === 'DB' ? 'DB' : 'DEFAULT'; } catch (_) { return 'DEFAULT'; } };
+  const bnFormSet = (v) => { try { localStorage.setItem('tnj.bn.form', v === 'DB' ? 'DB' : 'DEFAULT'); } catch (_) { } };
+  const bnDbCache = {};
+  async function bnDbRows(d) { if (bnDbCache[d.id]) return bnDbCache[d.id]; const r = await T.auth('tnj_bill_db_rows', { p_id: d.id }, { silent: true }); const m = {}; (r.rows || []).forEach((x) => { m[x.invoice_id] = x; }); bnDbCache[d.id] = m; return m; }
+  const bnHtml = async (d, form) => (form === 'DB' ? blBillDocDB(d, d.company || {}, await bnDbRows(d)) : blBillDoc(d, d.company || {}));
+  const bnDbErr = (e) => T.toast(blMissing(e) ? 'ต้องติดตั้ง SQL RUN-52 ก่อนใช้แบบฟอร์ม DB — แสดงแบบฟอร์มเดิม' : T.parseErr(e).text, 'err', 6000);
+  async function blBillPreview(d, form, print) {
+    let f0 = form === 'DB' ? 'DB' : 'DEFAULT', html;
+    try { html = await bnHtml(d, f0); } catch (e) { bnDbErr(e); f0 = 'DEFAULT'; html = blBillDoc(d, d.company || {}); }
+    T.modal({ title: `📄 ${d.billing_no}`, size: 'w bl-pv', body: '<iframe class="bl-frame" id="blFrame" title="Preview"></iframe>',
+      foot: `<label class="bn-form"><span>แบบฟอร์ม</span><select class="inp" id="bnFormPv">${BN_FORMS.map(([v, l]) => `<option value="${v}" ${v === f0 ? 'selected' : ''}>${l}</option>`).join('')}</select></label><span class="grow"></span><button class="btn" data-close>ปิด</button><button class="btn btn-p" id="blPrint">🖨 PRINT / บันทึก PDF</button>`,
+      onOpen: (el) => { const f = el.querySelector('#blFrame'); const pr = () => { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { T.toast('พิมพ์ไม่สำเร็จ: ' + e.message, 'err'); } };
+        if (print) f.addEventListener('load', pr, { once: true }); f.srcdoc = html; el.querySelector('#blPrint').onclick = pr;
+        const sel = el.querySelector('#bnFormPv'); sel.onchange = async () => { const v = sel.value; try { f.srcdoc = await bnHtml(d, v); bnFormSet(v); const tf = document.getElementById('bnForm'); if (tf) tf.value = v; } catch (e) { bnDbErr(e); sel.value = 'DEFAULT'; f.srcdoc = blBillDoc(d, d.company || {}); } }; } });
+  }
   // Preview (iframe) + พิมพ์ / บันทึก PDF (Browser Print → Save as PDF)
   function blPreview(html, title) {
     T.modal({ title: `📄 ${title}`, size: 'w bl-pv', body: '<iframe class="bl-frame" id="blFrame" title="Preview"></iframe>', foot: '<button class="btn" data-close>ปิด</button><button class="btn btn-p" id="blPrint">🖨 PRINT / บันทึก PDF</button>',
       onOpen: (el) => { const f = el.querySelector('#blFrame'); f.srcdoc = html; el.querySelector('#blPrint').onclick = () => { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { T.toast('พิมพ์ไม่สำเร็จ: ' + e.message, 'err'); } }; } });
   }
-  T._blCalc = blCalc; T._blInvDoc = blInvDoc; T._blBillDoc = blBillDoc; // ใช้ทดสอบ
+  T._blCalc = blCalc; T._blInvDoc = blInvDoc; T._blBillDoc = blBillDoc; T._blBillDocDB = blBillDocDB; // ใช้ทดสอบ
 
   async function pageBilling(page, r, opt = {}) {
     if (!T.isAdmin()) { page.innerHTML = '<div class="empty">เมนูนี้สำหรับ SUPER_ADMIN / ADMIN เท่านั้น</div>'; return; }
@@ -2257,7 +2288,7 @@
         <div class="bp-foot"><span class="xs muted" id="bpSel">เลือกหลาย JOB ของลูกค้ารายเดียวกันได้</span><span class="grow"></span><span class="pager" id="bpPager"></span><button class="btn btn-p" id="bpBill" disabled hidden>💰 สร้าง INVOICE จากรายการที่เลือก</button></div></div></div>
       <div id="bnPane" hidden><div class="card card-b bl-filter"><div class="flex flex-wrap"><div class="field"><label>ค้นหา</label><input class="inp" id="bnQ" placeholder="เลขใบสรุป / INVOICE / JOB / ลูกค้า" autocomplete="off"></div><div class="field"><label>วันที่ออก ตั้งแต่</label><input type="date" class="inp" id="bnFrom"></div><div class="field"><label>ถึงวันที่</label><input type="date" class="inp" id="bnTo"></div>
         <div class="field"><label>สถานะ</label><select class="inp" id="bnSt"><option value="">ทั้งหมด</option><option value="ACTIVE">ใช้งาน</option><option value="CANCELLED">ยกเลิก</option></select></div><div class="field"><label>&nbsp;</label><button class="btn btn-p" id="bnGo">🔎 ค้นหา</button></div><div class="field"><label>&nbsp;</label><button class="btn" id="bnClr">✖ ล้างค้นหา</button></div>
-        <div class="field"><label>&nbsp;</label><a class="btn btn-p" href="#/billing/bl/new">+ สร้างใบสรุปวางบิล</a></div><div class="field"><label>&nbsp;</label><button class="btn btn-g" id="bnXls">📊 EXPORT EXCEL</button></div></div></div>
+        <div class="field"><label>แบบฟอร์ม PDF</label><select class="inp" id="bnForm">${BN_FORMS.map(([v, l]) => `<option value="${v}" ${v === bnFormGet() ? 'selected' : ''}>${l}</option>`).join('')}</select></div><div class="field"><label>&nbsp;</label><a class="btn btn-p" href="#/billing/bl/new">+ สร้างใบสรุปวางบิล</a></div><div class="field"><label>&nbsp;</label><button class="btn btn-g" id="bnXls">📊 EXPORT EXCEL</button></div></div></div>
         <div class="card"><div class="tbl-wrap"><table class="tbl bl-tbl" id="bnTbl"><thead><tr><th>เลขที่ใบสรุปวางบิล</th><th>วันที่ออกเอกสาร</th><th>ลูกค้า</th><th class="c">จำนวน JOB</th><th class="c">จำนวน INVOICE</th><th class="r">ยอดรวม</th><th class="r">WHT 1%</th><th class="r">ยอดสุทธิ</th><th>จัดการ</th></tr></thead><tbody id="bnBody"><tr><td colspan="9" class="empty">กำลังโหลด...</td></tr></tbody></table></div>
         <div class="bp-foot"><span class="xs muted">ใบสรุปวางบิลที่ออกแล้วทั้งหมด (NJTRBL) · 👁 ดู = หน้ารายละเอียดเดิม · PDF / พิมพ์ = เอกสารเดิม</span><span class="grow"></span><span class="pager" id="bnSum"></span></div></div></div>`; // local167: ซ่อนปุ่มนี้ (โค้ด / ฟังก์ชันเดิมคงไว้ · ใช้ + สร้าง INVOICE ด้านบน หรือ 💰 วางบิล รายแถว)
     const info = (x) => { const n = Number(x.container_count) || 1, d = Number(x.ct_draft) || 0, pz = Number(x.ct_posted) || 0; const inv = x.invoices || []; const posted = inv.filter((i) => i.status === 'POSTED'); const drafts = inv.filter((i) => i.status === 'DRAFT');
@@ -2340,13 +2371,14 @@
         <td class="c">${x.job_count != null ? Number(x.job_count) : '-'}</td><td class="c">${x.invoice_count != null ? Number(x.invoice_count) : (x.invoice_nos || []).length}</td><td class="r">${blF(x.amount_total)}</td><td class="r">${blF(x.wht_total)}</td><td class="r b">${blF(x.net_total)}</td>
         <td class="nowrap"><a class="btn btn-sm" href="#/billing/bl/${x.id}">👁 ดู</a> <button class="btn btn-sm btn-g" data-bnp="${x.id}">⬇ PDF</button> <button class="btn btn-sm" data-bnr="${x.id}">🖨 พิมพ์</button></td></tr>`).join('') || '<tr><td colspan="9" class="empty">ไม่พบใบสรุปวางบิลตามเงื่อนไข</td></tr>';
       $('#bnSum').innerHTML = `<span class="muted small">ทั้งหมด ${v.length} ใบ · ใช้งาน ${act.length} ใบ · ยอดสุทธิ (ไม่รวมยกเลิก) ${blF(sm('net_total'))}</span>`;
-      const pdf = async (id, print) => { try { T.loading(true); const d = await T.auth('tnj_bill_get', { p_id: id }, { silent: true }); blPreview(blBillDoc(d, d.company || {}), d.billing_no); if (print) { const b = $('#blPrint'), f = $('#blFrame'); if (b && f) f.addEventListener('load', () => b.click(), { once: true }); } } catch (e) { T.toast(blMissing(e) ? 'ต้องติดตั้ง SQL RUN-31 ก่อนใช้งาน' : T.parseErr(e).text, 'err'); } finally { T.loading(false); } };
+      const pdf = async (id, print) => { try { T.loading(true); const d = await T.auth('tnj_bill_get', { p_id: id }, { silent: true }); await blBillPreview(d, ($('#bnForm') || {}).value || bnFormGet(), print); } catch (e) { T.toast(blMissing(e) ? 'ต้องติดตั้ง SQL RUN-31 ก่อนใช้งาน' : T.parseErr(e).text, 'err'); } finally { T.loading(false); } };
       $$('#bnBody [data-bnp]').forEach((b) => b.onclick = () => pdf(b.dataset.bnp, false)); $$('#bnBody [data-bnr]').forEach((b) => b.onclick = () => pdf(b.dataset.bnr, true)); };
     const loadNotes = async () => { const my = ++nseq; try { const d = await T.auth('tnj_bill_list', { p: { q: '', status: BN.st, date_from: BN.from, date_to: BN.to } }, { silent: true }); if (my !== nseq || !$('#bnBody')) return; notes = d.rows || []; drawNotes(); }
       catch (e) { if (my !== nseq) return; const tb = $('#bnBody'); if (tb) tb.innerHTML = `<tr><td colspan="9" class="empty">${blMissing(e) ? 'ต้องติดตั้ง SQL RUN-31 ก่อนใช้งาน' : h(T.parseErr(e).text)}</td></tr>`; } };
     const setTabB = (t) => { ntab = t; const n = t === 'notes'; $$('[data-btab]').forEach((b) => b.classList.toggle('active', b.dataset.btab === t)); $('#bnPane').hidden = !n; $('#bpActs').style.display = n ? 'none' : ''; $('#bpBadge').style.display = n ? 'none' : '';
       if (n) { $('#bdCard').hidden = true; $('#bpWrap').hidden = true; loadNotes(); } else setMode('jobs'); };
     $$('[data-btab]').forEach((b) => b.onclick = () => setTabB(b.dataset.btab));
+    { const bf = $('#bnForm'); if (bf) bf.onchange = () => bnFormSet(bf.value); }
     $('#bnGo').onclick = () => { BN.q = $('#bnQ').value.trim(); BN.st = $('#bnSt').value; BN.from = $('#bnFrom').value; BN.to = $('#bnTo').value; loadNotes(); }; $('#bnSt').onchange = () => $('#bnGo').click();
     $('#bnQ').addEventListener('input', T.debounce(() => { if (!$('#bnQ')) return; BN.q = $('#bnQ').value.trim(); drawNotes(); }, 200)); $('#bnQ').onkeydown = (e) => { if (e.key === 'Enter') $('#bnGo').click(); };
     $('#bnClr').onclick = () => { ['#bnQ', '#bnFrom', '#bnTo', '#bnSt'].forEach((k) => { $(k).value = ''; }); Object.assign(BN, { q: '', st: '', from: '', to: '' }); loadNotes(); };
@@ -2834,7 +2866,7 @@
     const bs = $('#bnSave'); if (bs) bs.onclick = async () => { if (!S.customer_name) return showErr('กรุณาเลือกลูกค้า'); if (!S.sel.size) return showErr('กรุณาเลือก INVOICE อย่างน้อย 1 ใบ'); showErr('');
       try { bs.disabled = true; T.loading(true); const d = await T.auth('tnj_bill_save', { p_id: S.id || null, p: { customer_name: S.customer_name, billing_date: $('#bnDate').value, due_date: $('#bnDue').value, note: $('#bnNote').value, invoice_ids: [...S.sel] } }, { silent: true });
         T.toast(`บันทึกใบวางบิล ${d.billing_no} แล้ว ✓`, 'ok'); if (location.hash === '#/billing/bl/' + d.id) T.render(); else location.replace('#/billing/bl/' + d.id); } catch (e) { showErr(T.parseErr(e).text); } finally { T.loading(false); if (bs.isConnected) bs.disabled = false; } };
-    const pv = $('#bnPv'); if (pv) pv.onclick = () => blPreview(blBillDoc(b, b.company || {}), b.billing_no);
+    const pv = $('#bnPv'); if (pv) pv.onclick = () => blBillPreview(b, bnFormGet());
     const bc = $('#bnCancel'); if (bc) bc.onclick = async () => { const why = await T.prompt('ยกเลิกใบวางบิล', `เหตุผลการยกเลิก ${b.billing_no} (INVOICE จะกลับไปวางบิลใหม่ได้)`); if (!why) return; try { T.loading(true); await T.auth('tnj_bill_cancel', { p_id: b.id, p_reason: why }, { silent: true }); T.toast('ยกเลิกใบวางบิลแล้ว', 'ok'); T.render(); } catch (e) { showErr(T.parseErr(e).text); } finally { T.loading(false); } };
     if (ro) { $('#bnCust').innerHTML = `<option>${h(S.customer_name)}</option>`; cbSelect($('#bnCust')); $('#bnCust')._cbSync(); draw(); } else loadCand();
   }
