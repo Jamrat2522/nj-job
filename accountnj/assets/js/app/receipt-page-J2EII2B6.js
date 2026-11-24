@@ -115,6 +115,7 @@ import{a as XLS820}from"./chunk-FHYZBT2Q.js";import{css762 as CS762,dd762 as DD7
     ${at(g.charge,g.group,ft(),"receipt")}
     <div class="rep-tabs">
       <button class="rep-tab ${I==="pending"?"active":""}" data-rtab="pending">\u0E23\u0E2D\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30</button>
+      <button class="rep-tab ${I==="drf931"?"active":""}" data-rtab="drf931" style="--bg535:#FFEFD0;--b535:#F5A623;--fg535:#B45309;--on535:#D97706">ฉบับร่าง (DRAFT)<span class="n931"></span></button>
       <button class="rep-tab ${I==="issued"?"active":""}" data-rtab="issued">\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E17\u0E35\u0E48\u0E2D\u0E2D\u0E01\u0E41\u0E25\u0E49\u0E27</button>
       <button class="rep-tab ${I==="sub925"?"active":""}" data-rtab="sub925" style="--bg535:#F3EEFF;--b535:#D5C6FB;--fg535:#5B21B6;--on535:#6D28D9">รายการย่อยชำระ<span class="n925"></span></button>
     </div>${SW837(t)}
@@ -133,6 +134,7 @@ import{a as XLS820}from"./chunk-FHYZBT2Q.js";import{css762 as CS762,dd762 as DD7
       </table></div>
       </div>
     </div>
+    <div id="rc-drf931" class="p931" ${I==="drf931"?"":"hidden"}></div>
     <div id="rc-sub925" class="p836" ${I==="sub925"?"":"hidden"}></div>
     <div id="rc-issued" ${I==="issued"?"":"hidden"}>
     <div class="ch-panel">
@@ -148,7 +150,7 @@ import{a as XLS820}from"./chunk-FHYZBT2Q.js";import{css762 as CS762,dd762 as DD7
     </tr></thead><tbody id="rc-tbody"><tr><td colspan="21" class="load-row"><div class="spin"></div></td></tr></tbody>
     </table></div>
     </div>
-    </div>`,ct(t);let e=t.querySelector(".ch-tools");e&&ot(e);(()=>{if(!document.getElementById("rc502-css")){let s=document.createElement("style");s.id="rc502-css";s.textContent=".rc502-hide{display:none!important}.rep-tabs.rc502-tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px}.rep-tabs.rc502-tabs>#rc-new{margin-left:auto}.rc502 [data-colmg]{display:none!important}/* V.916 */.rcp898 .fbar .ch-tools.mk916{display:inline-flex!important;align-items:center!important;gap:0!important;margin:0!important;padding:0!important;border:0!important;background:none!important;box-shadow:none!important;width:auto!important;min-height:0!important;flex:0 0 auto}.rcp898 .fbar .ch-tools.mk916 .tool-menu{position:relative;display:inline-flex}.rcp898 .fbar .ch-tools.mk916 .tool-menu>.tool-drop{right:auto;left:0}.rcp898 .fbar .rc502-hide{display:none!important}.rcp898 .fbar .btn:not(.rc502-hide),.rcp898 .fbar .ch-tools.mk916 .tool-menu>.btn{height:40px!important;min-height:40px!important;border-radius:8px!important;border:1px solid transparent!important;color:#fff!important;font-weight:700!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:6px;white-space:nowrap}.rcp898 .fbar .btn:not(.rc502-hide) svg,.rcp898 .fbar .ch-tools.mk916 .tool-menu>.btn svg{color:#fff!important}.rcp898 .fbar #rp-go,.rcp898 .fbar #rc-go{background:#1D4ED8!important;border-color:#1D4ED8!important}.rcp898 .fbar .clr797{background:#DC2626!important;border-color:#DC2626!important}.rcp898 .fbar .rf881{background:#0284C7!important;border-color:#0284C7!important}.rcp898 .fbar .xl734{background:#16A34A!important;border-color:#16A34A!important}.rcp898 .fbar [data-colmg]{background:#F97316!important;border-color:#F97316!important}.rcp898 .fbar .ch-tools.mk916 [data-menu=maersk]{background:#0D9488!important;border-color:#0D9488!important}.rcp898 .fbar .ch-tools.mk916 .tool-drop .tool-item{color:#0f172a!important}";document.head.appendChild(s)}let ph=t.querySelector(".page-head"),tb=t.querySelector(".rep-tabs"),nb=t.querySelector("#rc-new");e&&(()=>{/* V.899 : \u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E01\u0E32\u0E23\u0E0B\u0E48\u0E2D\u0E19\u0E1B\u0E38\u0E48\u0E21 MAERSK \u2014 \u0E04\u0E07\u0E0B\u0E48\u0E2D\u0E19\u0E1B\u0E38\u0E48\u0E21\u0E2D\u0E37\u0E48\u0E19\u0E43\u0E19\u0E41\u0E16\u0E1A\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E21\u0E37\u0E2D\u0E15\u0E32\u0E21\u0E40\u0E14\u0E34\u0E21 */let mk899=e.querySelector('.tool-menu [data-menu="maersk"]'),kp899=mk899&&mk899.closest(".tool-menu");if(!kp899){e.classList.add("rc502-hide");return}e.classList.remove("rc502-hide");[...e.children].forEach(c899=>{c899===kp899?c899.classList.remove("rc502-hide"):c899.classList.add("rc502-hide")});kp899.addEventListener("click",ev900=>{ev900.target.closest&&ev900.target.closest('[data-menu="maersk"]')&&setTimeout(()=>UP900(t),0)});t.addEventListener("change",ev901=>{let x901=ev901.target;x901&&x901.matches&&(x901.matches('select.sel797')||x901.matches('[data-pf^="f678_"]')||x901.matches('[data-f^="f678_"]'))&&setTimeout(()=>UP900(t),0)});t.addEventListener("input",ev901=>{let x901=ev901.target;x901&&x901.matches&&x901.matches('select.sel797')&&setTimeout(()=>UP900(t),0)});UP900(t)/* V.900 · V.901 : อัปเดตสถานะทันทีเมื่อ Dropdown ลูกค้าเปลี่ยน */;MV916(t)/* V.916 */})();ph&&ph.classList.add("rc502-hide");tb&&(tb.classList.add("rc502-tabs"),nb&&tb.appendChild(nb));t.addEventListener("click",function(ev916){ev916.target&&ev916.target.closest&&ev916.target.closest("[data-rtab]")&&setTimeout(function(){MV916(t)},0)})/* V.916 : สลับแท็บแล้วปุ่ม MAERSK ตามไปอยู่แถวปุ่มของแท็บนั้น */;t.querySelectorAll("#rc-pending,#rc-issued").forEach(x=>x.classList.add("rc502"))})();let r={...g,scope:null,mode:"receipt",importMode:"accounting",filters:{},refresh:()=>{I==="pending"?M(t):o()}};t.dataset.chPage="finance-receipt",NK586(t,()=>t.dataset.chPage==="finance-receipt",()=>r.refresh()),t.__njToolClick&&t.removeEventListener("click",t.__njToolClick),t.__njToolClick=c=>{if(t.dataset.chPage!=="finance-receipt")return;let n=c.target.closest("[data-tool]");if(!n)return;if(n.dataset.tool==="export-soa"){SOA900(t);return}/* V.900 */rt(n.dataset.tool,r)},t.addEventListener("click",t.__njToolClick),t.querySelector(".rep-tabs").addEventListener("click",c=>{let n=c.target.closest("[data-rtab]");!n||n.dataset.rtab===I||(I=n.dataset.rtab,SEL795.clear(),BAD795.clear(),gt(t))});let s=t.querySelector('[data-pf="q"]');s&&(t.querySelector("#rp-go").onclick=()=>{$.q=s.value.trim(),FR678(t,"pf",$),$.page=1,M(t)},XR734(t),UPB820(t),FK678(t.querySelector("#rc-pending .fbar"),"#rp-go")),I==="pending"&&M(t);I==="sub925"&&SB925(t)/* V.925 */;RT830(t,()=>M(t),()=>I)/* V.826 */;let d=t.querySelector("#rc-new");d&&d.remove();t.__ld811=()=>o();/* V.837 */async function o(){let c=P("receipts");try{let n=await L835({company_group:"NJ",q:b.q||null,customer_id:b.customer||null,from:b.from||null,to:b.to||null,page:b.page,size:b.size,...FP678(b),sort853:"rcp"/* V.859 */})/* V.830 */;if(!q("receipts",c))return;BV800(t);let p=t.querySelector("#rc-tbody"),y=n.rows||[];SM811(t,n),p.innerHTML=y.length?y.map((o849,i849)=>RI811(o849,i849,(b.page-1)*b.size)).join(""):'<tr><td colspan="8" class="empty">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08</td></tr>',B(t.querySelector("#rc-pgn"),{page:b.page,size:b.size,total:n.total||0},({page:l,size:a})=>{b.page=l,b.size=a,o()},{lp:!0}),F(),t.__njCols&&t.__njCols.issued(),SY857(t,n)/* V.859 */}catch(n){if(!q("receipts",c))return;R(n);let p=t.querySelector("#rc-tbody");p&&p.querySelector(".spin")&&(p.innerHTML='<tr><td colspan="21" class="empty">\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 <button type="button" class="btn btn-sm btn-o" data-ld-retry>\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48</button></td></tr>',p.querySelector("[data-ld-retry]").onclick=()=>{p.innerHTML='<tr><td colspan="21" class="load-row"><div class="spin"></div></td></tr>',o()})}}RC762(t)/* V.762 */,AP797(t),OP797(t)/* V.797 */,LS801(t)/* V.801 */,RB811(t),XR811(t)/* V.811 */,XR857(t)/* V.858 */,FK678(t.querySelector("#rc-issued .fbar"),"#rc-go"),t.querySelector("#rc-go").onclick=()=>{t.querySelectorAll("[data-f]").forEach(c=>b[c.dataset.f]=c.value),b.page=1,o()};function h(){let c=t.querySelector("#rp-tbody");z({table:c&&c.closest("table"),modeKey:"FINANCE_RECEIPT_PENDING",host:t.querySelector("#rc-pending .fbar")})}function m(){let c=t.querySelector("#rc-tbody");z({table:c&&c.closest("table"),modeKey:MQ849()?"FINANCE_RECEIPT_ISSUED811":"FINANCE_RECEIPT_ISSUED849"/* V.849 */,host:t.querySelector("#rc-issued .fbar")})}RA795(t,()=>(M(t),OP797(t,!0))),t.__njCols={pending:h,issued:m},h(),m(),t.querySelector("#rc-tbody").addEventListener("click",async c=>{let n=c.target.closest("[data-print]");if(n){G(JSON.parse(n.dataset.print));return}let p=c.target.closest("[data-void]");if(p){let y=await Z("Void \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 "+p.dataset.no+" (\u0E08\u0E30 Void \u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E14\u0E49\u0E27\u0E22)");if(!y)return;try{await U("void-rc-"+p.dataset.void,()=>lt(p.dataset.void,y,H())),k("Void \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E2A\u0E16\u0E32\u0E19\u0E30\u0E0A\u0E33\u0E23\u0E30\u0E02\u0E2D\u0E07 INVOICE \u0E16\u0E39\u0E01\u0E04\u0E33\u0E19\u0E27\u0E13\u0E43\u0E2B\u0E21\u0E48","ok"),o()}catch(l){R(l)}}}),o()}async function M(t){let e=t.querySelector("#rp-tbody");if(!e)return;J=t;let r=P("rc-pending");try{let s=await et({company_group:"NJ",q:$.q||null,customer_id:$.customer||null,page:$.page,size:$.size,...FP678($)});if(!q("rc-pending",r))return;KP530(t,s);RA795(t,()=>(M(t),OP797(t,!0)));let d=s&&s.rows||[];BV800(t),e.innerHTML=d.map(o=>`<tr data-inv="${i(o.invoice_id)}" data-job800="${i(o.job_id||"")}">
+    </div>`,ct(t);let e=t.querySelector(".ch-tools");e&&ot(e);(()=>{if(!document.getElementById("rc502-css")){let s=document.createElement("style");s.id="rc502-css";s.textContent=".rc502-hide{display:none!important}.rep-tabs.rc502-tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px}.rep-tabs.rc502-tabs>#rc-new{margin-left:auto}.rc502 [data-colmg]{display:none!important}/* V.916 */.rcp898 .fbar .ch-tools.mk916{display:inline-flex!important;align-items:center!important;gap:0!important;margin:0!important;padding:0!important;border:0!important;background:none!important;box-shadow:none!important;width:auto!important;min-height:0!important;flex:0 0 auto}.rcp898 .fbar .ch-tools.mk916 .tool-menu{position:relative;display:inline-flex}.rcp898 .fbar .ch-tools.mk916 .tool-menu>.tool-drop{right:auto;left:0}.rcp898 .fbar .rc502-hide{display:none!important}.rcp898 .fbar .btn:not(.rc502-hide),.rcp898 .fbar .ch-tools.mk916 .tool-menu>.btn{height:40px!important;min-height:40px!important;border-radius:8px!important;border:1px solid transparent!important;color:#fff!important;font-weight:700!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:6px;white-space:nowrap}.rcp898 .fbar .btn:not(.rc502-hide) svg,.rcp898 .fbar .ch-tools.mk916 .tool-menu>.btn svg{color:#fff!important}.rcp898 .fbar #rp-go,.rcp898 .fbar #rc-go{background:#1D4ED8!important;border-color:#1D4ED8!important}.rcp898 .fbar .clr797{background:#DC2626!important;border-color:#DC2626!important}.rcp898 .fbar .rf881{background:#0284C7!important;border-color:#0284C7!important}.rcp898 .fbar .xl734{background:#16A34A!important;border-color:#16A34A!important}.rcp898 .fbar [data-colmg]{background:#F97316!important;border-color:#F97316!important}.rcp898 .fbar .ch-tools.mk916 [data-menu=maersk]{background:#0D9488!important;border-color:#0D9488!important}.rcp898 .fbar .ch-tools.mk916 .tool-drop .tool-item{color:#0f172a!important}";document.head.appendChild(s)}let ph=t.querySelector(".page-head"),tb=t.querySelector(".rep-tabs"),nb=t.querySelector("#rc-new");e&&(()=>{/* V.899 : \u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E01\u0E32\u0E23\u0E0B\u0E48\u0E2D\u0E19\u0E1B\u0E38\u0E48\u0E21 MAERSK \u2014 \u0E04\u0E07\u0E0B\u0E48\u0E2D\u0E19\u0E1B\u0E38\u0E48\u0E21\u0E2D\u0E37\u0E48\u0E19\u0E43\u0E19\u0E41\u0E16\u0E1A\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E21\u0E37\u0E2D\u0E15\u0E32\u0E21\u0E40\u0E14\u0E34\u0E21 */let mk899=e.querySelector('.tool-menu [data-menu="maersk"]'),kp899=mk899&&mk899.closest(".tool-menu");if(!kp899){e.classList.add("rc502-hide");return}e.classList.remove("rc502-hide");[...e.children].forEach(c899=>{c899===kp899?c899.classList.remove("rc502-hide"):c899.classList.add("rc502-hide")});kp899.addEventListener("click",ev900=>{ev900.target.closest&&ev900.target.closest('[data-menu="maersk"]')&&setTimeout(()=>UP900(t),0)});t.addEventListener("change",ev901=>{let x901=ev901.target;x901&&x901.matches&&(x901.matches('select.sel797')||x901.matches('[data-pf^="f678_"]')||x901.matches('[data-f^="f678_"]'))&&setTimeout(()=>UP900(t),0)});t.addEventListener("input",ev901=>{let x901=ev901.target;x901&&x901.matches&&x901.matches('select.sel797')&&setTimeout(()=>UP900(t),0)});UP900(t)/* V.900 · V.901 : อัปเดตสถานะทันทีเมื่อ Dropdown ลูกค้าเปลี่ยน */;MV916(t)/* V.916 */})();ph&&ph.classList.add("rc502-hide");tb&&(tb.classList.add("rc502-tabs"),nb&&tb.appendChild(nb));t.addEventListener("click",function(ev916){ev916.target&&ev916.target.closest&&ev916.target.closest("[data-rtab]")&&setTimeout(function(){MV916(t)},0)})/* V.916 : สลับแท็บแล้วปุ่ม MAERSK ตามไปอยู่แถวปุ่มของแท็บนั้น */;t.querySelectorAll("#rc-pending,#rc-issued").forEach(x=>x.classList.add("rc502"))})();let r={...g,scope:null,mode:"receipt",importMode:"accounting",filters:{},refresh:()=>{I==="pending"?M(t):o()}};t.dataset.chPage="finance-receipt",NK586(t,()=>t.dataset.chPage==="finance-receipt",()=>r.refresh()),t.__njToolClick&&t.removeEventListener("click",t.__njToolClick),t.__njToolClick=c=>{if(t.dataset.chPage!=="finance-receipt")return;let n=c.target.closest("[data-tool]");if(!n)return;if(n.dataset.tool==="export-soa"){SOA900(t);return}/* V.900 */rt(n.dataset.tool,r)},t.addEventListener("click",t.__njToolClick),t.querySelector(".rep-tabs").addEventListener("click",c=>{let n=c.target.closest("[data-rtab]");!n||n.dataset.rtab===I||(I=n.dataset.rtab,SEL795.clear(),BAD795.clear(),gt(t))});let s=t.querySelector('[data-pf="q"]');s&&(t.querySelector("#rp-go").onclick=()=>{$.q=s.value.trim(),FR678(t,"pf",$),$.page=1,M(t)},XR734(t),UPB820(t),FK678(t.querySelector("#rc-pending .fbar"),"#rp-go")),I==="pending"&&M(t);I==="sub925"&&SB925(t)/* V.925 */;I==="drf931"?DF931(t):NC931(t)/* V.931 */;RT830(t,()=>M(t),()=>I)/* V.826 */;let d=t.querySelector("#rc-new");d&&d.remove();t.__ld811=()=>o();/* V.837 */async function o(){let c=P("receipts");try{let n=await L835({company_group:"NJ",q:b.q||null,customer_id:b.customer||null,from:b.from||null,to:b.to||null,page:b.page,size:b.size,...FP678(b),sort853:"rcp"/* V.859 */})/* V.830 */;if(!q("receipts",c))return;BV800(t);let p=t.querySelector("#rc-tbody"),y=n.rows||[];SM811(t,n),p.innerHTML=y.length?y.map((o849,i849)=>RI811(o849,i849,(b.page-1)*b.size)).join(""):'<tr><td colspan="8" class="empty">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08</td></tr>',B(t.querySelector("#rc-pgn"),{page:b.page,size:b.size,total:n.total||0},({page:l,size:a})=>{b.page=l,b.size=a,o()},{lp:!0}),F(),t.__njCols&&t.__njCols.issued(),SY857(t,n)/* V.859 */}catch(n){if(!q("receipts",c))return;R(n);let p=t.querySelector("#rc-tbody");p&&p.querySelector(".spin")&&(p.innerHTML='<tr><td colspan="21" class="empty">\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 <button type="button" class="btn btn-sm btn-o" data-ld-retry>\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48</button></td></tr>',p.querySelector("[data-ld-retry]").onclick=()=>{p.innerHTML='<tr><td colspan="21" class="load-row"><div class="spin"></div></td></tr>',o()})}}RC762(t)/* V.762 */,AP797(t),OP797(t)/* V.797 */,LS801(t)/* V.801 */,RB811(t),XR811(t)/* V.811 */,XR857(t)/* V.858 */,FK678(t.querySelector("#rc-issued .fbar"),"#rc-go"),t.querySelector("#rc-go").onclick=()=>{t.querySelectorAll("[data-f]").forEach(c=>b[c.dataset.f]=c.value),b.page=1,o()};function h(){let c=t.querySelector("#rp-tbody");z({table:c&&c.closest("table"),modeKey:"FINANCE_RECEIPT_PENDING",host:t.querySelector("#rc-pending .fbar")})}function m(){let c=t.querySelector("#rc-tbody");z({table:c&&c.closest("table"),modeKey:MQ849()?"FINANCE_RECEIPT_ISSUED811":"FINANCE_RECEIPT_ISSUED849"/* V.849 */,host:t.querySelector("#rc-issued .fbar")})}RA795(t,()=>(M(t),OP797(t,!0))),t.__njCols={pending:h,issued:m},h(),m(),t.querySelector("#rc-tbody").addEventListener("click",async c=>{let n=c.target.closest("[data-print]");if(n){G(JSON.parse(n.dataset.print));return}let p=c.target.closest("[data-void]");if(p){let y=await Z("Void \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 "+p.dataset.no+" (\u0E08\u0E30 Void \u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E14\u0E49\u0E27\u0E22)");if(!y)return;try{await U("void-rc-"+p.dataset.void,()=>lt(p.dataset.void,y,H())),k("Void \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E2A\u0E16\u0E32\u0E19\u0E30\u0E0A\u0E33\u0E23\u0E30\u0E02\u0E2D\u0E07 INVOICE \u0E16\u0E39\u0E01\u0E04\u0E33\u0E19\u0E27\u0E13\u0E43\u0E2B\u0E21\u0E48","ok"),o()}catch(l){R(l)}}}),o()}async function M(t){let e=t.querySelector("#rp-tbody");if(!e)return;J=t;let r=P("rc-pending");try{let s=await et({company_group:"NJ",q:$.q||null,customer_id:$.customer||null,page:$.page,size:$.size,...FP678($)});if(!q("rc-pending",r))return;KP530(t,s);RA795(t,()=>(M(t),OP797(t,!0)));let d=s&&s.rows||[];BV800(t),e.innerHTML=d.map(o=>`<tr data-inv="${i(o.invoice_id)}" data-job800="${i(o.job_id||"")}">
       ${RC795(o)}${RR522(o)}
       ${A()?(o.src823?'<td class="center"><span class="t-3">-</span></td>':`<td class="center"><button type="button" class="btn btn-sm un678" data-backacc
             data-inv="${i(o.invoice_id)}" data-job="${i(o.job_id||"")}" data-no="${i(o.invoice_no||"")}"
@@ -462,8 +464,11 @@ function HC837(t) {   /* จำนวน INVOICE รอตรวจสอบก�
   let hb = t && t.querySelector("[data-h837]"); if (!hb) return;
   import("./adv-legacy-L836.js").then((m) => m.hcount837("RCP")).then((c) => { hb.isConnected && (hb.textContent = "รอตรวจสอบการรับชำระ (" + Number(c || 0).toLocaleString("th-TH") + ")"); }).catch(() => {});
 }
-function ED837(t, id) {   /* แก้ไขใบเสร็จ Excel (SERVICE) : PREVIEW / PDF = Template RECEIPT เดิม (RW795 / RL795) */
-  import("./adv-legacy-L836.js").then((m) => m.edit837({ src: "RCP", id, pv: (docs, o, h) => RW795(docs, o, h), load: (x) => RL795(["xl:" + x]),
+function ED837(t, id, kind) {   /* แก้ไขใบเสร็จ : PREVIEW / PDF = Template RECEIPT เดิม (RW795 / RL795) · V.932 : ทุกระบบ (kind = RCP / ADV = ระบบใหม่ · XLS / XADV = ระบบเก่า) */
+  kind = kind || "XLS";
+  let src = kind === "ADV" || kind === "XADV" ? "ADV" : "RCP", key = (x) => (kind === "XLS" ? "xl:" : kind === "XADV" ? "xadv:" : kind === "ADV" ? "adv:" : "") + x;
+  import("./adv-legacy-L836.js").then((m) => m.edit837({ src, id, sys: kind === "RCP" || kind === "ADV" ? "ACC" : "XLS", x932: !0,
+    pv: (docs, o, h) => RW795(src === "ADV" ? docs.map((d) => Object.assign(d, { kind: "ADV", status: d.status || "ACTIVE" })) : docs, o, h), load: (x) => RL795([key(x)]), print: (x, b) => RPR795(key(x), b),
     onDone: () => { t.isConnected && t.__ld811 && t.__ld811(); OP797(t, !0); HC837(t); } })).catch((e) => k("เปิดหน้าต่างแก้ไขไม่สำเร็จ — " + (e && e.message || e), "err"));
 }
 
@@ -709,25 +714,31 @@ function RE795(e) {   /* ข้อความ Error จาก Server → ภา
   if (/NJACC_RADV_DUPLICATE_NO|NJACC_RCP_DUPLICATE_NO/.test(m)) return "เลขเอกสารชน (" + m.replace(/^.*DUPLICATE_NO:\s*/, "") + ") — ยังไม่ได้บันทึก กรุณาลองใหม่";
   if (/NJACC_RADV_SEQ_FULL|NJACC_RCP_SEQ_FULL/.test(m)) return "เลขเอกสารเดือนนี้เต็มแล้ว";
   if (/NJACC_CUST836_REQUIRED/.test(m)) return "ยังไม่ได้ตรวจสอบ / ยืนยัน CUSTOMER ของรายการ UPLOAD EXCEL — กด “ตรวจสอบ / แก้ไข CUSTOMER” ก่อนออกใบเสร็จ";   /* V.836 */
+  if (/NJACC_RDF_IN_DRAFT/.test(m)) { let a = j("NJACC_RDF_IN_DRAFT:") || []; return "INVOICE อยู่ในฉบับร่างแล้ว : " + a.slice(0, 8).map((x) => (x.invoice_no || "") + " (" + (x.draft || "") + (x.by ? " · " + x.by : "") + ")").join(" · ") + (a.length > 8 ? " …" : "") + " — เปิดทำต่อที่แท็บ ฉบับร่าง (DRAFT) หรือลบฉบับร่างนั้นก่อน"; }   /* V.931 */
+  if (/NJACC_RDF_VER/.test(m)) { let w = m.replace(/^.*NJACC_RDF_VER:\s*/, "").trim(); return "ฉบับร่างนี้ถูกแก้ไขโดยผู้ใช้อื่น" + (w ? " (" + w + ")" : "") + " — กรุณาปิดแล้วเปิดฉบับร่างใหม่"; }
+  if (/NJACC_RDF_POSTED/.test(m)) return "ฉบับร่างนี้ POST ออกเลขใบเสร็จไปแล้ว — ดูได้ที่แท็บ ใบเสร็จที่ออกแล้ว";
+  if (/NJACC_RDF_(GONE|NOT_FOUND)/.test(m)) return "ไม่พบฉบับร่างนี้ (อาจถูกลบแล้ว)";
+  if (/NJACC_RCP_EMPTY/.test(m)) return "ไม่มี INVOICE ในรายการ";
+  if (/njacc_rdf931/i.test(m) && /PGRST202|schema cache|Could not find/i.test(m)) return "ระบบฐานข้อมูลยังไม่พร้อม (ต้องรัน RUN-931)";
   if (/njacc_rcp835/i.test(m) && /PGRST202|schema cache|Could not find/i.test(m)) return "ระบบฐานข้อมูลยังไม่พร้อม (ต้องรัน RUN-835)";   /* V.830 */
   if (/njacc_rcp818/i.test(m) && /PGRST202|schema cache|Could not find/i.test(m)) return "ระบบฐานข้อมูลยังไม่พร้อม (ต้องรัน RUN-818)";   /* V.814 */
   if (/njacc_rcp795|PGRST202|schema cache/i.test(m)) return "ระบบฐานข้อมูลยังไม่พร้อม (ต้องรัน RUN-795)";
   return m;
 }
 function RQ795() { try { return "rcp795-" + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random().toString(36).slice(2)); } catch (e) { return "rcp795-" + Date.now() + "-" + Math.random().toString(36).slice(2); } }
-async function RO795(t) {   /* หน้าต่างออกใบเสร็จ · V.814 (RUN-818) : ต่อลูกค้า RCP (SERVICE) + ADV (ADVANCE) — PREVIEW / SAVE / PRINT ทีเดียวทั้ง 2 ใบ */
-  if (BAD795.size) { let a = [...BAD795.values()]; k("ออกใบเสร็จไม่ได้ — เลือกรายการที่ยังไม่พร้อม " + a.length.toLocaleString("th-TH") + " รายการ : " + a.slice(0, 5).map((x) => (x.no || "-") + " (" + x.why + ")").join(" · ") + (a.length > 5 ? " …" : "") + " — กรุณายกเลิกการเลือกรายการเหล่านี้", "err"); return; }   /* V.828 */
-  let ids = [...SEL795.keys()]; if (!ids.length) return; ST814();
+async function RO795(t, dr0) {   /* V.931 : dr0 = ฉบับร่างที่เปิดทำต่อ (njacc_rdf931_get) */   /* หน้าต่างออกใบเสร็จ · V.814 (RUN-818) : ต่อลูกค้า RCP (SERVICE) + ADV (ADVANCE) — PREVIEW / SAVE / PRINT ทีเดียวทั้ง 2 ใบ */
+  if (!dr0 && BAD795.size) { let a = [...BAD795.values()]; k("ออกใบเสร็จไม่ได้ — เลือกรายการที่ยังไม่พร้อม " + a.length.toLocaleString("th-TH") + " รายการ : " + a.slice(0, 5).map((x) => (x.no || "-") + " (" + x.why + ")").join(" · ") + (a.length > 5 ? " …" : "") + " — กรุณายกเลิกการเลือกรายการเหล่านี้", "err"); return; }   /* V.828 */
+  let ids = dr0 ? (dr0.invoice_ids || []).map(String).concat((dr0.rx_ids || []).map((z) => "rx:" + z)) : [...SEL795.keys()]; if (!ids.length) return; ST814(); ST931();   /* V.931 */
   let A8 = () => ids.filter((z) => !/^rx:/.test(z)), B8 = () => ids.filter((z) => /^rx:/.test(z)).map((z) => z.slice(3));   /* V.830 : FLOW A = invoice_id (RPC เดิม) · FLOW B = rx823_id (RPC Excel) — ไม่ส่ง ID ข้าม RPC */
   if (ids.length > 3000) { k("เลือกได้สูงสุด 3,000 Invoice ต่อครั้ง — กรุณาค้นหาให้แคบลง", "err"); return; }
-  let st = { pv: null, seen: !1, req: RQ795(), busy: !1, done: null };
+  let st = { pv: null, seen: !1, req: RQ795(), busy: !1, done: null, dr: dr0 ? { id: dr0.id, ver: dr0.ver, label: dr0.draft_label } : null, dirty: !1 };   /* V.931 : dr = ฉบับร่างของหน้าต่างนี้ · dirty = แก้ไขแล้วยังไม่บันทึก */
   let body = document.createElement("div"); body.className = "rcp795-m";
-  body.innerHTML = `<div id="rcp795-pane-form"><div class="rcp795-f">
-      <label>วันที่ใบเสร็จ <span class="req">*</span><input type="date" class="inp" id="rcp795-date" value="${TD795()}" min="2026-11-01"></label>
-      <label>วิธีรับชำระ <span class="req">*</span><select class="sel" id="rcp795-method"><option value="">— เลือก —</option>${PM795.map((p) => `<option value="${p[0]}">${i(p[1])} (${i(p[2])})</option>`).join("")}</select></label>
+  body.innerHTML = `<div id="rcp795-pane-form"><div id="rdf931-bn" class="rdf931-bn" hidden></div><div class="rcp795-f">
+      <label>วันที่ใบเสร็จ <span class="req">*</span><input type="date" class="inp" id="rcp795-date" value="${dr0 ? i(dr0.receipt_date || "") : TD795()}" min="2026-11-01"></label>
+      <label>วิธีรับชำระ <span class="req">*</span><select class="sel" id="rcp795-method"><option value="">— เลือก —</option>${PM795.map((p) => `<option value="${p[0]}"${dr0 && dr0.payment_method === p[0] ? " selected" : ""}>${i(p[1])} (${i(p[2])})</option>`).join("")}</select></label>
     </div><div id="rcp795-sum" class="rcp795-sum"><div class="load-row"><div class="spin"></div></div></div></div><div id="rcp795-pane-doc" hidden></div>`;
   let foot = document.createElement("div"); foot.className = "rcp795-foot";
-  foot.innerHTML = `<button class="btn btn-o" data-close>ปิด</button><button class="btn btn-o" id="rcp795-pv" disabled>👁 ดูตัวอย่าง</button><button class="btn btn-p" id="rcp795-ok" disabled>✅ ยืนยันออกใบเสร็จ</button>`;
+  foot.innerHTML = `<button class="btn btn-o" data-close>ปิด</button><button class="btn btn-o" id="rcp795-pv" disabled>👁️ ดูตัวอย่าง</button><button class="btn rdf931-sv" id="rdf931-save" disabled title="บันทึกไว้ก่อน — ยังไม่ออกเลข RCP / ADV · ยังไม่ตัดยอดรับชำระ">🔵 บันทึกฉบับร่าง (SAVE DRAFT)</button><button class="btn btn-p rdf931-po" id="rcp795-ok" disabled>🟢 POST ออกเลขใบเสร็จ</button>`; foot.classList.add("rdf931-foot");   /* V.931 */
   Q({ title: "ใบเสร็จรับเงิน / RECEIPT", body, footer: foot, fullscreen: !0, wide: !0 });
   let q = (s) => body.querySelector(s) || foot.querySelector(s), sum = q("#rcp795-sum"), pf = q("#rcp795-pane-form"), pd = q("#rcp795-pane-doc");
   let back = () => { pd.hidden = !0; pd.innerHTML = ""; pf.hidden = !1; };
@@ -741,6 +752,7 @@ async function RO795(t) {   /* หน้าต่างออกใบเสร�
   let nR = () => st.pv ? st.pv.groups.filter((g) => Number(g.count) > 0).length : 0, nA = () => st.pv ? st.pv.groups.filter((g) => g.adv).length : 0;
   let sync = () => {
     let ok = st.pv && !st.pv.errors.length && st.pv.groups.length && q("#rcp795-date").value && q("#rcp795-method").value && !st.done && !NC836(st.pv);   /* V.836 : CUSTOMER (Excel) ต้องยืนยันครบ */
+    { let sv = q("#rdf931-save"); sv && (sv.disabled = !(st.pv && st.pv.groups.length && !st.pv.errors.length) || st.busy || !!st.done || !CAN795(), sv.hidden = !!st.done); }   /* V.931 : บันทึกฉบับร่างได้แม้ยังไม่เลือกวันที่ / วิธีรับชำระ */
     q("#rcp795-pv").disabled = !(st.pv && st.pv.groups.length && q("#rcp795-date").value && q("#rcp795-method").value) || st.busy || !!st.done;
     q("#rcp795-ok").disabled = !ok || !st.seen || st.busy;
     q("#rcp795-ok").title = NC836(st.pv) ? "กรุณาตรวจสอบ / ยืนยัน CUSTOMER ของรายการ UPLOAD EXCEL ก่อน" : ok && !st.seen ? "กรุณากดดูตัวอย่างก่อนยืนยัน" : "";
@@ -752,11 +764,12 @@ async function RO795(t) {   /* หน้าต่างออกใบเสร�
       + `<div class="rcp795-hd">ใบเสร็จที่จะออก : SERVICE (RCP) <b>${nR()}</b> ฉบับ · ADVANCE (ADV) <b>${nA()}</b> ฉบับ (ต่อลูกค้า 1 RCP + 1 ADV) · Payment Received รวม <b>${M795(tot / 100)}</b>${atot ? ` · Advance รวม <b>${M795(atot / 100)}</b>` : ""}</div>`
       + p.groups.map((g, k) => `<div class="rcp795-g"><div class="rcp795-gh"><span>ลูกค้าที่ ${k + 1} · <b>${i(g.customer_name)}</b></span><span>${Number(g.count) ? `RCP ${Number(g.count)} รายการ · <b>${M795(g.total)}</b>` : "ไม่มี SERVICE"}${g.adv ? ` · ADV ${Number(g.adv.count)} รายการ · <b>${M795(g.adv.total)}</b>` : ""}</span></div>`
           + (g.src === "EXCEL" ? CB836(g) : "")   /* V.836 */
-          + (Number(g.count) ? `<div class="rcp814-cap">ใบที่ 1 · SERVICE — RECEIPT (RCP)</div><table class="tbl rcp795-t"><thead><tr><th>No.</th><th>Invoice</th><th>Invoice Date</th><th>เลขที่งาน</th><th class="r">Invoice Amount</th><th class="r">Withholding Tax (7%)</th><th class="r">Payment Received</th></tr></thead><tbody>${(g.items || []).map((x, j) => `<tr><td class="center">${j + 1}</td><td>${i(x.invoice_no)}</td><td>${D795(x.invoice_date)}</td><td class="t-3">${i(x.job_no || "")}</td><td class="r">${M795(x.invoice_amount)}</td><td class="r">${M795(x.wht_amount)}</td><td class="r">${M795(x.received)}</td></tr>`).join("")}</tbody></table>` : "")
-          + (g.adv ? `<div class="rcp814-cap rcp814-a">ใบที่ ${Number(g.count) ? 2 : 1} · ADVANCE — RECEIPT ADVANCE (ADV)</div><table class="tbl rcp795-t"><thead><tr><th>No.</th><th>Invoice</th><th>Invoice Date</th><th>เลขที่งาน</th><th class="r">Advance Amount</th></tr></thead><tbody>${(g.adv.items || []).map((x, j) => `<tr><td class="center">${j + 1}</td><td>${i(x.invoice_no)}</td><td>${D795(x.invoice_date)}</td><td class="t-3">${i(x.job_no || "")}</td><td class="r">${M795(x.amount)}</td></tr>`).join("")}</tbody></table>` : "")
+          + (Number(g.count) ? `<div class="rcp814-cap">ใบที่ 1 · SERVICE — RECEIPT (RCP)</div><table class="tbl rcp795-t"><thead><tr><th>No.</th><th>Invoice</th><th>Invoice Date</th><th>เลขที่งาน</th><th class="r">Invoice Amount</th><th class="r">Withholding Tax (7%)</th><th class="r">Payment Received</th>${st.dr ? "<th></th>" : ""}</tr></thead><tbody>${(g.items || []).map((x, j) => `<tr><td class="center">${j + 1}</td><td>${i(x.invoice_no)}</td><td>${D795(x.invoice_date)}</td><td class="t-3">${i(x.job_no || "")}</td><td class="r">${M795(x.invoice_amount)}</td><td class="r">${M795(x.wht_amount)}</td><td class="r">${M795(x.received)}</td>${RM931(st, x)}</tr>`).join("")}</tbody></table>` : "")
+          + (g.adv ? `<div class="rcp814-cap rcp814-a">ใบที่ ${Number(g.count) ? 2 : 1} · ADVANCE — RECEIPT ADVANCE (ADV)</div><table class="tbl rcp795-t"><thead><tr><th>No.</th><th>Invoice</th><th>Invoice Date</th><th>เลขที่งาน</th><th class="r">Advance Amount</th>${st.dr ? "<th></th>" : ""}</tr></thead><tbody>${(g.adv.items || []).map((x, j) => `<tr><td class="center">${j + 1}</td><td>${i(x.invoice_no)}</td><td>${D795(x.invoice_date)}</td><td class="t-3">${i(x.job_no || "")}</td><td class="r">${M795(x.amount)}</td>${RM931(st, x)}</tr>`).join("")}</tbody></table>` : "")
           + `</div>`).join("");
+    sum.querySelectorAll("[data-rm931]").forEach((b) => { b.onclick = () => { if (st.busy || st.done) return; if (ids.length <= 1) { k("ฉบับร่างต้องมีอย่างน้อย 1 INVOICE — หากไม่ต้องการแล้วให้ลบฉบับร่างที่แท็บ ฉบับร่าง (DRAFT)", "err"); return; } ids = ids.filter((z) => z !== b.dataset.rm931); st.dirty = !0; bn(); load(); }; });   /* V.931 */
     sum.querySelectorAll("[data-c836]").forEach((b) => { b.onclick = async () => { try { let m = await import("./adv-legacy-L836.js"); (await m.cust836(JSON.parse(b.dataset.c836), {})) && load(); } catch (e) { k("เปิดหน้าต่าง CUSTOMER ไม่สำเร็จ — " + (e && e.message || e), "err"); } }; });   /* V.836 */
-    let dr = q("#rcp795-drop"); dr && (dr.onclick = () => { p.errors.forEach((e) => SEL795.delete(e.rx823_id ? "rx:" + e.rx823_id : String(e.invoice_id))); RS795(t); t.querySelectorAll(".rcp795-cb[data-rcp]").forEach((c) => { c.checked = SEL795.has(c.dataset.rcp); }); ids = [...SEL795.keys()]; ids.length ? load() : (sum.innerHTML = '<div class="empty">ไม่มีรายการที่เลือก</div>', st.pv = null, sync()); });
+    let dr = q("#rcp795-drop"); dr && (dr.onclick = () => { p.errors.forEach((e) => SEL795.delete(e.rx823_id ? "rx:" + e.rx823_id : String(e.invoice_id))); RS795(t); t.querySelectorAll(".rcp795-cb[data-rcp]").forEach((c) => { c.checked = SEL795.has(c.dataset.rcp); }); ids = st.dr ? (st.dirty = !0, ids.filter((z) => !p.errors.some((e) => (e.rx823_id ? "rx:" + e.rx823_id : String(e.invoice_id)) === z))) : [...SEL795.keys()]; st.dr && bn(); /* V.931 */ ids.length ? load() : (sum.innerHTML = '<div class="empty">ไม่มีรายการที่เลือก</div>', st.pv = null, sync()); });
     sync();
   };
   let load = async () => {
@@ -776,7 +789,9 @@ async function RO795(t) {   /* หน้าต่างออกใบเสร�
     try {
       let exp = st.pv.groups.flatMap((g) => (g.all || []).map((z) => ({ invoice_id: z.invoice_id, invoice_amount: z.invoice_amount, wht_amount: z.wht_amount, received: z.received, adv_amount: z.adv_amount, customer_id: g.customer_id, invoice_no: z.invoice_no, rx823_id: z.rx823_id, customer_key: z.customer_key || g.customer_key, cust_ver: z.cust_ver })));   /* V.836 : ชื่อลูกค้าใน Excel ต่อรายการ + ver ของ CUSTOMER ที่ยืนยัน */
       let xb = exp.filter((z) => z.rx823_id);   /* V.830 : มีรายการ Excel = njacc_rcp835_issue (FLOW B + FLOW A เดิมในธุรกรรมเดียว) · ไม่มี = njacc_rcp818_issue เดิม */
-      let r = xb.length ? await V("njacc_rcp835_issue", { p: { request_id: st.req, invoice_ids: exp.filter((z) => z.invoice_id).map((z) => z.invoice_id), rx_ids: xb.map((z) => z.rx823_id), receipt_date: d, payment_method: m, issuer: IS795(x), expected: exp } })
+      if (st.dr && st.dirty) await save(!0);   /* V.931 : แก้ไขค้างอยู่ = บันทึกฉบับร่างก่อน POST */
+      let r = st.dr ? await V("njacc_rdf931_post", { p: { draft_id: st.dr.id, ver: st.dr.ver, request_id: st.req, receipt_date: d, payment_method: m, issuer: IS795(x), expected: exp } })   /* V.931 */
+        : xb.length ? await V("njacc_rcp835_issue", { p: { request_id: st.req, invoice_ids: exp.filter((z) => z.invoice_id).map((z) => z.invoice_id), rx_ids: xb.map((z) => z.rx823_id), receipt_date: d, payment_method: m, issuer: IS795(x), expected: exp } })
         : await V("njacc_rcp818_issue", { p: { request_id: st.req, invoice_ids: exp.map((z) => z.invoice_id), receipt_date: d, payment_method: m, issuer: IS795(x), expected: exp } });
       st.done = r && r.pairs || []; st.req = RQ795();
       SEL795.clear(); BAD795.clear(); RS795(t);
@@ -787,10 +802,10 @@ async function RO795(t) {   /* หน้าต่างออกใบเสร�
       foot.insertAdjacentHTML("beforeend", `<button class="btn btn-green" id="rcp795-all-docs">📄 ดู / ดาวน์โหลด / พิมพ์ (${all.length} ฉบับ)</button>`);
       q("#rcp795-all-docs").onclick = () => open(keys(st.done));
       ok.textContent = "✅ ออกแล้ว"; k("ออกใบเสร็จ " + all.map((z) => z.receipt_no).join(", ") + " แล้ว", "ok");
-      try { CTX795 && CTX795.refresh && CTX795.refresh(); } catch (e) {}
+      try { CTX795 && CTX795.refresh && CTX795.refresh(); } catch (e) {} st.dr && (bn(), DR931(t));   /* V.931 */
       return st.done;
     } catch (e) {
-      let msg = RE795(e); k("ออกใบเสร็จไม่สำเร็จ — " + msg, "err"); ok.textContent = "✅ ยืนยันออกใบเสร็จ";
+      let msg = RE795(e); k("ออกใบเสร็จไม่สำเร็จ — " + msg, "err"); ok.textContent = "🟢 POST ออกเลขใบเสร็จ";
       if (/NJACC_RCP_(CHANGED|INVALID)|NJACC_CUST836/.test(String(e && e.message || e))) { await load(); sum.insertAdjacentHTML("afterbegin", `<div class="rcp795-err">${i(msg)}</div>`); }
       return null;
     } finally { st.busy = !1; sync(); }
@@ -801,8 +816,8 @@ async function RO795(t) {   /* หน้าต่างออกใบเสร�
       if (pr) { let dd = FD844(docs, MD844(docs, md)); (await PX869(dd, FX814(dd), null, !1)) || RX795(dd.map((d) => RF795(d, !1)).join(""), FX814(dd)); }   /* V.870 */
     } catch (e) { back(); k("เปิดใบเสร็จไม่สำเร็จ — " + RE795(e) + " (ดาวน์โหลดภายหลังได้จากแถบใบเสร็จที่ออกแล้ว)", "err"); }
   };
-  q("#rcp795-date").onchange = () => { st.seen = !1; sync(); };
-  q("#rcp795-method").onchange = () => { st.seen = !1; sync(); };
+  q("#rcp795-date").onchange = () => { st.seen = !1; st.dr && (st.dirty = !0, bn()); sync(); };
+  q("#rcp795-method").onchange = () => { st.seen = !1; st.dr && (st.dirty = !0, bn()); sync(); };
   q("#rcp795-pv").onclick = async () => {
     let d = q("#rcp795-date").value, m = q("#rcp795-method").value; if (!st.pv || !d || !m) return;
     let I = IS795(x), docs = [];
@@ -823,8 +838,32 @@ async function RO795(t) {   /* หน้าต่างออกใบเสร�
     back();
     let r = await issue(ask); r && (await open(keys(r)));
   };
+  /* V.931 : ฉบับร่าง — แถบสถานะ + บันทึก (สร้าง / แก้ไข) · ยังไม่ออกเลข · ยังไม่ตัดยอด */
+  function bn() { let h = q("#rdf931-bn"); if (!h) return; h.hidden = !st.dr; st.dr && (h.innerHTML = st.done ? `✅ <b>ฉบับร่าง ${i(st.dr.label || "")}</b> POST ออกเลขใบเสร็จแล้ว` : `📝 <b>ฉบับร่าง ${i(st.dr.label || "")}</b> · ยังไม่ออกเลข RCP / ADV · ยังไม่ตัดยอดรับชำระ${st.dirty ? ' · <span class="rdf931-dt">มีการแก้ไขที่ยังไม่บันทึก</span>' : ""}`); }
+  async function save(quiet) {
+    if (st.done || !st.pv || (st.busy && !quiet)) return null;
+    if (st.pv.errors.length) { if (quiet) throw new Error("มีรายการที่ออกใบเสร็จไม่ได้ — กรุณานำรายการที่มีปัญหาออกก่อน"); k("บันทึกฉบับร่างไม่ได้ — มีรายการที่ออกใบเสร็จไม่ได้ กรุณานำรายการที่มีปัญหาออกก่อน", "err"); return null; }
+    let sv = q("#rdf931-save"), was = st.busy; st.busy = !0; sync(); sv && (sv.textContent = "กำลังบันทึกฉบับร่าง…");
+    try {
+      let nw = !st.dr, r = await V("njacc_rdf931_save", { p: { draft_id: st.dr ? st.dr.id : null, ver: st.dr ? st.dr.ver : null, src837: B8().length ? "XLS" : "ACC", invoice_ids: A8(), rx_ids: B8(), receipt_date: q("#rcp795-date").value || null, payment_method: q("#rcp795-method").value || null } });
+      st.dr = { id: r.id, ver: r.ver, label: r.draft_label }; st.dirty = !1; bn();
+      if (nw) { ids.forEach((z) => { SEL795.delete(z); BAD795.delete(z); }); RS795(t); draw(); try { CTX795 && CTX795.refresh && CTX795.refresh(); } catch (e) {} }   /* INVOICE ย้ายออกจากรอรับชำระ → ฉบับร่าง */
+      DR931(t);
+      quiet || k("บันทึกฉบับร่าง " + (r.draft_label || "") + " แล้ว — ยังไม่ออกเลขใบเสร็จ · เปิดทำต่อได้ที่แท็บ ฉบับร่าง (DRAFT)", "ok");
+      return r;
+    } catch (e) {
+      if (quiet) throw e;
+      k("บันทึกฉบับร่างไม่สำเร็จ — " + RE795(e), "err");
+      if (/NJACC_RCP_INVALID/.test(String(e && e.message || e))) { st.busy = was; await load(); }
+      return null;
+    } finally { st.busy = was; sv && (sv.textContent = "🔵 บันทึกฉบับร่าง (SAVE DRAFT)"); sync(); }
+  }
+  q("#rdf931-save").onclick = () => { save(!1); };
+  bn();
   await load();
+  return { preview: () => { let b = q("#rcp795-pv"); if (b && !b.disabled) { b.click(); return !0; } return !1; } };   /* V.931 : แท็บฉบับร่าง — ปุ่ม ดูตัวอย่าง / POST */
 }
+function RM931(st, x) { return st.dr && !st.done ? `<td class="center"><button type="button" class="btn btn-sm rdf931-rm" data-rm931="${i(x.rx823_id ? "rx:" + x.rx823_id : String(x.invoice_id || ""))}" title="นำ INVOICE นี้ออกจากฉบับร่าง (กลับไปรอรับชำระเมื่อบันทึก)">✕</button></td>` : st.dr ? "<td></td>" : ""; }
 /* ═══ V.836 (RUN-836) · FLOW B (UPLOAD EXCEL) : CUSTOMER ต้องยืนยันก่อนออกใบเสร็จ — กล่องข้อมูลลูกค้าในหน้าต่างออกใบเสร็จ (ACCOUNTING = เดิม ไม่แสดงกล่องนี้) ═══ */
 function NC836(p) { return !!(p && (p.groups || []).some((g) => g.src === "EXCEL" && g.customer_status !== "OK")); }
 function CB836(g) {
@@ -1232,7 +1271,7 @@ function RI849(o, ix, off) {
     + `<td class="r pay849" data-l="Payment Received">${M795(v.pay)}</td>`
     + `<td class="center nowrap col-act" data-l="จัดการ"><button type="button" class="btn btn-sm b811" data-d811="${id}" title="รายละเอียด INVOICE / RCP / ADV — ${lab}">รายการ</button>`
     + `<button type="button" class="btn btn-sm p849" data-p849="${id}" aria-haspopup="menu" title="พิมพ์ / PREVIEW / ดาวน์โหลด PDF — ${lab} (เลขเดิม)">พิมพ์ ▼</button>`
-    + (o.kind === "XLS" && A() ? `<button type="button" class="btn btn-sm ed837" data-e837="${i(o.receipt_id || "")}" title="แก้ไข — เพิ่ม / นำออก INVOICE · VOID ใบเดิม + ออกใบใหม่ (SUPER_ADMIN)">แก้ไข</button>` : "") + `</td></tr>`;
+    + (A() ? `<button type="button" class="btn btn-sm ed837" data-e837="${i(o.receipt_id || "")}" data-k932="${i(o.kind || "RCP")}" title="แก้ไขใบเสร็จ — เพิ่ม / นำออก INVOICE · วิธีรับชำระ · ใช้เลขเดิม (SUPER_ADMIN)">✏️ แก้ไข</button>` : "") + `</td></tr>`;
 }
 function P849(b, key) {   /* เมนู พิมพ์ ▼ : เฉพาะ SERVICE / เฉพาะ ADVANCE / ทั้ง 2 ใบ (PDF เดียว · SERVICE ก่อน) + PREVIEW + ดาวน์โหลด PDF — เอกสารที่บันทึก (ไม่ออกเลขใหม่) */
   let ps = String(key || "").split(",").filter(Boolean), A8 = ps.filter((z) => /^x?adv:/.test(z)), S8 = ps.filter((z) => !/^x?adv:/.test(z));
@@ -1270,7 +1309,7 @@ function RI811(o, ix, off) {
     + `<td class="r m843" data-l="Tax (3%)">${v.tax ? "-" + M795(v.tax) : M795(0)}</td>`
     + `<td class="r t-b" data-l="Payment Received">${M795(v.pay)}</td>`
     + `<td class="nowrap" data-l="สถานะ">${SS841(o, adv)}</td>`   /* V.841 */
-    + `<td class="center nowrap col-act" data-l="จัดการ"><button type="button" class="btn btn-sm b811" data-d811="${id}" title="ดู JOB / INVOICE ทั้งหมดในใบเสร็จ ${lab}">รายการ</button>${o.kind === "XLS" && A() ? `<button type="button" class="btn btn-sm ed837" data-e837="${i(o.receipt_id || "")}" title="แก้ไข — เพิ่ม / นำออก INVOICE · VOID ใบเดิม + ออกใบใหม่ (SUPER_ADMIN)">แก้ไข</button>` : ""}`
+    + `<td class="center nowrap col-act" data-l="จัดการ"><button type="button" class="btn btn-sm b811" data-d811="${id}" title="ดู JOB / INVOICE ทั้งหมดในใบเสร็จ ${lab}">รายการ</button>${A() ? `<button type="button" class="btn btn-sm ed837" data-e837="${i(o.receipt_id || "")}" data-k932="${i(o.kind || "RCP")}" title="แก้ไขใบเสร็จ — เพิ่ม / นำออก INVOICE · วิธีรับชำระ · ใช้เลขเดิม (SUPER_ADMIN)">✏️ แก้ไข</button>` : ""}`
     + `<button type="button" class="btn btn-sm rcp795-b rcp795-pv" data-rcp-pv="${id}" title="PREVIEW — ${lab}">PREVIEW</button>`
     + `<button type="button" class="btn btn-sm rcp795-b rcp795-pr" data-rcp-pr="${id}" title="PRINT — ${lab} (เลขเดิม)">PRINT</button>`
     + `<button type="button" class="btn btn-sm rcp795-b rcp795-sv" data-rcp-sv="${id}" title="SAVE PDF — ${lab}">SAVE PDF</button></td></tr>`;
@@ -1311,7 +1350,7 @@ async function DT811(key) {   /* หน้าต่างรายละเอ�
 function RB811(t) {   /* คลิกแถว / Enter / ปุ่มรายการ → รายละเอียด (ผูกครั้งเดียวต่อหน้า) */
   if (!t || t.__rb811) return; t.__rb811 = 1;
   t.addEventListener("click", (ev) => {
-    let e8 = ev.target.closest && ev.target.closest("[data-e837]"); if (e8 && t.contains(e8)) { ev.preventDefault(); ED837(t, e8.dataset.e837); return; }   /* V.837 */
+    let e8 = ev.target.closest && ev.target.closest("[data-e837]"); if (e8 && t.contains(e8)) { ev.preventDefault(); ED837(t, e8.dataset.e837, e8.dataset.k932); return; }   /* V.837 · V.932 : ทุกระบบ */
     let a8 = ev.target.closest && ev.target.closest("[data-ia844]"); if (a8 && t.contains(a8)) { ev.preventDefault(); IA844(t, a8.dataset.ia844); return; }   /* V.844 */
     let p8 = ev.target.closest && ev.target.closest("[data-p849]"); if (p8 && t.contains(p8)) { ev.preventDefault(); P849(p8, p8.dataset.p849); return; }   /* V.849 */
     let g = ev.target.closest && ev.target.closest("[data-d811]"); if (g && t.contains(g)) { ev.preventDefault(); DT811(g.dataset.d811); return; }
@@ -2601,4 +2640,78 @@ function SB925(t) {
     t.isConnected && I === "sub925" && m.sub925(h, { menu: "RECEIPT", sys: SRC837 === "XLS" ? "xls" : "new", reset: !0,
       onCount: (nn) => { let z = t.querySelector('[data-rtab="sub925"] .n925'); z && (z.textContent = Number(nn || 0).toLocaleString("th-TH")); } });
   }).catch((e) => { h.innerHTML = '<div class="card empty">โหลดรายการย่อยชำระไม่สำเร็จ — ' + i(String(e && e.message || e)) + "</div>"; });
+}
+
+/* ═══ V.931 (RUN-931) · FINANCE → RECEIPT : แท็บ "ฉบับร่าง (DRAFT)" — ระบบใหม่ / ระบบเก่า ตามแถบย่อยเดิม (SRC837)
+   รายการ : njacc_rdf931_list · เปิด / แก้ไข / ดูตัวอย่าง / POST = หน้าต่างออกใบเสร็จเดิม (RO795 · ข้อมูลตรวจใหม่จาก Server ทุกครั้งที่เปิด) · ลบ = njacc_rdf931_delete (INVOICE กลับไปรอรับชำระ)
+   ฉบับร่างไม่ออกเลข RCP / ADV และไม่ตัดยอดรับชำระ · POST = ฟังก์ชันออกใบเสร็จเดิมในธุรกรรมเดียวกับการปิดฉบับร่าง ═══ */
+var DQ931 = { q: "", page: 1, size: 20 };
+function ST931() {
+  if (document.getElementById("st931")) return;
+  let s = document.createElement("style"); s.id = "st931";
+  s.textContent = ".n931{display:inline-block;margin-left:6px;padding:0 7px;border-radius:999px;background:rgba(180,83,9,.16);font-size:11.5px;font-weight:700;line-height:18px}.rep-tab.active .n931{background:rgba(255,255,255,.28)}.n931:empty{display:none}"
+    + ".rdf931-bn{margin:0 0 10px;padding:8px 12px;border:1px solid #F5A623;background:#FFF7E6;color:#92400e;border-radius:8px;font-size:13px}.rdf931-dt{color:#b91c1c;font-weight:700}"
+    + ".btn.rdf931-sv{background:#2563EB!important;border:1px solid #2563EB!important;color:#fff!important;font-weight:700}.btn.rdf931-sv:disabled{opacity:.5}.btn.rdf931-po{background:#15803D!important;border-color:#15803D!important;color:#fff!important;font-weight:700}.btn.rdf931-po:disabled{opacity:.5}"
+    + ".rdf931-foot{flex-wrap:wrap;gap:8px}.btn.rdf931-rm{min-width:0;padding:0 8px;height:26px;line-height:1;border:1px solid #fca5a5!important;background:#fff!important;color:#b91c1c!important;font-weight:700}"
+    + ".df931-t td,.df931-t th{white-space:nowrap}.df931-t td.df931-c{white-space:normal;min-width:160px;max-width:300px}.df931-s{display:block;font-size:12px;color:#64748b}.rcp898 .fbar #df931-go{background:#1D4ED8!important;border-color:#1D4ED8!important;color:#fff!important}.df931-a{display:flex;gap:6px;flex-wrap:nowrap}.df931-a .btn{height:30px;padding:0 8px;font-size:12.5px;font-weight:700;white-space:nowrap}"
+    + ".btn.df931-op{background:#fff!important;border:1px solid #B45309!important;color:#B45309!important}.btn.df931-pv{background:#fff!important;border:1px solid #17365D!important;color:#17365D!important}.btn.df931-po{background:#15803D!important;border:1px solid #15803D!important;color:#fff!important}.btn.df931-dl{background:#fff!important;border:1px solid #dc2626!important;color:#dc2626!important}"
+    + ".df931-info{font-size:13px;color:#475569;margin-left:auto}.df931-pg{display:flex;gap:8px;align-items:center;justify-content:flex-end;padding:8px 4px;font-size:13px}.df931-no{font-weight:700;color:#B45309}.df931-miss{color:#b91c1c}"
+    + "@media (max-width:640px){.rdf931-foot .btn{flex:1 1 45%}.df931-info{margin-left:0;flex:1 1 100%}}";
+  document.head.appendChild(s);
+}
+function NB931(t, r) { let z = t && t.querySelector('[data-rtab="drf931"] .n931'); if (!z) return; let n = r && r.counts ? Number(r.counts[SRC837] || 0) : null; z.textContent = n == null ? "" : n.toLocaleString("th-TH"); }
+function NC931(t) { ST931(); V("njacc_rdf931_list", { p: { src837: SRC837, page: 1, size: 1 } }).then((r) => { t && t.isConnected && NB931(t, r); }).catch(() => {}); }   /* จำนวนบนแท็บ (ยังไม่รัน RUN-931 = ไม่แสดง) */
+function DR931(t) { try { t && t.isConnected && (I === "drf931" ? DF931(t, !0) : NC931(t)); } catch (e) {} }
+function DT931(v) { try { let d = new Date(v); if (isNaN(d)) return ""; return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: !1 }).format(d).replace(",", ""); } catch (e) { return ""; } }
+async function DF931(t, keep) {
+  ST931(); let h = t && t.querySelector("#rc-drf931"); if (!h) return;
+  if (!keep) { DQ931.q = ""; DQ931.page = 1; }
+  let can = CAN795();
+  if (!h.__b931) {
+    h.__b931 = 1;
+    h.innerHTML = `<div class="ch-panel"><div class="fbar"><input class="inp" id="df931-q" placeholder="เลขฉบับร่าง / ลูกค้า / INVOICE" title="ค้นหา เลขฉบับร่าง / ลูกค้า / INVOICE No."><button type="button" class="btn btn-o btn-sm" id="df931-go">ค้นหา</button><button type="button" class="btn btn-o btn-sm clr797" id="df931-clr">ล้างค้นหา</button><button type="button" class="btn btn-sm rf881" id="df931-rf" title="โหลดรายการฉบับร่างล่าสุดจากฐานข้อมูล">⟳ รีเฟรช</button><span class="df931-info" id="df931-info"></span></div>`
+      + `<div class="tbl-wrap lp-scroll"><table class="tbl df931-t"><thead><tr><th class="center">ลำดับ</th><th>เลขฉบับร่าง</th><th class="center">จัดการ</th><th>ลูกค้า</th><th class="r">INVOICE</th><th class="center">RCP / ADV (ฉบับ)</th><th class="r">Payment Received</th><th class="r">Advance Amount</th><th>วันที่ใบเสร็จ / วิธีรับชำระ</th><th>บันทึกล่าสุด</th></tr></thead><tbody id="df931-tb"></tbody></table></div><div class="df931-pg" id="df931-pg"></div></div>`;
+    let go = () => { DQ931.q = h.querySelector("#df931-q").value.trim(); DQ931.page = 1; DF931(t, !0); };
+    h.querySelector("#df931-go").onclick = go;
+    h.querySelector("#df931-q").onkeydown = (ev) => { ev.key === "Enter" && go(); };
+    h.querySelector("#df931-clr").onclick = () => { h.querySelector("#df931-q").value = ""; go(); };
+    h.querySelector("#df931-rf").onclick = () => DF931(t, !0);
+    h.addEventListener("click", async (ev) => {
+      let b = ev.target.closest && ev.target.closest("[data-d931],[data-pg931]"); if (!b || !h.contains(b) || b.disabled) return;
+      ev.preventDefault();
+      if (b.dataset.pg931) { DQ931.page = Math.max(1, DQ931.page + Number(b.dataset.pg931)); DF931(t, !0); return; }
+      if (h.__busy931) return; h.__busy931 = 1; b.disabled = !0;
+      try {
+        let act = b.dataset.d931, id = b.dataset.id;
+        if (act === "del") {
+          if (!(await Y("ลบฉบับร่าง", "ต้องการลบฉบับร่าง " + (b.dataset.no || "") + " ใช่หรือไม่ — INVOICE ในฉบับร่างนี้จะกลับไปอยู่ที่ รอรับชำระ (ไม่กระทบ INVOICE และใบเสร็จที่ออกแล้ว)"))) return;
+          await V("njacc_rdf931_delete", { p: { id, ver: Number(b.dataset.ver) } });
+          k("ลบฉบับร่าง " + (b.dataset.no || "") + " แล้ว — INVOICE กลับไปรอรับชำระ", "ok"); await DF931(t, !0); return;
+        }
+        let d = await V("njacc_rdf931_get", { p: { id } });
+        if (!d || d.status !== "DRAFT") { k(d && d.status === "POSTED" ? "ฉบับร่างนี้ POST ออกเลขใบเสร็จไปแล้ว — ดูได้ที่แท็บ ใบเสร็จที่ออกแล้ว" : "ไม่พบฉบับร่างนี้ (อาจถูกลบแล้ว)", "err"); await DF931(t, !0); return; }
+        let w = await RO795(t, d);
+        if (w && act !== "open") { w.preview() ? act === "post" && k("ตรวจสอบตัวอย่างแล้วกด SAVE เพื่อ POST ออกเลขใบเสร็จ", "ok") : k("ยังดูตัวอย่าง / POST ไม่ได้ — กรุณาเลือกวันที่ใบเสร็จและวิธีรับชำระ และแก้รายการที่มีปัญหาให้ครบก่อน", "err"); }
+      } catch (e) { k("ดำเนินการไม่สำเร็จ — " + RE795(e), "err"); DF931(t, !0); }
+      finally { h.__busy931 = 0; b.isConnected && (b.disabled = !1); }
+    });
+  }
+  let tb = h.querySelector("#df931-tb"), info = h.querySelector("#df931-info"), pg = h.querySelector("#df931-pg"), qi = h.querySelector("#df931-q");
+  qi && document.activeElement !== qi && (qi.value = DQ931.q);
+  let sq = (h.__sq931 = (h.__sq931 || 0) + 1);
+  tb.innerHTML = '<tr><td colspan="10" class="load-row"><div class="spin"></div></td></tr>';
+  try {
+    let r = await V("njacc_rdf931_list", { p: { src837: SRC837, q: DQ931.q || null, page: DQ931.page, size: DQ931.size } });
+    if (sq !== h.__sq931 || !h.isConnected) return;
+    let rows = r && r.rows || [], total = Number(r && r.total || 0), pages = Math.max(1, Math.ceil(total / DQ931.size));
+    if (!rows.length && DQ931.page > 1) { DQ931.page = pages; return DF931(t, !0); }
+    NB931(t, r);
+    info.textContent = "ฉบับร่าง " + total.toLocaleString("th-TH") + " รายการ (" + (SRC837 === "XLS" ? "ระบบเก่า" : "ระบบใหม่") + ") · ยังไม่ออกเลขใบเสร็จ";
+    tb.innerHTML = rows.length ? rows.map((o, n) => `<tr><td class="center">${(DQ931.page - 1) * DQ931.size + n + 1}</td><td class="df931-no">${i(o.draft_label || "")}</td><td>${can ? `<div class="df931-a"><button type="button" class="btn btn-sm df931-op" data-d931="open" data-id="${i(o.id)}" title="เปิดดู / แก้ไข / บันทึกเพิ่มเติม">เปิด / แก้ไข</button><button type="button" class="btn btn-sm df931-pv" data-d931="pv" data-id="${i(o.id)}" title="ดูตัวอย่าง PDF (SAMPLE · ยังไม่ออกเลข)">👁️ ดูตัวอย่าง</button><button type="button" class="btn btn-sm df931-po" data-d931="post" data-id="${i(o.id)}" title="POST ออกเลขใบเสร็จ">🟢 POST</button><button type="button" class="btn btn-sm df931-dl" data-d931="del" data-id="${i(o.id)}" data-ver="${Number(o.ver)}" data-no="${i(o.draft_label || "")}" title="ลบฉบับร่าง — INVOICE กลับไปรอรับชำระ">ลบ</button></div>` : ""}</td><td class="df931-c">${i(o.customer_names || "-")}</td><td class="r">${Number(o.item_count || 0).toLocaleString("th-TH")}</td><td class="center">${Number(o.rcp_count || 0)} / ${Number(o.adv_count || 0)}</td><td class="r">${M795(o.total_received)}</td><td class="r">${M795(o.total_advance)}</td><td>${o.receipt_date ? D795(o.receipt_date) : '<span class="df931-miss">ยังไม่ระบุวันที่</span>'}<span class="df931-s">${o.payment_method ? i(PML795(o.payment_method)) : '<span class="df931-miss">ยังไม่ระบุวิธีรับชำระ</span>'}</span></td><td>${DT931(o.updated_at)}<span class="df931-s">${i(o.updated_by_name || o.created_by_name || "")}</span></td></tr>`).join("")
+      : `<tr><td colspan="10" class="empty">${DQ931.q ? "ไม่พบฉบับร่างตามคำค้นหา" : "ยังไม่มีฉบับร่าง — เลือก INVOICE ที่แท็บ รอรับชำระ แล้วกด “บันทึกฉบับร่าง (SAVE DRAFT)”"}</td></tr>`;
+    pg.innerHTML = total > DQ931.size ? `<button type="button" class="btn btn-o btn-sm" data-pg931="-1"${DQ931.page <= 1 ? " disabled" : ""}>‹ ก่อนหน้า</button><span>หน้า ${DQ931.page} / ${pages}</span><button type="button" class="btn btn-o btn-sm" data-pg931="1"${DQ931.page >= pages ? " disabled" : ""}>ถัดไป ›</button>` : "";
+  } catch (e) {
+    if (sq !== h.__sq931 || !h.isConnected) return;
+    info.textContent = ""; pg.innerHTML = ""; tb.innerHTML = '<tr><td colspan="10" class="empty">โหลดรายการฉบับร่างไม่สำเร็จ — ' + i(RE795(e)) + "</td></tr>";
+  }
 }

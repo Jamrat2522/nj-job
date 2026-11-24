@@ -777,6 +777,10 @@ const R837 = (e) => {
   if (/NJACC_R837_CHANGED/.test(m)) return "ข้อมูลเปลี่ยนแปลงหลัง PREVIEW (รายการ / ยอด / CUSTOMER) — โหลดข้อมูลล่าสุดแล้ว กรุณา PREVIEW ใหม่";
   if (/NJACC_R837_NOT_ACTIVE/.test(m)) return "ใบเสร็จนี้ถูกยกเลิก (VOID) แล้ว — แก้ไขได้เฉพาะใบที่มีผล";
   if (/NJACC_R837_NOCHANGE/.test(m)) return "ยังไม่มีรายการที่เพิ่ม / นำออก หรือ CUSTOMER ที่เปลี่ยน";
+  if (/NJACC_RE932_APPROVE/.test(m)) return "ยอดเงินของใบเสร็จเปลี่ยน — ต้องติ๊กยืนยันการตรวจสอบและอนุมัติก่อนบันทึก";   /* V.932 */
+  if (/NJACC_RE932_ADV_SRC/.test(m)) return m.replace(/^.*NJACC_RE932_ADV_SRC:\s*/, "");
+  if (/NJACC_RDF_IN_DRAFT/.test(m)) { try { return "INVOICE อยู่ในฉบับร่าง : " + JSON.parse(m.replace(/^.*NJACC_RDF_IN_DRAFT:\s*/, "")).map((x) => (x.invoice_no || "") + " (" + (x.draft || "") + ")").join(" · ") + " — เพิ่มเข้าใบเสร็จไม่ได้ (ลบฉบับร่างก่อน)"; } catch (x) {} }
+  if (/PGRST202|schema cache|Could not find the function/i.test(m) && /932/.test(m)) return "ระบบฐานข้อมูลยังไม่พร้อม (ต้องรัน RUN-932)";
   if (/PGRST202|schema cache|Could not find the function/i.test(m) && /837/.test(m)) return "ระบบฐานข้อมูลยังไม่พร้อม (ต้องรัน RUN-837)";
   return RE836(e);
 };
@@ -813,26 +817,47 @@ function SB863(f, nn, shown, all) {   /* แถบค้นหาเหนือ
     + (ON863(f) ? `<span class="e863-n" id="e863-n">\u0E41\u0E2A\u0E14\u0E07 <b>${shown.toLocaleString("th-TH")}</b> \u0E08\u0E32\u0E01 <b>${all.toLocaleString("th-TH")}</b> \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 (\u0E01\u0E23\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E41\u0E2A\u0E14\u0E07\u0E1C\u0E25\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19)</span>` : "")
     + `</div>`;
 }
+/* ═══ V.932 (RUN-932) · แก้ไขใบเสร็จที่ออกแล้วจาก FINANCE → RECEIPT : ระบบใหม่ (njacc_re932_*) + ระบบเก่า (njacc_r837_* เดิม + วิธีรับชำระ / เลขงาน) — เลขเดิมเสมอ ═══ */
+const PM932 = [["TRANSFER", "โอนเงิน (Bank Transfer)"], ["CASH", "เงินสด (Cash)"], ["CHEQUE", "เช็ค (Cheque)"], ["OTHER", "อื่น ๆ (Other)"]];
+function ST932() {
+  if (document.getElementById("st932")) return;
+  let s = document.createElement("style"); s.id = "st932";
+  s.textContent = ".e932-fc{display:flex;flex-direction:column;gap:8px}.e932-fc .sel{height:34px}"
+    + ".e932-ap{display:flex;gap:8px;align-items:flex-start;margin:8px 0;padding:8px 10px;border:1px solid #f59e0b;background:#fffbeb;border-radius:8px;font-size:13px;color:#92400e;cursor:pointer}.e932-ap input{margin-top:3px;flex:0 0 auto}"
+    + ".btn.e932-sv{background:#2563EB!important;border:1px solid #2563EB!important;color:#fff!important;font-weight:700}.btn.e932-pr{background:#fff!important;border:1px solid #17365D!important;color:#17365D!important;font-weight:700}.btn.e932-sv:disabled,.btn.e932-pr:disabled{opacity:.5}"
+    + ".e837 .inp.e932-job{width:130px;min-width:110px;height:30px;padding:2px 6px;font-size:12.5px}"
+    + ".radv788-foot:has(#e932-pr){display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}@media (max-width:640px){.radv788-foot:has(#e932-pr){width:100%}.radv788-foot:has(#e932-pr) .btn{flex:1 1 45%;min-width:0;margin:0;white-space:nowrap;padding-left:6px;padding-right:6px}}";
+  document.head.appendChild(s);
+}
 export async function edit837(o) {
   ST836(); ST837(); o = o || {};
-  let src = o.src === "ADV" ? "ADV" : "RCP", id = o.id, st = { g: null, add: new Map(), rem: new Set(), pv: null, seen: !1, busy: !1, req: RQ("r837"), done: null, tm: 0, tk: 0, f863: { inv: "", comp: "", cjn: "" }, d863: { inv: "", comp: "", cjn: "" } };   /* V.863 */
+  let src = o.src === "ADV" ? "ADV" : "RCP", id = o.id, acc = o.sys === "ACC", X9 = !!o.x932 /* V.932 : acc = ระบบใหม่ · X9 = เปิดจาก FINANCE → RECEIPT */, st = { x: null, meth: "", jobs: new Map(), jobs0: {}, appr: !1, g: null, add: new Map(), rem: new Set(), pv: null, seen: !1, busy: !1, req: RQ("r837"), done: null, tm: 0, tk: 0, f863: { inv: "", comp: "", cjn: "" }, d863: { inv: "", comp: "", cjn: "" } };   /* V.863 */
   let lab = src === "RCP" ? "RECEIPT (SERVICE)" : "RECEIPT ADVANCE";
   let body = document.createElement("div"); body.className = "e837";
   body.innerHTML = '<div id="e837-form"><div class="load-row"><div class="spin"></div></div></div><div id="e837-doc" hidden></div>';
   let foot = document.createElement("div"); foot.className = "radv788-foot";
-  foot.innerHTML = '<button class="btn btn-o" data-close>ปิด</button><button class="btn btn-o" id="e837-pv" disabled>👁 PREVIEW ฉบับแก้ไข</button><button class="btn btn-green" id="e837-ok" disabled>💾 บันทึกการแก้ไข</button>';   /* V.845 */
-  let M845 = MODAL({ title: "แก้ไข " + lab + " — UPLOAD EXCEL (ระบบเก่า)", body, footer: foot, fullscreen: !0, wide: !0 });
+  foot.innerHTML = X9 ? '<button class="btn btn-o" data-close>ปิด</button><button class="btn btn-o" id="e837-pv" disabled>👁️ ดูตัวอย่าง</button><button class="btn e932-sv" id="e837-ok" disabled>🔵 บันทึกการแก้ไข</button><button class="btn e932-pr" id="e932-pr" disabled>🖨️ พิมพ์ PDF</button>'   /* V.932 */
+    : '<button class="btn btn-o" data-close>ปิด</button><button class="btn btn-o" id="e837-pv" disabled>👁 PREVIEW ฉบับแก้ไข</button><button class="btn btn-green" id="e837-ok" disabled>💾 บันทึกการแก้ไข</button>';   /* V.845 */
+  X9 && ST932();
+  let M845 = MODAL({ title: "แก้ไข " + lab + (acc ? " — ACCOUNTING (ระบบใหม่)" : " — UPLOAD EXCEL (ระบบเก่า)"), body, footer: foot, fullscreen: !0, wide: !0 });
   let q = (s) => body.querySelector(s) || foot.querySelector(s), F = q("#e837-form"), PD = q("#e837-doc");
   let back = () => { PD.hidden = !0; PD.innerHTML = ""; F.hidden = !1; };
   let showDocs = async (docs, opt) => { F.hidden = !0; PD.hidden = !1; PD.innerHTML = '<div class="load-row"><div class="spin"></div></div>'; await o.pv(docs, Object.assign({ back }, opt), PD); };
-  let changed = () => st.add.size > 0 || st.rem.size > 0 || !!(st.pv && st.pv.customer_changed);
+  /* V.932 : วิธีรับชำระ / วันที่ / เลขงาน (ไม่เปลี่ยนรายการ) · ยอดเปลี่ยน = ต้องยืนยันอนุมัติ */
+  let JD932 = () => { let o9 = {}; st.jobs.forEach((v, k9) => { let a9 = String(v || "").trim(), b9 = String(st.jobs0[k9] || "").trim(); a9 !== b9 && (o9[k9] = a9); }); return o9; };
+  let meta = () => !!(st.x && st.g) && (st.meth !== String(st.g.payment_method || "") || (!!st.date && st.date !== String(st.g.receipt_date || "").slice(0, 10)) || Object.keys(JD932()).length > 0);
+  let amt = () => { let p9 = st.pv, a9 = p9 && p9.adv849; return !!p9 && (Math.round(Number(p9.diff || 0) * 100) !== 0 || !!p9.amount_changed || !!p9.void_only || !!(a9 && ((a9.add || []).length || (a9.rem || []).length))); };
+  F.addEventListener("change", (ev) => { let t9 = ev.target; if (!t9) return; if (t9.id === "e932-ap") st.appr = t9.checked; else if (t9.id === "e932-method") { st.meth = t9.value; st.seen = !1; sc(); } });
+  F.addEventListener("input", (ev) => { let t9 = ev.target; if (t9 && t9.dataset && t9.dataset.j932) { st.jobs.set(t9.dataset.j932, t9.value); sc(); } });
+  let changed = () => st.add.size > 0 || st.rem.size > 0 || !!(st.pv && st.pv.customer_changed) || meta();
   let sc = () => {
     let g = st.g, act = g && g.status === "ACTIVE" && !st.done, why = q("#e837-why"), rs = why ? why.value.trim() : "", e = st.pv && (st.pv.errors || []).length;
     let vo = !!(st.pv && st.pv.void_only);   /* V.845 : นำออกทั้งหมด = VOID อย่างเดียว (ไม่มีฉบับใหม่ให้ PREVIEW) */
     q("#e837-pv").disabled = !act || !st.pv || !!e || !changed() || st.busy || vo;
     let cs8 = q("#e837-cusave"); cs8 && (cs8.disabled = !act || st.busy || !(st.pv && st.pv.customer_changed && st.pv.customer_new));   /* V.842 */
     q("#e837-ok").disabled = !act || !st.pv || !!e || !changed() || st.busy;   /* V.845 : บันทึกได้โดยไม่ต้อง PREVIEW ก่อน */
-    q("#e837-ok").title = !act ? "" : !changed() ? "ยังไม่มีรายการที่เพิ่ม / นำออก" : !st.pv ? "กำลังคำนวณยอดจาก Database…" : e ? "แก้ไขข้อผิดพลาดก่อน" : rs.length < 5 ? "กรุณาระบุเหตุผล (อย่างน้อย 5 ตัวอักษร)" : vo ? "VOID ใบเสร็จเดิม · INVOICE ทั้งหมดกลับรอรับชำระ (ไม่ออกใบใหม่)" : "บันทึก : VOID ใบเดิม + ออกใบใหม่";
+    q("#e837-ok").title = !act ? "" : !changed() ? "ยังไม่มีรายการที่เพิ่ม / นำออก" : !st.pv ? "กำลังคำนวณยอดจาก Database…" : e ? "แก้ไขข้อผิดพลาดก่อน" : rs.length < 5 ? "กรุณาระบุเหตุผล (อย่างน้อย 5 ตัวอักษร)" : vo ? "VOID ใบเสร็จเดิม · INVOICE ทั้งหมดกลับรอรับชำระ (ไม่ออกใบใหม่)" : X9 ? "บันทึกการแก้ไข — ใช้เลขใบเสร็จเดิม" : "บันทึก : VOID ใบเดิม + ออกใบใหม่";
+    let pr9 = q("#e932-pr"); pr9 && (pr9.disabled = !g || g.status !== "ACTIVE" || st.busy || changed(), pr9.title = changed() ? "มีการแก้ไขที่ยังไม่บันทึก — บันทึกการแก้ไขก่อนพิมพ์" : "พิมพ์ PDF ใบเสร็จ " + ((g && g.receipt_no) || "") + " (เลขเดิม)");   /* V.932 */
   };
   let SUM = () => {
     let p = st.pv, g = st.g; if (!p) return '<div class="load-row"><div class="spin"></div></div>';
@@ -843,10 +868,11 @@ export async function edit837(o) {
       + (p.void_only ? "" : src === "RCP" ? `<div style="font-size:12px;color:#475569">ใบใหม่ : Invoice Amount ${MONEY(p.new.invoice_amount)} · WHT 3% ${MONEY(p.new.wht_amount)} · Payment Received ${MONEY(p.new.amount)} (สูตรเดิม · WHT ต่อ INVOICE ปัด 2 ตำแหน่ง · ไม่รวม ADVANCE)</div>`
                      : '<div style="font-size:12px;color:#475569">ยอด = ADVANCE ที่ตรวจแล้วเท่านั้น (ไม่หัก WHT · ไม่ใช้ Total Amount แทน)</div>')
       + ((p.errors || []).length ? `<div class="radv788-err"><b>⚠ ยืนยันไม่ได้ :</b><ul>${p.errors.map((e) => `<li>${n(e)}</li>`).join("")}</ul></div>` : "")
+      + (st.x && changed() && !(p.errors || []).length && amt() ? `<label class="e932-ap" id="e932-apbox"><input type="checkbox" id="e932-ap"${st.appr ? " checked" : ""}><span><b>ยอดเงินของใบเสร็จเปลี่ยนจากที่ออกไว้</b> — ข้าพเจ้า (SUPER_ADMIN) ตรวจสอบและอนุมัติการแก้ไขเอกสารนี้แล้ว (บันทึกชื่อผู้อนุมัติ วันที่ และเวลา)</span></label>` : "")   /* V.932 */
       + (changed() && !(p.errors || []).length && p.void_only ? `<div class="radv788-err" id="e845-vo"><b>⚠ นำ INVOICE ออกทั้งหมด (${N(p.rem_count)} รายการ)</b> — เมื่อบันทึก : <b>VOID ${n(g.receipt_no)}</b> อย่างเดียว · ไม่ออกใบเสร็จใหม่ (ไม่มีใบยอดศูนย์ · ไม่ใช้เลขใหม่) · INVOICE ทั้งหมดกลับไป <b>รอรับชำระ</b> · ไม่ลบ INVOICE · เก็บประวัติ / Audit ครบ</div>` : "")
       + (changed() && !(p.errors || []).length && !p.void_only ? `<div class="e837-note">` + (p.v849 ? `เมื่อบันทึก : แก้ไขใบเสร็จ<b>เลขเดิม ${n(g.receipt_no)}</b> (ไม่ออกเลขใหม่ · ไม่ใช้ตัวนับ · เก็บฉบับก่อนแก้ไข + Audit Log)` + (p.adv849 && ((p.adv849.add || []).length || (p.adv849.rem || []).length) ? `<br>ADVANCE คู่ : ` + (p.adv849.target ? `<b>${n(p.adv849.target.receipt_no)}</b> (เลขเดิม) ` : "") + ((p.adv849.add || []).length ? (p.adv849.target ? `เพิ่ม ${N(p.adv849.add.length)} INVOICE · ${MONEY(p.adv849.add_amount)}` : `<b>ยังไม่มีใบ ADV ของชุดนี้</b> — INVOICE ที่เพิ่ม ${N(p.adv849.add.length)} รายการมี ADVANCE ${MONEY(p.adv849.add_amount)} ต้องออกใบ ADV ใหม่ (ปุ่ม ออก ADV)`) : "") + ((p.adv849.rem || []).length ? ` · นำออก ${N(p.adv849.rem.length)} INVOICE · ${MONEY(p.adv849.rem_amount)} (กลับรอรับชำระ)` : "") : "") + ``
         : `เมื่อบันทึก : <b>VOID ${n(g.receipt_no)}</b> (เก็บเลข / รายการ / ยอด / PDF เดิมไว้ครบ) → ออกใบใหม่เลขถัดไป <b>${n(p.next_no || g.next_no)}</b> (ตัวนับส่วนกลาง · ออกเลขจริงเมื่อยืนยัน)`)
-        + (p.rem_count ? (p.v845 ? ` · INVOICE ที่นำออก ${N(p.rem_count)} รายการ = <b>กลับไปรอรับชำระ</b> ` + (src === "ADV" ? "(FINANCE → ADVANCE → รอรับชำระ · ไม่ลบ INVOICE / JOB ต้นทาง · ไม่ต้อง UPLOAD EXCEL ใหม่ · ใบ RCP / SERVICE ไม่เปลี่ยน)" : "(FINANCE → RECEIPT → รอรับชำระ · ไม่ลบ INVOICE · ไม่ต้อง UPLOAD EXCEL ใหม่ · ADVANCE ไม่เปลี่ยน)")
+        + (p.rem_count ? (p.v845 ? ` · INVOICE ที่นำออก ${N(p.rem_count)} รายการ = <b>กลับไปรอรับชำระ</b> ` + (acc ? (src === "ADV" ? "(ไม่ลบ INVOICE · ใบ RCP ไม่เปลี่ยน)" : "(FINANCE → RECEIPT → รอรับชำระ · ไม่ลบ INVOICE · ใบ ADV คู่ปรับพร้อมกัน)") : src === "ADV" ? "(FINANCE → ADVANCE → รอรับชำระ · ไม่ลบ INVOICE / JOB ต้นทาง · ไม่ต้อง UPLOAD EXCEL ใหม่ · ใบ RCP / SERVICE ไม่เปลี่ยน)" : "(FINANCE → RECEIPT → รอรับชำระ · ไม่ลบ INVOICE · ไม่ต้อง UPLOAD EXCEL ใหม่ · ADVANCE ไม่เปลี่ยน)")
           : ` · INVOICE ที่นำออก ${N(p.rem_count)} รายการ = <b>รอตรวจสอบการรับชำระ</b> (ไม่ลบ · ไม่คืนรอรับชำระจนกว่าจะตรวจสอบเงินจริง)`) : "") + `</div>` : "");
   };
   let ROWS = () => {
@@ -854,13 +880,13 @@ export async function edit837(o) {
     let money = (x) => src === "RCP" ? `<td class="r">${MONEY(x.invoice_amount)}</td><td class="r">${MONEY(x.wht_amount)}</td><td class="r"><b>${MONEY(x.amount)}</b></td>` : `<td class="r"><b>${MONEY(x.amount)}</b></td>`;
     let row = (x, k, i) => `<tr class="${k === "r" ? "rm837" : k === "a" ? "ad837" : ""}"><td class="center keep837">${act ? (k === "a" ? `<button type="button" class="btn btn-sm btn-o" data-un837="${n(x.item_id)}" title="ไม่เพิ่มรายการนี้">✕</button>`
         : k === "r" ? `<button type="button" class="btn btn-sm btn-o" data-back837="${n(x.item_id)}" title="ไม่นำออก">คืน</button>` : `<input type="checkbox" class="e837-cb" data-it="${n(x.item_id)}" aria-label="เลือก ${n(x.invoice_no)}">`) : ""}</td>`
-      + `<td>${i}</td><td><b>${n(x.invoice_no)}</b></td><td>${D(x.invoice_date)}</td><td>${n(x.excel_name || "-")}</td><td>${n(x.company_invoice || "-")}</td><td>${n(x.customer_job_no || "-")}</td>${money(x)}`
+      + `<td>${i}</td><td><b>${n(x.invoice_no)}</b></td><td>${D(x.invoice_date)}</td><td>${n(x.excel_name || "-")}</td><td>${n(x.company_invoice || "-")}</td><td>${n(x.customer_job_no || "-")}</td>${!X9 || !(acc || st.x) ? "" : acc ? `<td>${n(x.job_no || "-")}</td>` : `<td><input type="text" class="inp e932-job" data-j932="${n(x.item_id)}" maxlength="60" value="${n(st.jobs.has(x.item_id) ? st.jobs.get(x.item_id) : "")}" placeholder="เลขงาน" aria-label="เลขงาน ${n(x.invoice_no)}"${act && k !== "r" ? "" : " disabled"}></td>`}${money(x)}`
       + `<td class="keep837"><span class="bd837 ${k}">${k === "a" ? "เพิ่ม" : k === "r" ? "นำออก" : "เดิม"}</span></td></tr>`;
     let L8 = (cur.map((x) => ({ x, k: st.rem.has(x.item_id) ? "r" : "k" })).concat([...st.add.values()].map((x) => ({ x, k: "a" }))));   /* V.863 : รายการทั้งหมดในใบเสร็จ */
     let f8 = st.f863, U8 = (ON863(f8) ? L8.filter((z) => MT863(z.x, f8)) : L8).slice().sort((p8, q8) => CM863(p8.x.invoice_no, q8.x.invoice_no));   /* V.863 : กรองคำค้น → เรียงเลข INVOICE น้อย → มาก (ทั้งชุด) */
     let i = 0, h = U8.map((z) => row(z.x, z.k, ++i)).join("");
-    return SB863(st.d863, n, U8.length, L8.length) + `<div class="tbl-wrap"><table class="tbl e837-tb"><thead><tr><th class="center">${act ? '<input type="checkbox" id="e837-all" aria-label="เลือกทั้งหมด">' : ""}</th><th>No.</th><th>INVOICE</th><th>วันที่ INVOICE</th><th>ลูกค้า (Excel)</th><th>บริษัท INVOICE</th><th>Customer Job No.</th>`
-      + (src === "RCP" ? '<th class="r">Invoice Amount</th><th class="r">WHT 7%</th><th class="r">Amount Charge</th>' : '<th class="r">Advance Amount</th>') + `<th>สถานะ</th></tr></thead><tbody>${h || (ON863(st.f863) ? '<tr><td colspan="12" class="empty">ไม่พบรายการตามคำค้น · กด “ล้างค้นหา” เพื่อแสดงทั้งหมด</td></tr>' : '<tr><td colspan="12" class="empty">ไม่มีรายการ</td></tr>')}</tbody></table></div>`;
+    return SB863(st.d863, n, U8.length, L8.length) + `<div class="tbl-wrap"><table class="tbl e837-tb"><thead><tr><th class="center">${act ? '<input type="checkbox" id="e837-all" aria-label="เลือกทั้งหมด">' : ""}</th><th>No.</th><th>INVOICE</th><th>วันที่ INVOICE</th><th>${acc ? "ลูกค้า" : "ลูกค้า (Excel)"}</th><th>บริษัท INVOICE</th><th>Customer Job No.</th>${X9 && (acc || st.x) ? "<th>เลขงาน (JOB NO.)</th>" : ""}`
+      + (src === "RCP" ? '<th class="r">Invoice Amount</th><th class="r">' + (acc ? "WHT 3%" : "WHT 7%") + '</th><th class="r">Amount Charge</th>' : '<th class="r">Advance Amount</th>') + `<th>สถานะ</th></tr></thead><tbody>${h || (ON863(st.f863) ? '<tr><td colspan="12" class="empty">ไม่พบรายการตามคำค้น · กด “ล้างค้นหา” เพื่อแสดงทั้งหมด</td></tr>' : '<tr><td colspan="12" class="empty">ไม่มีรายการ</td></tr>')}</tbody></table></div>`;
   };
   let HIST = () => {
     let g = st.g, ch = g.chain || [], lg = g.log || [], hd = g.holds || [];
@@ -871,7 +897,7 @@ export async function edit837(o) {
       + (hd.length ? `<h4>INVOICE ที่นำออก (${N(hd.length)})</h4><div class="tbl-wrap"><table><thead><tr><th>INVOICE</th><th class="r">ยอด</th><th>นำออกจาก</th><th>สถานะ</th><th>ผลตรวจสอบ</th></tr></thead><tbody>`
         + hd.map((h) => `<tr><td>${n(h.invoice_no)}</td><td class="r">${MONEY(h.amount)}</td><td>${n(h.from_receipt_no)}${h.new_receipt_no ? " → " + n(h.new_receipt_no) : " (VOID)"}</td><td>${h.status === "HOLD" ? '<span class="bd837 h">รอตรวจสอบการรับชำระ</span>' : h.status === "RELEASED" ? '<span class="bd837 a">คืนรอรับชำระแล้ว</span>' : '<span class="bd837 k">ปิด (รับเงินแล้ว)</span>'}</td><td>${n(h.resolved_by_name || "")} ${n(h.resolve_note || "")}</td></tr>`).join("") + `</tbody></table></div>` : "")
       + (lg.length ? `<h4>บันทึกการแก้ไข (Audit)</h4><div class="tbl-wrap"><table><thead><tr><th>เวลา</th><th>รายการ</th><th>เดิม → ใหม่</th><th>จำนวน</th><th class="r">ยอด</th><th>เหตุผล</th><th>ผู้ทำ</th></tr></thead><tbody>`
-        + lg.map((l) => `<tr><td>${n(String(l.at || "").slice(0, 16).replace("T", " "))}</td><td>${n(l.action === "VOID_REISSUE" ? "VOID + ออกใหม่" : l.action === "VOID_ONLY" ? "VOID (นำ INVOICE ออกทั้งหมด)" : l.action === "EDIT_INPLACE" ? "แก้ไข (เลขเดิม)" : l.action === "EDIT_INPLACE_SYNC" ? "ADVANCE ปรับตาม SERVICE (เลขเดิม)" : l.action === "HOLD_RELEASE" ? "คืนรอรับชำระ" : l.action === "HOLD_CLOSE" ? "ปิดรายการ" : l.action === "CUSTOMER_EDIT" ? "แก้ไข CUSTOMER (เลขเดิม)" : l.action)}`
+        + lg.map((l) => `<tr><td>${n(String(l.at || "").slice(0, 16).replace("T", " "))}</td><td>${n(l.action === "VOID_REISSUE" ? "VOID + ออกใหม่" : l.action === "VOID_ONLY" ? "VOID (นำ INVOICE ออกทั้งหมด)" : l.action === "EDIT_INPLACE" ? "แก้ไข (เลขเดิม)" : l.action === "EDIT_INPLACE_SYNC" ? "ADVANCE ปรับตาม SERVICE (เลขเดิม)" : l.action === "HOLD_RELEASE" ? "คืนรอรับชำระ" : l.action === "HOLD_CLOSE" ? "ปิดรายการ" : l.action === "CUSTOMER_EDIT" ? "แก้ไข CUSTOMER (เลขเดิม)" : l.action === "EDIT_META932" || l.action === "EDIT_META" ? "แก้ไขรายละเอียดการรับชำระ / เลขงาน (เลขเดิม)" : l.action)}`
           + `${(l.added || []).length ? `<br><small>เพิ่ม : ${n(l.added.map((z) => z.invoice_no).join(", "))}</small>` : ""}${(l.removed || []).length ? `<br><small>นำออก : ${n(l.removed.map((z) => z.invoice_no).join(", "))}</small>` : ""}</td>`
           + `<td>${n(l.old_receipt_no || "")}${l.new_receipt_no ? " → " + n(l.new_receipt_no) : ""}</td><td>${l.count_new != null ? N(l.count_old) + " → " + N(l.count_new) : N(l.count_old)}</td>`
           + `<td class="r">${l.amount_new != null ? MONEY(l.amount_old) + " → " + MONEY(l.amount_new) : MONEY(l.amount_old)}</td><td>${n(l.reason || "")}</td><td>${n(l.by_name || "")}</td></tr>`).join("") + `</tbody></table></div>` : "") + `</div>`;
@@ -889,12 +915,13 @@ export async function edit837(o) {
       + `<div><span>วิธีรับชำระ</span><b>${n(g.payment_method || "-")}</b></div><div><span>COMPANY INVOICE</span><b>${n((g.company_invoices || []).join(", ") || "-")}</b></div>`
       + ((g.prev_nos || []).length ? `<div><span>แทนใบเดิม (VOID)</span><b>${n(g.prev_nos.join(", "))}</b></div>` : "") + `</div>`
       + (g.status === "VOID" ? `<div class="e837-note">ใบนี้ถูกยกเลิก (VOID) แล้ว${g.void_reason ? " — " + n(g.void_reason) : ""} · แก้ไขได้เฉพาะใบที่มีผล (ดูประวัติด้านล่าง)</div>` : "")
-      + `<h4>ข้อมูล CUSTOMER</h4><div class="e837-cu"><div><b>ในใบเสร็จเดิม</b>${CUB(g.customer)}</div><div><b>ที่จะใช้ในใบใหม่ (ข้อมูลที่ยืนยันแล้ว)</b><div id="e837-cunew">${CUN()}</div>`
-      + (act ? `<div style="margin-top:6px"><button type="button" class="btn btn-sm cu836" id="e837-cu">ตรวจสอบ / แก้ไข CUSTOMER</button> <button type="button" class="btn btn-sm btn-p" id="e837-cusave" disabled title="บันทึก CUSTOMER ที่ยืนยันแล้วลงใบเสร็จเลขเดิม (ไม่ VOID · ไม่ออกเลขใหม่)">💾 บันทึกการแก้ไข</button> <small style="color:#64748b">เลือกจาก Customer Master หรือกรอกเอง · ไม่แก้ Customer Master · เก็บประวัติ</small></div>` : "") + `</div></div>`
+      + (acc ? `<h4>ข้อมูล CUSTOMER</h4><div class="e837-cu"><div>${CUB(g.customer)}</div></div>` : `<h4>ข้อมูล CUSTOMER</h4><div class="e837-cu"><div><b>ในใบเสร็จเดิม</b>${CUB(g.customer)}</div><div><b>ที่จะใช้ในใบใหม่ (ข้อมูลที่ยืนยันแล้ว)</b><div id="e837-cunew">${CUN()}</div>`
+      + (act ? `<div style="margin-top:6px"><button type="button" class="btn btn-sm cu836" id="e837-cu">ตรวจสอบ / แก้ไข CUSTOMER</button> <button type="button" class="btn btn-sm btn-p" id="e837-cusave" disabled title="บันทึก CUSTOMER ที่ยืนยันแล้วลงใบเสร็จเลขเดิม (ไม่ VOID · ไม่ออกเลขใหม่)">💾 บันทึกการแก้ไข</button> <small style="color:#64748b">เลือกจาก Customer Master หรือกรอกเอง · ไม่แก้ Customer Master · เก็บประวัติ</small></div>` : "") + `</div></div>`)
       + `<h4>รายการ INVOICE ภายในใบเสร็จ</h4>`
       + (act ? `<div class="e837-bar"><button type="button" class="btn btn-sm btn-p" id="e837-add">${src === "ADV" ? "+ เพิ่ม INVOICE ADV" : "+ เพิ่ม INVOICE"}</button><button type="button" class="btn btn-sm" id="e837-rm" style="border:1px solid #b91c1c;color:#b91c1c;background:#fff;font-weight:700" disabled>นำรายการที่เลือกออก</button><span id="e837-sel" style="color:#475569"></span></div>` : "")
       + ROWS() + `<div id="e837-sum">${act ? SUM() : ""}</div>`
-      + (act ? `<div class="e837-f"><label>วันที่ใบเสร็จฉบับใหม่<input type="date" class="inp" id="e837-date" min="2026-11-01" value="${n(st.date || String(g.receipt_date || "").slice(0, 10))}"></label>`
+      + (act ? `<div class="e837-f"><div class="e932-fc"><label>${st.x ? "วันที่ใบเสร็จ" : "วันที่ใบเสร็จฉบับใหม่"}<input type="date" class="inp" id="e837-date" min="2026-11-01" value="${n(st.date || String(g.receipt_date || "").slice(0, 10))}"></label>`
+        + (st.x ? `<label>วิธีรับชำระ<select class="sel" id="e932-method">${PM932.map((z) => `<option value="${z[0]}"${st.meth === z[0] ? " selected" : ""}>${n(z[1])}</option>`).join("")}</select></label>` : "") + `</div>`   /* V.932 */
         + `<label>เหตุผลการแก้ไข <span class="req">*</span><textarea id="e837-why" maxlength="500" placeholder="เช่น นำ INVOICE ที่ลูกค้ายังไม่ชำระออก / เพิ่ม INVOICE ที่ชำระพร้อมกัน">${n(st.why || "")}</textarea></label></div>` : "")
       + HIST();
     let all = F.querySelector("#e837-all"), cbs = () => [...F.querySelectorAll(".e837-cb")], rm = F.querySelector("#e837-rm"), sel = F.querySelector("#e837-sel");
@@ -938,19 +965,24 @@ export async function edit837(o) {
     st.tm = setTimeout(async () => {
       try {
         let dt = q("#e837-date");
-        let r = await RPC("njacc_r837_preview", { p: { src, id, add: [...st.add.keys()], remove: [...st.rem], receipt_date: dt ? dt.value || null : null } }); if (tk !== st.tk) return;
+        let r = await RPC(acc ? "njacc_re932_preview" : "njacc_r837_preview", { p: { src, id, add: [...st.add.keys()], remove: [...st.rem], receipt_date: dt ? dt.value || null : null } }); if (tk !== st.tk) return;
         st.pv = r; paint();
       } catch (e) { if (tk !== st.tk) return; let s2 = q("#e837-sum"); s2 && (s2.innerHTML = `<div class="radv788-err">${n(R837(e))}</div>`); sc(); }
     }, 120);
   };
   let load = async () => {
-    try { st.g = await RPC("njacc_r837_get", { p: { src, id } }); } catch (e) { F.innerHTML = `<div class="radv788-err">${n(R837(e))}</div>`; return; }
+    try {
+      st.g = await RPC(acc ? "njacc_re932_get" : "njacc_r837_get", { p: acc ? { sys: "ACC", src, id } : { src, id } });
+      st.x = acc ? st.g : null;   /* V.932 : ระบบเก่า = ข้อมูลเสริม (วิธีรับชำระ / เลขงาน) — ยังไม่รัน RUN-932 = หน้าต่างเดิมทุกอย่าง */
+      if (X9 && !acc) { try { st.x = await RPC("njacc_re932_get", { p: { sys: "XLS", src, id } }); } catch (e9) { st.x = null; } }
+      st.meth = String(st.g.payment_method || ""); st.jobs0 = Object.assign({}, (st.x && st.x.job_nos) || {}); st.jobs = new Map(Object.entries(st.jobs0)); st.appr = !1;
+    } catch (e) { F.innerHTML = `<div class="radv788-err">${n(R837(e))}</div>`; return; }
     if (st.g.status === "ACTIVE" && !st.done) recalc(); else draw();
   };
   let pick = () => {   /* + เพิ่ม INVOICE : รอรับชำระ FLOW B ประเภทเดียวกัน · ลูกค้าเดียวกัน (ชื่อใน Excel หรือ TAX ID + BRANCH + ที่อยู่ที่ยืนยันตรงกัน) */
     let ov = document.createElement("div"); ov.className = "c836-ov"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true");
-    ov.innerHTML = `<div class="c836-b" style="max-width:980px"><div class="c836-h"><h3>+ เพิ่ม INVOICE (รอรับชำระ · UPLOAD EXCEL · ${src === "RCP" ? "SERVICE" : "ADVANCE"})</h3><button type="button" class="btn-icon" data-x837 aria-label="ปิด">✕</button></div>`
-      + `<div class="c836-c"><input class="inp" id="c837-q" placeholder="ค้นหา INVOICE / บริษัท / Customer Job No. / ลูกค้า" autocomplete="off"><div id="c837-k" style="font-size:12px;color:#475569"></div><div class="c837-list" id="c837-l"><div class="load-row"><div class="spin"></div></div></div></div>`
+    ov.innerHTML = `<div class="c836-b" style="max-width:980px"><div class="c836-h"><h3>+ เพิ่ม INVOICE (รอรับชำระ · ${acc ? "ACCOUNTING" : "UPLOAD EXCEL"} · ${src === "RCP" ? "SERVICE" : "ADVANCE"})</h3><button type="button" class="btn-icon" data-x837 aria-label="ปิด">✕</button></div>`
+      + `<div class="c836-c"><input class="inp" id="c837-q" placeholder="${acc ? "ค้นหา INVOICE NJ / เลขงาน (JOB NO.) / Customer Job No." : "ค้นหา INVOICE / บริษัท / Customer Job No. / ลูกค้า"}" autocomplete="off"><div id="c837-k" style="font-size:12px;color:#475569"></div><div class="c837-list" id="c837-l"><div class="load-row"><div class="spin"></div></div></div></div>`
       + `<div class="c836-f"><span id="c837-n" style="margin-right:auto;color:#475569"></span><span id="c837-pg" style="color:#475569;margin-right:10px;white-space:nowrap"></span><button type="button" class="btn btn-sm" id="c837-pv871" disabled>‹ ก่อนหน้า</button><button type="button" class="btn btn-sm" id="c837-nx871" style="margin-right:8px" disabled>ถัดไป ›</button><button type="button" class="btn btn-o" data-x837>ยกเลิก</button><button type="button" class="btn btn-p" id="c837-ok" disabled>เพิ่มรายการที่เลือก</button></div></div>`;
     document.body.appendChild(ov);
     let rows = [], pickd = new Map(), L = ov.querySelector("#c837-l"), ok = ov.querySelector("#c837-ok"), cn = ov.querySelector("#c837-n");
@@ -970,8 +1002,8 @@ export async function edit837(o) {
       let have = new Set([...(st.g.items || []).map((x) => x.item_id), ...st.add.keys()]);
       let list = rows.filter((x) => !have.has(x.item_id));
       HID874 = rows.length - list.length;   /* V.874 : จำนวนที่ซ่อนเพราะอยู่ในใบเสร็จนี้แล้ว */
-      L.innerHTML = list.length ? `<table><thead><tr><th></th><th>INVOICE</th><th>วันที่</th><th>ลูกค้า (Excel)</th><th>บริษัท INVOICE</th><th>Customer Job No.</th>${src === "RCP" ? '<th class="r">Service</th><th class="r">Advance</th>' : '<th class="r">Advance</th>'}<th>สถานะ</th></tr></thead><tbody>`
-        + list.map((x) => `<tr class="${x.reason ? "dis" : ""}"><td>${x.reason ? "–" : `<input type="checkbox" data-c837="${n(x.item_id)}"${pickd.has(x.item_id) ? " checked" : ""}>`}</td><td><b>${n(x.invoice_no)}</b></td><td>${D(x.invoice_date)}</td><td>${n(x.excel_name || "-")}</td><td>${n(x.company_invoice || "-")}</td><td>${n(x.customer_job_no || "-")}</td>${src === "RCP" ? `<td class="r">${MONEY(x.svc_amount != null ? x.svc_amount : x.amount)}</td><td class="r">${MONEY(x.adv_amount || 0)}</td>` : `<td class="r">${MONEY(x.amount)}</td>`}<td>${x.reason ? n(x.reason) : (x.only_adv ? '<span class="bd837 a" style="background:#fff7ed;color:#9a3412;border-color:#fdba74">เพิ่มได้ — เฉพาะ Advance</span>' : '<span class="bd837 a">เพิ่มได้</span>')}</td></tr>`).join("") + "</tbody></table>"
+      L.innerHTML = list.length ? `<table><thead><tr><th></th><th>INVOICE</th><th>วันที่</th><th>${acc ? "เลขงาน (JOB NO.)" : "ลูกค้า (Excel)"}</th><th>บริษัท INVOICE</th><th>Customer Job No.</th>${src === "RCP" ? '<th class="r">Service</th><th class="r">Advance</th>' : '<th class="r">Advance</th>'}<th>สถานะ</th></tr></thead><tbody>`
+        + list.map((x) => `<tr class="${x.reason ? "dis" : ""}"><td>${x.reason ? "–" : `<input type="checkbox" data-c837="${n(x.item_id)}"${pickd.has(x.item_id) ? " checked" : ""}>`}</td><td><b>${n(x.invoice_no)}</b></td><td>${D(x.invoice_date)}</td><td>${n((acc ? x.job_no : x.excel_name) || "-")}</td><td>${n(x.company_invoice || "-")}</td><td>${n(x.customer_job_no || "-")}</td>${src === "RCP" ? `<td class="r">${MONEY(x.svc_amount != null ? x.svc_amount : x.amount)}</td><td class="r">${MONEY(x.adv_amount || 0)}</td>` : `<td class="r">${MONEY(x.amount)}</td>`}<td>${x.reason ? n(x.reason) : (x.only_adv ? '<span class="bd837 a" style="background:#fff7ed;color:#9a3412;border-color:#fdba74">เพิ่มได้ — เฉพาะ Advance</span>' : '<span class="bd837 a">เพิ่มได้</span>')}</td></tr>`).join("") + "</tbody></table>"
         : '<div class="empty" style="padding:12px">' + (HID874 > 0
             ? "รายการที่พบ (" + N(HID874) + ") อยู่ในใบเสร็จนี้แล้ว — เพิ่มซ้ำไม่ได้"
             : "ไม่พบ INVOICE รอรับชำระของลูกค้าเดียวกัน") + '</div>';   /* V.874 */
@@ -981,11 +1013,11 @@ export async function edit837(o) {
     let tm = 0, get = async (qq, pno) => {
       P871.q = qq || ""; P871.page = Math.max(1, pno || 1);
       L.innerHTML = '<div class="load-row"><div class="spin"></div></div>';
-      try { let r = await RPC("njacc_r837_cands", { p: { src, id, q: qq || null, page: P871.page, size: P871.size } });   /* V.871 : แบ่งหน้า (ค้นหาบนฐานข้อมูลทั้งหมด) */
+      try { let r = await RPC(acc ? "njacc_re932_cands" : "njacc_r837_cands", { p: { src, id, q: qq || null, page: P871.page, size: P871.size } });   /* V.871 : แบ่งหน้า (ค้นหาบนฐานข้อมูลทั้งหมด) */
         rows = r.rows || []; P871.total = Number(r.total != null ? r.total : rows.length);
         let kk = (r.keys || []);
         ov.querySelector("#c837-k").textContent = kk.length
-          ? "ลูกค้า (ชื่อใน Excel / TAX ID + BRANCH ที่ยืนยันตรงกัน) : " + kk.join(", ")
+          ? (acc ? "ลูกค้า : " : "ลูกค้า (ชื่อใน Excel / TAX ID + BRANCH ที่ยืนยันตรงกัน) : ") + kk.join(", ")
           : "⚠ ยังจับคู่ลูกค้าไม่ได้ — ตรวจ Customer Master / TAX ID / BRANCH ของใบเสร็จนี้";
         render(); pager871(); }
       catch (e) { L.innerHTML = `<div class="radv788-err">${n(R837(e))}</div>`; }
@@ -999,13 +1031,16 @@ export async function edit837(o) {
   q("#e837-pv").onclick = async () => {
     if (!st.pv || (st.pv.errors || []).length) return;
     let dt = q("#e837-date"); st.seen = !0; sc();
-    try { await showDocs(DOC837(src, st.pv, st.g, (dt && dt.value) || st.g.receipt_date), { sample: !0, title: lab + " — ตัวอย่างฉบับใหม่" }); } catch (e) { back(); TOAST("PREVIEW ไม่สำเร็จ — " + R837(e), "err"); }
+    try { let dc9 = DOC837(src, st.pv, st.g, (dt && dt.value) || st.g.receipt_date);
+      if (st.x) dc9.forEach((d9) => { d9.payment_method = st.meth || d9.payment_method; acc && src === "RCP" && (d9.items || []).forEach((it9, j9) => { let s9 = ((st.pv.items || [])[j9] || {}).service_amount; s9 != null && (it9.service_amount = s9); }); });   /* V.932 : วิธีรับชำระที่แก้ไข · ยอด SERVICE ที่พิมพ์ (ระบบใหม่) */
+      await showDocs(dc9, { sample: !0, title: lab + (X9 ? " — ตัวอย่างฉบับแก้ไข" : " — ตัวอย่างฉบับใหม่") }); } catch (e) { back(); TOAST("PREVIEW ไม่สำเร็จ — " + R837(e), "err"); }
   };
   q("#e837-ok").onclick = async () => {
     if (st.busy || q("#e837-ok").disabled) return;
     let g = st.g, p = st.pv, wy = q("#e837-why"), why = wy ? wy.value.trim() : "", dt = q("#e837-date").value || null, vo = !!p.void_only;
     back();
     if (why.length < 5) { TOAST("กรุณาระบุเหตุผลการแก้ไข (อย่างน้อย 5 ตัวอักษร) ก่อนบันทึก", "err"); if (wy) { wy.scrollIntoView && wy.scrollIntoView({ block: "center" }); wy.focus(); } return; }   /* V.845 */
+    if (st.x && amt() && !st.appr) { TOAST("ยอดเงินของใบเสร็จเปลี่ยน — กรุณาติ๊กยืนยันการตรวจสอบและอนุมัติก่อนบันทึก", "err"); let a9 = q("#e932-ap"); a9 && (a9.scrollIntoView && a9.scrollIntoView({ block: "center" }), a9.focus()); return; }   /* V.932 */
     let yes = await new Promise((res) => { let old = F.querySelector(".radv788-ask"); old && old.remove();
       F.insertAdjacentHTML("afterbegin", `<div class="radv788-ask"><div>` + (vo ? `<b>⚠ นำ INVOICE ออกทั้งหมด</b> — ยืนยัน <b>VOID ${n(g.receipt_no)}</b> โดย<b>ไม่ออกใบเสร็จใหม่</b> · INVOICE ${N(p.rem_count)} รายการกลับไปรอรับชำระ<br>`
         : (p.v849 ? `บันทึกการแก้ไข <b>${n(g.receipt_no)}</b> — <b>ใช้เลขเดิม</b> (${N(p.new.count)} INVOICE · ${MONEY(p.new.amount)}) วันที่ ${D(dt || g.receipt_date)}`
@@ -1016,8 +1051,10 @@ export async function edit837(o) {
     if (!yes) return;
     st.busy = !0; sc(); let ok = q("#e837-ok"), lb = ok.textContent; ok.textContent = "กำลังบันทึก…";
     try {
-      let r = await RPC("njacc_r837_commit", { p: { request_id: st.req, src, id, add: [...st.add.keys()], remove: [...st.rem], receipt_date: dt, reason: why,
-        expected: { count: p.new.count, amount: p.new.amount, idk: p.customer_new && p.customer_new.idk || "", item_ids: (p.items || []).map((x) => x.item_id) } } });
+      let P9 = { request_id: st.req, src, id, add: [...st.add.keys()], remove: [...st.rem], receipt_date: dt, reason: why,
+        expected: { count: p.new.count, amount: p.new.amount, idk: p.customer_new && p.customer_new.idk || "", item_ids: (p.items || []).map((x) => x.item_id) } };
+      let r = st.x ? await RPC("njacc_re932_commit", { p: Object.assign(P9, { sys: acc ? "ACC" : "XLS", payment_method: st.meth || null, job_nos: acc ? {} : JD932(), approve_amount: !!st.appr }) })   /* V.932 : เลขเดิม · ระบบใหม่ / ส่วนเสริมระบบเก่า */
+        : await RPC("njacc_r837_commit", { p: P9 });
       st.done = r; st.req = RQ("r837"); ok.textContent = "✅ บันทึกแล้ว";
       let ono = (r.old && r.old.receipt_no) || g.receipt_no, rt = r.removed ? " · นำออก " + N(r.removed) + " รายการ = " + (r.released ? "กลับรอรับชำระแล้ว" : "รอตรวจสอบการรับชำระ") : "";   /* V.845 */
       if (r.void_only || !r.new) {   /* V.845 : นำออกทั้งหมด = VOID อย่างเดียว (ไม่มีใบใหม่) */
@@ -1045,13 +1082,17 @@ export async function edit837(o) {
       let op = F.querySelector("#e837-open"); op && (op.onclick = async () => { try { await showDocs(await o.load(r.new.id), { sample: !1, title: lab + " " + r.new.receipt_no }); } catch (e) { TOAST(R837(e), "err"); } });
     } catch (e) {
       ok.textContent = lb; TOAST("บันทึกไม่สำเร็จ — " + R837(e), "err");
-      if (/R837_(CHANGED|INVALID|NOT_ACTIVE)|CUST836/.test(String(e && e.message || e))) { await load(); F.insertAdjacentHTML("afterbegin", `<div class="radv788-err">${n(R837(e))}</div>`); }
+      if (/R837_(CHANGED|INVALID|NOT_ACTIVE)|CUST836|RDF_IN_DRAFT/.test(String(e && e.message || e))) { await load(); F.insertAdjacentHTML("afterbegin", `<div class="radv788-err">${n(R837(e))}</div>`); }
     } finally { st.busy = !1; sc(); }
   };
+  { let pb9 = q("#e932-pr"); pb9 && (pb9.onclick = async () => {   /* V.932 : พิมพ์ PDF ใบเสร็จ (ฉบับที่บันทึกล่าสุด · เลขเดิม) */
+      if (pb9.disabled || st.busy || !st.g) return;
+      if (changed()) { TOAST("มีการแก้ไขที่ยังไม่บันทึก — กรุณาบันทึกการแก้ไขก่อนพิมพ์", "err"); return; }
+      try { o.print ? await o.print(id, pb9) : await showDocs(await o.load(id), { sample: !1, title: lab + " " + st.g.receipt_no }); } catch (e) { TOAST("พิมพ์ไม่สำเร็จ — " + R837(e), "err"); } }); }
   M845.addEventListener("click", (ev) => {   /* V.845 */
     let t = ev.target; if (!(t === M845 || (t.closest && t.closest("[data-close]")))) return;
     if (st.busy) { ev.stopPropagation(); ev.preventDefault(); TOAST("กำลังบันทึก — กรุณารอผลจาก Database", "err"); return; }
-    if (st.cx || !st.g || st.g.status !== "ACTIVE" || !(st.add.size || st.rem.size)) return;
+    if (st.cx || !st.g || st.g.status !== "ACTIVE" || !(st.add.size || st.rem.size || meta())) return;
     ev.stopPropagation(); ev.preventDefault(); back();
     let old = F.querySelector("#e845-cx"); old && old.remove();
     F.insertAdjacentHTML("afterbegin", `<div class="radv788-ask" id="e845-cx"><div><b>⚠ ยังไม่ได้บันทึกการแก้ไข</b> — เพิ่ม ${N(st.add.size)} · นำออก ${N(st.rem.size)} รายการ<br>หากปิดตอนนี้ รายการที่แก้ไขจะไม่ถูกบันทึก (ใบเสร็จเดิมไม่เปลี่ยน)</div>`
