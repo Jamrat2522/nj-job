@@ -9547,7 +9547,7 @@ async function exportMappingCombined(_mapDry){   // _mapDry===true → โหม
     // ── FIX เฉพาะ RM 89960996 (V.300): COO_RM ชีตแรกเป็น 'SD GEN' (ไม่มี Import Entry) → อ่านชีต 'VL06O'
     //    (B Billing Document · F Material · W Import Entry · Y รายการ = Import ITEM) · ไฟล์ RM อื่นใช้ชีตแรกเหมือนเดิม
     const _rm899 = /89960996/.test(String((mappingRmRefFile&&mappingRmRefFile.name)||'')+'|'+String((mappingState.rmFile&&mappingState.rmFile.name)||''));
-    const _rm899Sheet = (_rm899 && rmRefWb.Sheets['VL06O']) ? 'VL06O' : rmRefWb.SheetNames[0];
+    const _rm899Sheet = (_rm899 && rmRefWb.Sheets['VL06O']) ? 'VL06O' : ((typeof _mapxCooSheetPick==='function') ? _mapxCooSheetPick(rmRefWb) : rmRefWb.SheetNames[0]);   // local323: Sheet แรกไม่ใช่ตาราง COO → Sheet ที่มีคอลัมน์ครบ (1 Sheet เท่านั้น)
     const rmRefWs  = rmRefWb.Sheets[_rm899Sheet];
     const rmRefAoa = XLSX.utils.sheet_to_json(rmRefWs, {header:1, defval:''});
     if(_rm899) console.log('[RM 89960996] COO_RM ใช้ชีต', _rm899Sheet);
@@ -9997,6 +9997,24 @@ const _mapxEsc = v => String(v==null?'':v).replace(/[&<>"']/g, m => ({'&':'&amp;
 const _mapxNorm = h => String(h==null?'':h).trim().toLowerCase().replace(/\s+/g,' ');
 const _mapxRmNo = n => { const m=/RM[\s._-]*(\d{6,})/i.exec(String(n||'')); return m?m[1]:''; };
 
+// ADDITIVE (local323): เลือก Sheet ของ COO_RM — ใช้ Sheet แรกตามเดิม · เฉพาะเมื่อ Sheet แรกไม่มีคอลัมน์ COO ครบ
+//   (Billing Document · Material · Import entry/Import entry no. · รายการ/Item no) และมี Sheet อื่นที่ครบ "เพียง 1 Sheet" → ใช้ Sheet นั้น
+//   ครบหลาย Sheet / ไม่มีเลย → คงพฤติกรรมเดิม (Sheet แรก) ไม่เดา
+function _mapxCooHasCols(ws){
+  if(!ws || !ws['!ref']) return false;
+  const A=XLSX.utils.sheet_to_json(ws,{header:1,defval:''}); const H=(A[0]||[]).map(h=>String(h||'').trim().toLowerCase().replace(/\s+/g,' '));
+  const has=c=>c.some(k=>H.indexOf(k)!==-1);
+  return has(['billing document']) && has(['material']) && has(['import entry no.','import entry no','import entry']) && has(['item no.','item no','รายการ']);
+}
+function _mapxCooSheetInfo(wb){
+  const first=wb.SheetNames[0]; const o={sheet:first, alt:false, cands:[]};
+  if(!first || _mapxCooHasCols(wb.Sheets[first])) return o;
+  o.cands=wb.SheetNames.slice(1).filter(sn=>_mapxCooHasCols(wb.Sheets[sn]));
+  if(o.cands.length===1){ o.sheet=o.cands[0]; o.alt=true; }
+  return o;
+}
+function _mapxCooSheetPick(wb){ return _mapxCooSheetInfo(wb).sheet; }
+
 // ══ ใบขนสินค้าขาเข้า PDF (กศก. 99/1) — ตัวอ่านเฉพาะรูปแบบ · ADDITIVE (prefix _mapxi) ══
 //   • อ่านจากพิกัดข้อความจริงของ pdf.js ทุกหน้า · ไม่เดาค่า · ค่าที่ไม่พบ = '' และนับเป็น "ข้อมูลไม่ครบ"
 //   • ตรวจยอดรวมท้ายหน้าเทียบผลรวมรายการ (มูลค่าต่างประเทศ / มูลค่าบาท / น้ำหนักสุทธิ / ปริมาณ) ทุกหน้า
@@ -10201,7 +10219,7 @@ function _mapxImpRoute(event, fileList){
 // อ่าน COO_RM (ช่อง RM มีเลขอ้างอิง) → แถวที่มี Import entry no. + Item no. (ชีตเดียวกับกฎเดิม: 89960996 → VL06O)
 async function _mapxImpCooRows(f){
   const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
-  const sn=(/89960996/.test(f.name) && wb.Sheets['VL06O'])?'VL06O':wb.SheetNames[0];
+  const sn=(/89960996/.test(f.name) && wb.Sheets['VL06O'])?'VL06O':_mapxCooSheetPick(wb);   // local323
   const A=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:''}); const H=(A[0]||[]).map(_mapxNorm);
   const fi=c=>{ for(const k of c){ const i=H.indexOf(k); if(i>=0) return i; } return -1; };
   const cE=fi(['import entry no.','import entry no','import entry']), cI=fi(['item no.','item no','รายการ']), cM=fi(['material']), cB=fi(['billing document']);
@@ -10315,7 +10333,7 @@ async function _mapxInspectExcel(file){
   if(!has(H,['description','material - trim','material (trim)','material trim','material'])) o.missRm.push('Material / Description');
   o.rows=cnt(A,H,['billing document']);
   // RM มีเลขอ้างอิง (COO_RM): Billing Document + Material + Import entry(.no) + Item no / รายการ  (RM 89960996 → Sheet VL06O ตามกฎเดิม)
-  o.sheetCoo=(/89960996/.test(file.name) && wb.Sheets['VL06O'])?'VL06O':first;
+  o.sheetCoo=(/89960996/.test(file.name) && wb.Sheets['VL06O'])?'VL06O':((typeof _mapxCooSheetPick==='function')?_mapxCooSheetPick(wb):first);   // local323
   const AC=(o.sheetCoo===first)?A:aoaOf(o.sheetCoo); const HC=(AC[0]||[]).map(_mapxNorm);
   if(!has(HC,['billing document'])) o.missCoo.push('Billing Document');
   if(!has(HC,['material'])) o.missCoo.push('Material');
