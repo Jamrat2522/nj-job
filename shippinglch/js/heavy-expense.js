@@ -395,7 +395,7 @@ async function exOpenDoc(id, tab){
   }catch(e){ console.error(e); toast('เปิดเอกสารไม่สำเร็จ: '+_exErr(e),'error'); }
 }
 async function exCloseWork(){
-  const n = _exDirtyKeys().length + _exManDirty();   // local376: รวมรายการกรอกเองที่ยังไม่บันทึก
+  const n = _exDirtyKeys().length + _exManDirty() + _exAmtDirty();   // local376: รวมรายการกรอกเอง · local379: เบิกเงิน / ยอดยก
   if(n){
     const ok = await confirmDialog({ title:'ยังมีรายการที่ยังไม่บันทึก',
       message:`มี <b>${n}</b> รายการที่ยังไม่ได้กด 💾 บันทึก<br>ถ้าปิดตอนนี้ รายการเหล่านั้นจะหายไป (รายการที่บันทึกแล้วยังอยู่ครบ)`,
@@ -819,23 +819,25 @@ function _exSumHtml(groups){
   const mlist = man.filter(r=> f==='all' || (f==='open' ? r.status!=='CLOSED' : r.status==='CLOSED'));
   const t = _exSelSums376(groups);
   const allOn = (list.length+mlist.length)>0 && list.every(g=>EX.sumSel.has(g.key)) && mlist.every(r=>EX.sumSel.has('m:'+r.key));
-  const docAdv = _exNum(EX.doc && EX.doc.advance_amount);
   const rows = list.map((g,i)=>{
     const on = EX.sumSel.has(g.key), st = _exStatusOf(g);
     return `<tr class="${on?'ex2-on':''}" data-ex-sumrow="${esc(g.key)}">
       <td class="ex2-ck"><input type="checkbox" ${on?'checked':''} onchange="exSumToggle('${esc(g.key)}',this.checked)" aria-label="เลือก JOB ${esc(g.job_no)}"></td>
       <td class="ex2-c">${i+1}</td>
       <td><span class="ex2-pill">${esc(g.job_no||'—')}</span> <span class="ex2-st ex2-${st.cls}">${g.status==='CLOSED'?'ปิดสรุปแล้ว':'รอปิดสรุป'}</span></td>
-      <td class="ex2-c"><button type="button" class="ex2-link" onclick="exViewGroup('${esc(g.key)}')">${g.items.length} รายการ</button></td>
-      <td class="ex-money">${_exQty(g.qty)}</td>
+      <td><span class="ex380-cotxt" title="${esc(g.company||'')}">${esc(_exCoShort(g.company))}</span><button type="button" class="ex2-link ex380-n" onclick="exViewGroup('${esc(g.key)}')">${g.items.length} รายการ</button></td>
       <td class="ex-money">${_exMoney(g.adv)}</td>
       <td class="ex-money">${_exMoney(g.cost)}</td>
       <td class="ex-money">${_exMoney(g.rcp)}</td>
       <td class="ex-money ex2-tot">${_exMoney(g.total)}</td>
+      <td class="ex379-wht" data-ex-gwht="${esc(g.key)}">${esc(_exGroupWht(g))}</td>
       <td class="ex376-act"></td>
     </tr>`; }).join('') + mlist.map((r,i)=>_exManRowHtml(r, list.length+i+1, edit)).join('');
   const jobOpts = edit ? `<datalist id="ex376-jobs">${_exManJobOpts().map(o=>`<option value="${esc(o.no)}">${esc(o.co)}</option>`).join('')}</datalist>` : '';
-  const dirtyM = _exManDirty();
+  const dirtyM = _exManDirty() + _exAmtDirty();
+  const amtIn = (k, v)=> edit
+    ? `<input type="text" inputmode="decimal" autocomplete="off" data-ex-amt="${k}" value="${esc(v||'')}" placeholder="0.00" oninput="exAmtInput('${k}',this)" onblur="exAmtBlur('${k}',this)" aria-label="${k==='adv'?'เบิกเงิน':'ยอดยก'} (บาท)">`
+    : `<b data-ex-box="${k}">${_exMoney(_exAmtVal(v)||0)}</b>`;
   return `
     <div class="ex2-filters${edit?' ex376-fl':''}">
       <button type="button" class="ex2-fb ${f==='all'?'on':''}" data-ex-filter="all" onclick="exSumFilter('all')">ทั้งหมด (${cnt.all})</button>
@@ -846,12 +848,12 @@ function _exSumHtml(groups){
     <div class="ex-tblwrap"><table class="tbl ex-ltbl ex2-stbl ex376-tbl">
       <thead><tr>
         <th class="ex2-ck"><input type="checkbox" ${allOn?'checked':''} ${(list.length+mlist.length)?'':'disabled'} onchange="exSumAll(this.checked)" title="เลือกทั้งหมดที่แสดง"></th>
-        <th>Item</th><th>Job</th><th>รายละเอียด</th><th>QTY</th><th>Nj advance</th><th>Cost</th><th>Receipt</th><th>Total Amount</th><th>จัดการ</th>
+        <th>ITEM</th><th>JOB</th><th>ชื่อลูกค้า ▼</th><th>NJ ADVANCE</th><th>COST</th><th>RECEIPT</th><th>TOTAL AMOUNT</th><th>เลขใบหัก</th><th>จัดการ</th>
       </tr></thead>
       <tbody>${rows || `<tr><td colspan="10" class="ex2-tdempty">ไม่มี JOB${f==='all'?' — บันทึกรายการในแท็บ เปิดงานค่าใช้จ่าย ก่อน'+(edit?' หรือกด ＋ เพิ่มรายการ':''):''}</td></tr>`}
         <tr class="ex2-selrow" data-ex-selrow="1"><td></td><td colspan="3" data-ex-ss="label">${t.man || man.length ? `รวมเฉพาะ JOB ที่เลือก (${t.jobs+t.man} รายการ)` : `รวมเฉพาะ JOB ที่เลือก (${t.jobs} JOB)`}</td>
-          <td class="ex-money" data-ex-ss="qty">${_exQty(t.qty)}</td><td class="ex-money" data-ex-ss="adv">${_exMoney(t.adv)}</td>
-          <td class="ex-money" data-ex-ss="cost">${_exMoney(t.cost)}</td><td class="ex-money" data-ex-ss="rcp">${_exMoney(t.rcp)}</td><td class="ex-money" data-ex-ss="total">${_exMoney(t.total)}</td><td></td></tr>
+          <td class="ex-money" data-ex-ss="adv">${_exMoney(t.adv)}</td>
+          <td class="ex-money" data-ex-ss="cost">${_exMoney(t.cost)}</td><td class="ex-money" data-ex-ss="rcp">${_exMoney(t.rcp)}</td><td class="ex-money" data-ex-ss="total">${_exMoney(t.total)}</td><td></td><td></td></tr>
       </tbody>
     </table></div>
     <div class="ex2-sumacts">
@@ -867,18 +869,21 @@ function _exSumHtml(groups){
       ${edit ? `<button type="button" class="btn ex2-b-close" data-ex-close="1" onclick="exCloseSelected()">🔒 ปิดสรุปที่เลือก</button>` : ''}
       ${edit ? `<button type="button" class="btn ex376-save ${dirtyM?'ex376-dirty':''}" data-ex-mansave="1" onclick="exManSave()">💾 บันทึกข้อมูล${dirtyM?` (${dirtyM})`:''}</button>` : ''}
     </div>
-    <div class="ex-sum">
+    <div class="ex-sum ex379-sum" data-ex-sum4="1">
       <div class="ex-card ex-card-adv"><div class="ex-card-ic">💳</div>
-        <div class="ex-card-bd"><label>เบิกเงิน (บาท)</label><b data-ex-box="adv">${_exMoney(t.advBox)}</b></div></div>
+        <div class="ex-card-bd"><label>เบิกเงิน (บาท)</label>${amtIn('adv', EX.amt.adv)}</div></div>
+      <div class="ex-card ex-card-carry"><div class="ex-card-ic">↪️</div>
+        <div class="ex-card-bd"><label>ยอดยก (บาท)</label>${amtIn('carry', EX.amt.carry)}</div></div>
       <div class="ex-card ex-card-spent"><div class="ex-card-ic">➡️</div>
         <div class="ex-card-bd"><label>ใช้ไป (บาท)</label><b data-ex-box="spent">${_exMoney(t.total)}</b></div></div>
       <div class="ex-card ex-card-bal"><div class="ex-card-ic">💵</div>
-        <div class="ex-card-bd"><label>เงินคงเหลือ (บาท)</label><b data-ex-box="bal" class="${t.bal<0?'ex-neg':''}">${_exMoney(t.bal)}</b></div></div>
+        <div class="ex-card-bd"><label>เงินคงเหลือ (บาท)</label><b data-ex-box="bal" class="${t.bal<0?'ex-neg':'ex379-pos'}">${_exMoney(t.bal)}</b></div></div>
     </div>
-    <p class="ex2-note">ยอดในกล่องคำนวณจาก JOB ที่เลือก · เบิกเงิน = รวม Nj advance (นับครั้งเดียวต่อ JOB) · ใช้ไป = รวม Total Amount · คงเหลือ = เบิกเงิน − ใช้ไป
-      ${docAdv>0 ? `<br>เอกสารนี้มียอดเบิกเงินระดับเอกสาร (ข้อมูลเดิม) ${_exMoney(docAdv)} บาท — รวมในยอดเบิกเงินเมื่อเลือกครบทุก JOB` : ''}
+    ${EX.amt.at ? `<p class="ex379-by" data-ex-amtby="1">เบิกเงิน / ยอดยก แก้ไขล่าสุดโดย ${esc(EX.amt.by||'—')} · ${esc(fmtDateTimeEx(EX.amt.at))}</p>` : ''}
+    ${EX.amt.off ? `<p class="ex2-note" style="color:#B91C1C">⚠️ ${esc(EX_AMT_OFF_MSG)}</p>` : ''}
+    <p class="ex2-note">เงินคงเหลือ = เบิกเงิน − ยอดยก − ใช้ไป · เบิกเงิน / ยอดยก กรอกเอง (บันทึกตามเลขที่เอกสาร) · ใช้ไป = รวม TOTAL AMOUNT ของรายการที่เลือก · NJ ADVANCE ไม่นับรวมในเบิกเงิน
       <br>การบันทึก / Export / Print ไม่ปิดสรุปอัตโนมัติ — ต้องกด 🔒 ปิดสรุปที่เลือก เท่านั้น
-      ${edit ? `<br>รายการ ＋ เพิ่มรายการ (Manual) แยกจาก JOB ในระบบ · ช่องเงินที่ไม่ได้กรอกเว้นว่าง · กด 💾 บันทึกข้อมูล เพื่อบันทึก` : ''}</p>`;
+      ${edit ? `<br>รายการ ＋ เพิ่มรายการ (Manual) แยกจาก JOB ในระบบ · ชื่อลูกค้า เลือกจากรายชื่อบริษัทเดียวกับหน้าสร้างงาน (ตารางแสดง 12 ตัวอักษรแรก · ชี้เมาส์ดูชื่อเต็ม) · ช่องเงินที่ไม่ได้กรอกเว้นว่าง · กด 💾 บันทึกข้อมูล เพื่อบันทึก` : ''}</p>`;
 }
 function exSumFilter(f){ EX.sumFilter = f; exWorkRender(); }
 function exSumToggle(key, on){ if(on) EX.sumSel.add(key); else EX.sumSel.delete(key); exWorkRender(); }
@@ -897,11 +902,14 @@ function exSumView(){
   if(sel.length !== 1){ toast(sel.length ? 'เลือกครั้งละ 1 JOB เพื่อดูรายละเอียด (หรือกด "n รายการ" ในแถว)' : 'ยังไม่ได้เลือก JOB','error'); return; }
   exViewGroup(sel[0].key);
 }
-/* EXPORT EXCEL = ไฟล์ Excel เดิมของเอกสาร (รูปแบบเดิม ไม่เปลี่ยน) */
+/* EXPORT EXCEL (local379) = ใบสรุปของรายการที่เลือกบนหน้าจอ + เบิกเงิน / ยอดยก / ใช้ไป / เงินคงเหลือ */
+function _exScreenHead(){ return Object.assign({}, EX.doc||{}, { advance_amount:_exAmtVal(EX.amt.adv)||0, carry_amount:_exAmtVal(EX.amt.carry)||0 }); }
 function exSumExcel(){
   if(!EX.doc || !EX.doc.id){ toast('ยังไม่มีรายการที่บันทึก','error'); return; }
-  if(_exManDirty()){ toast('มีรายการกรอกเองที่ยังไม่บันทึก — กด 💾 บันทึกข้อมูล ก่อน Export','error'); return; }   // local376
-  return exExportExcel(EX.doc.id);
+  if(_exManDirty() || _exAmtDirty()){ toast('มีข้อมูลที่ยังไม่บันทึก — กด 💾 บันทึกข้อมูล ก่อน Export','error'); return; }
+  const sel = _exGroups().filter(g=>EX.sumSel.has(g.key)), man = _exManSel().filter(r=>r.saved);
+  if(!sel.length && !man.length){ toast('ยังไม่ได้เลือก JOB — ติ๊กเลือกรายการที่ต้องการก่อน','error'); return; }
+  return exExportExcel(EX.doc.id, { h:_exScreenHead(), sel, man });
 }
 
 async function exCloseSelected(){
@@ -1026,6 +1034,10 @@ function _exErr(e){
   const m = String((e&&(e.message||e.details))||'');
   if(/Could not find the function|PGRST202|ms_expense_jobs.*does not exist|column [\w."]*(description|qty|job_doc_id)"? does not exist/i.test(m)) return 'ยังไม่ได้ติดตั้ง SQL RUN-14 (ระบบค่าใช้จ่ายแบบใหม่) — แจ้งผู้ดูแลระบบ';
   if(/ms_expense_manual/.test(m) && /Could not find the function|PGRST202/i.test(m)) return 'ยังไม่ได้ติดตั้ง SQL RUN-376 (รายการกรอกเอง) — แจ้งผู้ดูแลระบบ';
+  if(/ms_expense_doc_amounts/.test(m) && /Could not find the function|PGRST202/i.test(m)) return 'ยังไม่ได้ติดตั้ง SQL RUN-380 (เบิกเงิน / ยอดยก / ชื่อลูกค้า / เลขใบหัก) — แจ้งผู้ดูแลระบบ';
+  if(/company_too_long/.test(m)) return 'ชื่อลูกค้ายาวเกิน 300 ตัวอักษร';
+  if(/wht_too_long/.test(m)) return 'เลขใบหักยาวเกิน 100 ตัวอักษร';
+  if(/amount_too_large/.test(m)) return 'จำนวนเงินมากเกินไป';
   if(/manual_closed_locked/.test(m)) return 'รายการกรอกเองที่ปิดสรุปแล้ว แก้ไข/ลบไม่ได้';
   if(/manual_already_closed/.test(m)) return 'รายการกรอกเองปิดสรุปไปแล้ว';
   if(/manual_amount_invalid/.test(m)) return 'จำนวนเงิน/QTY ต้องเป็นตัวเลขไม่ติดลบ';
@@ -1276,61 +1288,76 @@ function _exSaveBlob(buf, filename){
   document.body.appendChild(a); a.click();
   setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1500);
 }
-async function exExportExcel(docId){
+/* local379/380: EXPORT EXCEL = ใบสรุปตามหน้าจอใหม่ · ITEM / JOB / ชื่อลูกค้า (12 ตัวอักษรแรก) / NJ ADVANCE / COST / RECEIPT / TOTAL AMOUNT / เลขใบหัก (ไม่มี QTY)
+   + เบิกเงิน / ยอดยก / ใช้ไป / เงินคงเหลือ (= เบิกเงิน − ยอดยก − ใช้ไป)
+   · จากแท็บสรุป = เฉพาะรายการที่เลือก (pre) · จากหน้ารายการเอกสาร = ทุกรายการในเอกสาร (ดึงจากฐานข้อมูล) */
+async function exExportExcel(docId, pre){
   try{
-    const r = await _exFetchForExport(docId); if(!r) return;
+    let h, sel, man;
+    if(pre){ h = pre.h; sel = pre.sel || []; man = pre.man || []; }
+    else{
+      const id = docId || (EX.doc && EX.doc.id);
+      if(!id){ toast('ไม่พบเอกสาร','error'); return; }
+      const r = await _exFetchDocFull(id);
+      if(!r){ toast('ไม่พบเอกสาร','error'); return; }
+      man = await _exManFetch(id);
+      if((!r.groups.length || !r.groups.some(g=>g.items.length)) && !man.length){ toast('ยังไม่มีรายการที่บันทึก','error'); return; }
+      sel = r.groups; h = await _exAmtHead(r.h, id);
+    }
     await loadXlsxStyle();
-    const { h, items } = r; const man = r.man || [];
     const TITLE = EX_SYS + ' - สรุปปิดค่าใช้จ่าย';
-    const HEAD  = ['ลำดับ','Job N','บริษัท','ค่าใช้จ่าย (ต้นทุน)','+ ยอดใบเสร็จ =','ยอดรวม (บาท)','สถานที่','หมายเหตุ'];
+    const HEAD  = ['ITEM','JOB','ชื่อลูกค้า','NJ ADVANCE','COST','RECEIPT','TOTAL AMOUNT','เลขใบหัก'];
     const aoa = [
       [TITLE],
       ['เลขที่เอกสาร', h.doc_no||'', '', 'วันที่', h.expense_date||'', '', 'ผู้ปิดค่าใช้จ่าย', h.closer_name||''],
       [],
       HEAD
     ];
-    items.forEach((it,i)=> aoa.push([
-      i+1, it.job_no||'', it.company||'',
-      _exNum(it.cost_amount), _exNum(it.receipt_amount), _exNum(it.total_amount),
-      it.place_name||'', it.note||''
-    ]));
-    man.forEach((m,i)=>{ const v=_exManVal(m); aoa.push([                      // local376: รายการกรอกเอง (ช่องที่ไม่ได้กรอก = ว่าง)
-      items.length+i+1, v.job_no||'', ((v.job_doc_id && EX.info[v.job_doc_id]) || {}).company||'',
-      v.cost==null?'':v.cost, v.rcp==null?'':v.rcp, (v.cost==null&&v.rcp==null)?'':(v.cost||0)+(v.rcp||0), 'Manual', v.description||'' ]); });
-    const first = 5, last = 4+items.length+man.length;
-    aoa.push(['','','รวมทั้งหมด',
-      { f:`SUM(D${first}:D${last})` }, { f:`SUM(E${first}:E${last})` }, { f:`SUM(F${first}:F${last})` }, '','']);
-    const totalRow = last+1;
+    const S = v => ({ t:'s', v:String(v==null?'':v) });          // ข้อความ (คงเลข 0 นำหน้า)
+    sel.forEach((g,i)=> aoa.push([ i+1, S(g.job_no||''), S(_exCoShort(g.company)), _exNum(g.adv), _exNum(g.cost), _exNum(g.rcp), _exNum(g.total), S(_exGroupWht(g)) ]));
+    man.forEach((m,i)=>{ const v=_exManVal(m); aoa.push([                      // รายการกรอกเอง (ช่องที่ไม่ได้กรอก = ว่าง)
+      sel.length+i+1, S(v.job_no||''), S(_exCoShort(v.co)), v.adv==null?'':v.adv, v.cost==null?'':v.cost, v.rcp==null?'':v.rcp,
+      (v.cost==null&&v.rcp==null)?'':(v.cost||0)+(v.rcp||0), S(v.wht) ]); });
+    const first = 5, last = Math.max(4+sel.length+man.length, first);
+    const ss = _exSums(sel), ms = _exManSums(man), r2 = n => Math.round(n*100)/100;    // ค่าที่คำนวณไว้ (แสดงได้แม้โปรแกรมไม่คำนวณสูตรใหม่)
+    const tot = { adv:r2(ss.adv+ms.adv), cost:r2(ss.cost+ms.cost), rcp:r2(ss.rcp+ms.rcp), total:r2(ss.total+ms.total) };
+    const bal = _exBal379(h.advance_amount, h.carry_amount, tot.total);
+    aoa.push(['รวมทั้งสิ้น','','', { t:'n', v:tot.adv, f:`SUM(D${first}:D${last})` }, { t:'n', v:tot.cost, f:`SUM(E${first}:E${last})` }, { t:'n', v:tot.rcp, f:`SUM(F${first}:F${last})` }, { t:'n', v:tot.total, f:`SUM(G${first}:G${last})` }, '']);
+    const totalRow = last+1, boxRow = totalRow+2;
     aoa.push([]);
-    aoa.push(['เบิกเงิน (บาท)', _exNum(h.advance_amount), '', 'ใช้ไป (บาท)', { f:`F${totalRow}` }, '',
-              'เงินคงเหลือ (บาท)', { f:`B${totalRow+2}-E${totalRow+2}` }]);
-    aoa.push([]);
-    aoa.push(['หมายเหตุ', h.note||'']);
+    aoa.push(['เบิกเงิน (บาท)', _exNum(h.advance_amount), 'ยอดยก (บาท)', _exNum(h.carry_amount), 'ใช้ไป (บาท)', { t:'n', v:tot.total, f:`G${totalRow}` },
+              'เงินคงเหลือ (บาท)', { t:'n', v:bal, f:`ROUND(B${boxRow}-D${boxRow}-F${boxRow},2)` }]);
 
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!merges'] = [{ s:{r:0,c:0}, e:{r:0,c:7} }];
-    ws['!cols'] = [{wch:7},{wch:16},{wch:28},{wch:18},{wch:18},{wch:18},{wch:20},{wch:22}];
+    ws['!merges'] = [{ s:{r:0,c:0}, e:{r:0,c:7} }, { s:{r:totalRow-1,c:0}, e:{r:totalRow-1,c:2} }];
+    ws['!cols'] = [{wch:15},{wch:18},{wch:16},{wch:16},{wch:16},{wch:16},{wch:18},{wch:20}];
     ws['!margins'] = { left:0.3, right:0.3, top:0.4, bottom:0.4, header:0.2, footer:0.2 };
 
     const bd = { top:{style:'thin',color:{rgb:'FF999999'}}, bottom:{style:'thin',color:{rgb:'FF999999'}},
                  left:{style:'thin',color:{rgb:'FF999999'}}, right:{style:'thin',color:{rgb:'FF999999'}} };
-    const COLORS = ['FFDBEAFE','FFDBEAFE','FFD1FAE5','FFFEF3C7','FFFCE7F3','FFEDE9FE','FFDBEAFE','FFF3F4F6'];
     const t = XLSX.utils.encode_cell({r:0,c:0});
     if(ws[t]) ws[t].s = { font:{bold:true,sz:15,color:{rgb:'FF1E3A8A'}}, alignment:{horizontal:'center'} };
     for(let c=0;c<HEAD.length;c++){
       const ref = XLSX.utils.encode_cell({r:3,c});
       if(!ws[ref]) ws[ref] = { t:'s', v:HEAD[c] };
-      ws[ref].s = { font:{bold:true,sz:11}, fill:{fgColor:{rgb:COLORS[c]}},
+      ws[ref].s = { font:{bold:true,sz:11,color:{rgb:'FFFFFFFF'}}, fill:{fgColor:{rgb:'FF1E3A8A'}},
                     alignment:{horizontal:'center',vertical:'center',wrapText:true}, border:bd };
     }
-    for(let r=4; r<aoa.length; r++){
+    for(let r=4; r<totalRow; r++){
       for(let c=0;c<HEAD.length;c++){
         const ref = XLSX.utils.encode_cell({r,c});
-        if(!ws[ref]) continue;
-        ws[ref].s = Object.assign({ border:bd }, ws[ref].s||{});
-        if(c>=3 && c<=5){ ws[ref].z = '#,##0.00'; ws[ref].s.alignment = { horizontal:'right' }; }
-        if(c===0) ws[ref].s.alignment = { horizontal:'center' };
+        if(!ws[ref]) ws[ref] = { t:'s', v:'' };
+        const isTot = r===totalRow-1;
+        ws[ref].s = { border:bd, font:{ bold:isTot || c===6 }, alignment:{ vertical:'center', horizontal: isTot&&c===0 ? 'right' : (c===0 ? 'center' : (c>=3&&c<=6 ? 'right' : 'left')) } };
+        if(isTot) ws[ref].s.fill = { fgColor:{rgb:'FFEFF6FF'} };
+        if(c>=3 && c<=6) ws[ref].z = '#,##0.00';
       }
+    }
+    const BOX = [['FFEFF6FF','FF1D4ED8'],['FFFFF7ED','FFC2410C'],['FFFEF2F2','FFDC2626'],['FFECFDF5','FF047857']];
+    for(let i=0;i<4;i++){
+      const lr = XLSX.utils.encode_cell({r:boxRow-1,c:i*2}), vr = XLSX.utils.encode_cell({r:boxRow-1,c:i*2+1});
+      if(ws[lr]) ws[lr].s = { font:{bold:true,color:{rgb:BOX[i][1]}}, fill:{fgColor:{rgb:BOX[i][0]}}, border:bd, alignment:{vertical:'center'} };
+      if(ws[vr]){ ws[vr].z = '#,##0.00'; ws[vr].s = { font:{bold:true,sz:12,color:{rgb: i===3 && bal<0 ? 'FFDC2626' : BOX[i][1]}}, fill:{fgColor:{rgb:BOX[i][0]}}, border:bd, alignment:{horizontal:'right',vertical:'center'} }; }
     }
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'สรุปปิดค่าใช้จ่าย');
@@ -1381,28 +1408,29 @@ function _exPdfSummary(doc, h, sel, all, man){
   doc.setFont('Sarabun','normal');
   const ss  = _exSums(sel);
   const ms  = _exManSums(man||[]);                                  // local376: รายการกรอกเอง
-  ss.qty += ms.qty; ss.adv += ms.adv; ss.cost += ms.cost; ss.rcp += ms.rcp; ss.total += ms.total;
-  const adv = _exAdvTotal(sel, all, h) + ms.adv;
-  const bal = adv - ss.total;
+  ss.adv += ms.adv; ss.cost += ms.cost; ss.rcp += ms.rcp; ss.total += ms.total;
+  // local379: เบิกเงิน / ยอดยก = ค่าที่บันทึกในเอกสาร (ไม่นับ NJ ADVANCE) · คงเหลือ = เบิกเงิน − ยอดยก − ใช้ไป
+  const adv = _exNum(h && h.advance_amount), carry = _exNum(h && h.carry_amount);
+  const bal = _exBal379(adv, carry, ss.total);
 
   const body = sel.map((g,i)=>[
-    String(i+1), g.job_no||'', g.items.length+' รายการ', _exQty(g.qty),
-    _exMoney(g.adv), _exMoney(g.cost), _exMoney(g.rcp), _exMoney(g.total)
+    String(i+1), g.job_no||'', _exCoShort(g.company),
+    _exMoney(g.adv), _exMoney(g.cost), _exMoney(g.rcp), _exMoney(g.total), _exGroupWht(g)
   ]);
   if(man && man.length) body.push(..._exManPdfRows(man, sel.length));   // local376
   const F = [239,246,255];
   body.push([
     { content:'รวมทั้งสิ้น', colSpan:3, styles:{ halign:'right', fontStyle:'bold', fillColor:F } },
-    { content:_exQty(ss.qty),     styles:{ halign:'right', fontStyle:'bold', fillColor:F } },
     { content:_exMoney(ss.adv),   styles:{ halign:'right', fontStyle:'bold', fillColor:F } },
     { content:_exMoney(ss.cost),  styles:{ halign:'right', fontStyle:'bold', fillColor:F } },
     { content:_exMoney(ss.rcp),   styles:{ halign:'right', fontStyle:'bold', fillColor:F } },
-    { content:_exMoney(ss.total), styles:{ halign:'right', fontStyle:'bold', fillColor:[237,233,254] } }
+    { content:_exMoney(ss.total), styles:{ halign:'right', fontStyle:'bold', fillColor:[237,233,254] } },
+    { content:'',                 styles:{ fillColor:F } }
   ]);
 
   const startPage = doc.internal.getNumberOfPages();
   doc.autoTable({
-    head: [[ 'Item','Job','รายละเอียด','QTY','Nj advance','Cost','Receipt','Total Amount' ]],
+    head: [[ 'Item','Job','ชื่อลูกค้า','Nj advance','Cost','Receipt','Total Amount','เลขใบหัก' ]],
     body,
     startY: M + 22,
     margin: { left:M, right:M, top:M + 22, bottom:M + 4 },
@@ -1412,14 +1440,14 @@ function _exPdfSummary(doc, h, sel, all, man){
     headStyles: { font:'Sarabun', fontStyle:'bold', fontSize:9, fillColor:[30,58,138], textColor:[255,255,255],
                   lineWidth:0.25, lineColor:[255,255,255], halign:'center' },
     columnStyles: {
-      0:{ cellWidth:12, halign:'center' },
+      0:{ cellWidth:11, halign:'center' },
       1:{ cellWidth:'auto' },
-      2:{ cellWidth:22, halign:'center' },
-      3:{ cellWidth:16, halign:'right' },
-      4:{ cellWidth:26, halign:'right', fillColor:[239,246,255] },
-      5:{ cellWidth:26, halign:'right', fillColor:[254,252,232] },
-      6:{ cellWidth:26, halign:'right', fillColor:[253,242,248] },
-      7:{ cellWidth:30, halign:'right', fillColor:[245,243,255], fontStyle:'bold' }
+      2:{ cellWidth:25, halign:'left' },
+      3:{ cellWidth:24, halign:'right', fillColor:[239,246,255] },
+      4:{ cellWidth:24, halign:'right', fillColor:[254,252,232] },
+      5:{ cellWidth:24, halign:'right', fillColor:[253,242,248] },
+      6:{ cellWidth:27, halign:'right', fillColor:[245,243,255], fontStyle:'bold' },
+      7:{ cellWidth:24, halign:'left' }
     },
     didDrawPage: ()=>{
       doc.setFont('Sarabun','bold'); doc.setFontSize(13); doc.setTextColor(30,58,138);
@@ -1441,21 +1469,22 @@ function _exPdfSummary(doc, h, sel, all, man){
     }
   });
 
-  // ---------- เบิกเงิน / ใช้ไป / คงเหลือ + ลายเซ็น 3 ช่อง ----------
+  // ---------- local379: เบิกเงิน / ยอดยก / ใช้ไป / คงเหลือ (4 ช่อง แถวเดียว) + ลายเซ็น 3 ช่อง ----------
   let y = (doc.lastAutoTable ? doc.lastAutoTable.finalY : M + 30) + 6;
   if(y + 42 > PH - M){
     doc.addPage('a4','portrait'); y = M + 24;
     doc.setFont('Sarabun','normal'); doc.setFontSize(7.5); doc.setTextColor(110,110,110);
     doc.text('หน้า ' + (doc.internal.getNumberOfPages() - startPage + 1), PW - M, PH - 4, { align:'right' });
   }
-  const bw = (PW - M*2 - 8) / 3;
+  const bw = (PW - M*2 - 12) / 4;
   [
-    { t:'เบิกเงิน (บาท)',    v:_exMoney(adv),      bg:[239,246,255], fg:[29,78,216] },
-    { t:'ใช้ไป (บาท)',       v:_exMoney(ss.total), bg:[254,242,242], fg:[220,38,38] },
-    { t:'เงินคงเหลือ (บาท)', v:_exMoney(bal),      bg:[236,253,245], fg: bal<0?[220,38,38]:[4,120,87] }
+    { t:'เบิกเงิน (บาท)',    v:_exMoney(adv),      bg:[239,246,255], bd:[147,197,253], fg:[29,78,216] },
+    { t:'ยอดยก (บาท)',       v:_exMoney(carry),    bg:[255,247,237], bd:[253,186,116], fg:[194,65,12] },
+    { t:'ใช้ไป (บาท)',       v:_exMoney(ss.total), bg:[254,242,242], bd:[252,165,165], fg:[220,38,38] },
+    { t:'เงินคงเหลือ (บาท)', v:_exMoney(bal),      bg:[236,253,245], bd:[110,231,183], fg: bal<0?[220,38,38]:[4,120,87] }
   ].forEach((b,i)=>{
     const x = M + i*(bw+4);
-    doc.setFillColor(b.bg[0],b.bg[1],b.bg[2]); doc.setDrawColor(120,130,150); doc.setLineWidth(0.25);
+    doc.setFillColor(b.bg[0],b.bg[1],b.bg[2]); doc.setDrawColor(b.bd[0],b.bd[1],b.bd[2]); doc.setLineWidth(0.35);
     doc.rect(x, y, bw, 14, 'FD');
     doc.setFont('Sarabun','normal'); doc.setFontSize(8); doc.setTextColor(70,70,70);
     doc.text(b.t, x+3, y+5.5);
@@ -1668,14 +1697,15 @@ function _exPrintPdf(doc, name){
 async function exExportSel(mode){
   const all = _exGroups();
   const sel = all.filter(g=>EX.sumSel.has(g.key));
-  const man = _exManSel();                                                    // local376
+  const man = _exManSel().filter(r=>r.saved || !_exManEmpty(r));             // local376 · local379: ไม่รวมแถวว่างที่ยังไม่บันทึก
   if(!sel.length && !man.length){ toast('ยังไม่ได้เลือก JOB — ติ๊กเลือก JOB ที่ต้องการก่อน','error'); return; }
   if(man.length && _exManDirty()){ toast('มีรายการกรอกเองที่ยังไม่บันทึก — กด 💾 บันทึกข้อมูล ก่อน Export','error'); return; }
+  if(mode!=='jobs' && _exAmtDirty()){ toast('เบิกเงิน / ยอดยก ยังไม่บันทึก — กด 💾 บันทึกข้อมูล ก่อน Export','error'); return; }   // local379
   const btn = document.querySelector(`[data-ex-pdf="${mode}"]`);
   const old = btn ? btn.innerHTML : '';
   if(btn){ btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> กำลังสร้าง...'; }
   try{
-    const h = EX.doc || {};
+    const h = _exScreenHead();                                                // local379: เบิกเงิน / ยอดยก ของเอกสาร
     const doc = await _exBuildPdf(mode==='print' ? 'all' : mode, h, sel, all, man);
     const name = _exPdfName(mode==='print' ? 'all' : mode, h, sel.length ? sel : man.filter(r=>String(r.job_no||'').trim()).map(r=>({ job_no:r.job_no })));
     if(mode==='print'){ _exPrintPdf(doc, name); }
@@ -1710,8 +1740,9 @@ async function exExportPDF(docId){
     if(!r){ toast('ไม่พบเอกสาร','error'); return; }
     const man = await _exManFetch(id);                                        // local376
     if((!r.groups.length || !r.groups.some(g=>g.items.length)) && !man.length){ toast('ยังไม่มีรายการที่บันทึก','error'); return; }
-    const doc = await _exBuildPdf('sum', r.h, r.groups, r.groups, man);
-    doc.save(_exPdfName('sum', r.h, r.groups));
+    const h = await _exAmtHead(r.h, id);                                      // local379
+    const doc = await _exBuildPdf('sum', h, r.groups, r.groups, man);
+    doc.save(_exPdfName('sum', h, r.groups));
     toast('ส่งออก PDF แล้ว','success');
   }catch(e){
     console.error(e);
@@ -1722,7 +1753,11 @@ async function exExportPDF(docId){
 
 /* ============================================================
    local376 · สรุปค่าใช้จ่าย — รายการกรอกเอง (Manual Entry)
-   ข้อมูล: ms_expense_manual (RUN-376) · แยกจาก ms_expense_items / ms_expense_jobs (ไม่บวกยอดซ้ำ · ไม่สร้าง JOB ใหม่)
+   local379 · ไม่แสดง QTY (ข้อมูลเดิมในฐานข้อมูลคงอยู่) · เลขใบหัก ราย ITEM
+   local380 · คอลัมน์ "ชื่อลูกค้า" (แทนรายละเอียด · ยกเลิก FIX ค่าบริการ) = Searchable Dropdown รายชื่อบริษัทชุดเดียวกับช่อง บริษัท * หน้าสร้างงาน (AC_COMPANIES ใน app.js)
+            · ตาราง / ใบสรุปแสดง 12 ตัวอักษรแรก (ชี้เมาส์ = ชื่อเต็ม) · บันทึกชื่อเต็ม (company_name) ไม่ตัด
+            · กรอบสรุป 4 ช่อง: เบิกเงิน (กรอก) / ยอดยก (กรอก) / ใช้ไป (อัตโนมัติ) / เงินคงเหลือ = เบิกเงิน − ยอดยก − ใช้ไป
+   ข้อมูล: ms_expense_manual (RUN-376 + wht_no / company_name RUN-380) · เบิกเงิน = ms_expense_docs.advance_amount · ยอดยก = ms_expense_doc_amounts (RUN-379)
    ช่องเงินว่าง = ยังไม่กรอก (NULL → แสดงว่าง) · กรอก 0 = 0.00 · TOTAL AMOUNT = COST + RECEIPT (สูตรเดิม)
    ============================================================ */
 const EX376_CSS = `
@@ -1735,7 +1770,6 @@ const EX376_CSS = `
 .ex376-in{width:100%;min-width:0;box-sizing:border-box;height:34px;padding:4px 8px;border:1.5px solid #CBD5E1;border-radius:8px;background:#fff;color:#0F172A;font:inherit;font-size:13.5px}
 .ex376-in:focus{outline:none;border-color:#2563EB;box-shadow:0 0 0 2px rgba(37,99,235,.18)}
 .ex376-num{text-align:right;font-variant-numeric:tabular-nums}
-.ex376-qty{text-align:center}
 .ex376-tag{display:block;font-size:10.5px;font-weight:800;color:#7C3AED;letter-spacing:.2px;line-height:1.1;margin-top:2px}
 .ex376-mrow td{vertical-align:middle}
 .ex376-act{white-space:nowrap;text-align:center}
@@ -1743,11 +1777,44 @@ const EX376_CSS = `
 .ex376-ib.ex376-del{border-color:#FECACA;background:#FEF2F2}
 .ex376-ib:disabled{opacity:.45;cursor:not-allowed}
 .ex376-note{font-size:12px;color:#64748B;margin:6px 2px 0}
-@media (min-width:861px){.ex376-tbl th:nth-child(2){width:70px}.ex376-tbl th:nth-child(3){width:200px}.ex376-tbl th:nth-child(4){width:220px}.ex376-tbl th:nth-child(5){width:78px}.ex376-tbl th:nth-child(10){width:96px}}
-@media (max-width:860px){.ex2-filters.ex376-fl{padding-right:0;padding-bottom:46px}.ex376-add{top:auto;bottom:0;right:50%;transform:translateX(50%)}}
+.ex380-co{position:relative}
+.ex380-co .ex376-in{padding-right:24px;cursor:pointer}
+.ex380-co .ex376-in:focus{cursor:text}
+.ex380-caret{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:#64748B;pointer-events:none}
+.ex380-cotxt{font-weight:600;color:#0F172A;white-space:nowrap}
+.ex380-n{display:block;margin-top:3px}
+#ex380-codd{position:fixed;z-index:10050;background:#fff;border:1.5px solid #93C5FD;border-radius:10px;box-shadow:0 10px 28px rgba(15,23,42,.18);max-height:300px;overflow-y:auto;display:none;font-size:13.5px;color:#0F172A}
+#ex380-codd.show{display:block}
+#ex380-codd .ex380-it{padding:7px 12px;cursor:pointer;line-height:1.35;border-bottom:1px solid #F1F5F9}
+#ex380-codd .ex380-it.on,#ex380-codd .ex380-it:hover{background:#EFF6FF;color:#1D4ED8}
+#ex380-codd .ex380-it.ex380-clr{color:#64748B;font-style:italic}
+#ex380-codd .ex380-cur{font-weight:800}
+#ex380-codd .ex380-empty{padding:10px 12px;color:#64748B}
+#ex380-codd .ex380-cnt{position:sticky;top:0;background:#F8FAFC;padding:5px 12px;font-size:11.5px;color:#64748B;border-bottom:1px solid #E2E8F0}
+.ex379-wht{font-variant-numeric:tabular-nums;word-break:break-all}
+.ex-sum.ex379-sum{grid-template-columns:repeat(4,minmax(0,1fr))}
+.ex379-sum .ex-card{padding:14px}
+.ex379-sum .ex-card-bd b{font-size:22px}
+.ex379-sum .ex-card-bd input{height:40px;font-size:20px;width:100%;box-sizing:border-box}
+.ex379-sum .ex-card-carry{background:#FFF7ED;border-color:#FDBA74 !important}
+.ex379-sum .ex-card-carry label{color:#C2410C !important}
+.ex379-sum .ex-card-carry .ex-card-bd input{color:#C2410C !important;border-color:#FDBA74 !important}
+.ex379-sum .ex-card-carry .ex-card-bd input:focus{border-color:#EA580C !important;box-shadow:0 0 0 2px rgba(234,88,12,.18) !important}
+.ex379-sum .ex-card-carry .ex-card-bd b{color:#C2410C}
+.ex379-sum .ex-card-bal .ex-card-bd b.ex379-pos{color:#047857}
+.ex379-sum .ex-card-bd input.ex-bad{border-color:#DC2626 !important;box-shadow:0 0 0 2px rgba(220,38,38,.18) !important}
+.ex379-by{font-size:12px;color:#64748B;margin:6px 2px 0;text-align:right}
+@media (min-width:861px){.ex376-tbl th:nth-child(2){width:70px}.ex376-tbl th:nth-child(3){width:180px}.ex376-tbl th:nth-child(4){width:178px}.ex376-tbl th:nth-child(9){width:150px}.ex376-tbl th:nth-child(10){width:96px}}
+@media (max-width:860px){.ex2-filters.ex376-fl{padding-right:0;padding-bottom:46px}.ex376-add{top:auto;bottom:0;right:50%;transform:translateX(50%)}.ex-sum.ex379-sum{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ex379-sum .ex-card{padding:12px;gap:8px}.ex379-sum .ex-card-ic{font-size:20px}.ex379-sum .ex-card-bd b,.ex379-sum .ex-card-bd input{font-size:17px}}
+@media (max-width:380px){.ex-sum.ex379-sum{grid-template-columns:1fr}}
 `;
+/* local380: ชื่อลูกค้า = รายชื่อบริษัทชุดเดียวกับช่อง บริษัท * หน้าสร้างงาน (AC_COMPANIES · ไม่สร้าง MASTER ซ้ำ) */
+function _exCoList(){ try{ return (typeof AC_COMPANIES!=='undefined' && Array.isArray(AC_COMPANIES)) ? AC_COMPANIES : []; }catch(_){ return []; } }
+function _exCoShort(s){ return Array.from(String(s==null?'':s).trim()).slice(0,12).join(''); }     // แสดง 12 ตัวอักษรแรก (ข้อมูลจริงไม่ตัด)
 EX.man = []; EX.manBase = '[]'; EX.manOff = false; EX.manBusy = false;
+EX.amt = { adv:'', carry:'', base:'0|0', by:'', at:null, off:false };
 let _exMan376Missing = false;                    // ยังไม่ได้รัน RUN-376 → จำไว้ทั้ง Session (เรียกครั้งเดียว · ไม่เรียกซ้ำทุกครั้งที่เปิดเอกสาร)
+let _exAmt379Missing = false;                    // ยังไม่ได้รัน RUN-380 (เบิกเงิน/ยอดยก/ชื่อลูกค้า/เลขใบหัก)
 
 function _exUuid(){
   try{ if(window.crypto && crypto.randomUUID) return crypto.randomUUID(); }catch(_){}
@@ -1756,35 +1823,38 @@ function _exUuid(){
   return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
 }
 function _exManMissing(e){ return /Could not find the function|PGRST202|ms_expense_manual/i.test(String((e&&(e.message||e.details||e.hint))||'')) && /manual/i.test(String((e&&(e.message||e.details||e.hint))||'')); }
+function _exAmtMissing(e){ const m = String((e&&(e.message||e.details||e.hint))||''); return /Could not find the function|PGRST202|does not exist/i.test(m) && /ms_expense_doc_amounts/i.test(m); }
 const EX_MAN_OFF_MSG = 'ยังไม่ได้ติดตั้ง SQL RUN-376 (รายการกรอกเอง) — แจ้งผู้ดูแลระบบ';
+const EX_AMT_OFF_MSG = 'ยังไม่ได้ติดตั้ง SQL RUN-380 (เบิกเงิน / ยอดยก / ชื่อลูกค้า / เลขใบหัก) — แจ้งผู้ดูแลระบบ';
 function _exManFmtMoney(v){ return v==null || v==='' ? '' : _exMoney(v); }
-function _exManFmtQty(v){ return v==null || v==='' ? '' : String(Number(v)); }
 function _exManFromDb(r){
   return { key:r.id, id:r.id, saved:true, seq:r.seq, status:r.status||'OPEN',
-           job_no:r.job_no||'', job_doc_id:r.job_doc_id||null, description:r.description||'',
-           qty:_exManFmtQty(r.qty), adv:_exManFmtMoney(r.nj_advance), cost:_exManFmtMoney(r.cost_amount), rcp:_exManFmtMoney(r.receipt_amount),
+           job_no:r.job_no||'', job_doc_id:r.job_doc_id||null, description:r.description||'', co:r.company_name||'',
+           adv:_exManFmtMoney(r.nj_advance), cost:_exManFmtMoney(r.cost_amount), rcp:_exManFmtMoney(r.receipt_amount),
+           wht:r.wht_no==null ? '' : String(r.wht_no),
            closed_by_name:r.closed_by_name||'', closed_at:r.closed_at||null };
 }
-/* แปลงค่าที่กรอก: '' → null · ตัวเลข ≥ 0 ทศนิยมไม่เกิน 2 · QTY > 0 */
-function _exManParse(v, isQty){
+/* แปลงค่าที่กรอก: '' → null · ตัวเลข ≥ 0 ทศนิยมไม่เกิน 2 */
+function _exManParse(v){
   const s = String(v==null?'':v).replace(/,/g,'').trim();
   if(s==='') return { ok:true, val:null };
   if(!/^\d+(\.\d{1,2})?$/.test(s)) return { ok:false, msg: /^-/.test(s) ? 'ติดลบไม่ได้' : (/\.\d{3,}$/.test(s) ? 'ทศนิยมได้ไม่เกิน 2 ตำแหน่ง' : 'ต้องเป็นตัวเลข') };
   const n = parseFloat(s);
-  if(isQty && !(n > 0)) return { ok:false, msg:'QTY ต้องมากกว่า 0' };
+  if(n > 999999999999.99) return { ok:false, msg:'จำนวนเงินมากเกินไป' };
   return { ok:true, val:n };
 }
 function _exManVals(r){
-  const q=_exManParse(r.qty,true), a=_exManParse(r.adv), c=_exManParse(r.cost), p=_exManParse(r.rcp);
-  return { qty:q.ok?q.val:null, adv:a.ok?a.val:null, cost:c.ok?c.val:null, rcp:p.ok?p.val:null };
+  const a=_exManParse(r.adv), c=_exManParse(r.cost), p=_exManParse(r.rcp);
+  return { adv:a.ok?a.val:null, cost:c.ok?c.val:null, rcp:p.ok?p.val:null };
 }
-function _exManEmpty(r){ const v=_exManVals(r); return !String(r.job_no||'').trim() && !String(r.description||'').trim() && v.adv==null && v.cost==null && v.rcp==null; }
+function _exManWht(r){ return String(r.wht==null?'':r.wht).trim(); }      // ข้อความอิสระ · คงเลข 0 นำหน้า
+function _exManCo(r){ return String(r.co==null?'':r.co).trim(); }
+function _exManEmpty(r){ const v=_exManVals(r); return !String(r.job_no||'').trim() && !_exManWht(r) && !_exManCo(r) && v.adv==null && v.cost==null && v.rcp==null; }
 function _exManPayload(r){
   const v=_exManVals(r);
-  return { id:r.key, job_no:String(r.job_no||'').trim(), job_doc_id:r.job_doc_id||null, description:String(r.description||'').trim(),
-           qty:v.qty, nj_advance:v.adv, cost_amount:v.cost, receipt_amount:v.rcp };
+  return { id:r.key, job_no:String(r.job_no||'').trim(), job_doc_id:r.job_doc_id||null, company_name:_exManCo(r),
+           nj_advance:v.adv, cost_amount:v.cost, receipt_amount:v.rcp, wht_no:_exManWht(r) };
 }
-function _exManSig(list){ return JSON.stringify((list||[]).filter(r=>r.saved || !_exManEmpty(r)).map(_exManPayload)); }
 function _exManDirty(){
   if(!EX.man) return 0;
   const base = JSON.parse(EX.manBase||'[]'); const bm = new Map(base.map(x=>[x.id, JSON.stringify(x)]));
@@ -1794,32 +1864,85 @@ function _exManDirty(){
   if(!n && cur.map(r=>r.key).join()!==base.map(x=>x.id).join()) n = 1;      // เปลี่ยนเฉพาะลำดับ
   return n;
 }
-function _exManReset(){ EX.man = []; EX.manBase = '[]'; EX.manOff = _exMan376Missing; EX.manBusy = false; }
+function _exManReset(){ EX.man = []; EX.manBase = '[]'; EX.manOff = _exMan376Missing; EX.manBusy = false; _exAmtReset(); }
 function _exManApply(rows){
   EX.man = (Array.isArray(rows)?rows:[]).map(_exManFromDb);
   EX.manBase = JSON.stringify(EX.man.map(_exManPayload));
 }
 async function _exManLoad(){
   _exManReset();
-  if(!EX.doc || !EX.doc.id || _exMan376Missing) return;
+  if(!EX.doc || !EX.doc.id || _exMan376Missing) return _exAmtLoad();
   try{ _exManApply(await _rpc('ms_expense_manual_get', { p_doc_id: EX.doc.id })); }
   catch(e){
-    if(_exManMissing(e)){ EX.manOff = true; _exMan376Missing = true; try{ console.warn('[expense manual] '+EX_MAN_OFF_MSG); }catch(_){} return; }
-    console.error(e); toast('โหลดรายการกรอกเองไม่สำเร็จ: '+_exErr(e),'error');
+    if(_exManMissing(e)){ EX.manOff = true; _exMan376Missing = true; try{ console.warn('[expense manual] '+EX_MAN_OFF_MSG); }catch(_){} }
+    else { console.error(e); toast('โหลดรายการกรอกเองไม่สำเร็จ: '+_exErr(e),'error'); }
   }
+  return _exAmtLoad();
 }
-/* ยอดรวมเฉพาะที่เลือก (JOB จากระบบ + Manual) — สูตรเดิม: เบิกเงิน = Nj advance · ใช้ไป = Total Amount · คงเหลือ = เบิก − ใช้ */
+
+/* ---------- local379: เบิกเงิน / ยอดยก ของเอกสาร (กรอกเอง · บันทึกตามเลขที่เอกสาร EC) ---------- */
+function _exAmtFmt(n){ return n ? _exMoney(n) : ''; }
+function _exAmtVal(s){ const p = _exManParse(s); return p.ok ? (p.val||0) : null; }
+function _exAmtSig(){ const a=_exAmtVal(EX.amt.adv), c=_exAmtVal(EX.amt.carry); return (a==null?'x':a.toFixed(2))+'|'+(c==null?'x':c.toFixed(2)); }
+function _exAmtDirty(){ return _exAmtSig()!==EX.amt.base ? 1 : 0; }
+function _exAmtSet(adv, carry, by, at){
+  const a = _exNum(adv), c = _exNum(carry);
+  EX.amt = { adv:_exAmtFmt(a), carry:_exAmtFmt(c), base:a.toFixed(2)+'|'+c.toFixed(2), by:by||'', at:at||null, off:_exAmt379Missing };
+}
+function _exAmtReset(){ _exAmtSet(EX.doc && EX.doc.advance_amount, 0, '', null); }
+let _exAmt379Checked = false;
+async function _exAmtFetch(docId){
+  if(_exAmt379Missing) return null;
+  try{ const r = await _rpc('ms_expense_doc_amounts_get', { p_doc_id: docId }); _exAmt379Checked = true; return r; }
+  catch(e){ if(_exAmtMissing(e)){ _exAmt379Missing = true; _exAmt379Checked = true; try{ console.warn('[expense amounts] '+EX_AMT_OFF_MSG); }catch(_){} return null; } throw e; }
+}
+/* ตรวจครั้งเดียวต่อ Session ว่ามี RPC ของ RUN-379 (เรียกด้วยเลขเอกสารว่าง → ระบบตอบ "ไม่พบเอกสาร" = ติดตั้งแล้ว) */
+async function _exAmtProbe(){
+  if(_exAmt379Checked || _exAmt379Missing) return;
+  try{ await _rpc('ms_expense_doc_amounts_get', { p_doc_id: '00000000-0000-0000-0000-000000000000' }); _exAmt379Checked = true; }
+  catch(e){ if(_exAmtMissing(e)){ _exAmt379Missing = true; try{ console.warn('[expense amounts] '+EX_AMT_OFF_MSG); }catch(_){} } _exAmt379Checked = true; }
+}
+async function _exAmtLoad(){
+  _exAmtReset();
+  if(!EX.doc || !EX.doc.id) return;
+  try{ const r = await _exAmtFetch(EX.doc.id); if(r) _exAmtSet(r.advance, r.carry, r.updated_by_name, r.updated_at); else EX.amt.off = _exAmt379Missing; }
+  catch(e){ console.error(e); toast('โหลดยอดเบิกเงิน / ยอดยก ไม่สำเร็จ: '+_exErr(e),'error'); }
+}
+/* เอกสารสำหรับ Export: เบิกเงิน / ยอดยก ที่บันทึกแล้ว (จากฐานข้อมูล) */
+async function _exAmtHead(h, docId){
+  const out = Object.assign({}, h||{});
+  let r = null; try{ r = await _exAmtFetch(docId || out.id); }catch(e){ console.warn('[expense amounts]', e); }
+  out.advance_amount = r ? _exNum(r.advance) : _exNum(out.advance_amount);
+  out.carry_amount   = r ? _exNum(r.carry) : 0;
+  return out;
+}
+function exAmtInput(f, el){
+  if(!EX.amt || (f!=='adv' && f!=='carry')) return;
+  EX.amt[f] = el ? el.value : '';
+  if(el) el.classList.toggle('ex-bad', !_exManParse(EX.amt[f]).ok);
+  _exSumLive();
+}
+function exAmtBlur(f, el){
+  if(!el) return; const p = _exManParse(el.value);
+  if(p.ok){ el.value = p.val ? _exMoney(p.val) : ''; EX.amt[f] = el.value; el.classList.remove('ex-bad'); }
+  _exSumLive();
+}
+
+/* ยอดรวมเฉพาะที่เลือก (JOB จากระบบ + Manual)
+   local379: เบิกเงิน = กรอกเอง (ไม่นับ NJ ADVANCE) · ใช้ไป = รวม TOTAL AMOUNT ที่เลือก · คงเหลือ = เบิกเงิน − ยอดยก − ใช้ไป */
 function _exManSel(){ return (EX.man||[]).filter(r=>EX.sumSel.has('m:'+r.key)); }
 function _exManSums(list){
-  return (list||[]).reduce((s,r)=>{ const v=_exManVals(r); s.n++; s.qty+=v.qty||0; s.adv+=v.adv||0; s.cost+=v.cost||0; s.rcp+=v.rcp||0; s.total+=(v.cost||0)+(v.rcp||0); return s; },
+  return (list||[]).reduce((s,r)=>{ const v=_exManVals(r); s.n++; s.adv+=v.adv||0; s.cost+=v.cost||0; s.rcp+=v.rcp||0; s.total+=(v.cost||0)+(v.rcp||0); return s; },
                            { n:0, qty:0, adv:0, cost:0, rcp:0, total:0 });
 }
+function _exBal379(adv, carry, spent){ return Math.round((_exNum(adv) - _exNum(carry) - _exNum(spent))*100)/100; }
 function _exSelSums376(groups){
   const sel = groups.filter(g=>EX.sumSel.has(g.key)); const ss = _exSums(sel); const ms = _exManSums(_exManSel());
-  const adv = _exAdvTotal(sel, groups, EX.doc) + ms.adv;
-  return { jobs:ss.n, man:ms.n, qty:ss.qty+ms.qty, adv:ss.adv+ms.adv, cost:ss.cost+ms.cost, rcp:ss.rcp+ms.rcp, total:ss.total+ms.total, advBox:adv, bal:adv-(ss.total+ms.total) };
+  const advBox = _exAmtVal(EX.amt.adv)||0, carry = _exAmtVal(EX.amt.carry)||0, total = ss.total+ms.total;
+  return { jobs:ss.n, man:ms.n, adv:ss.adv+ms.adv, cost:ss.cost+ms.cost, rcp:ss.rcp+ms.rcp, total, advBox, carry, bal:_exBal379(advBox, carry, total) };
 }
 function _exManTot(r){ const v=_exManVals(r); return (v.cost==null && v.rcp==null) ? '' : _exMoney((v.cost||0)+(v.rcp||0)); }
+function _exGroupWht(g){ const s=[]; (g&&g.items||[]).forEach(it=>{ const w=String(it.wht_no||'').trim(); if(w && !s.includes(w)) s.push(w); }); return s.join(', '); }
 function _exManJobOpts(){
   const seen = new Set(), out = [];
   _exGroups().forEach(g=>{ if(g.job_no && !seen.has(g.job_no)){ seen.add(g.job_no); out.push({ no:g.job_no, co:g.company||'' }); } });
@@ -1836,43 +1959,50 @@ function _exManRowHtml(r, no, editable){
   const on = EX.sumSel.has('m:'+r.key), k = esc(r.key), closed = r.status==='CLOSED';
   const ck = `<td class="ex2-ck"><input type="checkbox" ${on?'checked':''} onchange="exSumToggle('m:${k}',this.checked)" aria-label="เลือกรายการ ${no}"></td>`;
   const item = `<td class="ex2-c">${no}<span class="ex376-tag">Manual</span></td>`;
+  const co = _exManCo(r);
   if(closed || !editable){
+    const desc = `<td><span class="ex380-cotxt" data-ex-mco="${k}" title="${esc(co)}">${esc(_exCoShort(co))}</span></td>`;
     const canRe = closed && canDeleteExpense();
     return `<tr class="ex376-mrow ${on?'ex2-on':''}" data-ex-mrow="${k}">${ck}${item}
       <td>${r.job_no?`<span class="ex2-pill">${esc(r.job_no)}</span>`:'<span class="ex2-muted">—</span>'} ${closed?`<span class="ex2-st ex2-closed">ปิดสรุปแล้ว</span>`:''}</td>
-      <td>${esc(r.description||'')}</td>
-      <td class="ex-money">${esc(r.qty||'')}</td><td class="ex-money">${esc(r.adv||'')}</td><td class="ex-money">${esc(r.cost||'')}</td><td class="ex-money">${esc(r.rcp||'')}</td>
+      ${desc}
+      <td class="ex-money">${esc(r.adv||'')}</td><td class="ex-money">${esc(r.cost||'')}</td><td class="ex-money">${esc(r.rcp||'')}</td>
       <td class="ex-money ex2-tot" data-ex-mtot="${k}">${_exManTot(r)}</td>
+      <td class="ex379-wht" data-ex-mwht="${k}">${esc(_exManWht(r))}</td>
       <td class="ex376-act">${canRe?`<button type="button" class="ex376-ib" title="ยกเลิกปิดสรุป" onclick="exManReopen('${k}')">↩️</button>`:(closed?'🔒':'')}</td></tr>`;
   }
   const inp = (f, cls, ph, extra)=>`<input type="text" class="ex376-in ${cls||''}" data-ex-mf="${f}" value="${esc(r[f]||'')}" placeholder="${ph||''}" ${extra||''} oninput="exManSet('${k}','${f}',this)">`;
+  const desc = `<td><div class="ex380-co"><input type="text" class="ex376-in ex380-coin" data-ex-mco="${k}" value="${esc(_exCoShort(co))}" title="${esc(co)}" placeholder="เลือกบริษัท" autocomplete="off" spellcheck="false" aria-label="ชื่อลูกค้า"
+      onfocus="exCoOpen('${k}',this)" oninput="exCoFilter('${k}',this)" onkeydown="exCoKey(event,'${k}',this)" onblur="exCoBlur('${k}',this)"><span class="ex380-caret">▼</span></div></td>`;
   return `<tr class="ex376-mrow ${on?'ex2-on':''}" data-ex-mrow="${k}">${ck}${item}
     <td>${inp('job_no','ex376-job','JOB (กรอก/เลือก)','list="ex376-jobs" autocomplete="off" onchange="exManJob(\''+k+'\',this.value)"')}</td>
-    <td>${inp('description','','รายละเอียด','maxlength="500"')}</td>
-    <td>${inp('qty','ex376-num ex376-qty','','inputmode="decimal"')}</td>
+    ${desc}
     <td>${inp('adv','ex376-num','','inputmode="decimal"')}</td>
     <td>${inp('cost','ex376-num','','inputmode="decimal"')}</td>
     <td>${inp('rcp','ex376-num','','inputmode="decimal"')}</td>
     <td class="ex-money ex2-tot" data-ex-mtot="${k}">${_exManTot(r)}</td>
+    <td>${inp('wht','ex379-wht','เลขใบหัก','maxlength="100" autocomplete="off" spellcheck="false"')}</td>
     <td class="ex376-act"><button type="button" class="ex376-ib" title="แก้ไข" onclick="exManFocus('${k}')">✏️</button><button type="button" class="ex376-ib ex376-del" title="ลบ" onclick="exManDel('${k}')">🗑️</button></td></tr>`;
 }
-/* อัปเดตยอดทันทีขณะพิมพ์ (ไม่วาดตารางใหม่ → เคอร์เซอร์ไม่หลุด) */
+/* อัปเดตยอดทันทีขณะพิมพ์ / ติ๊ก (ไม่วาดตารางใหม่ → เคอร์เซอร์ไม่หลุด) */
 function _exSumLive(){
   const m = $('mx-ex-work'); if(!m) return;
   const t = _exSelSums376(_exGroups());
   const set = (sel, v)=>{ const el = m.querySelector(sel); if(el) el.textContent = v; };
   set('[data-ex-ss="label"]', t.man || (EX.man||[]).length ? `รวมเฉพาะ JOB ที่เลือก (${t.jobs+t.man} รายการ)` : `รวมเฉพาะ JOB ที่เลือก (${t.jobs} JOB)`);
-  set('[data-ex-ss="qty"]', _exQty(t.qty)); set('[data-ex-ss="adv"]', _exMoney(t.adv)); set('[data-ex-ss="cost"]', _exMoney(t.cost));
+  set('[data-ex-ss="adv"]', _exMoney(t.adv)); set('[data-ex-ss="cost"]', _exMoney(t.cost));
   set('[data-ex-ss="rcp"]', _exMoney(t.rcp)); set('[data-ex-ss="total"]', _exMoney(t.total));
-  set('[data-ex-box="adv"]', _exMoney(t.advBox)); set('[data-ex-box="spent"]', _exMoney(t.total));
-  const b = m.querySelector('[data-ex-box="bal"]'); if(b){ b.textContent = _exMoney(t.bal); b.classList.toggle('ex-neg', t.bal<0); }
-  const sv = m.querySelector('[data-ex-mansave]'); if(sv){ const n=_exManDirty(); sv.innerHTML = '💾 บันทึกข้อมูล'+(n?` (${n})`:''); sv.classList.toggle('ex376-dirty', !!n); }
+  set('[data-ex-box="spent"]', _exMoney(t.total));
+  const ro = (k, v)=>{ const el = m.querySelector(`b[data-ex-box="${k}"]`); if(el) el.textContent = _exMoney(v); };
+  ro('adv', t.advBox); ro('carry', t.carry);
+  const b = m.querySelector('[data-ex-box="bal"]'); if(b){ b.textContent = _exMoney(t.bal); b.classList.toggle('ex-neg', t.bal<0); b.classList.toggle('ex379-pos', t.bal>=0); }
+  const sv = m.querySelector('[data-ex-mansave]'); if(sv){ const n=_exManDirty()+_exAmtDirty(); sv.innerHTML = '💾 บันทึกข้อมูล'+(n?` (${n})`:''); sv.classList.toggle('ex376-dirty', !!n); }
 }
 function exManSet(key, field, el){
   const r = (EX.man||[]).find(x=>x.key===key); if(!r || r.status==='CLOSED') return;
   r[field] = el ? el.value : '';
-  if(field==='qty' || field==='adv' || field==='cost' || field==='rcp'){
-    const p = _exManParse(r[field], field==='qty');
+  if(field==='adv' || field==='cost' || field==='rcp'){
+    const p = _exManParse(r[field]);
     if(el) el.classList.toggle('ex-bad', !p.ok);
     const td = document.querySelector(`[data-ex-mtot="${CSS.escape(key)}"]`); if(td) td.textContent = _exManTot(r);
   }
@@ -1883,7 +2013,7 @@ function exManJob(key, v){ const r=(EX.man||[]).find(x=>x.key===key); if(!r) ret
 function exManAdd(){
   if(!canEditExpense()){ toast('ไม่มีสิทธิ์เพิ่มรายการ','error'); return; }
   if(EX.manOff){ toast(EX_MAN_OFF_MSG,'error'); return; }
-  const r = { key:_exUuid(), id:null, saved:false, status:'OPEN', job_no:'', job_doc_id:null, description:'', qty:'1', adv:'', cost:'', rcp:'' };
+  const r = { key:_exUuid(), id:null, saved:false, status:'OPEN', job_no:'', job_doc_id:null, description:'', co:'', adv:'', cost:'', rcp:'', wht:'' };
   EX.man.push(r); EX.sumSel.add('m:'+r.key);
   if(EX.sumFilter==='closed') EX.sumFilter = 'all';
   exWorkRender();
@@ -1892,77 +2022,166 @@ function exManAdd(){
 }
 function exManFocus(key){
   const tr = document.querySelector(`[data-ex-mrow="${CSS.escape(key)}"]`); if(!tr) return;
-  const i = tr.querySelector('input[data-ex-mf="description"]') || tr.querySelector('input[data-ex-mf]'); if(i){ i.focus(); try{ i.select(); }catch(_){} }
+  const i = tr.querySelector('input[data-ex-mf="job_no"]') || tr.querySelector('input[data-ex-mf]'); if(i){ i.focus(); try{ i.select(); }catch(_){} }
 }
 async function exManDel(key){
   const i = (EX.man||[]).findIndex(x=>x.key===key); if(i<0) return;
   const r = EX.man[i];
   if(r.status==='CLOSED'){ toast('รายการที่ปิดสรุปแล้ว ลบไม่ได้','error'); return; }
   if(r.saved || !_exManEmpty(r)){
-    const ok = await confirmDialog({ title:'ลบรายการกรอกเอง', message:`ลบรายการ <b>${esc(r.description||r.job_no||'(ไม่มีรายละเอียด)')}</b>${r.saved?'<br>กด 💾 บันทึกข้อมูล เพื่อยืนยันการลบในฐานข้อมูล':''}`, okLabel:'🗑️ ลบ', okClass:'btn-danger' });
+    const ok = await confirmDialog({ title:'ลบรายการกรอกเอง', message:`ลบรายการ <b>${esc(r.job_no||_exManCo(r)||'ITEM '+(i+1))}</b>${r.saved?'<br>กด 💾 บันทึกข้อมูล เพื่อยืนยันการลบในฐานข้อมูล':''}`, okLabel:'🗑️ ลบ', okClass:'btn-danger' });
     if(!ok) return;
   }
   EX.man.splice(i,1); EX.sumSel.delete('m:'+key);
   exWorkRender();
 }
+/* 💾 บันทึกข้อมูล = รายการกรอกเอง (Manual + เลขใบหัก) + เบิกเงิน / ยอดยก ของเอกสาร · ใช้เลขที่เอกสารเดิม ไม่สร้างเอกสารซ้ำ */
 async function exManSave(){
   if(!canEditExpense()){ toast('ไม่มีสิทธิ์บันทึก','error'); return; }
-  if(EX.manOff){ toast(EX_MAN_OFF_MSG,'error'); return; }
   if(EX.manBusy) return;
   let bad = null;
-  (EX.man||[]).forEach((r,idx)=>{ if(bad || r.status==='CLOSED') return;
-    for(const [f,lb] of [['qty','QTY'],['adv','NJ ADVANCE'],['cost','COST'],['rcp','RECEIPT']]){ const p=_exManParse(r[f], f==='qty'); if(!p.ok){ bad = { key:r.key, f, msg:`${lb}: ${p.msg}` }; break; } }
+  (EX.man||[]).forEach(r=>{ if(bad || r.status==='CLOSED') return;
+    for(const [f,lb] of [['adv','NJ ADVANCE'],['cost','COST'],['rcp','RECEIPT']]){ const p=_exManParse(r[f]); if(!p.ok){ bad = { key:r.key, f, msg:`${lb}: ${p.msg}` }; break; } }
     if(!bad && String(r.job_no||'').trim().length>60) bad = { key:r.key, f:'job_no', msg:'JOB ยาวเกิน 60 ตัวอักษร' };
+    if(!bad && _exManWht(r).length>100) bad = { key:r.key, f:'wht', msg:'เลขใบหักยาวเกิน 100 ตัวอักษร' };
+    if(!bad && _exManCo(r).length>300) bad = { key:r.key, f:'co', msg:'ชื่อลูกค้ายาวเกิน 300 ตัวอักษร' };
   });
   if(bad){ toast(bad.msg,'error'); const el=document.querySelector(`[data-ex-mrow="${CSS.escape(bad.key)}"] input[data-ex-mf="${bad.f}"]`); if(el){ el.classList.add('ex-bad'); el.focus(); } return; }
-  if(!_exManDirty()){ toast('ไม่มีการเปลี่ยนแปลงที่ต้องบันทึก','info'); return; }
+  for(const [f,lb] of [['adv','เบิกเงิน'],['carry','ยอดยก']]){ const p=_exManParse(EX.amt[f]); if(!p.ok){ toast(lb+': '+p.msg,'error'); const el=document.querySelector(`input[data-ex-amt="${f}"]`); if(el){ el.classList.add('ex-bad'); el.focus(); } return; } }
+  const dM = _exManDirty(), dA = _exAmtDirty();
+  if(!dM && !dA){ toast('ไม่มีการเปลี่ยนแปลงที่ต้องบันทึก','info'); return; }
+  if(dM && EX.manOff){ toast(EX_MAN_OFF_MSG,'error'); return; }
+  if(_exAmt379Missing){ toast(EX_AMT_OFF_MSG+' · ข้อมูลที่กรอกยังอยู่บนหน้าจอ','error'); return; }
   EX.manBusy = true;
   const b = document.querySelector('[data-ex-mansave]'); if(b){ b.disabled = true; b.innerHTML = '<span class="spinner"></span> กำลังบันทึก...'; }
+  const done = [];
   try{
+    await _exAmtProbe();                                         // ตรวจว่าติดตั้ง RUN-380 แล้ว ก่อนเขียนข้อมูลใด ๆ (กันเลขใบหัก / ชื่อลูกค้าหาย)
+    if(_exAmt379Missing){ EX.amt.off = true; toast(EX_AMT_OFF_MSG+' · ข้อมูลที่กรอกยังอยู่บนหน้าจอ','error'); return; }
     const doc = await _exEnsureDoc();                            // เอกสารเดิม (สร้างครั้งเดียวเมื่อยังไม่มี) · ไม่สร้างเอกสารซ้ำ
-    const rows = (EX.man||[]).filter(r=>r.saved || !_exManEmpty(r)).map(_exManPayload);
-    const res = await _rpc('ms_expense_manual_save', { p_doc_id: doc.id, p_rows: rows });
-    const keepSel = new Set(EX.sumSel);
-    _exManApply(res);
-    EX.sumSel = new Set([...keepSel].filter(k=>!k.startsWith('m:') || EX.man.some(r=>'m:'+r.key===k)));
+    if(dM){
+      const rows = (EX.man||[]).filter(r=>r.saved || !_exManEmpty(r)).map(_exManPayload);
+      const res = await _rpc('ms_expense_manual_save', { p_doc_id: doc.id, p_rows: rows });
+      if(Array.isArray(res) && res.length && !Object.prototype.hasOwnProperty.call(res[0], 'company_name')){   // local380: ฐานข้อมูลยังไม่มีคอลัมน์ชื่อลูกค้า
+        toast(EX_AMT_OFF_MSG+' · ชื่อลูกค้ายังไม่ถูกบันทึก · ข้อมูลที่กรอกยังอยู่บนหน้าจอ','error'); return;
+      }
+      const keepSel = new Set(EX.sumSel);
+      _exManApply(res);
+      EX.sumSel = new Set([...keepSel].filter(k=>!k.startsWith('m:') || EX.man.some(r=>'m:'+r.key===k)));
+      done.push('รายการกรอกเอง '+EX.man.length+' รายการ');
+    }
+    if(_exAmtDirty()){
+      const r = await _rpc('ms_expense_doc_amounts_set', { p_doc_id: doc.id, p_advance: _exAmtVal(EX.amt.adv)||0, p_carry: _exAmtVal(EX.amt.carry)||0 });
+      _exAmtSet(r.advance, r.carry, r.updated_by_name, r.updated_at);
+      if(EX.doc) EX.doc.advance_amount = _exNum(r.advance);
+      done.push('เบิกเงิน / ยอดยก');
+    }
     await exRefreshSummary();
-    toast('บันทึกข้อมูลแล้ว · รายการกรอกเอง '+EX.man.length+' รายการ','success');
+    toast('บันทึกข้อมูลแล้ว · '+done.join(' · '),'success');
   }catch(e){
     console.error(e);
     if(_exManMissing(e)){ EX.manOff = true; _exMan376Missing = true; toast(EX_MAN_OFF_MSG+' · ข้อมูลที่กรอกยังอยู่บนหน้าจอ','error'); }
-    else toast('บันทึกไม่สำเร็จ (ข้อมูลที่กรอกยังอยู่บนหน้าจอ): '+_exErr(e),'error');
+    else if(_exAmtMissing(e)){ _exAmt379Missing = true; EX.amt.off = true; toast(EX_AMT_OFF_MSG+' · ข้อมูลที่กรอกยังอยู่บนหน้าจอ','error'); }
+    else toast((done.length?'บันทึกแล้ว: '+done.join(' · ')+' · แต่':'')+'บันทึกไม่สำเร็จ (ข้อมูลที่กรอกยังอยู่บนหน้าจอ): '+_exErr(e),'error');
   }finally{ EX.manBusy = false; exWorkRender(); }
 }
 async function exManReopen(key){
   if(!canDeleteExpense()){ toast('เฉพาะ SUPER ADMIN เท่านั้น','error'); return; }
   const r = (EX.man||[]).find(x=>x.key===key); if(!r || r.status!=='CLOSED') return;
   if(_exManDirty()){ toast('มีรายการกรอกเองที่ยังไม่บันทึก — กด 💾 บันทึกข้อมูล ก่อน','error'); return; }
-  const ok = await confirmDialog({ title:'ยกเลิกปิดสรุป', message:`ยกเลิกปิดสรุปรายการ <b>${esc(r.description||r.job_no||'')}</b> → กลับเป็น "รอปิดสรุป" และแก้ไขได้อีกครั้ง`, okLabel:'↩️ ยกเลิกปิดสรุป', okClass:'btn-danger' });
+  const ok = await confirmDialog({ title:'ยกเลิกปิดสรุป', message:`ยกเลิกปิดสรุปรายการ <b>${esc(r.job_no||_exManCo(r)||'')}</b> → กลับเป็น "รอปิดสรุป" และแก้ไขได้อีกครั้ง`, okLabel:'↩️ ยกเลิกปิดสรุป', okClass:'btn-danger' });
   if(!ok) return;
-  try{ await _rpc('ms_expense_manual_reopen', { p_doc_id: EX.doc.id, p_id: r.key, p_reason: null }); await _exManLoad(); toast('ยกเลิกปิดสรุปแล้ว','success'); }
+  try{
+    await _rpc('ms_expense_manual_reopen', { p_doc_id: EX.doc.id, p_id: r.key, p_reason: null });
+    const keepAmt = { adv:EX.amt.adv, carry:EX.amt.carry, base:EX.amt.base, by:EX.amt.by, at:EX.amt.at, off:EX.amt.off };
+    await _exManLoad();
+    toast('ยกเลิกปิดสรุปแล้ว','success');
+    if(EX.amt.base===keepAmt.base) EX.amt = keepAmt;            // คงค่าที่กำลังแก้ไขในกรอบสรุป
+  }
   catch(e){ console.error(e); toast('ยกเลิกปิดสรุปไม่สำเร็จ: '+_exErr(e),'error'); }
   finally{ exWorkRender(); }
 }
+/* ---------- local380: Searchable Dropdown ชื่อลูกค้า (รายชื่อบริษัทครบทุกบริษัท · แสดงชื่อเต็มในรายการ) ---------- */
+const EXCO = { key:null, el:null, items:[], on:-1 };
+function _exCoDD(){
+  let d = document.getElementById('ex380-codd');
+  if(!d){ d = document.createElement('div'); d.id = 'ex380-codd'; d.setAttribute('role','listbox');
+    d.addEventListener('mousedown', e=>{ e.preventDefault(); const it = e.target.closest('[data-ex-coi]'); if(it) _exCoPick(Number(it.getAttribute('data-ex-coi'))); });
+    document.body.appendChild(d);
+    window.addEventListener('resize', _exCoPos); document.addEventListener('scroll', _exCoPos, true); }
+  return d;
+}
+function _exCoPos(){
+  const d = document.getElementById('ex380-codd'); if(!d || !d.classList.contains('show') || !EXCO.el) return;
+  if(!document.body.contains(EXCO.el)){ _exCoClose(); return; }
+  const r = EXCO.el.getBoundingClientRect(), vh = window.innerHeight||800, vw = window.innerWidth||1200;
+  const w = Math.min(Math.max(r.width, 320), vw - 16), below = vh - r.bottom - 8, h = Math.min(300, Math.max(140, below > 180 ? below : r.top - 8));
+  d.style.width = w+'px'; d.style.left = Math.max(8, Math.min(r.left, vw - w - 8))+'px'; d.style.maxHeight = h+'px';
+  if(below > 180 || below >= r.top){ d.style.top = (r.bottom + 4)+'px'; d.style.bottom = 'auto'; }
+  else { d.style.top = 'auto'; d.style.bottom = (vh - r.top + 4)+'px'; }
+}
+function _exCoRender(q){
+  const d = _exCoDD(), all = _exCoList(), r = (EX.man||[]).find(x=>x.key===EXCO.key), cur = r ? _exManCo(r) : '';
+  q = String(q||'').toLowerCase().trim();
+  let items = all;
+  if(q){ const sw = all.filter(x=>x.toLowerCase().startsWith(q)), inc = all.filter(x=>!x.toLowerCase().startsWith(q) && x.toLowerCase().includes(q)); items = sw.concat(inc); }
+  EXCO.items = items; EXCO.on = items.length===1 ? 0 : -1;
+  d.innerHTML = `<div class="ex380-cnt">${q ? `พบ ${items.length} บริษัท` : `บริษัททั้งหมด ${all.length} รายการ`} · ชื่อเดียวกับช่อง บริษัท * หน้าสร้างงาน</div>`
+    + (cur ? `<div class="ex380-it ex380-clr" data-ex-coi="-1">— ไม่ระบุชื่อลูกค้า —</div>` : '')
+    + (items.length ? items.map((x,i)=>`<div class="ex380-it${i===EXCO.on?' on':''}${x===cur?' ex380-cur':''}" data-ex-coi="${i}" role="option" title="${esc(x)}">${esc(x)}</div>`).join('')
+                    : `<div class="ex380-empty">ไม่พบบริษัท "${esc(q)}"</div>`);
+  d.classList.add('show'); _exCoPos();
+}
+function exCoOpen(key, el){
+  const r = (EX.man||[]).find(x=>x.key===key); if(!r || r.status==='CLOSED') return;
+  EXCO.key = key; EXCO.el = el;
+  el.value = ''; el.placeholder = _exManCo(r) || 'พิมพ์ค้นหาบริษัท...';
+  _exCoRender('');
+}
+function exCoFilter(key, el){ if(EXCO.key!==key) exCoOpen(key, el); _exCoRender(el.value); }
+function _exCoShow(el, r){ if(!el) return; const co = r ? _exManCo(r) : ''; el.value = _exCoShort(co); el.title = co; el.placeholder = 'เลือกบริษัท'; }
+function _exCoClose(){ const d = document.getElementById('ex380-codd'); if(d){ d.classList.remove('show'); d.innerHTML = ''; } EXCO.key = null; EXCO.el = null; EXCO.items = []; EXCO.on = -1; }
+function _exCoPick(i){
+  const r = (EX.man||[]).find(x=>x.key===EXCO.key), el = EXCO.el; if(!r){ _exCoClose(); return; }
+  if(i === -1) r.co = ''; else if(EXCO.items[i] != null) r.co = EXCO.items[i]; else return;
+  _exCoShow(el, r); _exCoClose();
+  try{ if(el) el.blur(); }catch(_){}
+  _exSumLive();
+}
+function exCoKey(e, key, el){
+  if(EXCO.key!==key) return;
+  const n = EXCO.items.length;
+  if(e.key==='ArrowDown' || e.key==='ArrowUp'){ e.preventDefault(); if(!n) return; EXCO.on = e.key==='ArrowDown' ? (EXCO.on+1)%n : (EXCO.on<=0 ? n-1 : EXCO.on-1);
+    const d = document.getElementById('ex380-codd'); d.querySelectorAll('[data-ex-coi]').forEach(x=>x.classList.toggle('on', Number(x.getAttribute('data-ex-coi'))===EXCO.on));
+    const on = d.querySelector('.ex380-it.on'); if(on) try{ on.scrollIntoView({ block:'nearest' }); }catch(_){} }
+  else if(e.key==='Enter'){ e.preventDefault(); if(EXCO.on>=0) _exCoPick(EXCO.on); }
+  else if(e.key==='Escape'){ e.preventDefault(); const r = (EX.man||[]).find(x=>x.key===key); _exCoClose(); _exCoShow(el, r); try{ el.blur(); }catch(_){} }
+}
+function exCoBlur(key, el){
+  setTimeout(()=>{ if(document.activeElement===el) return; const r = (EX.man||[]).find(x=>x.key===key); if(EXCO.key===key) _exCoClose(); _exCoShow(el, r); }, 120);
+}
 /* ---------- Export: รายการ Manual (บันทึกแล้วเท่านั้น) ---------- */
-function _exManVal(r){ const v=_exManVals(r); return Object.assign({ job_no:String(r.job_no||'').trim(), job_doc_id:r.job_doc_id||null, description:String(r.description||'').trim() }, v); }
+function _exManVal(r){ const v=_exManVals(r); return Object.assign({ job_no:String(r.job_no||'').trim(), job_doc_id:r.job_doc_id||null, description:String(r.description||'').trim(), co:_exManCo(r), wht:_exManWht(r) }, v); }
 async function _exManFetch(docId){                               // จากฐานข้อมูลจริง (หน้าแรก / รายงาน)
   if(_exMan376Missing) return [];
   try{ return ((await _rpc('ms_expense_manual_get', { p_doc_id: docId })) || []).map(_exManFromDb); }
   catch(e){ if(_exManMissing(e)){ _exMan376Missing = true; return []; } throw e; }
 }
+/* ใบสรุป: Item · Job · ชื่อลูกค้า (12 ตัวอักษรแรก) · NJ ADVANCE · COST · RECEIPT · TOTAL AMOUNT · เลขใบหัก (ไม่มี QTY) */
 function _exManPdfRows(man, start){
   return (man||[]).map((r,i)=>{ const v=_exManVal(r);
-    return [String(start+i+1), v.job_no||'—', v.description||'—', v.qty==null?'':_exQty(v.qty), v.adv==null?'':_exMoney(v.adv),
-            v.cost==null?'':_exMoney(v.cost), v.rcp==null?'':_exMoney(v.rcp), (v.cost==null&&v.rcp==null)?'':_exMoney((v.cost||0)+(v.rcp||0))]; });
+    return [String(start+i+1), v.job_no||'—', _exCoShort(v.co), v.adv==null?'':_exMoney(v.adv),
+            v.cost==null?'':_exMoney(v.cost), v.rcp==null?'':_exMoney(v.rcp), (v.cost==null&&v.rcp==null)?'':_exMoney((v.cost||0)+(v.rcp||0)), v.wht]; });
 }
-/* ฟอร์มรายละเอียด JOB: Manual ที่มีเลข JOB → รวมเข้าฟอร์มของ JOB นั้น (ถ้าเลือก JOB นั้นด้วย) หรือออกฟอร์มของตัวเอง · ไม่มี JOB → ไม่ออกฟอร์ม */
+/* ฟอร์มรายละเอียด JOB: Manual ที่มีเลข JOB → รวมเข้าฟอร์มของ JOB นั้น (ถ้าเลือก JOB นั้นด้วย) หรือออกฟอร์มของตัวเอง · ไม่มี JOB → ไม่ออกฟอร์ม
+   local380: Manual ลงแถวตามรายละเอียดเดิมที่บันทึกไว้ (ไม่มี → Other ตามกติกาเดิม) · เลขใบหักลง Tax number (รายการ JOB จากระบบไม่เปลี่ยน) */
 function _exManJobForms(sel, man){
   const forms = sel.map(g=>({ g:Object.assign({}, g, { items:(g.items||[]).slice() }), info:EX.info[g.job_doc_id||g.src_doc_id] || {} }));
   (man||[]).forEach(r=>{ const v=_exManVal(r); if(!v.job_no) return;
     let f = forms.find(x=>(v.job_doc_id && x.g.job_doc_id===v.job_doc_id) || x.g.job_no===v.job_no);
     if(!f){ const inf = (v.job_doc_id && EX.info[v.job_doc_id]) || {};
       f = { g:{ key:'m:'+v.job_no, job_no:v.job_no, job_doc_id:v.job_doc_id, company:inf.company||'', adv:0, cost:0, rcp:0, items:[] }, info:inf }; forms.push(f); }
-    f.g.items.push({ description:v.description, cost_amount:v.cost||0, receipt_amount:v.rcp||0, wht_no:null });
+    f.g.items.push({ description:v.description, cost_amount:v.cost||0, receipt_amount:v.rcp||0, wht_no:v.wht||null });
     f.g.adv += v.adv||0; f.g.cost += v.cost||0; f.g.rcp += v.rcp||0; f.g.total = (f.g.cost||0)+(f.g.rcp||0);
   });
   return forms;
@@ -1976,7 +2195,7 @@ Object.assign(window, {
   exOpenDoc, exSetTab, exPickJob, exGoWork, exSetTerminal, exJobDDOpen, exJobDDSearch, exAddDraft, exRowSet, exSaveRow, exSaveAllDirty,
   exDeleteRow, exSaveJobAdv, exSumFilter, exSumToggle, exSumAll, exSumClear, exCloseSelected, exViewGroup, exReopenGroup,
   exExportSel, exExportJobPdf, exExportGroupPdf, exSumView, exSumExcel,
-  exManAdd, exManSet, exManJob, exManDel, exManSave, exManFocus, exManReopen,
+  exManAdd, exManSet, exManJob, exManDel, exManSave, exManFocus, exManReopen, exAmtInput, exAmtBlur, exCoOpen, exCoFilter, exCoKey, exCoBlur,
   EXL, __EX: EX
 });
 })();
