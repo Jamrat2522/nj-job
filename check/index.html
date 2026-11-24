@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="nj-build" content="local124"><!-- ★ [local117] เลขรุ่นของไฟล์นี้ (ตรงกับ Deploy github local124.zip) — ป้ายมุมขวาบนอ่านจากไฟล์บนเว็บไซต์จริง -->
+<meta name="nj-build" content="local125"><!-- ★ [local117] เลขรุ่นของไฟล์นี้ (ตรงกับ Deploy github local125.zip) — ป้ายมุมขวาบนอ่านจากไฟล์บนเว็บไซต์จริง -->
 <meta name="viewport" content="width=1440,initial-scale=1.0,user-scalable=yes">
 <title>ตรวจใบขน — N.J. Logistics</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -1394,6 +1394,24 @@ body.legacy-active .content-area { display: none !important; }
     #eleai-view .el-top h2{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;margin:0;padding:0}
     #eleai-view .el-top{justify-content:flex-end}
     #eleai-view .el-totbar{display:none!important}
+    /* ★ [local125] สถานะการอ่าน Real-time */
+    #eleai-view .el-run{margin-top:8px;border:1px solid #93c5fd;background:#eff6ff;border-radius:8px;padding:7px 10px;font-size:12px;display:flex;flex-direction:column;gap:4px}
+    #eleai-view .el-run[hidden]{display:none} #eleai-view .el-run.fail{border-color:#f87171;background:#fef2f2}
+    #eleai-view .el-run-hd{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline} #eleai-view .el-run-hd b{color:#1e3a8a;font-size:12.5px} #eleai-view .el-run.fail .el-run-hd b{color:#b91c1c} #eleai-view .el-run-hd span{color:#475569}
+    #eleai-view .el-run .b{display:block;height:8px;background:#dbeafe;border-radius:6px;overflow:hidden;flex:1 1 auto} #eleai-view .el-run .b i{display:block;height:100%;background:#2563eb;transition:width .3s}
+    #eleai-view .el-run-all{display:flex;align-items:center;gap:8px} #eleai-view .el-run-all .b{height:10px} #eleai-view .el-run-all .c{font-weight:900;font-family:'IBM Plex Mono',monospace;min-width:40px;text-align:right}
+    #eleai-view .el-run-sum b{font-family:'IBM Plex Mono',monospace} #eleai-view .el-run-sum b.e{color:#b91c1c}
+    #eleai-view .el-run-st{color:#475569;font-size:11.5px}
+    #eleai-view .el-run-cur,#eleai-view .el-run-note{color:#334155;font-size:11.5px;overflow-wrap:anywhere}
+    #eleai-view .el-run-files{display:flex;flex-direction:column;gap:3px;max-height:180px;overflow:auto}
+    #eleai-view .el-run-f{display:grid;grid-template-columns:minmax(0,170px) minmax(60px,1fr) auto;align-items:center;gap:8px;font-size:11.5px}
+    #eleai-view .el-run-f .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700} #eleai-view .el-run-f .c{white-space:nowrap;color:#475569}
+    #eleai-view .el-run-f.bad .b i{background:#dc2626} #eleai-view .el-run-f.bad .c{color:#b91c1c}
+    #eleai-view .el-run-err{max-height:160px;overflow:auto;border:1px solid #6b7280;border-radius:4px;background:#fff}
+    #eleai-view .el-run-err table{border-collapse:collapse;width:100%;font-size:11.5px} #eleai-view .el-run-err th,#eleai-view .el-run-err td{border:1px solid #9ca3af;padding:2px 6px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+    #eleai-view .el-run-err th{background:#e5e7eb;position:sticky;top:0} #eleai-view .el-run-err td.p{white-space:nowrap;font-family:'IBM Plex Mono',monospace}
+    #eleai-view .el-run-act{display:flex;flex-wrap:wrap;align-items:center;gap:8px} #eleai-view .el-run-act span{color:#475569;font-size:11px}
+    @media (max-width:760px){ #eleai-view .el-run-f{grid-template-columns:1fr;gap:2px} }
     /* ★ [local123] แถบ TOTAL / G.W. WT ก่อน EXPORT */
     #eleai-view .el-totbar{margin-top:8px;border:1px solid #6b7280;border-radius:6px;background:#f8fafc;padding:5px 9px;font-size:12px;display:flex;flex-direction:column;gap:3px}
     #eleai-view .el-totbar[hidden]{display:none}
@@ -1484,7 +1502,7 @@ body.legacy-active .content-area { display: none !important; }
         <div class="el-dz-hint">⬇ วางไฟล์ที่นี่เพื่ออัปโหลด</div>
         <div class="el-hd"><h3>① UPLOAD INVOICE PDF<span class="el-cnt" id="eleai-pdf-cnt"></span></h3></div>
         <div class="el-sub">PDF หลายไฟล์ · รองรับ PDF สแกน (ไม่มี Text) · AI อ่านทุกหน้า ทุกรายการ</div>
-        <div class="el-pick"><button class="btn" type="button" id="eleai-btn-pdf">📂 เลือก Invoice PDF</button><input type="file" id="eleai-pdf" accept=".pdf,application/pdf" multiple hidden/><span class="el-dz-tip">หรือ ลากไฟล์ PDF มาวางในกรอบนี้</span></div>
+        <div class="el-pick"><button class="btn" type="button" id="eleai-btn-pdf">📂 เลือก Invoice PDF</button><input type="file" id="eleai-pdf" accept=".pdf,application/pdf,.zip,application/zip" multiple hidden/><span class="el-dz-tip">หรือ ลากไฟล์ PDF มาวางในกรอบนี้</span></div>
         <div class="el-fs" id="eleai-pdf-fs"><span class="f" id="eleai-pdf-first"></span><span class="e" id="eleai-pdf-err"></span><button class="btn" type="button" id="eleai-pdf-all" aria-expanded="false" aria-controls="eleai-pdf-list">▼ ดูไฟล์ทั้งหมด</button></div>
         <div class="el-dz-msg" id="eleai-pdf-msg" aria-live="polite"></div>
         <ul class="el-list" id="eleai-pdf-list"></ul>
@@ -1493,7 +1511,7 @@ body.legacy-active .content-area { display: none !important; }
         <div class="el-dz-hint">⬇ วางไฟล์ที่นี่เพื่ออัปโหลด</div>
         <div class="el-hd"><h3>② UPLOAD PACKING LIST (PL)<span class="el-cnt" id="eleai-pl-cnt"></span></h3></div>
         <div class="el-sub">XLS / XLSX หลายไฟล์ · Net Weight จาก PL จริง · จับคู่ Part Number + Order No. + Quantity</div>
-        <div class="el-pick"><button class="btn" type="button" id="eleai-btn-pl">📂 เลือก Packing List</button><input type="file" id="eleai-pl" accept=".xls,.xlsx" multiple hidden/><span class="el-dz-tip">หรือ ลากไฟล์ XLS / XLSX มาวางในกรอบนี้</span></div>
+        <div class="el-pick"><button class="btn" type="button" id="eleai-btn-pl">📂 เลือก Packing List</button><input type="file" id="eleai-pl" accept=".xls,.xlsx,.zip,application/zip" multiple hidden/><span class="el-dz-tip">หรือ ลากไฟล์ XLS / XLSX มาวางในกรอบนี้</span></div>
         <div class="el-fs" id="eleai-pl-fs"><span class="f" id="eleai-pl-first"></span><span class="e" id="eleai-pl-err"></span><button class="btn" type="button" id="eleai-pl-all" aria-expanded="false" aria-controls="eleai-pl-list">▼ ดูไฟล์ทั้งหมด</button></div>
         <div class="el-dz-msg" id="eleai-pl-msg" aria-live="polite"></div>
         <ul class="el-list" id="eleai-pl-list"></ul>
@@ -1506,6 +1524,8 @@ body.legacy-active .content-area { display: none !important; }
       </div>
     </div>
     <!-- ★ [local123] TOTAL 5 คอลัมน์ + G.W. WT ที่ ITEM แรก (ตรงกับ Sheet 1) — แสดงก่อน EXPORT -->
+    <!-- ★ [local125] สถานะการอ่าน Real-time (รายไฟล์ + รวม) · อ่านไม่ครบ = รายการไฟล์/หน้า/สาเหตุ + ↻ อ่านซ้ำเฉพาะหน้าที่ผิดพลาด -->
+    <div class="el-run" id="eleai-run" hidden aria-live="polite"></div>
     <div class="el-totbar" id="eleai-totbar" hidden aria-live="polite"></div>
     <!-- ★ [local119] รายงานตรวจสอบ INVOICE PDF เทียบ PACKING LIST (PL) — ค้างจนกดปิด / ล้างข้อมูล / ประมวลผลไฟล์ชุดใหม่ -->
     <div class="el-rep" id="eleai-plrep" hidden role="region" aria-live="polite">
@@ -9322,7 +9342,13 @@ window.ELEAI_CORE = (function(){
   const fnUrl = () => SUPABASE_URL + '/functions/v1/' + FN_NAME;
   const SONNET = 'claude-sonnet-5-5', OPUS = 'claude-opus-5-5';
   const MLBL = { [SONNET]: 'Sonnet 5.5', [OPUS]: 'Opus 5.5' };
-  const CHUNK_K = 4, POOL = 3, MAX_CHUNK = 8 * 1024 * 1024, POLL_MAX_MS = 9 * 60 * 1000, OPUS_BUDGET = 0.10;
+  const CHUNK_K = 4, POOL = 2, MAX_CHUNK = 8 * 1024 * 1024, POLL_MAX_MS = 9 * 60 * 1000, OPUS_BUDGET = 0.10;
+  /* ★ [local125] AUTO SMART BATCH: 1 คำขอ = 4 หน้าของชุด + 1 หน้าบริบท (รวม 5 หน้า · ชุดเดิม → ใช้ Cache 3 วันเดิมได้) · Worker เริ่ม 2 ชุด → 3 ชุดเมื่อปกติ → 1 ชุดชั่วคราวเมื่อเจอ Rate Limit (Queue)
+     ลองซ้ำอัตโนมัติ 3 ครั้ง (2 / 4 / 8 วิ · Retry-After) เฉพาะข้อผิดพลาดที่ลองซ้ำแล้วหายได้ · ผลยาวเกิน/ไฟล์ใหญ่ → แบ่งชุดย่อย 2 หน้า → 1 หน้า · อ่านซ้ำเฉพาะชุดที่ผิดพลาด */
+  const RETRY_WAIT = [2000, 4000, 8000];   /* Exponential Backoff (+ สุ่มเล็กน้อย) · ใช้ Retry-After ถ้า Server ส่งมา */
+  const RETRY_RE = /^(network|timeout|rate_limit|overloaded|api_error|stale_job|jobs_off|auth_off|job_not_found|cache_bad|error|http_(0|408|425|429|5\d\d))$/;
+  const STOP_RE = /^(unauthorized|cost_stop|no_api_key|origin|bad_model|api_key|model_unavailable|not_pdf|hash_mismatch|bad_chunk|http_401|http_403|http_404)$/;
+  const INFRA_RE = /^(network|timeout|rate_limit|overloaded|jobs_off|auth_off|http_(0|408|425|429))$/;   /* ปัญหาเครือข่าย/โควตา: แบ่งชุดไม่ช่วย */
   const PDFLIB_SRC = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
   let PDFLIB_P = null;
   function pdfLib(){
@@ -9335,13 +9361,77 @@ window.ELEAI_CORE = (function(){
   async function sha(buf){ const d = await crypto.subtle.digest('SHA-256', buf); return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join(''); }
   function b64(u8){ let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
 
-  const S = { pdfs: [], pls: [], sel: 'auto', busy: false, wantExport: false, again: false, memo: new Map(), last: null, probed: false, timer: null, gen: 0, allowOver: false, listOpen: { pdf: false, pl: false } };
+  const S = { pdfs: [], pls: [], sel: 'auto', busy: false, wantExport: false, again: false, memo: new Map(), last: null, probed: false, timer: null, gen: 0, allowOver: false, listOpen: { pdf: false, pl: false }, split: new Map(), jobs: new Map(), failed: null, restored: false, run: null };
   const prog = (m, c) => { const e = $('eleai-prog'); if (e){ e.textContent = m || ''; e.style.color = c || ''; } };
   const bar = p => { const b = $('eleai-bar'); if (!b) return; if (p == null){ b.style.display = 'none'; return; } b.style.display = ''; b.firstElementChild.style.width = Math.max(0, Math.min(100, p)) + '%'; };
   /* ★ [local114] ปุ่ม EXPORT: เปิดเมื่อแนบ Invoice PDF + PL ครบ (ไม่ต้องรอประมวลผล) · ปิดระหว่างส่งออก / รอส่งออก (กันกดซ้ำ) */
   const filesReady = () => S.pdfs.length > 0 && S.pls.length > 0 && !S.pdfs.some(x => x.err) && !S.pls.some(x => x.err);
   let exporting = false;
-  const exportBtn = () => { const b = $('eleai-btn-export'); if (b) b.disabled = !(filesReady() && !exporting && !S.wantExport); };
+  const exportBtn = () => { const b = $('eleai-btn-export'); if (b) b.disabled = !(filesReady() && !exporting && !S.wantExport && !S.failed); };   /* ★ [local125] อ่านไม่ครบ = ปิด EXPORT ชั่วคราว */
+
+  /* ★ [local125] AUTO SAVE: เก็บไฟล์ที่แนบ + สถานะงานในเบราว์เซอร์ (IndexedDB · เครื่องนี้เท่านั้น · ผู้ใช้เดิม · 3 วัน)
+     Refresh / เปิดใหม่ระหว่างอ่าน → กู้ไฟล์แล้วอ่านต่อ: ชุดที่อ่านสำเร็จแล้วได้จาก Cache กลาง (ตรวจด้วย File Hash + เวอร์ชันตัวอ่าน) ไม่เรียก AI ซ้ำ · งานที่ค้างใน Server ใช้ job เดิม */
+  const IDB_NAME = 'njl_eleai_v1', IDB_TTL = 3 * 864e5;
+  let IDB_P = null;
+  function idb(){ if (IDB_P) return IDB_P; IDB_P = new Promise((ok, ng) => { try { const r = indexedDB.open(IDB_NAME, 1);
+      r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains('files')) d.createObjectStore('files', { keyPath: 'k' }); if (!d.objectStoreNames.contains('meta')) d.createObjectStore('meta', { keyPath: 'k' }); };
+      r.onsuccess = () => ok(r.result); r.onerror = () => ng(r.error); } catch (e){ ng(e); } }).catch(() => { IDB_P = null; return null; }); return IDB_P; }
+  async function idbDo(store, mode, fn){ const d = await idb(); if (!d) return null; return new Promise(ok => { try { const t = d.transaction(store, mode), o = t.objectStore(store); const r = fn(o);
+      t.oncomplete = () => ok(r && 'result' in r ? r.result : null); t.onerror = t.onabort = () => ok(null); } catch (_){ ok(null); } }); }
+  const who = () => { const a = auth(); return a && a.username ? String(a.username) : ''; };
+  function idbPut(kind, name, buf, hash){ idbDo('files', 'readwrite', o => o.put({ k: kind + '|' + hash, kind, name, hash, buf, user: who(), ts: Date.now() })); }
+  function idbDel(kind, hash){ if (hash) idbDo('files', 'readwrite', o => o.delete(kind + '|' + hash)); }
+  function idbClear(){ idbDo('files', 'readwrite', o => o.clear()); idbDo('meta', 'readwrite', o => o.clear()); }
+  function idbState(status){ idbDo('meta', 'readwrite', o => o.put({ k: 'state', status, user: who(), ts: Date.now(), pdfs: S.pdfs.map(x => x.hash), pls: S.pls.map(x => x.hash) })); }
+  async function restore(){
+    const st = await idbDo('meta', 'readonly', o => o.get('state')), fl = await idbDo('files', 'readonly', o => o.getAll()) || [];
+    if (!st || Date.now() - st.ts > IDB_TTL){ if (st || fl.length) idbClear(); return; }
+    if (st.status === 'done' || st.user !== who() || S.pdfs.length || S.pls.length) return;
+    const pick = (kind, hs) => (hs || []).map(h => fl.find(f => f.kind === kind && f.hash === h)).filter(Boolean).map(f => new File([f.buf], f.name));
+    const P = pick('pdf', st.pdfs), L = pick('pl', st.pls); if (!P.length && !L.length) return;
+    prog('↻ กู้คืนงานที่ยังไม่เสร็จ: Invoice PDF ' + P.length + ' · Packing List ' + L.length + ' ไฟล์ — อ่านต่อจากชุดที่ยังไม่สำเร็จ (ชุดที่อ่านแล้วใช้ Cache ไม่เรียก AI ซ้ำ)', '#1d4ed8');
+    if (P.length) await takeFiles('pdf', P); if (L.length) await takeFiles('pl', L);
+  }
+
+  /* ★ [local125] ZIP: แตกไฟล์ในเบราว์เซอร์ (รวมโฟลเดอร์ย่อย / ZIP ซ้อน 1 ชั้น) → .pdf เข้ากรอบ ① · .xls/.xlsx เข้ากรอบ ② อัตโนมัติ · ไฟล์อื่นข้าม */
+  async function inflateRaw(u8){ const ds = new DecompressionStream('deflate-raw'); const b = await new Response(new Blob([u8]).stream().pipeThrough(ds)).arrayBuffer(); return new Uint8Array(b); }
+  function zipName(u8, utf8){ if (utf8) return new TextDecoder('utf-8').decode(u8);
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(u8); } catch (_){ try { return new TextDecoder('windows-874').decode(u8); } catch (__){ return new TextDecoder('latin1').decode(u8); } } }
+  async function unzip(buf, depth){
+    const u = new Uint8Array(buf), dv = new DataView(buf), out = [];
+    let e = -1; for (let i = u.length - 22; i >= Math.max(0, u.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50){ e = i; break; }
+    if (e < 0) throw new Error('ไม่ใช่ไฟล์ ZIP หรือไฟล์เสียหาย');
+    let n = dv.getUint16(e + 10, true), off = dv.getUint32(e + 16, true);
+    for (let k = 0; k < n; k++){
+      if (dv.getUint32(off, true) !== 0x02014b50) throw new Error('โครงสร้าง ZIP ไม่ถูกต้อง');
+      const flag = dv.getUint16(off + 8, true), meth = dv.getUint16(off + 10, true), csz = dv.getUint32(off + 20, true), nl = dv.getUint16(off + 28, true), xl = dv.getUint16(off + 30, true), cl = dv.getUint16(off + 32, true), lo = dv.getUint32(off + 42, true);
+      const path = zipName(u.subarray(off + 46, off + 46 + nl), !!(flag & 0x800)); off += 46 + nl + xl + cl;
+      const base = path.split(/[\\/]/).pop();
+      if (!base || /\/$/.test(path) || /(^|\/)__MACOSX\//.test(path) || /^\._/.test(base) || /^\./.test(base)) continue;
+      if (flag & 1){ out.push({ path, name: base, err: 'ไฟล์ใน ZIP ถูกเข้ารหัส' }); continue; }
+      const ds = lo + 30 + dv.getUint16(lo + 26, true) + dv.getUint16(lo + 28, true), raw = u.subarray(ds, ds + csz);
+      let data; try { data = meth === 0 ? raw.slice() : meth === 8 ? await inflateRaw(raw) : null; } catch (_){ data = null; }
+      if (!data){ out.push({ path, name: base, err: 'แตกไฟล์ไม่ได้ (method ' + meth + ')' }); continue; }
+      if (/\.zip$/i.test(base) && (depth || 0) < 1){ try { (await unzip(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength), 1)).forEach(z => out.push(Object.assign(z, { path: path + '/' + z.path }))); } catch (er){ out.push({ path, name: base, err: String(er && er.message || er) }); } continue; }
+      out.push({ path, name: base, data });
+    }
+    return out;
+  }
+  const isZip = f => /\.zip$/i.test(f.name);
+  /* แนบไฟล์ทุกช่องทาง: ZIP แตกแล้วแยกชนิดอัตโนมัติ · ไฟล์ทั่วไปเข้ากรอบที่เลือก/วางตามเดิม */
+  async function takeAny(kind, list){
+    const zips = list.filter(isZip), rest = list.filter(f => !isZip(f));
+    if (!zips.length) return takeFiles(kind, rest);
+    const P = [], L = [], skip = [], bad = [];
+    for (const z of zips){ dzMsg(kind, '⏳ กำลังแตกไฟล์ ZIP ' + z.name + ' …', '#1d4ed8');
+      try { (await unzip(await z.arrayBuffer(), 0)).forEach(x => { if (x.err) bad.push(x.path + ': ' + x.err); else if (/\.pdf$/i.test(x.name)) P.push(new File([x.data], x.name, { type: 'application/pdf' })); else if (/\.xlsx?$/i.test(x.name)) L.push(new File([x.data], x.name)); else skip.push(x.path); }); }
+      catch (e){ bad.push(z.name + ': ' + String(e && e.message || e)); } }
+    rest.forEach(f => (/\.pdf$/i.test(f.name) ? P : /\.xlsx?$/i.test(f.name) ? L : skip).push(f.name ? f : f));
+    const note = 'ZIP ' + zips.map(z => z.name).join(', ') + ': Invoice PDF ' + P.length + ' · Packing List ' + L.length + (skip.length ? ' · ข้ามไฟล์อื่น ' + skip.length : '') + (bad.length ? ' · ❌ ' + bad.join(' · ') : '');
+    if (!P.length && !L.length){ dzMsg(kind, '❌ ' + note + ' — ไม่พบไฟล์ .pdf / .xls / .xlsx', '#b91c1c'); return addQ; }
+    if (P.length) await takeFiles('pdf', P); if (L.length) await takeFiles('pl', L);
+    dzMsg(kind === 'pdf' && !P.length ? 'pl' : kind === 'pl' && !L.length ? 'pdf' : kind, '📦 ' + note, bad.length ? '#b45309' : '#15803d');
+  }
 
   /* ── ไฟล์ ── */
   function renderLists(){
@@ -9362,7 +9452,7 @@ window.ELEAI_CORE = (function(){
       $('eleai-' + k + '-err').textContent = e ? '❌ เปิดไม่ได้ ' + e + ' ไฟล์' : '';
       const b = $('eleai-' + k + '-all'); b.textContent = S.listOpen[k] ? '▲ ซ่อนรายการไฟล์' : '▼ ดูไฟล์ทั้งหมด (' + L.length + ')'; b.setAttribute('aria-expanded', S.listOpen[k] ? 'true' : 'false'); });
   }
-  function changed(){ S.last = null; S.allowOver = false; S.gen++; exportBtn(); $('eleai-result').innerHTML = ''; renderRep(null); renderTot(null); renderLists(); schedule(); }
+  function changed(){ S.last = null; S.allowOver = false; S.failed = null; renderRun(null); S.gen++; exportBtn(); $('eleai-result').innerHTML = ''; renderRep(null); renderTot(null); renderLists(); schedule(); }
   async function addPdfs(list){
     let add = 0; const dup = [];
     for (const f of list){
@@ -9372,7 +9462,7 @@ window.ELEAI_CORE = (function(){
         if (S.pdfs.some(p => p.hash === x.hash)){ dup.push(f.name); continue; }
         const u = new Uint8Array(buf); if (!(u[0] === 0x25 && u[1] === 0x50 && u[2] === 0x44 && u[3] === 0x46)) throw new Error('เนื้อไฟล์ไม่ใช่ PDF');
         const L = await pdfLib(); x.doc = await L.PDFDocument.load(u, { ignoreEncryption: true, updateMetadata: false }); x.nPages = x.doc.getPageCount();
-        if (!x.nPages) throw new Error('ไม่มีหน้า'); }
+        if (!x.nPages) throw new Error('ไม่มีหน้า'); idbPut('pdf', f.name, buf, x.hash); }
       catch (e){ x.err = 'เปิดไม่ได้: ' + String(e && e.message || e); }
       S.pdfs.push(x); add++;
     }
@@ -9393,7 +9483,7 @@ window.ELEAI_CORE = (function(){
         for (const n of wb.SheetNames){ const aoa = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: '' }); const p = C.parsePL(aoa, f.name + (wb.SheetNames.length > 1 ? ' [' + n + ']' : ''));
           if (p.ok && (!best || p.rows.length > best.rows.length)) best = p; }
         if (!best) throw new Error('ไม่พบหัวตาราง Part number / Quantity / Net weight'); if (!best.rows.length) throw new Error('ไม่มีแถวข้อมูล');
-        best.sheets = wb.SheetNames.length; x.p = best; }
+        best.sheets = wb.SheetNames.length; x.p = best; idbPut('pl', f.name, buf, x.hash); }
       catch (e){ x.err = String(e && e.message || e); }
       S.pls.push(x); add++;
     }
@@ -9420,7 +9510,7 @@ window.ELEAI_CORE = (function(){
     card.addEventListener('dragenter', e => { if (!files(e)) return; e.preventDefault(); n++; card.classList.add('dz-on'); });
     card.addEventListener('dragover', e => { if (!files(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; card.classList.add('dz-on'); });
     card.addEventListener('dragleave', e => { if (!files(e)) return; n = Math.max(0, n - 1); if (!n) card.classList.remove('dz-on'); });
-    card.addEventListener('drop', e => { if (!files(e)) return; e.preventDefault(); e.stopPropagation(); n = 0; card.classList.remove('dz-on'); takeFiles(kind, [...(e.dataTransfer.files || [])]); });
+    card.addEventListener('drop', e => { if (!files(e)) return; e.preventDefault(); e.stopPropagation(); n = 0; card.classList.remove('dz-on'); takeAny(kind, [...(e.dataTransfer.files || [])]); });
     card.addEventListener('click', e => { if (e.target.closest('button, input, label, a, .el-list, .el-fs')) return; $('eleai-' + kind).click(); });
     card.addEventListener('keydown', e => { if (e.target === card && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); $('eleai-' + kind).click(); } });
   }
@@ -9432,9 +9522,11 @@ window.ELEAI_CORE = (function(){
   /* ── เรียก Edge Function ── */
   async function post(body){
     let r; try { r = await fetch(fnUrl(), { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY }, body: JSON.stringify(body) }); }
-    catch (_){ return { status: 0, j: { success: false, error: 'network', msg: 'เชื่อมต่อระบบ AI ไม่ได้ (เครือข่าย)' } }; }
+    catch (_){ return { status: 0, j: { success: false, error: 'network', msg: 'เชื่อมต่อระบบ AI ไม่ได้ (เครือข่าย)' } }; }   /* ★ [local125] ลองซ้ำอัตโนมัติ */
     let j = null; try { j = await r.json(); } catch (_){ j = null; }
+    const ra = +(r.headers && r.headers.get('retry-after')) || 0;
     if (!j || typeof j !== 'object' || (!('success' in j) && !r.ok)) j = { success: false, error: 'http_' + r.status, msg: r.status === 404 ? 'ยังไม่พบ Edge Function ' + FN_NAME + ' (ยังไม่ได้ Deploy)' : 'ระบบ AI ตอบผิดพลาด (' + r.status + ')' };
+    if (j && ra) j.retry_after = ra;
     return { status: r.status, j };
   }
   const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -9447,24 +9539,49 @@ window.ELEAI_CORE = (function(){
     return bytes;
   }
   /* งาน AI 1 ครั้ง (อ่านหลัก หรือ ตรวจซ้ำ) — ใช้ผลเดิมในรอบนี้/Cache กลาง · usage จริงจาก API แยกตามรุ่น */
-  async function aiJob(kind, pdf, idx, model, extra, tok, U){
-    const bytes = await subPdf(pdf, idx), hash = await sha(bytes);
+  const cErr = (msg, code, status) => Object.assign(new Error(msg), { code, status });
+  /* ★ [local125] ลองซ้ำอัตโนมัติสูงสุด 3 ครั้ง เฉพาะข้อผิดพลาดชั่วคราว (เครือข่าย / Rate Limit / Timeout / Server) · งานเดิมที่ค้างใน Server ใช้ job เดิม ไม่เรียก AI ซ้ำ */
+  async function aiJob(kind, pdf, idx, model, extra, tok, U, onRetry){
+    for (let a = 0; ; a++){
+      try { return await aiJob1(kind, pdf, idx, model, extra, tok, U); }
+      catch (e){ const c = e && e.code || ''; if (a >= RETRY_WAIT.length || !RETRY_RE.test(c) || (extra.gen != null && extra.gen !== S.gen)) throw e;
+        if (onRetry) onRetry(a + 1, c, e); if (U) U.retries = (U.retries || 0) + 1;
+        await sleep(Math.max(RETRY_WAIT[a] + Math.floor(Math.random() * 500), Math.min(30000, (+e.retryAfter || 0) * 1000))); }
+    }
+  }
+  async function aiJob1(kind, pdf, idx, model, extra, tok, U){
+    let bytes; try { bytes = await subPdf(pdf, idx); } catch (e){ throw cErr(String(e && e.message || e), /8 MB/.test(String(e && e.message)) ? 'too_large' : 'bad_file'); }
+    const hash = await sha(bytes);
     const base = Object.assign({ session: tok, model, owned: extra.owned, pages: idx.length }, kind === 'rc' ? { action: 'recheck', targets: extra.targets } : {});
     const mk = [kind, model, hash, extra.owned || 0, idx.length, kind === 'rc' ? JSON.stringify(extra.targets) : ''].join('|');
     if (S.memo.has(mk)){ U.session++; return S.memo.get(mk); }
-    let { status, j } = await post(Object.assign({ name: pdf.name, mime: 'application/pdf', pdf: b64(bytes), idempotency_key: hash }, base));
+    /* ★ [local125] มี Job ID เดิม (เช่น ลองซ้ำหลังเครือข่ายขาดระหว่างรอ) → ติดตามงานเดิมก่อน ไม่สร้างงานใหม่ / ไม่เรียก AI ซ้ำ */
+    let status = 0, j = null;
+    if (S.jobs.has(mk)){ ({ status, j } = await post({ session: tok, action: 'job_status', job_id: S.jobs.get(mk), model, owned: extra.owned || idx.length, pages: idx.length }));
+      if (!(j && (j.pending || (j.success && j.result)))){ S.jobs.delete(mk); j = null; } }
+    if (!j) ({ status, j } = await post(Object.assign({ name: pdf.name, mime: 'application/pdf', pdf: b64(bytes), idempotency_key: hash }, base)));
+    if (j && j.job_id && j.pending) S.jobs.set(mk, j.job_id);
     const t0 = Date.now();
     while (j && j.success && j.pending){
-      if (Date.now() - t0 > POLL_MAX_MS) throw new Error(pdf.name + ' หน้า ' + idx.join(',') + ': AI ใช้เวลานานเกินกำหนด');
+      if (Date.now() - t0 > POLL_MAX_MS) throw cErr(pdf.name + ' หน้า ' + idx.join(',') + ': AI ใช้เวลานานเกินกำหนด', 'timeout');
       await sleep(Math.max(1500, Math.min(10000, +j.poll_after_ms || 2500)));
       ({ status, j } = await post({ session: tok, action: 'job_status', job_id: j.job_id, model, owned: extra.owned || idx.length, pages: idx.length }));
     }
-    if (!j || !j.success || !j.result) throw new Error(pdf.name + ' หน้า ' + idx[0] + (idx.length > 1 ? '–' + idx[idx.length - 1] : '') + ' (' + MLBL[model] + '): ' + ((j && j.msg) || 'อ่าน PDF ไม่สำเร็จ') + (status === 401 ? ' (Session หมดอายุ — เข้าสู่ระบบใหม่)' : ''));
+    if (!j || !j.success || !j.result) throw Object.assign(cErr(pdf.name + ' หน้า ' + idx[0] + (idx.length > 1 ? '–' + idx[idx.length - 1] : '') + ' (' + MLBL[model] + '): ' + ((j && j.msg) || 'อ่าน PDF ไม่สำเร็จ') + (status === 401 ? ' (Session หมดอายุ — เข้าสู่ระบบใหม่)' : ''), (j && j.error) || ('http_' + status), status), { retryAfter: j && j.retry_after, jobId: j && j.job_id });
     const u = j.usage || {}, m = U.by[model] || (U.by[model] = { in: 0, out: 0, usd: 0, jobs: 0, cached: 0 });
     if (j.cached){ m.cached++; } else { m.in += +u.input_tokens || 0; m.out += +u.output_tokens || 0; m.usd += +u.cost_usd_est || 0; m.jobs++; }
-    S.memo.set(mk, j.result);
+    S.memo.set(mk, j.result); S.jobs.delete(mk);
     return j.result;
   }
+  /* ★ [local125] Queue + Worker ปรับอัตโนมัติ: เริ่ม 2 → 3 เมื่อสำเร็จต่อเนื่อง 4 ชุด → 1 ชั่วคราว (60 วิ) เมื่อเจอ Rate Limit · ไม่ส่งทุกชุดพร้อมกัน */
+  function workerCtl(){ const c = { lim: 2, ok: 0, rlUntil: 0, kick: null,
+      limit(){ return Date.now() < c.rlUntil ? 1 : c.lim; },
+      success(){ if (++c.ok >= 4 && c.lim < 3) c.lim = 3; },
+      rate(){ c.lim = 2; c.ok = 0; c.rlUntil = Date.now() + 60000; setTimeout(() => c.kick && c.kick(), 60500); } }; return c; }
+  function dynPool(jobs, ctl, fn){ const q = jobs.slice(), err = []; let active = 0;
+    return new Promise(done => { const tick = () => { while (q.length && active < ctl.limit()){ const jb = q.shift(); active++;
+          Promise.resolve().then(() => fn(jb)).catch(e => err.push(String(e && e.message || e))).finally(() => { active--; tick(); }); }
+        if (!q.length && !active) done(err); }; ctl.kick = tick; tick(); }); }
   async function pool(jobs, n, fn){ const q = jobs.slice(); const err = []; await Promise.all(Array.from({ length: Math.min(n, q.length) }, async () => { while (q.length){ const jb = q.shift(); try { await fn(jb); } catch (e){ err.push(String(e && e.message || e)); } } })); return err; }
   async function probe(){
     const A = auth(), el = $('eleai-ready'); if (!el) return;
@@ -9584,6 +9701,66 @@ window.ELEAI_CORE = (function(){
   }
 
   /* ── ประมวลผลทั้งหมด ── */
+  /* ★ [local125] อ่าน 1 ชุดหน้า: ลองซ้ำ (ใน aiJob) → ยังไม่ได้ → แบ่งชุดย่อย 2 หน้า → 1 หน้า → ยังไม่ได้ = บันทึกหน้า + สาเหตุ (ไม่หยุดไฟล์อื่น · ไม่อ่านไฟล์ทั้งหมดใหม่) */
+  async function readRange(R, p, ch, model, tok){
+    const hk = p.hash + '|' + ch.from + '|' + ch.to, st = R.st;
+    if (R.stop || R.gen !== S.gen) return [];
+    const hint = S.split.get(hk);
+    if (!hint){
+      st.start(p, ch);
+      try { const res = await aiJob('read', p, ch.idx, model, { owned: ch.owned, gen: R.gen }, tok, R.U, (n, c) => { st.retry(p, ch, n, c); if (R.ctl && /rate_limit|http_429|overloaded|http_529/.test(c)) R.ctl.rate(); });
+        st.done(p, ch); if (R.ctl) R.ctl.success(); return [{ chunk: ch, result: res }]; }
+      catch (e){ st.end(p, ch); const c = e && e.code || '';
+        if (STOP_RE.test(c)){ R.stop = e; return []; }
+        if (R.gen !== S.gen) return [];
+        if (ch.owned <= 1 || INFRA_RE.test(c)){ st.fail(p, ch, e); return []; }
+        S.split.set(hk, ch.owned > 2 ? 2 : 1); st.split(p, ch, c); }
+    }
+    const subs = C.makeChunksRange(ch.from, ch.to, p.nPages, S.split.get(hk)), out = [];
+    for (const sc of subs) out.push(...await readRange(R, p, sc, model, tok));
+    return out;
+  }
+  /* ★ [local125] สถานะการอ่านแบบ Real-time: รายไฟล์ + รวม (ไม่แสดง 100% จนกว่าจะอ่านและตรวจสอบครบ) */
+  function runState(pdfs){
+    const F = pdfs.map(p => ({ p, total: p.nPages, done: new Set(), reading: new Map(), err: new Map() })), byName = new Map(F.map(f => [f.p.name, f]));
+    const pages = ch => { const a = []; for (let q = ch.from; q <= ch.to; q++) a.push(q); return a; };
+    const rng = ch => ch.from === ch.to ? String(ch.from) : ch.from + '–' + ch.to;
+    const st = { F, retries: 0, splits: 0, stage: '', pct: null, note: '', fails: [], cs: { success: 0, retry: 0, failed: 0 }, inRetry: new Set(),
+      start(p, ch){ const f = byName.get(p.name); f.reading.set(ch.from + '-' + ch.to, rng(ch)); pages(ch).forEach(q => f.err.delete(q)); st.paint(); },
+      end(p, ch){ byName.get(p.name).reading.delete(ch.from + '-' + ch.to); st.inRetry.delete(p.name + ch.from + '-' + ch.to); },
+      done(p, ch){ const f = byName.get(p.name); st.end(p, ch); st.inRetry.delete(p.name + ch.from + '-' + ch.to); st.cs.success++; pages(ch).forEach(q => f.done.add(q)); st.paint(); },
+      retry(p, ch, n, c){ st.retries++; st.inRetry.add(p.name + ch.from + '-' + ch.to); st.note = '↻ ลองใหม่ครั้งที่ ' + n + '/3 · ' + p.name + ' หน้า ' + rng(ch) + ' (' + c + ')'; st.paint(); },
+      split(p, ch, c){ st.splits++; st.note = '✂️ แบ่งชุดย่อย · ' + p.name + ' หน้า ' + rng(ch) + ' (' + c + ')'; st.paint(); },
+      fail(p, ch, e){ const f = byName.get(p.name); st.inRetry.delete(p.name + ch.from + '-' + ch.to); st.cs.failed++; pages(ch).forEach(q => f.err.set(q, e)); st.fails.push({ file: p.name, from: ch.from, to: ch.to, pages: rng(ch), code: e && e.code || '', msg: String(e && e.message || e) }); st.paint(); },
+      sum(){ let tot = 0, dn = 0, rd = 0, er = 0; F.forEach(f => { tot += f.total; dn += f.done.size; er += f.err.size; f.reading.forEach(v => { rd += v.split('–').length > 1 ? (+v.split('–')[1] - +v.split('–')[0] + 1) : 1; }); }); return { tot, dn, rd, er }; },
+      paint(){ renderRun(st, 'run'); } };
+    return st;
+  }
+  function renderRun(st, mode){
+    const box = $('eleai-run'); if (!box) return; S.run = st;
+    if (!st || !mode){ box.hidden = true; box.innerHTML = ''; return; }
+    const sm = st.sum(), readPct = sm.tot ? sm.dn / sm.tot : 0, pct = Math.min(99, Math.floor(st.pct != null ? st.pct : 90 * readPct)), mb = st.F.reduce((a, f) => a + (f.p.size || 0), 0) / 1048576;
+    const cur = []; st.F.forEach(f => f.reading.forEach(v => cur.push(f.p.name + ' หน้า ' + v)));
+    const fbar = f => { const d = f.done.size, w = f.total ? Math.round(100 * d / f.total) : 0;
+      let rd = 0; f.reading.forEach(v => { const a = v.split('–'); rd += a.length > 1 ? +a[1] - +a[0] + 1 : 1; });
+      const wait = Math.max(0, f.total - d - rd - f.err.size);
+      return '<div class="el-run-f' + (f.err.size ? ' bad' : '') + '"><span class="n" title="' + esc(f.p.name) + '">📄 ' + esc(f.p.name) + '</span><span class="b"><i style="width:' + w + '%"></i></span><span class="c">ทั้งหมด ' + f.total + ' หน้า · อ่านสำเร็จ ' + d + (f.reading.size ? ' · กำลังอ่านหน้า ' + [...f.reading.values()].join(', ') : '') + ' · รออ่าน ' + wait + ' · ผิดพลาด ' + f.err.size + '</span></div>'; };
+    const U = (S.runU && S.runU.by) || {}, api = Object.values(U).reduce((a, m) => a + (m.jobs || 0), 0), hit = Object.values(U).reduce((a, m) => a + (m.cached || 0), 0) + ((S.runU && S.runU.session) || 0);
+    const tin = Object.values(U).reduce((a, m) => a + (m.in || 0), 0), tout = Object.values(U).reduce((a, m) => a + (m.out || 0), 0);
+    let h = '<div class="el-run-hd"><b>' + (mode === 'fail' ? '❌ อ่าน Invoice PDF ไม่ครบ — ปิด EXPORT ชั่วคราว' : '⏳ ' + esc(st.stage || 'AI AUTO กำลังอ่าน Invoice PDF')) + '</b>'
+      + '<span>ไฟล์ ' + st.F.length + ' · ' + fmt(sm.tot) + ' หน้า · ' + mb.toFixed(1) + ' MB</span></div>'
+      + '<div class="el-run-all"><span class="b"><i style="width:' + (mode === 'fail' ? Math.round(100 * readPct) : pct) + '%"></i></span><span class="c">' + (mode === 'fail' ? Math.round(100 * readPct) : pct) + '%</span></div>'
+      + '<div class="el-run-sum">อ่านสำเร็จ <b>' + fmt(sm.dn) + '</b> / ' + fmt(sm.tot) + ' หน้า · กำลังอ่าน <b>' + fmt(sm.rd) + '</b> · ผิดพลาด <b class="' + (sm.er ? 'e' : '') + '">' + fmt(sm.er) + '</b>'
+      + (st.retries ? ' · ลองซ้ำ ' + st.retries + ' ครั้ง' : '') + (st.splits ? ' · แบ่งชุดย่อย ' + st.splits + ' ชุด' : '') + '</div>'
+      + '<div class="el-run-st">ชุดหน้า: สำเร็จ ' + st.cs.success + ' · กำลังอ่าน ' + cur.length + ' · รอลองซ้ำ ' + st.inRetry.size + ' · ผิดพลาด ' + st.cs.failed + (st.ctl ? ' · Worker ' + st.ctl.limit() : '')
+      + ' · AI อ่านใหม่ ' + api + ' ชุด · Cache ' + hit + ' ชุด' + (tin || tout ? ' · Tokens ' + fmt(tin) + ' / ' + fmt(tout) : '') + '</div>'
+      + (cur.length ? '<div class="el-run-cur">กำลังอ่าน: ' + esc(cur.join(' · ')) + '</div>' : '') + (st.note && mode !== 'fail' ? '<div class="el-run-note">' + esc(st.note) + '</div>' : '')
+      + '<div class="el-run-files">' + st.F.map(fbar).join('') + '</div>';
+    if (mode === 'fail') h += '<div class="el-run-err"><table><thead><tr><th>ไฟล์</th><th>หน้า</th><th>สาเหตุ</th></tr></thead><tbody>' + st.fails.map(f => '<tr><td>' + esc(f.file) + '</td><td class="p">' + esc(f.pages) + '</td><td>' + esc(f.msg) + (f.code ? ' <small>(' + esc(f.code) + ')</small>' : '') + '</td></tr>').join('') + '</tbody></table></div>'
+      + '<div class="el-run-act"><button class="btn btn-primary" type="button" id="eleai-btn-retry">↻ อ่านซ้ำเฉพาะหน้าที่ผิดพลาด (' + fmt(sm.er) + ' หน้า)</button><span>ชุดที่อ่านสำเร็จแล้วใช้ผลเดิม / Cache — ไม่เรียก AI ซ้ำ</span></div>';
+    box.innerHTML = h; box.hidden = false; box.classList.toggle('fail', mode === 'fail');
+  }
+
   async function process(){
     const A0 = auth(); if (!A0 || !A0.token){ S.wantExport = false; exportBtn(); prog('❌ ไม่มี Session Token — กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่', '#c00000'); return; }
     const pdfs = S.pdfs.filter(x => !x.err), pls = S.pls.filter(x => !x.err);
@@ -9597,13 +9774,21 @@ window.ELEAI_CORE = (function(){
     try {
       /* 1) AI หลักอ่านทุกหน้า */
       const jobs = []; pdfs.forEach(p => { R.parts.set(p.name, []); C.makeChunks(p.nPages, CHUNK_K).forEach(ch => jobs.push({ p, ch })); });
-      const totPages = pdfs.reduce((s, p) => s + p.nPages, 0); let done = 0;
-      prog(MLBL[MAIN] + ' กำลังอ่าน Invoice PDF … 0 / ' + totPages + ' หน้า'); bar(3);
-      const err = await pool(jobs, POOL, async jb => { jb.result = await aiJob('read', jb.p, jb.ch.idx, MAIN, { owned: jb.ch.owned }, tok, R.U);
-        done += jb.ch.owned; prog(MLBL[MAIN] + ' กำลังอ่าน Invoice PDF … ' + done + ' / ' + totPages + ' หน้า'); bar(3 + 60 * done / totPages); });
+      const totPages = pdfs.reduce((s, p) => s + p.nPages, 0);
+      /* ★ [local125] ตรวจไฟล์ก่อนเริ่ม (จำนวนไฟล์ / หน้า / ขนาด) → Queue อ่านทีละ 2 ชุด → สถานะ Real-time รายไฟล์ */
+      R.st = runState(pdfs); S.runU = R.U; R.st.stage = 'AI AUTO (' + MLBL[MAIN] + ') กำลังอ่าน Invoice PDF ' + pdfs.length + ' ไฟล์ · ' + totPages + ' หน้า · ' + jobs.length + ' ชุด';
+      R.st.paint(); idbState('running');
+      prog(MLBL[MAIN] + ' กำลังอ่าน Invoice PDF … ' + totPages + ' หน้า'); bar(3);
+      const timer = setInterval(() => { if (gen !== S.gen) return; const m = R.st.sum(); bar(3 + 60 * m.dn / totPages); prog(MLBL[MAIN] + ' กำลังอ่าน Invoice PDF … ' + m.dn + ' / ' + totPages + ' หน้า'); }, 700);
+      R.ctl = workerCtl(); R.st.ctl = R.ctl;
+      let err; try { err = await dynPool(jobs, R.ctl, async jb => { jb.parts = await readRange(R, jb.p, jb.ch, MAIN, tok); }); } finally { clearInterval(timer); }
       if (gen !== S.gen) return;
-      if (err.length){ S.last = null; renderFail(R, err); return; }
-      jobs.forEach(j => R.parts.get(j.p.name).push({ chunk: j.ch, result: j.result }));
+      if (R.stop){ S.last = null; renderRun(null); idbState('failed'); renderFail(R, [String(R.stop.message || R.stop)]); return; }
+      if (err.length || R.st.fails.length){ S.last = null; S.failed = R.st.fails.length ? R.st.fails : err; S.wantExport = false; exportBtn(); renderRun(R.st, 'fail'); idbState('failed');
+        prog('❌ อ่าน Invoice PDF ไม่ครบ ' + R.st.sum().er + ' หน้า — ยังไม่ EXPORT · ตรวจไฟล์/หน้า/สาเหตุด้านล่าง แล้วกด ↻ อ่านซ้ำเฉพาะหน้าที่ผิดพลาด', '#c00000'); bar(null); return; }
+      jobs.forEach(j => R.parts.get(j.p.name).push(...j.parts));
+      R.parts.forEach(L => L.sort((a, b) => a.chunk.from - b.chunk.from));
+      R.st.stage = 'ตรวจสอบรายการ + จับคู่ Packing List + MASTER พิกัด ELE'; R.st.pct = 92; R.st.paint();
       prog('กำลังจับคู่ Packing List + MASTER พิกัด ELE …'); bar(68);
       let AN = await analyze(R, tok);
       /* 2) AUTO: ฟ้องเฉพาะค่าที่ผิด → Opus อ่านซ้ำเฉพาะหน้าที่เกี่ยวข้อง */
@@ -9612,12 +9797,12 @@ window.ELEAI_CORE = (function(){
         if (plan.pages > 0){
           const budget = Math.max(1, Math.floor(totPages * OPUS_BUDGET));
           if (plan.pages > budget && !S.allowOver){ R.pending = { need: plan.pages, budget }; }
-          else { await runOpus(R, AN, plan, tok); if (gen !== S.gen) return; AN = await analyze(R, tok); }
+          else { R.st.stage = 'Opus 5.5 ตรวจซ้ำเฉพาะจุด'; R.st.pct = 95; R.st.paint(); await runOpus(R, AN, plan, tok); if (gen !== S.gen) return; AN = await analyze(R, tok); }
         }
       }
       if (gen !== S.gen) return;
-      finish(R, AN);
-    } catch (e){ prog('❌ ' + String(e && e.message || e), '#c00000'); bar(null); }
+      renderRun(null); finish(R, AN); idbState(S.last && S.last.status !== 'FAIL' ? 'done' : 'failed');
+    } catch (e){ renderRun(null); prog('❌ ' + String(e && e.message || e), '#c00000'); bar(null); idbState('failed'); }
     finally { S.busy = false;
       if (S.again || gen !== S.gen){ S.again = false; schedule(); }
       else if (S.wantExport){ S.wantExport = false; exportBtn(); if (S.last) doExport(); }   /* ★ [local114] กด EXPORT ไว้ระหว่างประมวลผล → ดาวน์โหลดอัตโนมัติ */ }
@@ -9713,7 +9898,7 @@ window.ELEAI_CORE = (function(){
   function hsCount(items){ const c = { ok: 0, none: 0, dup: 0, off: 0 }; items.forEach(x => { const h = x.hsm; if (!h) return; if (h.st === 'ok') c.ok++; else if (h.st === 'dup') c.dup++; else if (h.st === 'off') c.off++; else c.none++; }); return c; }
   function renderFail(R, err){ bar(null); exportBtn(); $('eleai-result').classList.add('el-hide'); $('eleai-result').classList.remove('el-act-only');
     $('eleai-result').innerHTML = '<h2>ELE TYPE 0 — AI RESULT <span class="el-st FAIL">FAIL</span></h2><div class="el-iss"><table><tbody>' + err.map(m => '<tr class="hard"><td>❌</td><td>' + esc(m) + '</td></tr>').join('') + '</tbody></table></div>';
-    prog('❌ ประมวลผลล้มเหลว — อ่าน PDF ไม่สำเร็จ ' + err.length + ' ชุดหน้า (' + String(err[0] || '').slice(0, 160) + ') — แนบไฟล์ใหม่หรือรอสักครู่แล้วเปลี่ยนตัวเลือก AI เพื่อประมวลผลใหม่ (ชุดที่อ่านสำเร็จแล้วไม่เรียก AI ซ้ำ)', '#c00000'); }
+    prog('❌ ประมวลผลล้มเหลว — อ่าน PDF ไม่สำเร็จ ' + err.length + ' ชุดหน้า (' + String(err[0] || '').slice(0, 160) + ') — กด 📥 EXPORT EXCEL หรือแนบไฟล์ใหม่เพื่อประมวลผลอีกครั้ง (AI AUTO · ชุดที่อ่านสำเร็จแล้วใช้ Cache ไม่เรียก AI ซ้ำ)', '#c00000'); }
   const LV = { hard: ['❌ FAIL', 0], warn: ['⚠️ WARNING', 1], fix: ['✅ แก้แล้ว', 2], info: ['ℹ️', 3] };
   const TY = { A: 'A อ่านผิด/ไม่ชัด', B: 'B ไม่ตรงกัน', C: 'C MASTER' };
   function render(R, AN, t, iss, status, manual){
@@ -9880,14 +10065,15 @@ window.ELEAI_CORE = (function(){
     try { await writeOut(); } catch (e){ prog('❌ ส่งออกไม่สำเร็จ: ' + String(e && e.message || e), '#c00000'); }
     finally { exporting = false; exportBtn(); }
   }
-  function clearAll(){ if (S.busy || exporting) return; S.pdfs = []; S.pls = []; S.last = null; S.wantExport = false; S.gen++; clearTimeout(S.timer); exportBtn(); $('eleai-result').innerHTML = ''; prog(''); bar(null); renderLists(); $('eleai-pdf').value = ''; $('eleai-pl').value = ''; dzMsg('pdf', ''); dzMsg('pl', ''); renderRep(null); renderTot(null); }
+  function clearAll(){ if (S.busy || exporting) return; idbClear(); S.failed = null; S.split.clear(); renderRun(null); S.pdfs = []; S.pls = []; S.last = null; S.wantExport = false; S.gen++; clearTimeout(S.timer); exportBtn(); $('eleai-result').innerHTML = ''; prog(''); bar(null); renderLists(); $('eleai-pdf').value = ''; $('eleai-pl').value = ''; dzMsg('pdf', ''); dzMsg('pl', ''); renderRep(null); renderTot(null); }
 
   function bind(){
     if (!$('eleai-view')) return;
     $('eleai-btn-pdf').addEventListener('click', () => $('eleai-pdf').click());
     $('eleai-btn-pl').addEventListener('click', () => $('eleai-pl').click());
-    $('eleai-pdf').addEventListener('change', e => { const l = [...(e.target.files || [])]; e.target.value = ''; takeFiles('pdf', l); });
-    $('eleai-pl').addEventListener('change', e => { const l = [...(e.target.files || [])]; e.target.value = ''; takeFiles('pl', l); });
+    $('eleai-pdf').addEventListener('change', e => { const l = [...(e.target.files || [])]; e.target.value = ''; takeAny('pdf', l); });
+    $('eleai-pl').addEventListener('change', e => { const l = [...(e.target.files || [])]; e.target.value = ''; takeAny('pl', l); });
+    $('eleai-run').addEventListener('click', e => { if (!e.target.closest('#eleai-btn-retry') || S.busy) return; S.failed = null; exportBtn(); renderRun(null); process(); });   /* ★ [local125] ↻ อ่านซ้ำเฉพาะชุดที่ผิดพลาด */
     dropZone($('eleai-dz-pdf'), 'pdf'); dropZone($('eleai-dz-pl'), 'pl');
     $('eleai-plrep-go').addEventListener('click', exportConfirmed);
     ['pdf', 'pl'].forEach(k => $('eleai-' + k + '-all').addEventListener('click', e => { e.stopPropagation(); S.listOpen[k] = !S.listOpen[k]; renderLists(); }));
@@ -9900,14 +10086,15 @@ window.ELEAI_CORE = (function(){
       e.preventDefault(); if (t === 'dragover') e.dataTransfer.dropEffect = 'none';
       else dzMsg('pdf', '⚠️ วางไฟล์ในกรอบ ① Invoice PDF หรือ ② Packing List เท่านั้น — ไม่ได้แนบ', '#b45309'); }));
     ['eleai-pdf-list', 'eleai-pl-list'].forEach(id => $(id).addEventListener('click', e => { const b = e.target.closest('button[data-k]'); if (!b) return;
-      (b.dataset.k === 'pdf' ? S.pdfs : S.pls).splice(+b.dataset.i, 1); changed(); }));
+      const L = b.dataset.k === 'pdf' ? S.pdfs : S.pls, gone = L.splice(+b.dataset.i, 1)[0]; if (gone) idbDel(b.dataset.k, gone.hash); changed(); }));
     document.querySelectorAll('#eleai-ai input[name="eleai-model"]').forEach(r => r.addEventListener('change', () => { if (!r.checked) return; S.sel = r.value;
       document.querySelectorAll('#eleai-ai label').forEach(l => l.classList.toggle('on', l.contains(r))); changed(); }));
     $('eleai-btn-export').addEventListener('click', doExport);
     $('eleai-btn-clear').addEventListener('click', clearAll);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind); else bind();
-  window.eleaiOnShow = function(){ S.sel = 'auto'; const r = document.querySelector('#eleai-ai input[value="auto"]'); if (r) r.checked = true; if (!S.probed && !S.busy) probe(); };
+  window.eleaiOnShow = function(){ S.sel = 'auto'; const r = document.querySelector('#eleai-ai input[value="auto"]'); if (r) r.checked = true; if (!S.probed && !S.busy) probe();
+    if (!S.restored){ S.restored = true; restore().catch(() => {}); } };   /* ★ [local125] Refresh / เปิดใหม่ → อ่านต่อจากชุดที่ยังไม่สำเร็จ */
 })();
 </script>
 <script id="nj-deploy-ver">
