@@ -1334,8 +1334,8 @@ function _exFileSafe(s){ return String(s||'').replace(/[\\/:*?"<>|\s]+/g,'_'); }
 
 /* ---------- ใบสรุป (ตาม EC20261101-001 · คอลัมน์ใหม่ 8 ช่อง) ---------- */
 function _exPdfSummary(doc, h, sel, all){
-  const PW = doc.internal.pageSize.getWidth();    // 297
-  const PH = doc.internal.pageSize.getHeight();   // 210
+  const PW = doc.internal.pageSize.getWidth();    // 210 (A4 แนวตั้ง · local373)
+  const PH = doc.internal.pageSize.getHeight();   // 297
   const M  = 10;
   doc.setFont('Sarabun','normal');
   const ss  = _exSums(sel);
@@ -1368,14 +1368,14 @@ function _exPdfSummary(doc, h, sel, all){
     headStyles: { font:'Sarabun', fontStyle:'bold', fontSize:9, fillColor:[30,58,138], textColor:[255,255,255],
                   lineWidth:0.25, lineColor:[255,255,255], halign:'center' },
     columnStyles: {
-      0:{ cellWidth:16, halign:'center' },
+      0:{ cellWidth:12, halign:'center' },
       1:{ cellWidth:'auto' },
-      2:{ cellWidth:30, halign:'center' },
-      3:{ cellWidth:22, halign:'right' },
-      4:{ cellWidth:34, halign:'right', fillColor:[239,246,255] },
-      5:{ cellWidth:34, halign:'right', fillColor:[254,252,232] },
-      6:{ cellWidth:34, halign:'right', fillColor:[253,242,248] },
-      7:{ cellWidth:38, halign:'right', fillColor:[245,243,255], fontStyle:'bold' }
+      2:{ cellWidth:22, halign:'center' },
+      3:{ cellWidth:16, halign:'right' },
+      4:{ cellWidth:26, halign:'right', fillColor:[239,246,255] },
+      5:{ cellWidth:26, halign:'right', fillColor:[254,252,232] },
+      6:{ cellWidth:26, halign:'right', fillColor:[253,242,248] },
+      7:{ cellWidth:30, halign:'right', fillColor:[245,243,255], fontStyle:'bold' }
     },
     didDrawPage: ()=>{
       doc.setFont('Sarabun','bold'); doc.setFontSize(13); doc.setTextColor(30,58,138);
@@ -1400,7 +1400,7 @@ function _exPdfSummary(doc, h, sel, all){
   // ---------- เบิกเงิน / ใช้ไป / คงเหลือ + ลายเซ็น 3 ช่อง ----------
   let y = (doc.lastAutoTable ? doc.lastAutoTable.finalY : M + 30) + 6;
   if(y + 42 > PH - M){
-    doc.addPage('a4','landscape'); y = M + 24;
+    doc.addPage('a4','portrait'); y = M + 24;
     doc.setFont('Sarabun','normal'); doc.setFontSize(7.5); doc.setTextColor(110,110,110);
     doc.text('หน้า ' + (doc.internal.getNumberOfPages() - startPage + 1), PW - M, PH - 4, { align:'right' });
   }
@@ -1466,19 +1466,24 @@ const EX_PDF_CO = {
   tel:  'Tel. 033-000870  |  Fax. 033-000870  |  Tax ID 0205557004651'
 };
 function _exPdfHead(doc){
-  const L = 12, LW = 38, LH = LW * 336 / 1118;      // 38 × 11.4 มม. (อัตราส่วนภาพจริง)
-  try{ doc.addImage(EX_PDF_LOGO, 'PNG', L, 13.4, LW, LH, 'NJLOGO371'); }catch(e){ try{ console.warn('[expense pdf] logo', e); }catch(_){} }
-  const X = L + LW + 8;
+  /* local373: A4 แนวตั้ง (กว้าง 210 มม.) · โลโก้ 34 มม. → ชื่อบริษัท/ที่อยู่บรรทัดเดียวพอดีขอบขวา 12 มม. */
+  const L = 12, LW = 34, LH = LW * 336 / 1118;      // 34 × 10.2 มม. (อัตราส่วนภาพจริง)
+  const PW = doc.internal.pageSize.getWidth(), RX = PW - 12;
+  try{ doc.addImage(EX_PDF_LOGO, 'PNG', L, 13.6, LW, LH, 'NJLOGO371'); }catch(e){ try{ console.warn('[expense pdf] logo', e); }catch(_){} }
+  const X = L + LW + 6, AW = RX - X;
+  const fit = (t, f, min, sz)=>{ doc.setFont('Sarabun', f); let s = sz; doc.setFontSize(s); while(s > min && doc.getTextWidth(t) > AW){ s -= 0.25; doc.setFontSize(s); } };
   doc.setLineDashPattern([],0);
-  doc.setFont('Sarabun','bold');   doc.setFontSize(20); doc.setTextColor(16,42,110); doc.text(EX_PDF_CO.name, X, 14.6);
-  doc.setFont('Sarabun','bold');   doc.setFontSize(12); doc.setTextColor(30,41,59);  doc.text(EX_PDF_CO.addr, X, 21.6);
-  doc.setFont('Sarabun','normal'); doc.setFontSize(11); doc.setTextColor(51,65,85);  doc.text(EX_PDF_CO.tel,  X, 27.9);
+  fit(EX_PDF_CO.name, 'bold', 16, 20);   doc.setTextColor(16,42,110); doc.text(EX_PDF_CO.name, X, 14.6);
+  fit(EX_PDF_CO.addr, 'bold', 11, 12);   doc.setTextColor(30,41,59);  doc.text(EX_PDF_CO.addr, X, 21.6);
+  fit(EX_PDF_CO.tel, 'normal', 10, 11);  doc.setTextColor(51,65,85);  doc.text(EX_PDF_CO.tel,  X, 27.9);
   doc.setTextColor(0,0,0);
   return 39;
 }
+/* local373: ช่องเงินรายแถว — 0 / ไม่ได้กรอก → ว่าง (ฐานข้อมูลเก็บช่องที่ไม่ได้กรอกเป็น 0) · แถว Total Amount แสดงตามปกติ */
+function _exPdfAmt373(n){ const v = Number(n||0); return (isFinite(v) && Math.abs(v) >= 0.005) ? _exMoney(v) : ''; }
 function _exPdfJobForm(doc, g, info){
-  const PW = doc.internal.pageSize.getWidth();       // 297
-  const L = 12, R = PW - 12;
+  const PW = doc.internal.pageSize.getWidth();       // 210 (A4 แนวตั้ง · local373)
+  const L = 12, R = PW - 12;                         // พื้นที่ใช้งาน 186 มม.
   const K = [0,0,0];
   info = info || {};
   const line = (x1,y1,x2,y2,w)=>{ doc.setLineDashPattern([],0); doc.setDrawColor(0,0,0); doc.setLineWidth(w||0.25); doc.line(x1,y1,x2,y2); };
@@ -1499,76 +1504,77 @@ function _exPdfJobForm(doc, g, info){
   doc.rect(L, OY, R - L, 11);
   const CB = ['ยกเว้น','เปิดตรวจ','FCL','LCL','FZ','FZ+FZ','ค่าธรรมเนียม','ล่วงเวลา','Check list'];
   doc.setFont('Sarabun','normal'); doc.setFontSize(10.5);
-  const ws = CB.map(t=>6.6 + doc.getTextWidth(t));                 // กล่อง + ชื่อ
+  const ws = CB.map(t=>6.0 + doc.getTextWidth(t));                 // กล่อง 4.6 + ช่องว่าง 1.4 + ชื่อ
   const gap = (R - L - 8 - ws.reduce((a,b)=>a+b,0)) / (CB.length - 1);
   let cx = L + 4;
   CB.forEach((t,i)=>{
     doc.setLineDashPattern([],0); doc.setDrawColor(0,0,0); doc.setLineWidth(0.25); doc.rect(cx, OY + 3.2, 4.6, 4.6);
-    txt(t, cx + 6.6, OY + 6.9, null, 10.5);
+    txt(t, cx + 6.0, OY + 6.9, null, 10.5);
     cx += ws[i] + gap;
   });
 
-  // 2) JOB NJ / เลขที่ใบขนฯ (แถว 1) · บริษัท (แถว 2)
-  txt('JOB NJ:', L, OY + 21, null, 11);           dot(L + 15, 148, OY + 21.6);  val(info.nj_job_no || g.job_no, L + 17, OY + 20.6, 130 - L);
-  txt('เลขที่ใบขนฯ:', 156, OY + 21, null, 11);     dot(178, R, OY + 21.6);       val(info.job_nj, 180, OY + 20.6, R - 182);
-  txt('บริษัท:', L, OY + 30, null, 11);            dot(L + 13, R, OY + 30.6);    val(g.company || info.company, L + 15, OY + 29.6, R - L - 17);
+  // 2) JOB NJ (แถว 1) · เลขที่ใบขนฯ (แถว 2 เต็มบรรทัด) · บริษัท (แถว 3)
+  txt('JOB NJ:', L, OY + 19.5, null, 11);         dot(L + 15, L + 92, OY + 20.1);  val(info.nj_job_no || g.job_no, L + 17, OY + 19.1, 74);
+  txt('เลขที่ใบขนฯ:', L, OY + 28, null, 11);      dot(L + 22.5, R, OY + 28.6);     val(info.job_nj, L + 24.5, OY + 27.6, R - L - 26.5);
+  txt('บริษัท:', L, OY + 36.5, null, 11);          dot(L + 13, R, OY + 37.1);       val(g.company || info.company, L + 15, OY + 36.1, R - L - 17);
 
-  // 3) ตาราง 6 คอลัมน์ · 11 แถว + Total
-  const X = [L, L+18, L+105, L+145, L+188, L+231, R];
-  const RH = 8.6, top = OY + 39;                    // local371: แถว 8.6 มม. → หัวกระดาษ + ตาราง 11 แถว + ลงชื่อ อยู่ในหน้าเดียว (A4 แนวนอน)
+  // 3) ตาราง 6 คอลัมน์ · 11 แถว + Total (กว้างรวม 186 มม. พอดีกระดาษแนวตั้ง)
+  const X = [L, L+12, L+66, L+96, L+126, L+157, R];   // Item 12 · Description 54 · Nj advance 30 · Cost 30 · Receipt 31 · Tax 29
+  const HH = 10, RH = 14, top = OY + 44;            // local373: แถวสูง 14 มม. สำหรับเขียนด้วยมือ · หัวตาราง 10 มม.
   const sums = EX_PDF_ROWS.map(()=>({ n:0, c:0, r:0, t:[] }));
   (g.items||[]).forEach(it=>{ const s = sums[_exPdfRowIdx(it.description)]; s.n++; s.c += _exNum(it.cost_amount); s.r += _exNum(it.receipt_amount);
     const w = String(it.wht_no||'').trim(); if(w) s.t.push(w); });
   const rows = EX_PDF_ROWS.map((d,i)=>({
     no:String(i+1), d:d[0],
-    a: i===0 ? _exMoney(g.adv) : '',
-    c: (i>0 && sums[i].n) ? _exMoney(sums[i].c) : '',
-    r: (i>0 && sums[i].n) ? _exMoney(sums[i].r) : '',
+    a: i===0 ? _exPdfAmt373(g.adv) : '',
+    c: (i>0 && sums[i].n) ? _exPdfAmt373(sums[i].c) : '',
+    r: (i>0 && sums[i].n) ? _exPdfAmt373(sums[i].r) : '',
     t: sums[i].t.join(', ')
   }));
   rows.push({ no:'', d:'Total Amount', a:_exMoney(g.adv), c:_exMoney(g.cost), r:_exMoney(g.rcp), bold:true });
   const TW = X[6]-X[5]-4;
   const taxLines = (r)=>{ if(!r.t) return []; doc.setFont('Sarabun','normal'); doc.setFontSize(9.5); return doc.splitTextToSize(r.t, TW); };
   const rowH = (r)=> Math.max(RH, taxLines(r).length * 4.1 + 3.4);
-  const PB = doc.internal.pageSize.getHeight() - 6;
+  const PB = doc.internal.pageSize.getHeight() - 10;
   const header = (y)=>{
-    line(L, y, R, y); line(L, y+RH, R, y+RH); X.forEach(x=>line(x, y, x, y+RH));
-    const by = y + RH/2 + 1.6;
+    line(L, y, R, y); line(L, y+HH, R, y+HH); X.forEach(x=>line(x, y, x, y+HH));
+    const by = y + HH/2 + 1.6;
     txt('Item', (X[0]+X[1])/2, by, { align:'center' }, 10.5);
     txt('Description', X[1]+2.5, by, null, 10.5);
     txt('Nj advance', (X[2]+X[3])/2, by, { align:'center' }, 10.5);
     txt('Cost Amount', (X[3]+X[4])/2, by, { align:'center' }, 10.5);
     txt('Receipt Amount', (X[4]+X[5])/2, by, { align:'center' }, 10.5);
     txt('Tax number', (X[5]+X[6])/2, by, { align:'center' }, 10.5);
-    return y + RH;
+    return y + HH;
   };
   let y = header(top);
   rows.forEach((r,i)=>{
     const h = rowH(r);
-    const tail = (i === rows.length-1) ? 12 : 0;                    // แถวสุดท้าย + ช่องลงชื่อต้องอยู่หน้าเดียวกัน
-    if(y + h + tail > PB){                                           // ต่อหน้าใหม่อัตโนมัติ (หัวตารางซ้ำ)
-      doc.addPage('a4','landscape');
+    const tail = (i === rows.length-1) ? 20 : 0;                    // แถวสุดท้าย + ช่องลงชื่อต้องอยู่หน้าเดียวกัน
+    if(y + h + tail > PB){                                           // ต่อหน้าใหม่อัตโนมัติ (หัวตารางซ้ำ · ไม่ตัดข้อมูล)
+      doc.addPage('a4','portrait');
       const cy = _exPdfHead(doc);                                   // local371: หัวกระดาษทุกหน้า
       txt('JOB NJ: ' + (info.nj_job_no || g.job_no || '') + '  (ต่อ)', L, cy - 2, null, 9);
       y = header(cy + 1);
     }
     line(L, y+h, R, y+h); X.forEach(x=>line(x, y, x, y+h));
-    const by = y + Math.min(h, RH)/2 + 1.6;
+    const by = y + h/2 + 1.6;
     if(r.no) txt(r.no, (X[0]+X[1])/2, by, { align:'center' }, 10.5);
     txt(r.d, X[1]+2.5, by, null, 10.5);
     if(r.a) txt(r.a, X[3]-2.5, by, { align:'right' }, 10.5, r.bold);
     if(r.c) txt(r.c, X[4]-2.5, by, { align:'right' }, 10.5, r.bold);
     if(r.r) txt(r.r, X[5]-2.5, by, { align:'right' }, 10.5, r.bold);
-    taxLines(r).forEach((ln,k)=>{ doc.setFont('Sarabun','normal'); doc.setFontSize(9.5); doc.setTextColor(0,0,0); doc.text(ln, X[5]+2, by + k*4.1); });
+    const tl = taxLines(r), ty = y + (h - (tl.length-1)*4.1)/2 + 1.4;   // หลายเลข → จัดกึ่งกลางแนวตั้งในแถว
+    tl.forEach((ln,k)=>{ doc.setFont('Sarabun','normal'); doc.setFontSize(9.5); doc.setTextColor(0,0,0); doc.text(ln, X[5]+2, ty + k*4.1); });
     y += h;
   });
   const bottom = y;
 
-  // 4) ลายมือชื่อ
-  const sy = bottom + 10;
-  txt('Name Cs', L, sy, null, 11);          dot(L + 18, L + 80, sy + 0.5);
-  txt('Name Shipping', L + 96, sy, null, 11); dot(L + 124, L + 180, sy + 0.5);
-  txt('Date', L + 196, sy, null, 11);       dot(L + 207, R, sy + 0.5);
+  // 4) ลายมือชื่อ (3 ช่องเท่ากัน · กว้าง 62 มม.)
+  const sy = bottom + 14;
+  txt('Name Cs', L, sy, null, 11);              dot(L + 16.5, L + 58, sy + 0.5);
+  txt('Name Shipping', L + 64, sy, null, 11);   dot(L + 91, L + 124, sy + 0.5);
+  txt('Date', L + 130, sy, null, 11);           dot(L + 139.5, R, sy + 0.5);
 }
 
 /* ---------- สร้าง PDF ตามโหมด: sum / jobs / all ---------- */
@@ -1577,14 +1583,14 @@ async function _exBuildPdf(mode, h, sel, all){
   await _exEnsureInfo(sel.map(g=>g.job_doc_id||g.src_doc_id));
   let doc = null;
   if(mode==='sum' || mode==='all'){
-    doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+    doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });   // local373: A4 แนวตั้ง
     doc.setFont('Sarabun','normal');
     _exPdfSummary(doc, h, sel, all);
   }
   if(mode==='jobs' || mode==='all'){
     sel.forEach(g=>{
-      if(!doc){ doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' }); }
-      else doc.addPage('a4','landscape');
+      if(!doc){ doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' }); }
+      else doc.addPage('a4','portrait');
       _exPdfJobForm(doc, g, EX.info[g.job_doc_id||g.src_doc_id] || {});
     });
   }
