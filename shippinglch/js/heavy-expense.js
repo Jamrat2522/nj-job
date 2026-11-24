@@ -1442,12 +1442,12 @@ function _exPdfSummary(doc, h, sel, all, man){
     columnStyles: {
       0:{ cellWidth:11, halign:'center' },
       1:{ cellWidth:'auto' },
-      2:{ cellWidth:25, halign:'left' },
-      3:{ cellWidth:24, halign:'right', fillColor:[239,246,255] },
-      4:{ cellWidth:24, halign:'right', fillColor:[254,252,232] },
-      5:{ cellWidth:24, halign:'right', fillColor:[253,242,248] },
-      6:{ cellWidth:27, halign:'right', fillColor:[245,243,255], fontStyle:'bold' },
-      7:{ cellWidth:24, halign:'left' }
+      2:{ cellWidth:30, halign:'left', fontSize:8.5 },
+      3:{ cellWidth:23, halign:'right', fillColor:[239,246,255] },
+      4:{ cellWidth:23, halign:'right', fillColor:[254,252,232] },
+      5:{ cellWidth:23, halign:'right', fillColor:[253,242,248] },
+      6:{ cellWidth:26, halign:'right', fillColor:[245,243,255], fontStyle:'bold' },
+      7:{ cellWidth:22, halign:'left' }
     },
     didDrawPage: ()=>{
       doc.setFont('Sarabun','bold'); doc.setFontSize(13); doc.setTextColor(30,58,138);
@@ -1778,7 +1778,7 @@ const EX376_CSS = `
 .ex376-ib:disabled{opacity:.45;cursor:not-allowed}
 .ex376-note{font-size:12px;color:#64748B;margin:6px 2px 0}
 .ex380-co{position:relative}
-.ex380-co .ex376-in{padding-right:24px;cursor:pointer}
+.ex380-co .ex376-in{padding-right:22px;cursor:pointer}
 .ex380-co .ex376-in:focus{cursor:text}
 .ex380-caret{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:#64748B;pointer-events:none}
 .ex380-cotxt{font-weight:600;color:#0F172A;white-space:nowrap}
@@ -1790,6 +1790,8 @@ const EX376_CSS = `
 #ex380-codd .ex380-it.ex380-clr{color:#64748B;font-style:italic}
 #ex380-codd .ex380-cur{font-weight:800}
 #ex380-codd .ex380-empty{padding:10px 12px;color:#64748B}
+#ex380-codd .ex381-own{color:#047857;background:#F0FDF4;border-bottom:1px solid #BBF7D0}
+#ex380-codd .ex381-own.on,#ex380-codd .ex381-own:hover{background:#DCFCE7;color:#065F46}
 #ex380-codd .ex380-cnt{position:sticky;top:0;background:#F8FAFC;padding:5px 12px;font-size:11.5px;color:#64748B;border-bottom:1px solid #E2E8F0}
 .ex379-wht{font-variant-numeric:tabular-nums;word-break:break-all}
 .ex-sum.ex379-sum{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -1804,7 +1806,7 @@ const EX376_CSS = `
 .ex379-sum .ex-card-bal .ex-card-bd b.ex379-pos{color:#047857}
 .ex379-sum .ex-card-bd input.ex-bad{border-color:#DC2626 !important;box-shadow:0 0 0 2px rgba(220,38,38,.18) !important}
 .ex379-by{font-size:12px;color:#64748B;margin:6px 2px 0;text-align:right}
-@media (min-width:861px){.ex376-tbl th:nth-child(2){width:70px}.ex376-tbl th:nth-child(3){width:180px}.ex376-tbl th:nth-child(4){width:178px}.ex376-tbl th:nth-child(9){width:150px}.ex376-tbl th:nth-child(10){width:96px}}
+@media (min-width:861px){.ex376-tbl th:nth-child(2){width:70px}.ex376-tbl th:nth-child(3){width:170px}.ex376-tbl th:nth-child(4){width:196px}.ex376-tbl th:nth-child(9){width:150px}.ex376-tbl th:nth-child(10){width:96px}}
 @media (max-width:860px){.ex2-filters.ex376-fl{padding-right:0;padding-bottom:46px}.ex376-add{top:auto;bottom:0;right:50%;transform:translateX(50%)}.ex-sum.ex379-sum{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ex379-sum .ex-card{padding:12px;gap:8px}.ex379-sum .ex-card-ic{font-size:20px}.ex379-sum .ex-card-bd b,.ex379-sum .ex-card-bd input{font-size:17px}}
 @media (max-width:380px){.ex-sum.ex379-sum{grid-template-columns:1fr}}
 `;
@@ -1972,7 +1974,7 @@ function _exManRowHtml(r, no, editable){
       <td class="ex376-act">${canRe?`<button type="button" class="ex376-ib" title="ยกเลิกปิดสรุป" onclick="exManReopen('${k}')">↩️</button>`:(closed?'🔒':'')}</td></tr>`;
   }
   const inp = (f, cls, ph, extra)=>`<input type="text" class="ex376-in ${cls||''}" data-ex-mf="${f}" value="${esc(r[f]||'')}" placeholder="${ph||''}" ${extra||''} oninput="exManSet('${k}','${f}',this)">`;
-  const desc = `<td><div class="ex380-co"><input type="text" class="ex376-in ex380-coin" data-ex-mco="${k}" value="${esc(_exCoShort(co))}" title="${esc(co)}" placeholder="เลือกบริษัท" autocomplete="off" spellcheck="false" aria-label="ชื่อลูกค้า"
+  const desc = `<td><div class="ex380-co"><input type="text" class="ex376-in ex380-coin" data-ex-mco="${k}" value="${esc(_exCoShort(co))}" title="${esc(co)}" placeholder="เลือก / พิมพ์ชื่อลูกค้า" maxlength="300" autocomplete="off" spellcheck="false" aria-label="ชื่อลูกค้า"
       onfocus="exCoOpen('${k}',this)" oninput="exCoFilter('${k}',this)" onkeydown="exCoKey(event,'${k}',this)" onblur="exCoBlur('${k}',this)"><span class="ex380-caret">▼</span></div></td>`;
   return `<tr class="ex376-mrow ${on?'ex2-on':''}" data-ex-mrow="${k}">${ck}${item}
     <td>${inp('job_no','ex376-job','JOB (กรอก/เลือก)','list="ex376-jobs" autocomplete="off" onchange="exManJob(\''+k+'\',this.value)"')}</td>
@@ -2101,8 +2103,9 @@ async function exManReopen(key){
   catch(e){ console.error(e); toast('ยกเลิกปิดสรุปไม่สำเร็จ: '+_exErr(e),'error'); }
   finally{ exWorkRender(); }
 }
-/* ---------- local380: Searchable Dropdown ชื่อลูกค้า (รายชื่อบริษัทครบทุกบริษัท · แสดงชื่อเต็มในรายการ) ---------- */
-const EXCO = { key:null, el:null, items:[], on:-1 };
+/* ---------- local380: Searchable Dropdown ชื่อลูกค้า (รายชื่อบริษัทครบทุกบริษัท · แสดงชื่อเต็มในรายการ)
+   local381: ไม่มีในรายการ → กรอกชื่อลูกค้าเองได้ทันที (Enter / คลิก "ใช้ชื่อที่กรอก" / ออกจากช่อง) · ไม่เพิ่มเข้า MASTER (AC_COMPANIES ไม่เปลี่ยน) ---------- */
+const EXCO = { key:null, el:null, items:[], on:-1, own:'' };
 function _exCoDD(){
   let d = document.getElementById('ex380-codd');
   if(!d){ d = document.createElement('div'); d.id = 'ex380-codd'; d.setAttribute('role','listbox');
@@ -2122,28 +2125,36 @@ function _exCoPos(){
 }
 function _exCoRender(q){
   const d = _exCoDD(), all = _exCoList(), r = (EX.man||[]).find(x=>x.key===EXCO.key), cur = r ? _exManCo(r) : '';
-  q = String(q||'').toLowerCase().trim();
+  const raw = String(q||'').trim().slice(0,300);
+  q = raw.toLowerCase();
   let items = all;
   if(q){ const sw = all.filter(x=>x.toLowerCase().startsWith(q)), inc = all.filter(x=>!x.toLowerCase().startsWith(q) && x.toLowerCase().includes(q)); items = sw.concat(inc); }
-  EXCO.items = items; EXCO.on = items.length===1 ? 0 : -1;
-  d.innerHTML = `<div class="ex380-cnt">${q ? `พบ ${items.length} บริษัท` : `บริษัททั้งหมด ${all.length} รายการ`} · ชื่อเดียวกับช่อง บริษัท * หน้าสร้างงาน</div>`
+  const exact = !!raw && all.some(x=>x.toLowerCase()===q);
+  EXCO.own = (raw && !exact) ? raw : '';
+  EXCO.items = items; EXCO.on = (items.length===1 && !EXCO.own) ? 0 : -1;
+  if(EXCO.own && items.length===1 && items[0].toLowerCase().startsWith(q)) EXCO.on = 0;
+  d.innerHTML = `<div class="ex380-cnt">${q ? `พบ ${items.length} บริษัท` : `บริษัททั้งหมด ${all.length} รายการ`} · ชื่อเดียวกับช่อง บริษัท * หน้าสร้างงาน · ไม่มีในรายการ พิมพ์ชื่อเองได้</div>`
+    + (EXCO.own ? `<div class="ex380-it ex381-own" data-ex-coi="-2" title="${esc(EXCO.own)}">✏️ ใช้ชื่อที่กรอก: <b>${esc(EXCO.own)}</b></div>` : '')
     + (cur ? `<div class="ex380-it ex380-clr" data-ex-coi="-1">— ไม่ระบุชื่อลูกค้า —</div>` : '')
     + (items.length ? items.map((x,i)=>`<div class="ex380-it${i===EXCO.on?' on':''}${x===cur?' ex380-cur':''}" data-ex-coi="${i}" role="option" title="${esc(x)}">${esc(x)}</div>`).join('')
-                    : `<div class="ex380-empty">ไม่พบบริษัท "${esc(q)}"</div>`);
+                    : `<div class="ex380-empty">ไม่พบบริษัท "${esc(raw)}" ในรายการ — กด Enter เพื่อใช้ชื่อที่กรอก</div>`);
   d.classList.add('show'); _exCoPos();
 }
 function exCoOpen(key, el){
   const r = (EX.man||[]).find(x=>x.key===key); if(!r || r.status==='CLOSED') return;
   EXCO.key = key; EXCO.el = el;
-  el.value = ''; el.placeholder = _exManCo(r) || 'พิมพ์ค้นหาบริษัท...';
+  el.value = _exManCo(r); el.placeholder = 'พิมพ์ค้นหา หรือกรอกชื่อลูกค้าเอง';       // local381: แก้ไขชื่อเดิมได้ (แสดงชื่อเต็มขณะแก้)
+  try{ el.select(); }catch(_){}
   _exCoRender('');
 }
-function exCoFilter(key, el){ if(EXCO.key!==key) exCoOpen(key, el); _exCoRender(el.value); }
+function exCoFilter(key, el){ if(EXCO.key!==key){ EXCO.key = key; EXCO.el = el; } _exCoRender(el.value); }
 function _exCoShow(el, r){ if(!el) return; const co = r ? _exManCo(r) : ''; el.value = _exCoShort(co); el.title = co; el.placeholder = 'เลือกบริษัท'; }
 function _exCoClose(){ const d = document.getElementById('ex380-codd'); if(d){ d.classList.remove('show'); d.innerHTML = ''; } EXCO.key = null; EXCO.el = null; EXCO.items = []; EXCO.on = -1; }
 function _exCoPick(i){
   const r = (EX.man||[]).find(x=>x.key===EXCO.key), el = EXCO.el; if(!r){ _exCoClose(); return; }
-  if(i === -1) r.co = ''; else if(EXCO.items[i] != null) r.co = EXCO.items[i]; else return;
+  if(i === -1) r.co = '';
+  else if(i === -2) r.co = String(el ? el.value : EXCO.own).trim().slice(0,300);     // local381: ชื่อที่กรอกเอง (เก็บชื่อเต็ม)
+  else if(EXCO.items[i] != null) r.co = EXCO.items[i]; else return;
   _exCoShow(el, r); _exCoClose();
   try{ if(el) el.blur(); }catch(_){}
   _exSumLive();
@@ -2154,11 +2165,15 @@ function exCoKey(e, key, el){
   if(e.key==='ArrowDown' || e.key==='ArrowUp'){ e.preventDefault(); if(!n) return; EXCO.on = e.key==='ArrowDown' ? (EXCO.on+1)%n : (EXCO.on<=0 ? n-1 : EXCO.on-1);
     const d = document.getElementById('ex380-codd'); d.querySelectorAll('[data-ex-coi]').forEach(x=>x.classList.toggle('on', Number(x.getAttribute('data-ex-coi'))===EXCO.on));
     const on = d.querySelector('.ex380-it.on'); if(on) try{ on.scrollIntoView({ block:'nearest' }); }catch(_){} }
-  else if(e.key==='Enter'){ e.preventDefault(); if(EXCO.on>=0) _exCoPick(EXCO.on); }
+  else if(e.key==='Enter'){ e.preventDefault(); if(EXCO.on>=0) _exCoPick(EXCO.on); else _exCoPick(-2); }
   else if(e.key==='Escape'){ e.preventDefault(); const r = (EX.man||[]).find(x=>x.key===key); _exCoClose(); _exCoShow(el, r); try{ el.blur(); }catch(_){} }
 }
 function exCoBlur(key, el){
-  setTimeout(()=>{ if(document.activeElement===el) return; const r = (EX.man||[]).find(x=>x.key===key); if(EXCO.key===key) _exCoClose(); _exCoShow(el, r); }, 120);
+  setTimeout(()=>{ if(document.activeElement===el) return; const r = (EX.man||[]).find(x=>x.key===key);
+    if(EXCO.key===key){                                         // local381: ออกจากช่องโดยไม่ได้เลือก → ใช้ข้อความที่กรอก (ล้างข้อความ = ไม่ระบุ)
+      if(r && r.status!=='CLOSED'){ const v = String(el.value||'').trim().slice(0,300); if(v!==_exManCo(r)){ r.co = v; _exSumLive(); } }
+      _exCoClose(); }
+    _exCoShow(el, r); }, 120);
 }
 /* ---------- Export: รายการ Manual (บันทึกแล้วเท่านั้น) ---------- */
 function _exManVal(r){ const v=_exManVals(r); return Object.assign({ job_no:String(r.job_no||'').trim(), job_doc_id:r.job_doc_id||null, description:String(r.description||'').trim(), co:_exManCo(r), wht:_exManWht(r) }, v); }
