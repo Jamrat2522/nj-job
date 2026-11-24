@@ -1550,9 +1550,9 @@ body.legacy-active .content-area { display: none !important; }
       <div>
         <div class="page-title">Electrolux P DOM</div>
         <div class="page-sub">อัพโหลด 4 ไฟล์ → กด MAPPING → VALIDATION → Export (ตั้งชื่อไฟล์ด้วยเลข INVOICE แรก)</div>
-            <div style="margin-top:6px;font-size:11px;font-family:'Courier New',monospace"><span style="background:rgba(6,182,212,.18);color:#22d3ee;border:1px solid rgba(6,182,212,.45);border-radius:5px;padding:2px 8px;font-weight:700">BUILD local137</span><span style="color:var(--text3);margin-left:8px">DUI Master <b id="epdom-v-dui">-</b> คู่ · FIX MASTER <b id="epdom-v-fix">-</b> รายการ · สรรพสามิต <b id="epdom-v-ex">-</b> rule</span></div>
+            <div style="margin-top:6px;font-size:11px;font-family:'Courier New',monospace"><span style="background:rgba(6,182,212,.18);color:#22d3ee;border:1px solid rgba(6,182,212,.45);border-radius:5px;padding:2px 8px;font-weight:700">BUILD local138</span><span style="color:var(--text3);margin-left:8px">DUI Master <b id="epdom-v-dui">-</b> คู่ · FIX MASTER <b id="epdom-v-fix">-</b> รายการ · สรรพสามิต <b id="epdom-v-ex">-</b> rule</span></div>
       </div>
-      <div id="epdom-version" style="position:absolute;top:0;right:4px;font-size:11px;font-family:'Courier New',monospace;font-weight:700;background:rgba(236,72,153,.15);color:#f472b6;border:1px solid rgba(236,72,153,.45);border-radius:5px;padding:3px 10px;white-space:nowrap">Deploy github local137</div>
+      <div id="epdom-version" style="position:absolute;top:0;right:4px;font-size:11px;font-family:'Courier New',monospace;font-weight:700;background:rgba(236,72,153,.15);color:#f472b6;border:1px solid rgba(236,72,153,.45);border-radius:5px;padding:3px 10px;white-space:nowrap">Deploy github local138</div>
     </div>
 
     <div id="epdom-err" style="display:none;border-radius:8px;padding:11px 14px;font-size:13px;margin-bottom:14px;line-height:1.6"></div>
@@ -16137,7 +16137,7 @@ function _pdParseInvoice(wb){
       if(noV===null || noV<=0 || Math.floor(noV)!==noV){
         /* แถวที่ดูเป็นรายการสินค้า (มี Part + Qty) แต่ No. อ่านไม่ได้ → แจ้งเตือน ห้ามข้ามเงียบ */
         if(_pdS(row[cNo])!=='' && _pdCode(row[cPart]) && _pdN(row[cQty])!==null && footQty===null && footAmt===null)
-          unreadable.push({row:_pdRow(aoa,r), level:'WARNING', reason:'คอลัมน์ No. อ่านไม่ได้ ("'+_pdS(row[cNo])+'") แต่มี Item No. '+_pdCode(row[cPart])+' → ไม่ถูกนำเข้า'});
+          unreadable.push({row:_pdRow(aoa,r), level:'ERROR', reason:'คอลัมน์ No. อ่านไม่ได้ ("'+_pdS(row[cNo])+'") แต่มี Item No. '+_pdCode(row[cPart])+' → ไม่ถูกนำเข้า'});
         continue;
       }
       const part = _pdCode(row[cPart]);
@@ -16313,9 +16313,15 @@ function _pdParsePL(wb){
   sheetInfo.forEach(function(S){
     if(!S.rows.length) return;
     const same=used.filter(function(U){return U.sig===S.sig;})[0];
-    if(same){ dupIssues.push('PL Sheet "'+S.sheet+'" มีรายการซ้ำกับ Sheet "'+same.sheet+'" ทุกแถว → นับครั้งเดียว (ไม่รวมยอดซ้ำ)'); return; }
+    if(same){ dupIssues.push('PL Sheet "'+S.sheet+'" มีรายการซ้ำกับ Sheet "'+same.sheet+'" ทุกแถว → อาจทำให้ QTY/NW/GW เกินจริง ต้องตรวจสอบไฟล์ก่อน (ไม่รวมยอดซ้ำ · ไม่ลบอัตโนมัติ)'); return; }
     used.push(S);
-    S.rows.forEach(function(p){ out.push(p); });
+    const seenRow=new Map();
+    S.rows.forEach(function(p){
+      const k=[p.sn,p.part,p.sap,p.dn,p.qty,p.plt,p.nw,p.tnw,p.inv].join('\u0001');
+      if(seenRow.has(k)) dupIssues.push('PL Sheet "'+S.sheet+'" แถว '+p.srcRow+' ซ้ำกับแถว '+seenRow.get(k)+' ทุกช่อง (S/No '+p.sn+' / '+p.part+') → อาจทำให้ QTY เกินจริง');
+      else seenRow.set(k, p.srcRow);
+      out.push(p);
+    });
   });
   /* ---- GW: ยอดสรุปราย Sheet (ไม่ซ้ำ) ---- */
   const parts=[]; let gwBad=false;
@@ -16327,16 +16333,15 @@ function _pdParsePL(wb){
     }
     if(vals.length>1){ gwBad=true;
       gwIssues.push({level:'ERROR', reason:'PL Sheet "'+S.sheet+'" พบยอดสรุป Total Packages หลายค่า ('+vals.join(', ')+') → ยืนยัน GW ไม่ได้ (ห้ามเลือกยอดแรก)'}); return; }
-    if(S.totals.length>1)
-      gwIssues.push({level:'WARNING', reason:'PL Sheet "'+S.sheet+'" มีแถว Total Packages ซ้ำ '+S.totals.length+' แถว ค่าเท่ากัน ('+vals[0]+') → ใช้ครั้งเดียว'});
+    if(S.totals.length>1){ gwBad=true;
+      gwIssues.push({level:'ERROR', reason:'PL Sheet "'+S.sheet+'" มีแถว Total Packages ซ้ำ '+S.totals.length+' แถว (ค่า '+vals[0]+') → ยืนยันยอด GW ไม่ได้ (ห้ามรวม/เลือกเอง)'}); return; }
     parts.push({sheet:S.sheet, val:vals[0], col:S.totals[0].col, row:S.totals[0].row});
   });
   if(!gwBad && parts.length){
     if(parts.length===1){ gwTotal=parts[0].val; gwSrc='Sheet "'+parts[0].sheet+'" · Total Packages · '+parts[0].col; }
     else {
-      gwTotal=Math.round(parts.reduce(function(a,x){return a+x.val;},0)*1e6)/1e6;
-      gwSrc=parts.map(function(x){return 'Sheet "'+x.sheet+'" '+x.val;}).join(' + ');
-      gwIssues.push({level:'WARNING', reason:'GW รวมจากยอดสรุปราย Sheet '+parts.length+' Sheet (รายการไม่ซ้ำกัน): '+gwSrc+' = '+gwTotal});
+      gwSrc=parts.map(function(x){return 'Sheet "'+x.sheet+'" '+x.val;}).join(' , ');
+      gwIssues.push({level:'ERROR', reason:'PL พบยอดสรุป Total Packages หลาย Sheet ('+gwSrc+') → ยืนยันไม่ได้ว่าเป็นยอดราย Sheet หรือยอดรวมทั้งเอกสาร (ห้ามรวมซ้ำ/เลือกยอดแรก)'});
     }
   }
   return {rows:out, headers:headers, gwTotal:gwTotal, gwSrc:gwSrc, gwIssues:gwIssues, dupIssues:dupIssues};
@@ -16353,7 +16358,7 @@ function _pdDesc2(s){ return _pdDesc1(s).replace(/[.,;:()\[\]\/\\\-_+]+/g,' ').r
 function _pdParseMaster(wb){
   const map=new Map(); let headers=null, n=0;
   /* local137: TH Sales Invoice เป็นตัวกลางยืนยัน Invoice ↔ DN — links: (Invoice No.+Part+SAP) → [{dn, qty, srcRow}] */
-  const links=new Map(); let linkCount=0;
+  const links=new Map(); let linkCount=0; const dupIssues=[];
   wb.SheetNames.forEach(function(sn){
     const aoa=_pdAoa(wb.Sheets[sn]);
     if(!aoa.length) return;
@@ -16380,6 +16385,8 @@ function _pdParseMaster(wb){
     const cMQ=_pdCol(H,['Quantity','Qty']);
     const linkable=(cMI>=0 && cMS>=0 && cMD>=0);
     const cHs2=_pdCol(H,['Confirmed HS Code']);
+    const cSI=_pdCol(H,['Sales Document Item']);
+    const seenL=new Map();
     if(cPt<0) return;
     for(let r=hi+1;r<aoa.length;r++){
       const row=aoa[r]||[];
@@ -16396,13 +16403,17 @@ function _pdParseMaster(wb){
         if(!links.has(kL)) links.set(kL,[]);
         links.get(kL).push({dn:rec.dn, qty:rec.qty, srcRow:rec.srcRow, sheet:sn});
         linkCount++;
+        /* แถวซ้ำทุกช่องสำคัญ (Invoice+Part+SAP+DN+Sales Document Item+QTY) → อาจทำให้ QTY เกินจริง */
+        const kD=[rec.inv,pt,rec.sap,rec.dn,(cSI>=0?_pdCode(row[cSI]):''),rec.qty,rec.en].join('\u0001');
+        if(seenL.has(kD)) dupIssues.push('TH Sales Invoice แถว '+rec.srcRow+' ซ้ำกับแถว '+seenL.get(kD)+' (Invoice '+rec.inv+' / '+pt+' / SAP '+rec.sap+' / DN '+rec.dn+') → ต้องตรวจสอบก่อน');
+        else seenL.set(kD, rec.srcRow);
       }
       /* เก็บ "ทุกแถว" ของ Part นั้น — Part ซ้ำต้องแยกด้วย Description ได้ */
       if(!map.has(pt)) map.set(pt,[]);
       map.get(pt).push(rec);
     }
   });
-  return {map:map, headers:headers, total:n, links:links, linkCount:linkCount};
+  return {map:map, headers:headers, total:n, links:links, linkCount:linkCount, dupIssues:dupIssues};
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -16661,7 +16672,7 @@ function _pdBuild(inv, ct, pl, master, fix){
   /* ---- PL index: (part, SAP, DN) — ห้ามจับด้วย Part+SAP โดยไม่ตรวจ DN ---- */
   const plIdx=new Map(), plByPS=new Map();
   pl.rows.forEach(function(p){
-    p._alloc=0;
+    p._alloc=0; p._nwAlloc=0;
     const k=p.part+'\u0001'+p.sap+'\u0001'+p.dn;
     if(!plIdx.has(k)) plIdx.set(k,[]);
     plIdx.get(k).push(p);
@@ -16669,7 +16680,6 @@ function _pdBuild(inv, ct, pl, master, fix){
     if(!plByPS.has(k2)) plByPS.set(k2,[]);
     plByPS.get(k2).push(p);
   });
-  const plGroupAlloc=new Map();                 /* (part,SAP,DN) → QTY ที่จัดสรรแล้ว */
 
   /* ---- CT index: (DN, part) + RUNNING BALANCE (ไม่ Reset ระหว่าง Invoice / Line) ---- */
   const ctIdx=new Map();
@@ -16707,9 +16717,12 @@ function _pdBuild(inv, ct, pl, master, fix){
   });
   /* GW — ยอดสรุปจาก PL (ตรวจทุก Sheet · ห้ามรวมซ้ำ) */
   (pl.gwIssues||[]).forEach(function(g){ issue(g.level,'GW',null,'GW',g.reason); });
+  if((pl.dupIssues||[]).length && pl.gwTotal!=null && !(pl.gwIssues||[]).length)
+    issue('ERROR','GW',null,'GW','PL มี Sheet/รายการซ้ำ → ยืนยันยอด GW รวมไม่ได้');
   if(pl.gwTotal==null && !(pl.gwIssues||[]).some(function(g){return g.level!=='WARNING';}))
     issue('ERROR','GW',null,'GW','ไม่พบยอดสรุป Gross Weight (แถว Total Packages) ใน Packing List');
-  (pl.dupIssues||[]).forEach(function(g){ issue('WARNING','PL_DUP',null,'PL',g); });
+  (pl.dupIssues||[]).forEach(function(g){ issue('ERROR','PL_DUP',null,'PL',g); });
+  (master.dupIssues||[]).forEach(function(g){ issue('ERROR','THS_DUP',null,'TH Sales Invoice',g); });
   (ct.colIssues||[]).forEach(function(g){ issue('ERROR','CT_HEADER',null,'CT / J-K',g); });
 
   /* ---- รายการซ้ำใน INVOICE (Invoice No. + Line) — ห้ามลบ/รวมอัตโนมัติ ---- */
@@ -16729,7 +16742,7 @@ function _pdBuild(inv, ct, pl, master, fix){
     });
     seen.forEach(function(n,k){
       if(n>1){ const a=k.split('\u0001');
-        issue('WARNING','CT_DUP',null,'CT','CT มีแถวซ้ำ '+n+' แถว · DN '+a[0]+' / '+a[1]+' / '+a[3]+' / '+a[2]+' (คงทุกแถว ไม่ลบ/ไม่รวมอัตโนมัติ)'); }
+        issue('ERROR','CT_DUP',null,'CT','CT มีรายการซ้ำ '+n+' แถว (DN+Part+J+K เหมือนกัน) · DN '+a[0]+' / '+a[1]+' / J '+a[2]+' / K '+a[3]+' → อาจทำให้ QTY เกินจริง ต้องตรวจสอบก่อน (ไม่ลบ/ไม่รวมอัตโนมัติ)'); }
     });
   })();
 
@@ -16744,11 +16757,13 @@ function _pdBuild(inv, ct, pl, master, fix){
 
     /* ---- AMOUNT verification (ห้ามแก้ค่าต้นฉบับ) ---- */
     let amtOk=true;
+    if(r.up==null)  issue('ERROR','UNIT_PRICE',r,'UNIT PRICE','UNIT PRICE ใน INVOICE ว่าง (ข้อมูลบังคับ)');
+    if(r.amt==null) issue('ERROR','AMOUNT_BLANK',r,'AMOUNT','AMOUNT (Extended Price) ใน INVOICE ว่าง (ข้อมูลบังคับ)');
     if(r.qty!=null && r.up!=null && r.amt!=null){
       const calc=r.qty*r.up;
-      if(Math.abs(calc-r.amt)>0.01){
+      if(Math.abs(calc-r.amt)>0.01){          /* ยอมรับเฉพาะส่วนต่างจากการปัดเศษสตางค์ (≤ 0.01) */
         stat.amtDiff++; amtOk=false;
-        issue('WARNING','AMOUNT',r,'AMOUNT','AMOUNT ไม่ตรง QTY×UNIT PRICE · คำนวณ '+calc.toFixed(2)+' ≠ ไฟล์ '+r.amt.toFixed(2)+' (คงค่าต้นฉบับ)');
+        issue('ERROR','AMOUNT',r,'AMOUNT','AMOUNT ไม่ตรง QTY×UNIT PRICE โดยไม่มีหลักฐานอธิบาย · คำนวณ '+calc.toFixed(2)+' ≠ ไฟล์ '+r.amt.toFixed(2)+' (ไม่แก้ค่าต้นฉบับ)');
       }
     }
 
@@ -16773,8 +16788,10 @@ function _pdBuild(inv, ct, pl, master, fix){
             plan=[{dn:dnsAll[0], qty:r.qty, src:'TH Sales แถว '+L.map(function(x){return x.srcRow;}).join(',')}];
             let cap=0, capOk=true; L.forEach(function(x){ if(x.qty==null) capOk=false; else cap+=x.qty; });
             L._alloc=(L._alloc||0)+r.qty;
-            if(capOk && L._alloc-cap>EPS)
-              issue('WARNING','QTY',r,'QTY','QTY INVOICE สะสม '+r6(L._alloc)+' > QTY TH Sales Invoice '+r6(cap)+' (KEY เดียวกัน · ยึด INVOICE เป็นหลัก)');
+            if(!capOk)
+              issue('ERROR','THS_QTY',r,'TH Sales Invoice / QTY','TH Sales Invoice แถว '+L.filter(function(x){return x.qty==null;}).map(function(x){return x.srcRow;}).join(',')+': Quantity ว่าง → ยืนยันจำนวนไม่ได้');
+            else if(L._alloc-cap>EPS)
+              issue('ERROR','THS_OVER',r,'TH Sales Invoice / QTY','QTY INVOICE สะสม '+r6(L._alloc)+' เกิน QTY TH Sales Invoice '+r6(cap)+' (Invoice+Part+SAP เดียวกัน · แถว '+L.map(function(x){return x.srcRow;}).join(',')+')');
           } else {
             /* หลาย DN — ใช้ QTY ของ TH Sales เป็นหลักฐานจัดสรร (หักยอดแถว TH Sales ที่ใช้แล้ว) */
             const free=L.filter(function(x){return x.left!=null && x.left>EPS;});
@@ -16782,7 +16799,7 @@ function _pdBuild(inv, ct, pl, master, fix){
             const eqDn=eq.map(function(x){return x.dn;}).filter(function(v,i,a){return a.indexOf(v)===i;});
             const sumFree=free.reduce(function(s,x){return s+x.left;},0);
             if(L.some(function(x){return x.qty==null;})){
-              issue('AMBIGUOUS','MULTI_DN',r,'DELIVERY NO.','พบหลาย Delivery No. ('+dnsAll.join(', ')+') แต่ TH Sales Invoice ไม่มี Quantity ครบ → ยืนยันการจัดสรรไม่ได้');
+              issue('ERROR','THS_QTY',r,'TH Sales Invoice / QTY','พบหลาย Delivery No. ('+dnsAll.join(', ')+') แต่ TH Sales Invoice แถว '+L.filter(function(x){return x.qty==null;}).map(function(x){return x.srcRow;}).join(',')+' Quantity ว่าง → ยืนยัน DN/จำนวนไม่ได้');
             } else if(eq.length && eqDn.length===1){
               eq[0].left=0;
               plan=[{dn:eq[0].dn, qty:r.qty, src:'TH Sales แถว '+eq[0].srcRow+' (QTY ตรง · DN เดียว)'}];
@@ -16808,7 +16825,7 @@ function _pdBuild(inv, ct, pl, master, fix){
             if(!rows.length)
               issue('ERROR','PL_INVOICE',r,'PL / Invoice Number','PL มี Invoice Number ('+withInv.map(function(p){return p.inv;}).filter(function(v,i,a){return a.indexOf(v)===i;}).join(', ')+') ไม่ตรงกับ INVOICE '+r.invoice);
           } else {
-            issue('WARNING','PL_INVOICE_BLANK',r,'PL / Invoice Number','PL ไม่มี Invoice Number และ MASTER ไม่มีข้อมูล Invoice↔DN → ยืนยัน Invoice ผ่าน PL ไม่ได้ (จับด้วย Part+SAP+DN)');
+            issue('ERROR','DN_UNCONFIRMED',r,'DELIVERY NO.','ยืนยัน DN ไม่ได้: MASTER ไม่ใช่ TH Sales Invoice (ไม่มี Invoice No.+SAP+DN) และ PL ไม่มี Invoice Number → ห้ามจับคู่ข้าม Invoice โดยไม่มีหลักฐาน');
           }
           const dns=rows.map(function(p){return p.dn;}).filter(function(v,i,a){return a.indexOf(v)===i;});
           if(rows.length){
@@ -16826,7 +16843,7 @@ function _pdBuild(inv, ct, pl, master, fix){
     plan.forEach(function(P){
       T.dn.push(P.dn);
       /* ---- PL ---- */
-      let unit=null;
+      let plOk=false, plOverFlag=false;
       const kP=r.part+'\u0001'+r.sd+'\u0001'+P.dn;
       let pg=plIdx.get(kP)||[];
       T.keys.push('PL: Part+SAP+DN = '+r.part+' + '+r.sd+' + '+P.dn+' → '+pg.length+' แถว'+(pg.length?(' (แถว '+pg.map(function(p){return p.srcRow;}).join(',')+')'):''));
@@ -16841,30 +16858,39 @@ function _pdBuild(inv, ct, pl, master, fix){
         nwOk=false; miss.push('PL(NW)');
         issue('ERROR','PL_NOT_FOUND',r,'PL / NW','ไม่พบ Packing List ที่ Part+SAP+DN = '+r.part+' + '+r.sd+' + '+P.dn);
       } else {
-        plFound=true;
-        const units=[]; let sumT=0, sumQ=0, complete=true;
-        pg.forEach(function(p){
-          if(p.nw!=null) units.push(r6(p.nw)); else complete=false;
-          if(p.tnw!=null) sumT+=p.tnw; else complete=false;
-          if(p.qty!=null) sumQ+=p.qty; else complete=false;
-        });
-        const uniq=units.filter(function(v,i,a){return a.indexOf(v)===i;});
-        if(uniq.length===1 && units.length===pg.length) unit=uniq[0];
-        else if(uniq.length>1 && complete && sumQ>0){
-          unit=sumT/sumQ;
-          issue('WARNING','NW_AVG',r,'NW','PL: Net Weight ต่อหน่วยไม่คงที่ (DN '+P.dn+') → ใช้ค่าเฉลี่ยถ่วงน้ำหนัก '+unit.toFixed(6));
-        }
-        if(unit==null){
-          nwOk=false; miss.push('NW');
-          issue('ERROR','NW',r,'NW','PL: ข้อมูล Net Weight ไม่ครบ (DN '+P.dn+') → คำนวณ NW ไม่ได้ (ห้ามแทนค่าว่างด้วย 0)');
-        }
-        /* QTY PL — ห้ามจัดสรรเกิน / ซ้ำ */
-        const used=(plGroupAlloc.get(kP)||0)+P.qty;
-        plGroupAlloc.set(kP, used);
-        if(sumQ>0 && used-sumQ>EPS)
-          issue('ERROR','PL_OVER',r,'QTY PL','จัดสรรเกิน QTY Packing List · Part+SAP+DN '+r.part+' + '+r.sd+' + '+P.dn+' · PL '+r6(sumQ)+' < จัดสรรสะสม '+r6(used));
+        plFound=true; plOk=true;
+        const rowsOf=function(f){ return pg.filter(f).map(function(p){return p.srcRow;}).join(','); };
+        if(pg.some(function(p){return p.qty==null;})){ plOk=false;
+          issue('ERROR','PL_QTY',r,'QTY PL','PL แถว '+rowsOf(function(p){return p.qty==null;})+': Qty ว่าง'); }
+        if(pg.some(function(p){return p.nw==null;})){ plOk=false;
+          issue('ERROR','NW',r,'NW','PL แถว '+rowsOf(function(p){return p.nw==null;})+': Net Weight ว่าง → คำนวณ NW ไม่ได้ (ห้ามแทนค่าว่างด้วย 0)'); }
+        if(pg.some(function(p){return (p.nw!=null && p.nw<0) || (p.tnw!=null && p.tnw<0);})){ plOk=false;
+          issue('ERROR','NW_NEGATIVE',r,'NW','PL แถว '+rowsOf(function(p){return (p.nw!=null && p.nw<0) || (p.tnw!=null && p.tnw<0);})+': Net Weight ติดลบ'); }
+        if(pg.some(function(p){return p.tnw==null;})){ plOk=false;
+          issue('ERROR','PL_TNW',r,'NW','PL แถว '+rowsOf(function(p){return p.tnw==null;})+': Total Net Weight ว่าง → ยืนยันน้ำหนักรวมไม่ได้'); }
+        if(!plOk){ nwOk=false; miss.push('NW'); }
+        let sumQ=0; pg.forEach(function(p){ if(p.qty!=null) sumQ+=p.qty; });
         P.plQty=sumQ; P.plRows=pg.map(function(p){return p.srcRow;});
       }
+      /* PL RUNNING BALANCE — หัก QTY รายแถว PL แบบ FIFO · NW = Σ (QTY ที่หักจากแถวนั้น × Net Weight ต่อหน่วยของแถวนั้น)
+         ไม่ใช้ค่าเฉลี่ย · ไม่จัดสรร QTY/NW ซ้ำ · ยอดเกิน PL → ERROR และ NW ว่าง */
+      const plTake=function(q){
+        if(!plOk) return null;
+        let left=q, w=0;
+        for(let i=0;i<pg.length && left>EPS;i++){
+          const p=pg[i], free=r6(p.qty-p._alloc);
+          if(!(free>EPS)) continue;
+          const a=Math.min(left, free), ww=r6(a*p.nw);
+          p._alloc=r6(p._alloc+a); p._nwAlloc=r6(p._nwAlloc+ww);
+          w+=ww; left=r6(left-a);
+        }
+        if(left>EPS){
+          if(!plOverFlag){ plOverFlag=true; nwOk=false; miss.push('NW');
+            issue('ERROR','PL_OVER',r,'QTY PL','จัดสรรเกิน QTY Packing List · Part+SAP+DN '+r.part+' + '+r.sd+' + '+P.dn+' · PL ต้นฉบับ '+r6(P.plQty)+' · เกิน '+r6(left)+' (ห้ามจัดสรร QTY/NW ซ้ำ)'); }
+          return null;
+        }
+        return r6(w);
+      };
       /* ---- CT ---- */
       const C=ctIdx.get(P.dn+'\u0001'+r.part)||[];
       T.keys.push('CT: DN+Part = '+P.dn+' + '+r.part+' → '+C.length+' แถว'+(C.length?(' (แถว '+C.map(function(c){return c.srcRow;}).join(',')+')'):''));
@@ -16872,17 +16898,19 @@ function _pdBuild(inv, ct, pl, master, fix){
       const take=function(c, q, rule){
         c.alloc=r6(c.alloc+q); c.rem=r6(c.orig-c.alloc); c._used=true;
         c.uses.push({invoice:r.invoice, line:r.no, qty:q, remAfter:c.rem});
-        pieces.push({dn:P.dn, c:c, qty:q, unit:unit, rule:rule});
+        if(!c.entry || !c.line)
+          issue('ERROR','CT_JK_BLANK',r,'CT / J-K','CT แถว '+c.srcRow+': '+(!c.entry?'J (CUSTOM IMPORT ENTRY NR & LINE 2) ว่าง':'')+(!c.entry&&!c.line?' · ':'')+(!c.line?'K (CUSTOM IMPORT ENTRY NR & LINE) ว่าง':''));
+        pieces.push({dn:P.dn, c:c, qty:q, nw:plTake(q), rule:rule});
         left=r6(left-q);
       };
       if(!C.length){
         ctFull=false; miss.push('CT');
         issue('ERROR','CT_NOT_FOUND',r,'CT / Entry+Line','ไม่พบ CT ที่ DELIVERY NO='+P.dn+' + ITEM='+r.part);
-        pieces.push({dn:P.dn, c:null, qty:P.qty, unit:unit, rule:'ไม่พบ CT'});
+        pieces.push({dn:P.dn, c:null, qty:P.qty, nw:plTake(P.qty), rule:'ไม่พบ CT'});
       } else if(C.some(function(c){return c.orig==null;})){
         ctFull=false; miss.push('CT');
         issue('ERROR','CT_QTY',r,'CT / Quantity','CT แถว '+C.filter(function(c){return c.orig==null;}).map(function(c){return c.srcRow;}).join(',')+' ไม่มี Quantity → จัดสรรไม่ได้');
-        pieces.push({dn:P.dn, c:null, qty:P.qty, unit:unit, rule:'CT ไม่มี QTY'});
+        pieces.push({dn:P.dn, c:null, qty:P.qty, nw:plTake(P.qty), rule:'CT ไม่มี QTY'});
       } else {
         /* FIFO ตามลำดับแถว CT ต้นทาง (ห้ามข้ามแถว / ห้ามเลือกแถวที่ QTY ตรงก่อน / ห้าม Sort ใหม่)
            AUTO SPLIT: Allocated = MIN(Invoice Remaining, CT Remaining) ทำซ้ำจน Invoice Remaining = 0 */
@@ -16895,7 +16923,7 @@ function _pdBuild(inv, ct, pl, master, fix){
           ctFull=false; miss.push('CT');
           const tot=C.reduce(function(s,c){return s+c.orig;},0);
           issue('ERROR','CT_SHORT',r,'CT / Quantity','QTY CT ไม่พอ · DN '+P.dn+' / '+r.part+' · ต้องการ '+r6(P.qty)+' · CT ต้นฉบับรวม '+r6(tot)+' · ขาด '+r6(left)+' (ห้ามจัดสรรเกิน CT)');
-          pieces.push({dn:P.dn, c:null, qty:left, unit:unit, rule:'CT ไม่พอ (ขาด)'});
+          pieces.push({dn:P.dn, c:null, qty:left, nw:plTake(left), rule:'CT ไม่พอ (ขาด)'});
         }
       }
     });
@@ -16904,7 +16932,7 @@ function _pdBuild(inv, ct, pl, master, fix){
       ctFull=false; nwOk=false;
       if(miss.indexOf('PL(NW)')<0) miss.push('PL(NW)');
       miss.push('CT');
-      pieces.push({dn:'', c:null, qty:r.qty, unit:null, rule:'ไม่มี DN'});
+      pieces.push({dn:'', c:null, qty:r.qty, nw:null, rule:'ไม่มี DN'});
     }
     /* รวมชิ้นที่ Entry + CT LINE เหมือนกันทั้งคู่ (ใช้ซ้ำได้) · ต่างกันอย่างใดอย่างหนึ่ง = แยกรายการ */
     (function(){
@@ -16912,9 +16940,9 @@ function _pdBuild(inv, ct, pl, master, fix){
       pieces.forEach(function(p){
         let hit=null;
         if(p.c) for(let i=0;i<m.length;i++){
-          if(m[i].c && m[i].c.entry===p.c.entry && m[i].c.line===p.c.line && m[i].dn===p.dn && m[i].unit===p.unit){ hit=m[i]; break; }
+          if(m[i].c && m[i].c.entry===p.c.entry && m[i].c.line===p.c.line && m[i].dn===p.dn){ hit=m[i]; break; }
         }
-        if(hit){ hit.qty=r6(hit.qty+p.qty); hit.cs.push(p.c); }
+        if(hit){ hit.qty=r6(hit.qty+p.qty); hit.cs.push(p.c); hit.nw=(hit.nw==null||p.nw==null)?null:r6(hit.nw+p.nw); }
         else { p.cs=p.c?[p.c]:[]; m.push(p); }
       });
       pieces=m;
@@ -16940,7 +16968,7 @@ function _pdBuild(inv, ct, pl, master, fix){
       th=mm.rec.th; hs=mm.rec.hs;
       if(!coo) coo=mm.rec.coo;
       if(mm.rec.hs2 && _pdDigits(mm.rec.hs2)!==_pdDigits(mm.rec.hs))
-        issue('WARNING','HS_CONFIRMED',r,'HS CODE','MASTER แถว '+mm.rec.srcRow+': HS-Code ('+mm.rec.hs+') ≠ Confirmed HS Code ('+mm.rec.hs2+') → โปรดตรวจสอบ (ใช้ค่า HS-Code ตาม Logic เดิม)');
+        issue('ERROR','HS_CONFIRMED',r,'HS CODE','MASTER แถว '+mm.rec.srcRow+': HS-Code ('+mm.rec.hs+') ≠ Confirmed HS Code ('+mm.rec.hs2+') → ต้องยืนยันพิกัดก่อน (ห้ามเดา)');
       if(th) stat.th++; else { miss.push('TH description');
         issue('ERROR','TH_DESC',r,'TH description','MASTER แถวที่ match (แถว '+mm.rec.srcRow+') ไม่มี TH Description'); }
       if(hs) stat.hs++; else{
@@ -17030,7 +17058,7 @@ function _pdBuild(inv, ct, pl, master, fix){
           amtLeft=r2(amtLeft-amt);
         }
       }
-      const nw=(p.unit!=null && p.qty!=null) ? r6(p.unit*p.qty) : '';
+      const nw=(p.nw!=null) ? p.nw : '';
       const entry=p.c?p.c.entry:'', lineNo=p.c?p.c.line:'';
       seqNo++;
       out.push([
@@ -17159,11 +17187,18 @@ function _pdBuild(inv, ct, pl, master, fix){
     recon.ctOrig=r6(ctOrig); recon.ctRem=r6(ctRem); recon.ctRemRows=ctRemRows;
     const plGroups=[]; let plRem=0, plRemGroups=0;
     plIdx.forEach(function(rows,k){
-      let q=0; rows.forEach(function(p){ if(p.qty!=null) q+=p.qty; });
-      const a=plGroupAlloc.get(k)||0, kk=k.split('\u0001');
-      plGroups.push({part:kk[0], sap:kk[1], dn:kk[2], rows:rows.map(function(p){return p.srcRow;}), sheet:rows[0].sheet||'', orig:r6(q), alloc:r6(a), rem:r6(q-a)});
+      let q=0, a=0, t=0, w=0, tOk=true;
+      rows.forEach(function(p){ if(p.qty!=null) q+=p.qty; a+=p._alloc; w+=p._nwAlloc; if(p.tnw!=null) t+=p.tnw; else tOk=false; });
+      const kk=k.split('\u0001');
+      plGroups.push({part:kk[0], sap:kk[1], dn:kk[2], rows:rows.map(function(p){return p.srcRow;}), sheet:rows[0].sheet||'',
+                     orig:r6(q), alloc:r6(a), rem:r6(q-a), tnw:r6(t), nwAlloc:r6(w)});
       if(q-a>EPS){ plRem+=q-a; plRemGroups++; }
+      /* NW รวมหลัง SPLIT ต้องตรง PL ตามขอบเขตงาน: กลุ่มที่จัดสรรครบ → Σ NW ที่จัดสรร = Σ Total Net Weight ของกลุ่ม */
+      if(a>EPS && Math.abs(q-a)<=EPS && tOk && Math.abs(w-t)>0.0005*rows.length+1e-9)
+        issue('ERROR','NW_TOTAL',null,'NW','NW รวมหลังจัดสรร '+r6(w)+' ≠ Total Net Weight ใน PL '+r6(t)+' · Part+SAP+DN '+kk[0]+' + '+kk[1]+' + '+kk[2]+' (PL แถว '+rows.map(function(p){return p.srcRow;}).join(',')+')');
     });
+    recon.plRowsBal=pl.rows.map(function(p){ return {sheet:p.sheet||'', row:p.srcRow, part:p.part, sap:p.sap, dn:p.dn, qty:p.qty, alloc:p._alloc,
+      rem:(p.qty==null?null:r6(p.qty-p._alloc)), nwUnit:p.nw, tnw:p.tnw, nwAlloc:p._nwAlloc}; });
     recon.plRem=r6(plRem); recon.plRemGroups=plRemGroups; recon.plGroups=plGroups;
     recon.dnCount=trace.reduce(function(s,T){ T.dn.forEach(function(d){ if(d && s.indexOf(d)<0) s.push(d); }); return s; },[]).length;
     recon.invoiceCount=sorted.map(function(r){return r.invoice;}).filter(function(v,i,a){return a.indexOf(v)===i;}).length;
@@ -17247,8 +17282,16 @@ const _EPDOM_SLOTS = {
 
 async function _epdomOnFile(slot, file){
   if(!file) return;
+  /* local138: อัปโหลดไฟล์ใหม่ → ล้างข้อมูลเดิมของช่องนี้ + ผล MAPPING/Validation เดิม "ทันที"
+     อ่านไฟล์ใหม่ไม่สำเร็จ → ช่องนี้ว่าง · ปุ่ม MAPPING ถูก Disable · ไม่มีทางนำไฟล์เก่ามาประมวลผลร่วมกับไฟล์ใหม่ */
+  ElePDom[slot]=null; delete ElePDom.files[slot];
+  window._epdomLastResult=null; if(typeof _epdomRenderGate==='function') _epdomRenderGate(null);
+  { const el0=document.getElementById(_EPDOM_SLOTS[slot].name);
+    if(el0){ el0.textContent='คลิกหรือวางไฟล์'; el0.classList.remove('has-file'); }
+    const rp0=document.getElementById('epdom-report'); if(rp0) rp0.innerHTML=''; }
+  _epdomRefreshUI();
   if(!/\.xlsx?$/i.test(file.name)){
-    _epdomErr(_EPDOM_SLOTS[slot].label + ': ต้องเป็น .xlsx หรือ .xls'); return;
+    _epdomErr(_EPDOM_SLOTS[slot].label + ': ต้องเป็น .xlsx หรือ .xls (ล้างข้อมูลช่องนี้แล้ว)'); return;
   }
   try{
     const wb = await _epdomReadWb(file);
@@ -17283,7 +17326,9 @@ async function _epdomOnFile(slot, file){
     if(typeof toast==='function') toast('✓ ' + _EPDOM_SLOTS[slot].label + ': ' + info, 'ok');
     _epdomRefreshUI();
   } catch(e){
-    _epdomErr(_EPDOM_SLOTS[slot].label + ': ' + e.message);
+    ElePDom[slot]=null; delete ElePDom.files[slot];
+    _epdomRefreshUI();
+    _epdomErr(_EPDOM_SLOTS[slot].label + ': ' + e.message + ' — อ่านไฟล์ไม่สำเร็จ ล้างข้อมูลช่องนี้แล้ว กรุณาอัปโหลดใหม่');
     if(typeof toast==='function') toast(_EPDOM_SLOTS[slot].label + ': ' + e.message, 'err');
   }
 }
@@ -17305,7 +17350,7 @@ function _epdomAttachHandlers(){
     if(vd) vd.textContent=_pdDuiSet().size;
     if(vf) vf.textContent=ElePDom.fx.map.size;
     if(vx) vx.textContent=EPDOM_EXCISE_RULES.length;
-    console.log('[ELE P DOM] BUILD local137 · DUI Master '+_pdDuiSet().size+' คู่ · FIX MASTER '+ElePDom.fx.map.size+
+    console.log('[ELE P DOM] BUILD local138 · DUI Master '+_pdDuiSet().size+' คู่ · FIX MASTER '+ElePDom.fx.map.size+
                 ' รายการ · สรรพสามิต rule '+EPDOM_EXCISE_RULES.length+
                 ' · DUI มี 85076090 ? '+_pdDuiMatch('85076090','000'));
   }catch(e){}
@@ -17552,7 +17597,7 @@ function epdomExportAudit(){
   });
   const S=R.gate.summary, rc=R.recon;
   const a4=[['หัวข้อ','ค่า'],
-    ['Build','Deploy github local137'],['MAPPING File',L.fname||'(ระงับ EXPORT)'],['Validation',R.gate.blocked?'BLOCKED':'PASS'],
+    ['Build','Deploy github local138'],['MAPPING File',L.fname||'(ระงับ EXPORT)'],['Validation',R.gate.blocked?'BLOCKED':'PASS'],
     ['TOTAL ITEMS',S.total],['SUCCESS',S.success],['WARNING',S.warning],['ERROR',S.error],['AMBIGUOUS',S.ambiguous],
     ['Issue: ERROR',S.errorIssues],['Issue: AMBIGUOUS',S.ambiguousIssues],['Issue: WARNING',S.warningIssues],
     ['LINE INVOICE เดิม',rc.invLines],['รายการหลัง SPLIT',rc.outRows],['LINE ที่ SPLIT',rc.splitLines.join(', ')],
@@ -17573,12 +17618,12 @@ function epdomExportAudit(){
       if(cell && cell.v!=null && cell.v!==''){ cell.t='s'; cell.v=String(cell.v); cell.z='@'; } });
     return ws;
   };
-  const a5=[['Source File','Source Sheet','Source Row','Part Number','SAP','DN','Original QTY','Allocated QTY','Remaining QTY']];
-  (rc.plGroups||[]).forEach(function(g){ a5.push([FN.pl||'PL', g.sheet, g.rows.join(','), g.part, g.sap, g.dn, g.orig, g.alloc, g.rem]); });
+  const a5=[['Source File','Source Sheet','Source Row','Part Number','SAP','DN','Original QTY','Allocated QTY','Remaining QTY','Net Weight/หน่วย','Total Net Weight (PL)','NW ที่จัดสรร']];
+  (rc.plRowsBal||[]).forEach(function(g){ a5.push([FN.pl||'PL', g.sheet, g.row, g.part, g.sap, g.dn, g.qty, g.alloc, g.rem, g.nwUnit, g.tnw, g.nwAlloc]); });
   XLSX.utils.book_append_sheet(wb, txt(a1,[0,2,4,5,6,7,18]), 'MAPPING AUDIT');
   XLSX.utils.book_append_sheet(wb, txt(a2,[2,4,6]), 'ERROR');
   XLSX.utils.book_append_sheet(wb, txt(a3,[3,4,5,6]), 'CT RUNNING BALANCE');
-  XLSX.utils.book_append_sheet(wb, txt(a5,[3,4,5]), 'PL BALANCE');
+  XLSX.utils.book_append_sheet(wb, txt(a5,[3,4,5]), 'PL RUNNING BALANCE');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(a4), 'SUMMARY');
   const fn='AUDIT_'+_epdomSanitize(R.invoiceNo||'P_DOM')+'.xlsx';
   try{ XLSX.writeFile(wb, fn); if(typeof toast==='function') toast('✓ Export '+fn, 'ok'); }
