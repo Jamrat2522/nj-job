@@ -839,11 +839,10 @@ function _exSumHtml(groups){
     ? `<input type="text" inputmode="decimal" autocomplete="off" data-ex-amt="${k}" value="${esc(v||'')}" placeholder="0.00" oninput="exAmtInput('${k}',this)" onblur="exAmtBlur('${k}',this)" aria-label="${k==='adv'?'เบิกเงิน':'ยอดยก'} (บาท)">`
     : `<b data-ex-box="${k}">${_exMoney(_exAmtVal(v)||0)}</b>`;
   return `
-    <div class="ex2-filters${edit?' ex376-fl':''}">
+    <div class="ex2-filters">
       <button type="button" class="ex2-fb ${f==='all'?'on':''}" data-ex-filter="all" onclick="exSumFilter('all')">ทั้งหมด (${cnt.all})</button>
       <button type="button" class="ex2-fb ${f==='open'?'on':''}" data-ex-filter="open" onclick="exSumFilter('open')">⏳ รอปิดสรุป (${cnt.open})</button>
       <button type="button" class="ex2-fb ${f==='closed'?'on':''}" data-ex-filter="closed" onclick="exSumFilter('closed')">🔒 ปิดสรุปแล้ว (${cnt.closed})</button>
-      ${edit ? `<button type="button" class="btn ex376-add" data-ex-manadd="1" onclick="exManAdd()">＋ เพิ่มรายการ</button>` : ''}
     </div>${jobOpts}
     <div class="ex-tblwrap"><table class="tbl ex-ltbl ex2-stbl ex376-tbl">
       <thead><tr>
@@ -867,6 +866,7 @@ function _exSumHtml(groups){
       <button type="button" class="btn ex-btn-xls" data-ex-pdf="all" onclick="exExportSel('all')">📚 Export PDF รวมชุด</button>
       <button type="button" class="btn ex2-b-blue" data-ex-pdf="print" onclick="exExportSel('print')">🖨 PRINT</button>
       ${edit ? `<button type="button" class="btn ex2-b-close" data-ex-close="1" onclick="exCloseSelected()">🔒 ปิดสรุปที่เลือก</button>` : ''}
+      ${edit ? `<button type="button" class="btn ex376-add" data-ex-manadd="1" onclick="exManAdd()">＋ เพิ่มรายการ</button>` : ''}
       ${edit ? `<button type="button" class="btn ex376-save ${dirtyM?'ex376-dirty':''}" data-ex-mansave="1" onclick="exManSave()">💾 บันทึกข้อมูล${dirtyM?` (${dirtyM})`:''}</button>` : ''}
     </div>
     <div class="ex-sum ex379-sum" data-ex-sum4="1">
@@ -1761,8 +1761,7 @@ async function exExportPDF(docId){
    ช่องเงินว่าง = ยังไม่กรอก (NULL → แสดงว่าง) · กรอก 0 = 0.00 · TOTAL AMOUNT = COST + RECEIPT (สูตรเดิม)
    ============================================================ */
 const EX376_CSS = `
-.ex2-filters.ex376-fl{position:relative;padding-right:170px}
-.ex376-add{position:absolute;right:0;top:0;background:#15803D !important;color:#fff !important;border:0 !important;font-weight:800;border-radius:10px;padding:8px 16px}
+.ex376-add{background:#15803D !important;color:#fff !important;border:0 !important;font-weight:800}   /* local382: ใต้ตาราง ถัดจาก ปิดสรุปที่เลือก · ขนาดตาม .btn เดียวกัน */
 .ex376-add:hover{filter:brightness(1.08)}
 .ex376-save{background:#1E3A8A !important;color:#fff !important;font-weight:800;margin-left:auto}
 .ex376-save.ex376-dirty{box-shadow:0 0 0 3px rgba(234,88,12,.35)}
@@ -1807,7 +1806,7 @@ const EX376_CSS = `
 .ex379-sum .ex-card-bd input.ex-bad{border-color:#DC2626 !important;box-shadow:0 0 0 2px rgba(220,38,38,.18) !important}
 .ex379-by{font-size:12px;color:#64748B;margin:6px 2px 0;text-align:right}
 @media (min-width:861px){.ex376-tbl th:nth-child(2){width:70px}.ex376-tbl th:nth-child(3){width:170px}.ex376-tbl th:nth-child(4){width:196px}.ex376-tbl th:nth-child(9){width:150px}.ex376-tbl th:nth-child(10){width:96px}}
-@media (max-width:860px){.ex2-filters.ex376-fl{padding-right:0;padding-bottom:46px}.ex376-add{top:auto;bottom:0;right:50%;transform:translateX(50%)}.ex-sum.ex379-sum{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ex379-sum .ex-card{padding:12px;gap:8px}.ex379-sum .ex-card-ic{font-size:20px}.ex379-sum .ex-card-bd b,.ex379-sum .ex-card-bd input{font-size:17px}}
+@media (max-width:860px){.ex-sum.ex379-sum{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ex379-sum .ex-card{padding:12px;gap:8px}.ex379-sum .ex-card-ic{font-size:20px}.ex379-sum .ex-card-bd b,.ex379-sum .ex-card-bd input{font-size:17px}}
 @media (max-width:380px){.ex-sum.ex379-sum{grid-template-columns:1fr}}
 `;
 /* local380: ชื่อลูกค้า = รายชื่อบริษัทชุดเดียวกับช่อง บริษัท * หน้าสร้างงาน (AC_COMPANIES · ไม่สร้าง MASTER ซ้ำ) */
@@ -2020,7 +2019,7 @@ function exManAdd(){
   if(EX.sumFilter==='closed') EX.sumFilter = 'all';
   exWorkRender();
   const tr = document.querySelector(`[data-ex-mrow="${CSS.escape(r.key)}"]`);
-  if(tr){ try{ tr.scrollIntoView({ block:'nearest' }); }catch(_){} const i = tr.querySelector('input[data-ex-mf="job_no"]'); if(i) i.focus(); }
+  if(tr){ try{ tr.scrollIntoView({ block:'center' }); }catch(_){} const i = tr.querySelector('input[data-ex-mf="job_no"]'); if(i){ try{ i.focus({ preventScroll:true }); }catch(_){ i.focus(); } } }   // local382
 }
 function exManFocus(key){
   const tr = document.querySelector(`[data-ex-mrow="${CSS.escape(key)}"]`); if(!tr) return;
