@@ -1071,6 +1071,7 @@ body.legacy-active .content-area { display: none !important; }
 
         <!-- Error box -->
         <div id="ele-err" style="display:none;background:rgba(248,81,73,.08);border:1px solid rgba(248,81,73,.3);border-radius:var(--rl);padding:12px 14px;margin-bottom:12px;font-size:11px;color:#f85149"></div>
+        <div id="ele-nw-status" style="display:none;border-radius:var(--rl);padding:12px 14px;margin-bottom:12px;font-size:11px"></div>
 
         <!-- Actions -->
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px">
@@ -10540,20 +10541,63 @@ function _eleBuildMapping(saleData, ctData, plData, masterData){
     saleAmtTotal += nv;
   }
 
-  // ── STEP 2: PACKING pool + index (Net Weight รวม = qty × Net Weight/หน่วย) ──
+  // ── STEP 2: PACKING pool + index ──
+  //  local139: ถ้า PL มีคอลัมน์ "Total Net Weight (KG)" → ยึดคอลัมน์นี้เป็นหลัก (ห้าม Net Weight × Qty)
+  //            รวมกลุ่มตาม Invoice Number + Product Code + Outbound Delivery No. ก่อนจัดสรร
+  //            PL รูปแบบเก่าที่ไม่มีคอลัมน์ Total Net Weight → ใช้ Logic เดิม (qty × Net Weight/หน่วย) ไม่เปลี่ยน
   const pkExact = new Map(), pkProd = new Map(), pkQtyByProd = new Map();
   let pkNetWtTotal = 0;
+  const _plN = function(x){ return String(x==null?'':x).replace(/\s+/g,'').toLowerCase(); };
+  const _plKey = function(cands){
+    const lim = Math.min(plData.rows.length, 50);
+    for(let i=0;i<lim;i++){ for(const k in plData.rows[i]){ if(cands.indexOf(_plN(k)) >= 0) return k; } }
+    return null;
+  };
+  const _invN = function(x){ return String(x==null?'':x).trim().replace(/\.0+$/,'').replace(/^0+(?=\d)/,''); };
+  const plYKey   = _plKey(['totalnetweight(kg)','totalnetweight','totalnetweightkg','totalnetweight(kgs)','totalnetwt','totalnetwt(kg)']);
+  const plInvKey = _plKey(['invoicenumber','invoiceno','invoiceno.','invoice','billingdocument']);
+  const plHasY = (plYKey != null);
+  const pkGroups = new Map(), pkGroupList = [], plBlankY = [];
+  let plSummary = null, pkQtyTotal = 0;
   for(const r of plData.rows){
     const item  = _eleNormCode(_eleGetCol(r, _eleCols.pl.partNumber));
-    if(!item) continue;
+    if(!item){
+      // แถวสรุป "Total" ของ Packing List (ใช้ตรวจทานเท่านั้น)
+      if(plHasY && !plSummary){
+        let isTot = false;
+        for(const k in r){ if(String(r[k]==null?'':r[k]).trim().toLowerCase() === 'total'){ isTot = true; break; } }
+        if(isTot) plSummary = { qty: _eleToNum(_eleGetCol(r, _eleCols.pl.quantity)), nw: _eleToNum(r[plYKey]) };
+      }
+      continue;
+    }
     const deliv = _eleNormDelivery(_eleGetCol(r, _eleCols.pl.deliveryNo));
     const qty   = _eleToNum(_eleGetCol(r, _eleCols.pl.quantity));
-    const nwTot = qty * _eleToNum(_eleGetCol(r, _eleCols.pl.netWeightUP)); // Net Weight (KG) = ต่อหน่วย
-    const e = { remainingQty: qty, remainingNetWt: nwTot };
-    const ek = item+'|'+deliv;
-    if(!pkExact.has(ek)) pkExact.set(ek, []); pkExact.get(ek).push(e);
-    if(!pkProd.has(item)) pkProd.set(item, []); pkProd.get(item).push(e);
+    let nwTot;
+    if(plHasY){
+      const yRaw = r[plYKey];
+      const yBlank = (yRaw == null || String(yRaw).trim() === '');
+      const inv = plInvKey ? _invN(r[plInvKey]) : '';
+      nwTot = yBlank ? 0 : _eleToNum(yRaw);                 // Total Net Weight (KG) ของบรรทัด — ไม่คูณ Qty ซ้ำ
+      if(yBlank) plBlankY.push({ invoice: inv, product: item, qty: qty });
+      const gk = inv+'|'+item+'|'+deliv;
+      let g = pkGroups.get(gk);
+      if(!g){
+        g = { inv: inv, item: item, deliv: deliv, remainingQty: 0, remainingNetWt: 0, origQty: 0, origNw: 0, outR: 0 };
+        pkGroups.set(gk, g); pkGroupList.push(g);
+        const ek = item+'|'+deliv;
+        if(!pkExact.has(ek)) pkExact.set(ek, []); pkExact.get(ek).push(g);
+        if(!pkProd.has(item)) pkProd.set(item, []); pkProd.get(item).push(g);
+      }
+      g.remainingQty += qty; g.remainingNetWt += nwTot; g.origQty += qty; g.origNw += nwTot;
+    } else {
+      nwTot = qty * _eleToNum(_eleGetCol(r, _eleCols.pl.netWeightUP)); // PL รูปแบบเก่า: Net Weight (KG) = ต่อหน่วย
+      const e = { remainingQty: qty, remainingNetWt: nwTot };
+      const ek = item+'|'+deliv;
+      if(!pkExact.has(ek)) pkExact.set(ek, []); pkExact.get(ek).push(e);
+      if(!pkProd.has(item)) pkProd.set(item, []); pkProd.get(item).push(e);
+    }
     pkQtyByProd.set(item, (pkQtyByProd.get(item)||0) + qty);
+    pkQtyTotal += qty;
     pkNetWtTotal += nwTot;
   }
 
@@ -10637,8 +10681,28 @@ function _eleBuildMapping(saleData, ctData, plData, masterData){
 
     byInv.forEach(function(g){
       // PACKING net weight สำหรับ qty ของ invoice-seg นี้ (exact→product)
-      const pk = _alloc(g.qty, pkExact.get(row.nItem+'|'+row.nDelivery), pkProd.get(row.nItem), 'remainingNetWt');
-      let nw = 0; pk.segs.forEach(function(s){ nw += s.val; });
+      let nw = 0;
+      if(plHasY){
+        // local139: NW = (Total NW กลุ่ม PL ÷ Total Qty กลุ่ม PL) × Qty รายการ · Invoice เดียวกันก่อน → PL ไม่ระบุ Invoice → ที่เหลือ
+        //           ปัดเศษ 3 ตำแหน่ง · เศษจากการปัดเก็บไว้ในกลุ่มสินค้าเดียวกันเท่านั้น (แถวสุดท้ายของกลุ่ม)
+        const gi = _invN(g.inv);
+        const exA = pkExact.get(row.nItem+'|'+row.nDelivery) || [], pdA = pkProd.get(row.nItem) || [];
+        const tiers = [ function(e){ return e.inv === gi; }, function(e){ return e.inv === ''; }, function(e){ return e.inv !== gi && e.inv !== ''; } ];
+        let need = g.qty;
+        for(const tf of tiers){
+          if(need <= 1e-9) break;
+          const pk = _alloc(need, exA.filter(tf), pdA.filter(tf), 'remainingNetWt');
+          need = pk.left;
+          pk.segs.forEach(function(s){
+            const part = (s.e.remainingQty <= 1e-9) ? _eleRound3(_eleRound3(s.e.origNw) - s.e.outR) : _eleRound3(s.val);
+            s.e.outR = _eleRound3(s.e.outR + part);
+            nw += part;
+          });
+        }
+      } else {
+        const pk = _alloc(g.qty, pkExact.get(row.nItem+'|'+row.nDelivery), pkProd.get(row.nItem), 'remainingNetWt');
+        pk.segs.forEach(function(s){ nw += s.val; });
+      }
       const amount = _eleRound2(g.amt);
       const netWt  = _eleRound3(nw);
       amtOutTotal += amount; nwOutTotal += netWt;
@@ -10658,7 +10722,49 @@ function _eleBuildMapping(saleData, ctData, plData, masterData){
     ctRows: ctList.length, outRows: rows.length,
     invoices: (function(){ const s=new Set(); rows.forEach(function(r){ if(r.invoice) s.add(r.invoice); }); return s.size; })()
   };
+  // ── local139: ตรวจ NW MAPPING ↔ Packing List (เฉพาะ PL ที่มีคอลัมน์ Total Net Weight) ──
+  let nwCheck = { mode: 'LEGACY', ok: true, issues: [] };
+  if(plHasY){
+    const T = 0.0005, iss = [];
+    const add = function(scope, inv, prod, qty, a, b, note){
+      iss.push({ scope: scope, invoice: inv, product: prod, qty: qty, nwPL: _eleRound3(a), nwMap: _eleRound3(b), diff: _eleRound3(b - a), note: note || '' });
+    };
+    const plAllInv = pkGroupList.length > 0 && pkGroupList.every(function(g){ return g.inv !== ''; });
+    const keyOf = function(inv, prod){ return (plAllInv ? _invN(inv) : '') + '|' + prod; };
+    const plK = new Map(), mpK = new Map(), plI = new Map(), mpI = new Map();
+    const acc = function(m, k, q, w, inv, prod){ let o = m.get(k); if(!o){ o = { qty:0, nw:0, inv:inv, prod:prod }; m.set(k, o); } o.qty += q; o.nw += w; };
+    pkGroupList.forEach(function(g){ acc(plK, keyOf(g.inv, g.item), g.origQty, g.origNw, g.inv, g.item); if(plAllInv) acc(plI, g.inv, g.origQty, g.origNw, g.inv, ''); });
+    let mapQty = 0, mapNw = 0;
+    rows.forEach(function(r){
+      const q = Number(r.qty)||0, w = Number(r.netWt)||0; mapQty += q; mapNw += w;
+      acc(mpK, keyOf(r.invoice, r.product), q, w, _invN(r.invoice), r.product);
+      if(plAllInv) acc(mpI, _invN(r.invoice), q, w, _invN(r.invoice), '');
+    });
+    plBlankY.forEach(function(b){ add('PL_BLANK', b.invoice, b.product, b.qty, 0, 0, 'Packing List: Total Net Weight (KG) ว่าง'); });
+    const seen = new Set();
+    plK.forEach(function(p, k){
+      seen.add(k); const m = mpK.get(k) || { qty:0, nw:0 };
+      if(Math.abs(p.qty - m.qty) > 1e-6) add('QTY', p.inv, p.prod, m.qty, p.nw, m.nw, 'Qty PL '+p.qty+' ≠ Qty MAPPING '+m.qty);
+      else if(Math.abs(_eleRound3(p.nw) - _eleRound3(m.nw)) > T) add('PRODUCT', p.inv, p.prod, m.qty, p.nw, m.nw, '');
+    });
+    mpK.forEach(function(m, k){ if(!seen.has(k)) add('QTY', m.inv, m.prod, m.qty, 0, m.nw, 'ไม่พบใน Packing List (Invoice + Product Code)'); });
+    if(plAllInv){
+      plI.forEach(function(p, k){ const m = mpI.get(k) || { qty:0, nw:0 };
+        if(Math.abs(_eleRound3(p.nw) - _eleRound3(m.nw)) > T) add('INVOICE', k, '(รวมทั้ง Invoice)', m.qty, p.nw, m.nw, ''); });
+    }
+    if(Math.abs(pkQtyTotal - mapQty) > 1e-6) add('TOTAL_QTY', '', '(รวมทั้ง Shipment)', mapQty, pkNetWtTotal, mapNw, 'Qty รวม PL '+pkQtyTotal+' ≠ Qty รวม MAPPING '+mapQty);
+    if(Math.abs(_eleRound3(pkNetWtTotal) - _eleRound3(mapNw)) > T) add('TOTAL_NW', '', '(รวมทั้ง Shipment)', mapQty, pkNetWtTotal, mapNw, '');
+    if(plSummary){
+      if(Math.abs(plSummary.qty - pkQtyTotal) > 1e-6 || Math.abs(_eleRound3(plSummary.nw) - _eleRound3(pkNetWtTotal)) > T)
+        add('PL_SUMMARY', '', '(แถว Total ของ PL)', pkQtyTotal, plSummary.nw, pkNetWtTotal, 'แถว Total ของ PL (Qty '+plSummary.qty+') ไม่ตรงผลรวมรายบรรทัด PL (Qty '+pkQtyTotal+')');
+      if(Math.abs(_eleRound3(plSummary.nw) - _eleRound3(mapNw)) > T && Math.abs(_eleRound3(pkNetWtTotal) - _eleRound3(mapNw)) <= T) { /* ครอบคลุมโดย PL_SUMMARY แล้ว */ }
+    }
+    nwCheck = { mode: 'TOTAL_NW', ok: iss.length === 0, issues: iss,
+                qtyPL: pkQtyTotal, qtyMap: mapQty, nwPL: _eleRound3(pkNetWtTotal), nwMap: _eleRound3(mapNw),
+                diff: _eleRound3(mapNw - pkNetWtTotal), plSummary: plSummary, byInvoice: plAllInv };
+  }
   const validation = {
+    nwCheck: nwCheck,
     unalloc: unalloc,
     qtyMismatchSale: qtyMismatchSale,
     qtyMismatchPk: qtyMismatchPk,
@@ -10999,6 +11105,7 @@ function _eleMakeWorkbook(outRows){
           alignment: {horizontal:(c===labelCol||isNum)?'right':'left', vertical:'center'}
         };
         if(c === amtCol) cell.z = '#,##0.00'; // Amount format
+        if(c === nwCol) cell.z = '0.000';     // Net WT 3 ตำแหน่ง (local139)
       } else if(isGWT){
         cell.s = { fill:{fgColor:{rgb:'FFF9CC'}, patternType:'solid'}, border: mkBorder('D4C000') };
       } else {
@@ -11010,6 +11117,7 @@ function _eleMakeWorkbook(outRows){
         if((c === 1 || c === 3) && cell.v !== '' && cell.v != null){
           cell.t = 's'; cell.v = String(cell.v); if(cell.z) delete cell.z;
         }
+        if(c === nwCol && typeof cell.v === 'number') cell.z = '0.000'; // Net WT 3 ตำแหน่ง (local139)
       }
     }
   }
@@ -11105,12 +11213,51 @@ function _eleAggValidate(jobs){
            amtOut:_eleRound2(amtOut), amtSale:_eleRound2(amtSale), nwOut:_eleRound3(nwOut), nwPack:_eleRound3(nwPack) };
 }
 
+// ── local139: รวมผลตรวจ NW ทุกงาน + แสดงสถานะ PASS / ERROR (Electrolux โหมดหลักเท่านั้น) ──
+function _eleNwAggregate(jobs){
+  let checked = false, issues = [], qtyPL = 0, qtyMap = 0, nwPL = 0, nwMap = 0;
+  jobs.forEach(function(j){
+    const c = j.validation && j.validation.nwCheck;
+    if(!c || c.mode !== 'TOTAL_NW') return;
+    checked = true; qtyPL += c.qtyPL; qtyMap += c.qtyMap; nwPL += c.nwPL; nwMap += c.nwMap;
+    c.issues.forEach(function(x){ const y = Object.assign({}, x); y.ctFile = j.ctFile; issues.push(y); });
+  });
+  return { checked: checked, ok: issues.length === 0, issues: issues, qtyPL: qtyPL, qtyMap: qtyMap,
+           nwPL: _eleRound3(nwPL), nwMap: _eleRound3(nwMap), diff: _eleRound3(nwMap - nwPL) };
+}
+function _eleNwStatus(NW){
+  const el = document.getElementById('ele-nw-status'); if(!el) return;
+  if(!NW || !NW.checked){ el.style.display = 'none'; el.innerHTML = ''; return; }
+  const esc = function(x){ return String(x==null?'':x).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+  const f3 = function(x){ return (Number(x)||0).toFixed(3); };
+  const sum = 'Qty PL '+esc(NW.qtyPL)+' • Qty MAPPING '+esc(NW.qtyMap)+' • NW PL '+f3(NW.nwPL)+' KG • NW MAPPING '+f3(NW.nwMap)+' KG • ส่วนต่าง '+f3(NW.diff);
+  el.style.display = 'block';
+  if(NW.ok){
+    el.style.background = 'rgba(46,160,67,.10)'; el.style.border = '1px solid rgba(46,160,67,.45)'; el.style.color = '#2ea043';
+    el.innerHTML = '<div style="font-weight:700;font-size:12px">🟢 PASS — NW MAPPING ตรงกับ Packing List</div><div style="margin-top:4px;font-family:var(--mono)">'+sum+'</div>';
+    return;
+  }
+  el.style.background = 'rgba(248,81,73,.08)'; el.style.border = '1px solid rgba(248,81,73,.45)'; el.style.color = '#f85149';
+  const td = 'padding:4px 8px;border-bottom:1px solid rgba(248,81,73,.25);white-space:nowrap';
+  const head = ['Invoice Number','Product Code','Qty','NW จาก PL','NW จาก MAPPING','ส่วนต่าง','หมายเหตุ'].map(function(h){ return '<th style="'+td+';text-align:left">'+h+'</th>'; }).join('');
+  const body = NW.issues.slice(0, 200).map(function(x){
+    return '<tr><td style="'+td+'">'+esc(x.invoice||'-')+'</td><td style="'+td+'">'+esc(x.product)+'</td><td style="'+td+';text-align:right">'+esc(x.qty)+'</td>'+
+           '<td style="'+td+';text-align:right">'+f3(x.nwPL)+'</td><td style="'+td+';text-align:right">'+f3(x.nwMap)+'</td><td style="'+td+';text-align:right">'+f3(x.diff)+'</td>'+
+           '<td style="'+td+';white-space:normal">'+esc(x.note)+'</td></tr>';
+  }).join('');
+  el.innerHTML = '<div style="font-weight:700;font-size:12px">🔴 ERROR — NW MAPPING ไม่ตรงกับ Packing List</div>'+
+    '<div style="margin-top:4px;font-family:var(--mono)">'+sum+'</div>'+
+    '<div style="margin-top:4px">ระงับ EXPORT EXCEL จนกว่าจะแก้ไขข้อมูลให้ถูกต้อง ('+NW.issues.length+' รายการ)</div>'+
+    '<div style="overflow:auto;margin-top:8px"><table style="border-collapse:collapse;font-family:var(--mono);font-size:11px"><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table></div>';
+}
+
 async function eleExport(){
   const s = _eleState;
   const errEl = document.getElementById('ele-err');
   const showErr = function(msg){ if(errEl){ errEl.style.display='block'; errEl.textContent = msg; errEl.style.color=''; errEl.style.background=''; errEl.style.borderColor=''; } toast(msg,'error'); };
   const showWarn = function(msg){ if(errEl){ errEl.style.display='block'; errEl.textContent = msg; errEl.style.color='#8a5300'; errEl.style.background='#fff7e6'; errEl.style.borderColor='#f0a500'; } };
   if(errEl) errEl.style.display = 'none';
+  _eleNwStatus(null);
   if(!s.master){ showErr('ยังไม่มี MASTER — อัพโหลดและกด Save ก่อน'); return; }
   if(!s.sale.length || !s.ct.length || !s.pl.length){ showErr('กรุณาอัพโหลด SALE / CT / PL ให้ครบ'); return; }
   const modeB = (s.sale.length === 1) && (s.ct.length === s.pl.length) && (s.ct.length > 1);
@@ -11151,6 +11298,14 @@ async function eleExport(){
     s.ctSorted = true;
 
     const V = _eleAggValidate(jobs);
+    // local139: NW MAPPING ต้องตรง Packing List — ไม่ตรง = ระงับ EXPORT EXCEL
+    const NW = _eleNwAggregate(jobs);
+    window._eleLastNwCheck = NW;
+    if(NW.checked && !NW.ok){
+      _eleNwStatus(NW);
+      showErr('⛔ ระงับ EXPORT EXCEL: NW MAPPING ไม่ตรงกับ Packing List ('+NW.issues.length+' รายการ) — ดูรายละเอียดด้านล่าง');
+      return;
+    }
     const setD = function(id,v){ const e=document.getElementById(id); if(e) e.textContent=v; };
     setD('ele-dbg-sale-match', V.ctRows - V.unalloc.length); setD('ele-dbg-sale-unmatch', V.unalloc.length);
     setD('ele-dbg-pl-match', V.ctRows - V.qmPk.length);      setD('ele-dbg-pl-unmatch', V.qmPk.length);
@@ -11218,6 +11373,7 @@ async function eleExport(){
 
     s.lastResult = { jobs, files, warnings };
     _eleRenderPreview(jobs);
+    if(NW.checked) _eleNwStatus(NW);
   } catch(err){ console.error(err); showErr('Export ผิดพลาด: '+err.message); }
   finally{ if(btn) btn.disabled=false; if(ico) ico.style.display='inline-block'; if(spin) spin.style.display='none'; _eleCheckReady(); }
 }
