@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="nj-build" content="local126"><!-- ★ [local117] เลขรุ่นของไฟล์นี้ (ตรงกับ Deploy github local126.zip) — ป้ายมุมขวาบนอ่านจากไฟล์บนเว็บไซต์จริง -->
+<meta name="nj-build" content="local127"><!-- ★ [local117] เลขรุ่นของไฟล์นี้ (ตรงกับ Deploy github local127.zip) — ป้ายมุมขวาบนอ่านจากไฟล์บนเว็บไซต์จริง -->
 <meta name="viewport" content="width=1440,initial-scale=1.0,user-scalable=yes">
 <title>ตรวจใบขน — N.J. Logistics</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -9606,28 +9606,61 @@ window.ELEAI_CORE = (function(){
   }
 
   /* ── MASTER พิกัด ELE (RPC เดิม · อ่านอย่างเดียว · Cache เฉพาะรอบประมวลผลนี้) ── */
-  async function masterFetch(items, tok, MC){
+  /* ★ [local127] เรียก RPC แบบมี Timeout + Retry เฉพาะข้อผิดพลาดชั่วคราว (Statement timeout 57014 / 5xx / เครือข่าย) */
+  const RPC_T = 25000, RPC_WAIT = [1500, 3000, 6000];
+  const rpcT = (c, fn, args) => { let q = c.rpc(fn, args); try { if (q && typeof q.abortSignal === 'function' && typeof AbortSignal !== 'undefined' && AbortSignal.timeout) q = q.abortSignal(AbortSignal.timeout(RPC_T)); } catch (_){} return q; };
+  const rpcTrans = r => { const e = r && r.error; if (!e) return false; const t = String(e.code || '') + ' ' + String(e.message || '') + ' ' + String(e.details || '') + ' ' + String(r.status || '');
+    return /57014|timeout|abort|fetch|network|load failed|\b50[0234]\b|\b0\b/i.test(t); };
+  async function rpcR(c, fn, args){
+    for (let a = 0; ; a++){
+      let r; try { r = await rpcT(c, fn, args); } catch (e){ r = { error: { code: 'network', message: String(e && e.message || e) } }; }
+      if (!rpcTrans(r) || a >= RPC_WAIT.length) return r;
+      await new Promise(f => setTimeout(f, RPC_WAIT[a]));
+    }
+  }
+  const RPC_MISS = r => { const e = r && r.error; return !!e && (e.code === 'PGRST202' || e.code === '42883' || r.status === 404); };
+  async function masterFetch(items, tok, MC, onp){
     const c = sb(); if (!c) throw new Error('เชื่อมต่อฐานข้อมูลไม่ได้');
     const J = d => { if (typeof d === 'string'){ try { return JSON.parse(d); } catch (_){ return null; } } return d; };
-    const fail = (r, j) => new Error('อ่าน MASTER ไม่ได้: ' + ((j && j.error) === 'forbidden' ? 'Session หมดอายุ / สิทธิ์ไม่เพียงพอ' : ((j && j.error) || (r && r.error && (r.error.code || r.error.message)) || 'fail')));
+    const fail = (r, j) => new Error('อ่าน MASTER พิกัด ELE ไม่ได้: ' + ((j && j.error) === 'forbidden' ? 'Session หมดอายุ / สิทธิ์ไม่เพียงพอ' : ((j && j.error) || (r && r.error && ((r.error.code === '57014' ? 'ฐานข้อมูลตอบช้าเกินเวลา (Statement timeout)' : '') || r.error.code || r.error.message)) || 'fail')));
+    const say = t => { if (onp) onp(t); };
     const keys = [];
     items.forEach(x => { if (!x.code) return; const ens = new Set();
       (x.pl ? x.pl.rows : []).forEach(r => { if (r.desc) ens.add(C.T(r.desc)); });
       const w = C.T(x.desc).split(' '); for (let i = 0; i < w.length; i++) ens.add(w.slice(i).join(' '));
       ens.forEach(en => { const k = x.code + '\u0001' + en; if (en && !MC.pairs.has(k)){ MC.pairs.add(k); keys.push({ pn: x.code, en }); } }); });
     for (let i = 0; i < keys.length; i += 2000){
-      const r = await c.rpc('calc_ele_master_lookup', { p_token: tok, p_keys: keys.slice(i, i + 2000) }); const j = r && !r.error ? J(r.data) : null;
+      say('กำลังจับคู่ MASTER ELE (Part Number + Description) …');
+      const r = await rpcR(c, 'calc_ele_master_lookup', { p_token: tok, p_keys: keys.slice(i, i + 2000) }); const j = r && !r.error ? J(r.data) : null;
       if (!j || !j.success) throw fail(r, j);
       (j.rows || []).forEach(m => { const k = C.codeKey(m.part_number); if (!MC.exact.has(k)) MC.exact.set(k, []); if (!MC.exact.get(k).some(e => e.id === m.id)) MC.exact.get(k).push(m); });
     }
     const rest = [...new Set(items.map(x => x.code).filter(k => k && !MC.exact.has(k) && !MC.all.has(k)))];
-    let done = 0; const q = rest.slice();
-    const work = async () => { while (q.length){ const k = q.shift();
-      const r = await c.rpc('calc_ele_master_page', { p_token: tok, p_q: k, p_limit: 5000, p_offset: 0 }); const j = r && !r.error ? J(r.data) : null;
-      if (!j || !j.success) throw fail(r, j);
+    if (!rest.length) return;
+    /* ★ [local127] อ่านตาม Part Number ทั้งชุดใน 1 ครั้ง (RUN-ELE-01.sql · ใช้ Index) — เดิมค้น ILIKE ทั้งตารางทีละรหัส 6 งานพร้อมกัน → Statement timeout แล้วค้าง */
+    if (MC.byPn !== false){
+      let ok = true;
+      for (let i = 0; i < rest.length && ok; i += 1000){
+        const part = rest.slice(i, i + 1000); say('กำลังจับคู่ MASTER ELE (Part Number) … ' + Math.min(i + part.length, rest.length) + ' / ' + rest.length);
+        const r = await rpcR(c, 'calc_ele_master_by_pn', { p_token: tok, p_pns: part });
+        if (RPC_MISS(r)){ MC.byPn = false; ok = false; break; }
+        const j = r && !r.error ? J(r.data) : null;
+        if (!j || !j.success) throw fail(r, j);
+        const by = new Map(); (j.rows || []).forEach(m => { const k = C.codeKey(m.part_number); if (!by.has(k)) by.set(k, []); by.get(k).push(m); });
+        part.forEach(k => MC.all.set(k, by.get(k) || []));
+      }
+      if (ok) return;
+    }
+    /* สำรอง (ยังไม่ได้ RUN-ELE-01.sql): ค้นทีละรหัส · พร้อมกัน 2 งาน · Retry · หยุดทุกงานเมื่อผิดพลาด (ไม่เขียนสถานะทับข้อความผิดพลาด) */
+    let done = 0, dead = null; const q = rest.slice();
+    const work = async () => { while (q.length && !dead){ const k = q.shift();
+      const r = await rpcR(c, 'calc_ele_master_page', { p_token: tok, p_q: k, p_limit: 5000, p_offset: 0 }); if (dead) return;
+      const j = r && !r.error ? J(r.data) : null;
+      if (!j || !j.success){ dead = fail(r, j); return; }
       MC.all.set(k, (j.rows || []).filter(m => C.codeKey(m.part_number) === k));
-      done++; prog('กำลังอ่าน MASTER พิกัด ELE … ' + done + ' / ' + rest.length); } };
-    await Promise.all(Array.from({ length: Math.min(6, rest.length) }, work));
+      done++; say('กำลังจับคู่ MASTER ELE … ' + done + ' / ' + rest.length); } };
+    await Promise.all(Array.from({ length: Math.min(2, rest.length) }, work));
+    if (dead) throw dead;
   }
 
   /* ── วิเคราะห์ (ไม่เรียก AI): รวมผล → ทับค่าที่ Opus ยืนยัน → ตรวจ → PL → MASTER → แถว 19 คอลัมน์ ── */
@@ -9638,14 +9671,19 @@ window.ELEAI_CORE = (function(){
       const parts = R.parts.get(p.name).map(x => !pages.size ? x : { chunk: x.chunk, result: dropPages(x.result, x.chunk, pages) });
       return C.mergeFile(p.name, p.nPages, parts.concat(...ovs.map(o => o.parts)));
     });
+    const stg = t => { R.stageName = t; if (R.st && R.st.paint && S.run === R.st){ R.st.stage = t; R.st.paint(); } if (R.gen === S.gen) prog(t + ' …'); };   /* ★ [local127] สถานะ Real time ทุกขั้นตอน */
+    stg('🔵 กำลังตรวจสอบยอดเงินและจำนวนสินค้า');
     const v = C.validate(files);
     v.items.forEach(x => { const k = x.file + '|' + x.pg + '|' + x.row, f = R.fixOv.get(k); if (f) Object.assign(x, f.set, { fixed: f }); });
     const v2 = C.validate(files.map(f => Object.assign({}, f, { items: v.items.filter(x => x.file === f.file) })));   /* ตรวจซ้ำหลังทับค่า */
     const plFiles = R.pls.map(x => x.p);
+    stg('🔵 กำลังจับคู่ PACKING LIST');
     const mi = C.matchPL(v2.items, plFiles);
     C.plCodes(v2.items);   /* ★ [local118] ตรวจ Product Code / Codice / Qty ของ PDF กับแถว PL ที่จับคู่ได้ — แจ้งเตือนเท่านั้น ไม่เขียนทับ */
-    await masterFetch(v2.items, tok, R.MC);
+    stg('🔵 กำลังจับคู่ MASTER ELE');
+    await masterFetch(v2.items, tok, R.MC, t => { if (R.gen === S.gen){ prog(t); if (R.st && S.run === R.st){ R.st.stage = '🔵 ' + t; R.st.paint(); } } });
     v2.items.forEach(x => { x.master = x.code ? C.pickMaster(x, R.MC.exact.get(x.code) || R.MC.all.get(x.code)) : { st: 'none', th: '', hs: '', msg: 'ไม่มี Product Code' }; });
+    stg('🔵 กำลังจับคู่ MASTER HS CODE');
     await hsAttach(v2.items, R, tok);   /* ★ [local113] MASTER HS CODE → Stat / Privilege / Seq */
     return { files, v: v2, plFiles, mi };
   }
@@ -9657,7 +9695,7 @@ window.ELEAI_CORE = (function(){
     const c = sb(); if (!c) throw new Error('ไม่มีการเชื่อมต่อฐานข้อมูล');
     const out = new Map();
     for (let i = 0; i < keys.length; i += 5000){
-      let r; try { r = await c.rpc('calc_hs_master_lookup', { p_token: tok, p_codes: keys.slice(i, i + 5000) }); } catch (e){ throw new Error(String(e && e.message || e)); }
+      let r; try { r = await rpcR(c, 'calc_hs_master_lookup', { p_token: tok, p_codes: keys.slice(i, i + 5000) }); } catch (e){ throw new Error(String(e && e.message || e)); }   /* ★ [local127] Timeout + Retry */
       const j = r && !r.error ? JX(r.data) : null;
       if (!j || !j.success) throw new Error(HSERR((j && j.error) || (r && r.error && (r.error.code || r.error.message)) || 'fail'));
       (j.rows || []).forEach(e => { const k = String(e.tariff_code); if (!out.has(k)) out.set(k, []); out.get(k).push(e); });
@@ -9764,6 +9802,7 @@ window.ELEAI_CORE = (function(){
     let h = '<div class="el-run-hd"><b>' + (mode === 'fail' ? '🔴 ERROR อ่าน Invoice PDF ไม่ครบ — ปิด EXPORT ชั่วคราว' : esc(st.stage || '🔵 SONNET กำลังอ่าน INVOICE')) + '</b>'
       + '<span>ไฟล์ ' + st.F.length + ' · ' + fmt(sm.tot) + ' หน้า · ' + mb.toFixed(1) + ' MB</span></div>'
       + '<div class="el-run-all"><span class="b"><i style="width:' + (mode === 'fail' ? Math.round(100 * readPct) : pct) + '%"></i></span><span class="c">' + (mode === 'fail' ? Math.round(100 * readPct) : pct) + '%</span></div>'
+      + (function(){ let iv = 0, sk = 0; st.F.forEach(f => { iv += f.inv.size; sk += f.skip.size; }); return '<div class="el-run-sum">กำลังตรวจสอบ PDF <b>' + fmt(sm.dn) + '/' + fmt(sm.tot) + '</b> หน้า · พบหน้า INVOICE <b>' + fmt(iv) + '</b> · ข้ามเอกสารที่ไม่ใช่ INVOICE <b>' + fmt(sk) + '</b></div>'; })()
       + '<div class="el-run-sum">อ่านสำเร็จ <b>' + fmt(sm.dn) + '</b> / ' + fmt(sm.tot) + ' หน้า · กำลังอ่าน <b>' + fmt(sm.rd) + '</b> · ผิดพลาด <b class="' + (sm.er ? 'e' : '') + '">' + fmt(sm.er) + '</b>'
       + (st.retries ? ' · ลองซ้ำ ' + st.retries + ' ครั้ง' : '') + (st.splits ? ' · แบ่งชุดย่อย ' + st.splits + ' ชุด' : '') + '</div>'
       + '<div class="el-run-st">ชุดหน้า: สำเร็จ ' + st.cs.success + ' · กำลังอ่าน ' + cur.length + ' · รอลองซ้ำ ' + st.inRetry.size + ' · ผิดพลาด ' + st.cs.failed + (st.ctl ? ' · Worker ' + st.ctl.limit() : '')
@@ -9816,7 +9855,7 @@ window.ELEAI_CORE = (function(){
       }
       if (gen !== S.gen) return;
       renderRun(null); finish(R, AN); idbState(S.last && S.last.status !== 'FAIL' ? 'done' : 'failed');
-    } catch (e){ renderRun(null); prog('❌ ' + String(e && e.message || e), '#c00000'); bar(null); idbState('failed'); }
+    } catch (e){ if (gen !== S.gen) return; renderErr(R && R.stageName || '', String(e && e.message || e)); bar(null); idbState('failed'); }   /* ★ [local127] แสดงขั้นตอน + สาเหตุ + ปุ่มอ่านซ้ำ (ไม่ค้าง) */
     finally { S.busy = false;
       if (S.again || gen !== S.gen){ S.again = false; schedule(); }
       else if (S.wantExport){ S.wantExport = false; exportBtn(); if (S.last) doExport(); }   /* ★ [local114] กด EXPORT ไว้ระหว่างประมวลผล → ดาวน์โหลดอัตโนมัติ */ }
@@ -9935,6 +9974,15 @@ window.ELEAI_CORE = (function(){
     });
     return out;
   }
+  function renderErr(stage, msg){   /* ★ [local127] ขั้นตอนที่ล้มเหลว + สาเหตุ + ปุ่มลองใหม่ (ผลอ่าน AI ใช้ Cache) */
+    const box = $('eleai-run'); S.last = null; S.wantExport = false; S.failed = [{ msg }]; exportBtn();   /* ปิด EXPORT จนกว่าจะลองใหม่สำเร็จ */
+    prog('🔴 ERROR — ' + (stage ? stage.replace(/^\S+\s/, '') + ' ไม่สำเร็จ: ' : '') + msg + ' — ยังไม่ EXPORT · กด ↻ ลองใหม่', '#c00000');
+    if (!box) return; S.run = null;
+    box.innerHTML = '<div class="el-run-hd"><b>🔴 ERROR — ' + esc(stage ? stage.replace(/^\S+\s/, '') : 'ประมวลผล') + ' ไม่สำเร็จ — ปิด EXPORT</b><span>ไม่สร้าง/ไม่เดาค่าแทน</span></div>'
+      + '<div class="el-run-err"><table><thead><tr><th>ไฟล์</th><th>หน้า</th><th>Product Code</th><th>ขั้นตอน</th><th>สาเหตุ</th></tr></thead><tbody><tr><td>ทุกไฟล์</td><td class="p">-</td><td class="p">-</td><td>' + esc(stage ? stage.replace(/^\S+\s/, '') : '-') + '</td><td>' + esc(msg) + '</td></tr></tbody></table></div>'
+      + '<div class="el-run-act"><button class="btn btn-primary" type="button" id="eleai-btn-retry">↻ ลองใหม่เฉพาะส่วนที่ผิดพลาด</button><span>หน้าที่ AI อ่านสำเร็จแล้วใช้ Cache — ไม่เรียก AI ซ้ำ</span></div>';
+    box.hidden = false; box.classList.add('fail'); box.classList.remove('ok');
+  }
   function renderDone(R, AN, iss, status){
     const box = $('eleai-run'); if (!box) return;
     const E = strictRows(R, iss); S.last.errN = E.length;
@@ -9943,7 +9991,7 @@ window.ELEAI_CORE = (function(){
       tInv += inv.length; tSkip += sk.length; tAll += f.nPages; const bad = E.some(e => e.file === f.file);
       return '<div class="el-run-f' + (bad ? ' bad' : '') + '"><span class="n" title="' + esc(f.file) + '">' + (bad ? '🔴' : '🟢') + ' ' + esc(f.file) + '</span><span class="b"><i style="width:100%"></i></span><span class="c">' + f.nPages + ' หน้า · ' + (bad ? '🔴 ERROR' : '🟢 VERIFIED') + ' INVOICE หน้า ' + (ranges(inv) || '-') + ' (' + inv.length + ')' + (sk.length ? ' · ⚪ PL SKIP หน้า ' + ranges(sk) + ' (' + Object.keys(ty).map(k => C.PT_TH[k] || k).join('/') + ')' : '') + ' · 100%</span></div>'; }).join('');
     const ok = status !== 'FAIL', bud = Math.max(1, Math.floor(tAll * OPUS_BUDGET));
-    let h = '<div class="el-run-hd"><b>' + (ok ? '🟢 VERIFIED — อ่าน INVOICE ครบ ' + tInv + ' หน้า · ยอดรวมตรง TOTAL ทุก Invoice' : '🔴 ERROR — พบข้อผิดพลาด ' + E.length + ' จุด — ปิด EXPORT') + '</b>'
+    let h = '<div class="el-run-hd"><b>' + (ok ? '🟢 VERIFIED — อ่าน INVOICE ครบ ' + tInv + ' หน้า · ยอดรวมตรง TOTAL ทุก Invoice · พร้อม EXPORT EXCEL' : '🔴 ERROR — พบข้อผิดพลาด ' + E.length + ' จุด — ปิด EXPORT') + '</b>'
       + '<span>ไฟล์ ' + AN.files.length + ' · ' + tAll + ' หน้า · 🔵 INVOICE ' + tInv + ' · ⚪ PL SKIP ' + tSkip + ' · รายการ ' + AN.v.items.length + ' · 🟣 Opus ตรวจ ' + (R.opusItems + R.opusPageJobs) + ' จุด / ' + R.opusPages + ' หน้า (งบ ' + Math.round(OPUS_BUDGET * 100) + '% = ' + bud + ' หน้า)</span></div>'
       + '<div class="el-run-files">' + fl + '</div>';
     if (E.length) h += '<div class="el-run-err"><table><thead><tr><th>ไฟล์</th><th>หน้า</th><th>Invoice</th><th>Part Number</th><th>หัวข้อ</th><th>ค่า Sonnet</th><th>ค่า Opus</th><th>สาเหตุ</th></tr></thead><tbody>'
