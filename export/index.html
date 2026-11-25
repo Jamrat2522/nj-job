@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>N.J. Logistics — Mapping Excel (รวม PDF + Excel)</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -635,6 +638,51 @@ body.legacy-active .content-area { display: none !important; }
 </style>
 </head>
 <body>
+<!-- ═══ DEPLOY VERSION (ศูนย์กลาง · จุดเดียวทั้งไฟล์) — ทุก Release แก้เฉพาะค่า NJL_DEPLOY_VERSION บรรทัดเดียว ═══ -->
+<div id="njl-deploy-version" style="position:fixed;top:3px;right:6px;z-index:10050;pointer-events:none;font:700 10px/1.2 'Courier New',monospace;color:#3fb950;background:rgba(13,17,23,.78);border:1px solid rgba(63,185,80,.55);border-radius:4px;padding:2px 6px;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis"></div>
+<script>
+var NJL_DEPLOY_VERSION = 'local139';
+(function(){
+  var CUR = NJL_DEPLOY_VERSION, el = document.getElementById('njl-deploy-version');
+  function show(txt, warn){
+    if(!el) return;
+    el.textContent = txt;
+    el.style.color = warn ? '#d29922' : '#3fb950';
+    el.style.borderColor = warn ? 'rgba(210,153,34,.7)' : 'rgba(63,185,80,.55)';
+    el.style.pointerEvents = warn ? 'auto' : 'none';
+    el.style.cursor = warn ? 'pointer' : 'default';
+  }
+  show('Deploy github ' + CUR, false);
+  if(!/^https?:$/.test(location.protocol)) return;          // เปิดจากไฟล์ในเครื่อง → ไม่มี Server ให้ตรวจ
+  var t0 = Date.now(), busy = false, latest = null;
+  function goLatest(v){ location.replace(location.pathname + '?v=' + encodeURIComponent(v) + '&t=' + Date.now() + location.hash); }
+  if(el) el.addEventListener('click', function(){ if(latest && latest !== CUR) goLatest(latest); });
+  function check(){
+    if(busy) return; busy = true;
+    fetch(location.pathname + '?njlver=' + Date.now(), { cache: 'no-store' })
+      .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+      .then(function(html){
+        var m = /NJL_DEPLOY_VERSION\s*=\s*'([^']+)'/.exec(html);
+        if(!m || m[1] === CUR) return;                        // อ่านไม่ได้ / Deploy ไม่สำเร็จ → คงเลขเดิม
+        latest = m[1];
+        var tried = null; try{ tried = sessionStorage.getItem('njl_ver_reload'); }catch(e){}
+        if(Date.now() - t0 < 8000 && tried !== latest){       // เพิ่งเปิด/Refresh → โหลดไฟล์ล่าสุดทันที (ยังไม่มีงานค้าง)
+          try{ sessionStorage.setItem('njl_ver_reload', latest); }catch(e){}
+          goLatest(latest); return;
+        }
+        show('มีเวอร์ชันใหม่ ' + latest + ' — แตะเพื่ออัปเดต', true); // เปิดค้างอยู่ → ไม่ Reload เอง กันงานที่ทำค้างหาย
+      })
+      .catch(function(){})
+      .then(function(){ busy = false; });
+  }
+  check();
+  window.addEventListener('pageshow', function(e){ if(e.persisted) check(); });
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) check(); });
+  window.addEventListener('focus', check);
+  window.addEventListener('online', check);
+  setInterval(check, 5 * 60 * 1000);
+})();
+</script>
 
 <!-- ══════════════════════════════════════════════════════════════
   LOGIN PAGE — ใช้ก่อนเข้า app (ตรวจจาก Supabase users table / LOCAL_USERS fallback)
