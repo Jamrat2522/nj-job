@@ -543,6 +543,32 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
   .cat-detail-row td{padding:8px!important}
   .cat-detail{max-width:calc(100vw - 46px);position:sticky;left:8px}
 }
+/* MODE CAT local009 — สถานะรายไฟล์ (AI) */
+#screen-app .cat-ai-note{font-size:11.5px;color:#64748b;padding:0 16px 8px}
+#screen-app .cat-flist{padding:0 16px 14px;display:flex;flex-direction:column;gap:6px}
+#screen-app .cat-frow{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;background:#fff;flex-wrap:wrap}
+#screen-app .cat-fname{font-size:12.5px;color:#0f172a;font-weight:600;min-width:200px;flex:1 1 240px;word-break:break-all}
+#screen-app .cat-fsub{display:block;font-weight:400;font-size:11px;color:#64748b;margin-top:2px}
+#screen-app .cat-fstat{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+#screen-app .cat-chip{font-size:11px;font-weight:700;border-radius:999px;padding:4px 10px;white-space:nowrap}
+#screen-app .cat-chip.cs-gry{background:#f1f5f9;color:#475569}
+#screen-app .cat-chip.cs-blu{background:#e0edff;color:#1d4ed8}
+#screen-app .cat-chip.cs-pur{background:#f0e8ff;color:#6d28d9}
+#screen-app .cat-chip.cs-grn{background:#dcfce7;color:#15803d}
+#screen-app .cat-chip.cs-org{background:#ffedd5;color:#c2410c}
+#screen-app .cat-chip.cs-red{background:#fee2e2;color:#b91c1c}
+#topbar .tb-ver{font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:.3px;padding:0 10px;white-space:nowrap}
+@media(max-width:640px){#topbar .tb-ver{display:none}}
+/* MODE CAT local010 — ความคืบหน้าจริง + ตรวจระบบ AI */
+#screen-app .cat-live{display:flex;flex-wrap:wrap;gap:6px 14px;padding:0 16px 8px;font-size:11.5px;color:#475569}
+#screen-app .cat-live b{color:#0f172a;font-size:12.5px}
+#screen-app .cat-live .text-grn{color:#15803d}
+#screen-app .cat-live .text-red{color:#b91c1c}
+#screen-app .cat-diag{display:flex;flex-direction:column;gap:6px}
+#screen-app .cat-diag-row{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #e2e8f0;padding:6px 0;font-size:12.5px;flex-wrap:wrap}
+#screen-app .cat-diag-k{font-weight:700;color:#0f172a}
+#screen-app .cat-diag-v{color:#475569;text-align:right;word-break:break-word}
 </style>
 </head>
 <body>
@@ -608,6 +634,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
     <div class="tb-div"></div>
     <div class="tb-mode" id="tb-mode">—</div>
     <div class="tb-spacer"></div>
+    <div class="tb-ver" id="tb-ver">Deploy github local010</div>
     <div class="tb-status">
       <div class="status-ind">
         <div class="status-dot"></div>
@@ -740,9 +767,10 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
         <div class="page-header">
           <div>
             <div class="page-title">รวมไฟล์ CAT</div>
-            <div class="page-desc">โยนเอกสารที่ปะปนกัน → อ่านใบขน → ดึงเลข INVOICE / B/L → จับเข้าชุดของใบขน → รวมเป็น PDF เดียวต่อใบขน (เรียง 01–07) → EXPORT ZIP ครั้งเดียว</div>
+            <div class="page-desc">AI อ่านและจำแนกเอกสารทุกหน้า (Sonnet 5.5 · Opus 5.5 ตรวจซ้ำเมื่อไม่มั่นใจ) → ใบขนเป็นตัวหลัก → จับคู่จากเลข INVOICE / B/L / ใบอนุญาต / เลขอ้างอิง → รวมเป็น PDF เดียวต่อใบขน (CARGO ขึ้นก่อน แล้ว 01–06) → EXPORT ZIP ครั้งเดียว</div>
           </div>
           <div class="flex-row gap8">
+            <button class="btn btn-secondary btn-sm" onclick="catDiagShow()" id="btn-cat-diag">🔎 ตรวจระบบ AI</button>
             <button class="btn btn-secondary btn-sm" onclick="catClear()" id="btn-cat-clear" style="display:none">✕ ล้างทั้งหมด</button>
             <button class="btn btn-primary" id="btn-cat-export" onclick="catExport()" disabled>⬇ EXPORT ZIP FILE</button>
           </div>
@@ -765,6 +793,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
           </div>
         </div>
 
+        <div id="cat-files"></div>
         <div id="cat-summary"></div>
         <div id="cat-report"></div>
         <div id="cat-pending"></div>
@@ -995,6 +1024,7 @@ function handleLogin() {
   CU = { username: user.username, full_name: user.username, role: user.role };
   CR = user.role;
   sessionStorage.setItem('nj_session', JSON.stringify(CU));
+  try { catAiLogin(username, password); } catch (_) {}   /* MODE CAT: ขอ Session ฝั่งเซิร์ฟเวอร์เพื่อเรียก AI (ล้มเหลวก็ Login ปกติได้) */
   showApp();
 }
 
@@ -2981,33 +3011,545 @@ var CATEngine = (function () {
 /*CAT-ENGINE-END*/
 
 /* ============================================================
+   CATEngine ส่วนขยาย local009 — จัดชุดจากผล AI 100%
+   ไม่มี Regex/Keyword ตัดสินประเภทหรือจับคู่ (ใช้ค่าที่ AI อ่านได้เท่านั้น)
+   CUT_RULES / cutByText / cutByName ของเดิมยังอยู่ แต่ใช้เป็น "Safety Guard" ก่อน EXPORT เท่านั้น
+   ============================================================ */
+(function (E) {
+  'use strict';
+  var FORBID = {
+    'BIRTIMP1': 'เอกสารต้องห้าม: BIRTIMP1 (รายการ BOI Import)',
+    'THCI': 'เอกสารต้องห้าม: THCI (ใบแจ้งหนี้ค่าระวางสายเรือ)',
+    'TAX_INVOICE': 'เอกสารต้องห้าม: TAX INVOICE / ใบกำกับภาษี',
+    'PROFORMA_INVOICE_PACKING_LIST': 'เอกสารต้องห้าม: Proforma Invoice & Packing List',
+    'PO_LIST': 'เอกสารต้องห้าม: PO LIST',
+    'EXPORT_BOOKING': 'เอกสารต้องห้าม: EXPORT BOOKING',
+    'PICKING_LETTERS': 'เอกสารต้องห้าม: Picking Letters',
+    'ARRIVAL_NOTICE': 'เอกสารต้องห้าม: ARRIVAL NOTICE',
+    'PRE_ALERT': 'เอกสารต้องห้าม: PRE-ALERT',
+    'OTHER_07': 'หมวด 07 เอกสารอื่นๆ (ห้ามแนบ)'
+  };
+  function norm(s) { return String(s == null ? '' : s).toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^0+/, ''); }
+  function addU(a, v) { if (v && a.indexOf(v) < 0) a.push(v); }
+  function hasNo(list, v) { var n = norm(v); if (!n) return false; for (var i = 0; i < list.length; i++) if (norm(list[i]) === n) return true; return false; }
+  E.forbidLabel = function (code) { return FORBID[code] || (code ? 'เอกสารต้องห้าม: ' + code : null); };
+  E.normNo = norm;
+
+  /* srcs  = [{id,name,kind,pages,sha,aiErr,aiDocs}]   (aiDocs = ผลที่ AI อ่านได้)
+     match = {assignments:{docId→{decl_no,also,matched_on,reason,confidence}}, conflicts, remarks} */
+  E.analyzeAI = function (srcs, match) {
+    var sets = {}, order = [], units = [], mm = (match && match.assignments) || {};
+    function getSet(n, d) {
+      if (!sets[n]) { sets[n] = { declNo: n, invoices: [], bls: [], permits: [], refs: [], docIds: [] }; order.push(n); }
+      var S = sets[n];
+      if (d) {
+        d.invoices.forEach(function (v) { addU(S.invoices, v); });
+        addU(S.bls, d.master_bl); addU(S.bls, d.house_bl);
+        d.bls.forEach(function (v) { addU(S.bls, v); });
+        d.permits.forEach(function (v) { addU(S.permits, v); });
+        d.refs.forEach(function (v) { addU(S.refs, v); });
+        addU(S.docIds, d.id);
+      }
+      return S;
+    }
+    /* ---------- รอบที่ 1: ใบขน (MASTER) ---------- */
+    srcs.forEach(function (s) {
+      (s.aiDocs || []).forEach(function (d) { if (d.kind === '01' && d.decl_no) getSet(E.up(d.decl_no).trim(), d); });
+    });
+    order.sort(E.natCmp);
+    var valid = {}; order.forEach(function (n) { valid[n] = 1; });
+
+    /* ---------- รอบที่ 2: สร้างหน่วยเอกสารจากผล AI ---------- */
+    srcs.forEach(function (s) {
+      /* อ่านไม่สำเร็จ → หน่วยรอตรวจสอบ (ห้ามลบทิ้งอัตโนมัติ) */
+      if (!s.aiDocs || !s.aiDocs.length) {
+        units.push({
+          key: s.id, srcId: s.id, name: s.name, sha: s.sha, pages: null, type: '', sets: [], multi: false,
+          evidence: '', reason: s.aiErr || 'AI ยังไม่ได้อ่านไฟล์นี้', note: '', cut: null, docId: null,
+          conf: 'low', near: [], unread: true, aiFail: !!s.aiErr
+        });
+        return;
+      }
+      var whole = s.aiDocs.length === 1 && s.kind === 'pdf' && s.pages && s.aiDocs[0].pages.length === s.pages;
+      s.aiDocs.forEach(function (d) {
+        /* AI ส่งเลขหน้าเริ่มที่ 1 — ภายในระบบใช้ index เริ่มที่ 0 (ต้องแปลงก่อนใช้ตัดหน้า/รวม PDF) */
+        var p0 = (d.pages || []).map(function (n) { return n - 1; }).filter(function (i) { return i >= 0 && (!s.pages || i < s.pages); });
+        var pdfPages = (s.kind === 'pdf') && !whole ? p0.slice() : null;
+        var u = {
+          key: d.id, docId: d.id, srcId: s.id, name: s.name, sha: s.sha, pages: pdfPages,
+          type: d.kind || '', sets: [], multi: false, evidence: '', reason: '', note: d.note || '',
+          cut: null, conf: d.confidence || 'high', near: [], unread: false, aiFail: false,
+          nums: { inv: d.invoices, bl: d.bls.concat([d.master_bl, d.house_bl]).filter(Boolean), lic: d.permits, ref: d.refs },
+          ev: d.evidence || []
+        };
+        /* เอกสารต้องห้าม / หมวด 07 → ตัดออก ไม่เข้าชุด (AI เป็นผู้ชี้) */
+        if (d.forbidden) u.cut = E.forbidLabel(d.forbidden);
+        else if (d.kind === '07') u.cut = FORBID.OTHER_07;
+        if (u.cut) { units.push(u); return; }
+        if (d.kind === '01') {
+          var n = E.up(d.decl_no).trim();
+          if (n && valid[n]) { u.sets = [n]; u.evidence = 'ใบขนสินค้า เลขที่ ' + n + (p0.length ? ' (หน้า ' + E.pagesLabel(p0) + ')' : ''); }
+          else u.reason = 'AI อ่านว่าเป็นใบขน แต่อ่านเลขใบขนไม่ได้';
+          units.push(u); return;
+        }
+        var a = mm[d.id];
+        if (a && a.decl_no && valid[E.up(a.decl_no).trim()]) {
+          var main = E.up(a.decl_no).trim();
+          u.sets = [main];
+          (a.also || []).forEach(function (x) { var y = E.up(x).trim(); if (valid[y] && u.sets.indexOf(y) < 0) u.sets.push(y); });
+          u.multi = u.sets.length > 1;
+          u.evidence = (a.matched_on || []).join(' · ') || 'AI ยืนยันความสัมพันธ์';
+          if (a.confidence === 'low') { u.conf = 'low'; u.note = (u.note ? u.note + ' · ' : '') + 'AI ไม่มั่นใจการจับคู่นี้ (ตรวจสอบก่อน EXPORT)'; }
+        } else {
+          u.reason = (a && a.reason) || 'AI จับคู่เอกสารนี้กับใบขนใดไม่ได้';
+          if (a && a.also) a.also.forEach(function (x) { var y = E.up(x).trim(); if (valid[y]) addU(u.near, y); });
+          /* เลขที่พบในเอกสารตรงกับใบขนใด → ใช้เป็นคำแนะนำให้ผู้ใช้ยืนยันเอง (ไม่จับคู่อัตโนมัติ) */
+          order.forEach(function (n) {
+            var S = sets[n], h = u.nums;
+            if (h.inv.some(function (v) { return hasNo(S.invoices, v); }) || h.bl.some(function (v) { return hasNo(S.bls, v); }) ||
+                h.lic.some(function (v) { return hasNo(S.permits, v); }) || h.ref.some(function (v) { return hasNo(S.refs, v); })) addU(u.near, n);
+          });
+        }
+        units.push(u);
+      });
+    });
+    return { sets: order.map(function (n) { return sets[n]; }), units: units, conflicts: (match && match.conflicts) || [], remarks: (match && match.remarks) || '' };
+  };
+
+  /* สถานะชุด: ครบ / ไม่ครบ / รอตรวจสอบ — ตัดสินจากเลขที่ AI อ่านได้ในใบขน */
+  E.statusAI = function (set, unitsIn, pendingUnits) {
+    var missing = [], has = function (t) { return unitsIn.some(function (u) { return u.type === t; }); };
+    if (!has('01')) missing.push('ใบขน');
+    if (set.bls.length && !has('02')) missing.push('B/L');
+    var inv3 = unitsIn.filter(function (u) { return u.type === '03'; });
+    if (!set.invoices.length) { if (!inv3.length) missing.push('Commercial Invoice'); }
+    else set.invoices.forEach(function (k) {
+      var ok = inv3.some(function (u) { return hasNo((u.nums && u.nums.inv) || [], k) || u.manual; });
+      if (!ok) missing.push('Invoice ' + k);
+    });
+    if (!has('04')) missing.push('Packing List');
+    if (set.permits.length && !has('05')) missing.push('ใบอนุญาต');
+    var wait = pendingUnits.filter(function (u) { return u.near && u.near.indexOf(set.declNo) >= 0; }).length;
+    var low = unitsIn.filter(function (u) { return u.conf === 'low'; }).length;
+    var st = (!set.invoices.length || wait) ? 'รอตรวจสอบ' : (missing.length ? 'ไม่ครบ' : 'ครบ');
+    return { status: st, missing: missing, waiting: wait, noInvoice: !set.invoices.length, low: low };
+  };
+
+  /* ลำดับใน PDF รวม: 00 CARGO → 01 ใบขน → 02 → 06 · เอกสารเดียวกันที่ซ้ำ นับครั้งเดียว */
+  E.planOrderAI = function (unitsIn) {
+    var out = [], seen = {};
+    E.TYPES.forEach(function (T) {
+      unitsIn.filter(function (u) { return u.type === T.code; })
+        .sort(function (a, b) { return E.natCmp(a.name, b.name) || E.natCmp(a.key, b.key); })
+        .forEach(function (u) {
+          var k = T.code + '|' + (u.sha || u.srcId) + '|' + (u.pages ? u.pages.join(',') : 'all');
+          if (seen[k]) return;
+          seen[k] = 1;
+          out.push({ unit: u, type: T.code });
+        });
+    });
+    return out;
+  };
+})(CATEngine);
+
+/* ============================================================
+   MODE CAT — ชั้นเรียก AI (local009)
+   AI อ่านและจำแนกเอกสาร 100% · ไม่มี QCR/OCR/Regex ตัดสินเนื้อหา
+   Sonnet 5.5 อ่านหลัก · Opus 5.5 ตรวจซ้ำเมื่อไม่มั่นใจ (ฝั่ง Edge Function)
+   ไม่มี ANTHROPIC_API_KEY ในเบราว์เซอร์ — เรียกผ่าน Edge Function nj-invoice-ai-cat เท่านั้น
+   ============================================================ */
+const CAT_AI_FN       = 'nj-invoice-ai-cat';
+const CAT_AI_MAXPAGES = 20;                 // หน้าต่อการส่ง 1 ครั้ง (แบ่งชุดตามจำนวนหน้า)
+const CAT_AI_MAXBYTES = 7 * 1024 * 1024;    // ต่ำกว่าเพดาน 8 MB ของ Edge Function
+const CAT_AI_PAR      = 3;                  // งานขนานสูงสุด (คิว)
+const CAT_AI_POLL     = 2000;               // รอบ Polling ตามที่ Edge Function กำหนด
+const CAT_AI_WAIT     = 8 * 60 * 1000;      // เพดานเวลารอผลต่อ 1 ชุด
+let catAiSess  = null;                      // Session ฝั่งเซิร์ฟเวอร์ (nj_cat_login)
+let catAiCache = {};                        // Cache ภายในหน้า: sha256|ช่วงหน้า → ผล AI (RETRY ไม่เสียค่า API)
+let catAiLast  = null;                      // สรุปค่าใช้จ่าย/โมเดลของรอบล่าสุด
+let catAiPwCb  = null;
+
+function catAiUrl()  { return SUPABASE_URL + '/functions/v1/' + CAT_AI_FN; }
+function catAiTok()  { return catAiSess || sessionStorage.getItem('nj_cat_ai') || null; }
+function catAiHdr()  { return { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }; }
+
+/* ---------- Session: ตรวจรหัสผ่านที่เซิร์ฟเวอร์ (ไม่เชื่อ Role จากเบราว์เซอร์) ---------- */
+async function catAiRpc(fn, args) {
+  const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/' + fn, { method: 'POST', headers: catAiHdr(), body: JSON.stringify(args) });
+  const t = await r.text();
+  let j = null; try { j = t ? JSON.parse(t) : null; } catch (_) {}
+  if (!r.ok) throw new Error((j && (j.message || j.msg)) || ('เรียก ' + fn + ' ไม่สำเร็จ (HTTP ' + r.status + ')'));
+  return j;
+}
+async function catAiLogin(username, password) {
+  try {
+    const j = await catAiRpc('nj_cat_login', { p_username: username, p_password: password });
+    if (j && j.success && j.session) { catAiSess = j.session; sessionStorage.setItem('nj_cat_ai', j.session); return { ok: true }; }
+    return { ok: false, msg: (j && j.msg) || 'เข้าสู่ระบบ AI ไม่สำเร็จ' };
+  } catch (e) { return { ok: false, msg: (e && e.message) || String(e) }; }
+}
+/* เรียก Edge Function 1 ครั้ง */
+async function catAiPost(body) {
+  const tok = catAiTok();
+  const r = await fetch(catAiUrl(), { method: 'POST', headers: catAiHdr(), body: JSON.stringify(Object.assign({ session: tok || '' }, body)) });
+  const t = await r.text();
+  let j = null; try { j = t ? JSON.parse(t) : null; } catch (_) {}
+  if (!j) throw new Error('AI ตอบกลับไม่ถูกต้อง (HTTP ' + r.status + ')');
+  j._http = r.status;
+  return j;
+}
+async function catAiProbe() {
+  if (!catAiTok()) return { ok: false, msg: 'ยังไม่มี Session สำหรับเรียก AI' };
+  try {
+    const j = await catAiPost({ action: 'session_check' });
+    if (j.success) return { ok: true, info: j };
+    return { ok: false, msg: j.msg || 'ตรวจสอบ Session ไม่ผ่าน', err: j.error };
+  } catch (e) { return { ok: false, msg: (e && e.message) || String(e) }; }
+}
+/* ขอรหัสผ่านซ้ำครั้งเดียวเมื่อ Session หมดอายุ (ไม่เก็บรหัสผ่านไว้ที่ใด) */
+function catAiAskPw() {
+  return new Promise(res => {
+    catAiPwCb = res;
+    showModal('เปิดใช้งาน AI อ่านเอกสาร',
+      'โหมดรวมไฟล์ CAT ใช้ AI อ่านเอกสารทั้งหมด จึงต้องยืนยันรหัสผ่านของ <b>' + esc((CU && CU.username) || '') + '</b> ที่เซิร์ฟเวอร์อีกครั้ง' +
+      '<div style="margin-top:12px"><input type="password" id="cat-ai-pw" class="form-input" placeholder="Password" autocomplete="current-password"></div>' +
+      '<div id="cat-ai-pw-err" class="text-red text-xs" style="margin-top:6px"></div>',
+      [{ label: 'ยกเลิก', cls: 'btn-secondary', action: 'catAiPwDone(false)' },
+       { label: 'ยืนยัน', cls: 'btn-primary', action: 'catAiPwDone(true)' }]);
+    setTimeout(() => { const el = document.getElementById('cat-ai-pw'); if (el) { el.focus(); el.onkeydown = e => { if (e.key === 'Enter') catAiPwDone(true); }; } }, 60);
+  });
+}
+async function catAiPwDone(ok) {
+  const cb = catAiPwCb;
+  if (!ok) { catAiPwCb = null; closeModal(); if (cb) cb(false); return; }
+  const el = document.getElementById('cat-ai-pw'), er = document.getElementById('cat-ai-pw-err');
+  const pw = el ? el.value : '';
+  if (!pw) { if (er) er.textContent = 'กรุณากรอกรหัสผ่าน'; return; }
+  if (er) er.textContent = 'กำลังตรวจสอบ...';
+  const r = await catAiLogin((CU && CU.username) || '', pw);
+  if (!r.ok) { if (er) er.textContent = r.msg; return; }
+  catAiPwCb = null; closeModal(); if (cb) cb(true);
+}
+/* ต้องมี Session ที่ใช้ได้จริงก่อนเรียก AI ทุกครั้ง */
+async function catAiEnsure() {
+  let p = await catAiProbe();
+  if (p.ok) return p;
+  if (!await catAiAskPw()) return { ok: false, msg: 'ยกเลิกการเปิดใช้งาน AI' };
+  p = await catAiProbe();
+  return p;
+}
+
+/* ---------- PROBE: ตรวจการเชื่อมต่อจริงแยกรายการ (ไม่เรียก Claude · ไม่คิดค่า API) ---------- */
+async function catAiDiag() {
+  const R = [];
+  const row = (k, ok, txt) => { R.push({ k: k, ok: ok, txt: txt }); return ok; };
+  /* 1) Supabase */
+  let sb = false;
+  try { const r = await fetch(SUPABASE_URL + '/rest/v1/', { headers: { apikey: SUPABASE_ANON_KEY } }); sb = r.status < 500; } catch (_) {}
+  row('Supabase Connection', sb, sb ? SUPABASE_URL.replace(/^https:\/\//, '') : 'ติดต่อ Supabase ไม่ได้');
+  /* 2) Session / Authentication (ตรวจที่เซิร์ฟเวอร์) */
+  const p = await catAiProbe();
+  row('Session / Authentication', p.ok, p.ok ? 'ผู้ใช้ ' + (p.info.username || '') + ' (ตรวจจากฐานข้อมูลฝั่งเซิร์ฟเวอร์)' : (p.msg || 'ไม่ผ่าน'));
+  if (!p.ok) { row('ระบบ AI พร้อมใช้งาน', false, 'ยังตรวจต่อไม่ได้ เพราะ Session ไม่ผ่าน'); return { rows: R, ready: false }; }
+  /* 3) ถ้า Edge Function รุ่นใหม่รองรับ action diag → ใช้ผลจริงจากเซิร์ฟเวอร์ */
+  let d = null;
+  try { const j = await catAiPost({ action: 'diag' }); if (j.success && j.diag) d = j.diag; } catch (_) {}
+  if (d) {
+    row('ANTHROPIC_API_KEY', !!d.api_key, d.api_key ? 'ตั้งค่าไว้ใน Supabase Secrets (ไม่แสดงค่า)' : 'ยังไม่ได้ตั้งค่า');
+    row('Sonnet 5.5 (ตัวอ่านหลัก)', d.model === 'claude-sonnet-5-5', d.model || '-');
+    row('Opus 5.5 (ตรวจซ้ำ)', d.model_recheck === 'claude-opus-5-5', d.model_recheck || '-');
+    row('nj_ai_jobs (Cache 3 วัน)', !!d.jobs, d.jobs ? 'อ่าน/เขียนได้ · งานที่ยังไม่หมดอายุ ' + d.jobs_cached + ' รายการ' : 'เข้าถึงตารางไม่ได้');
+    row('COST GUARD', d.cost_guard !== false, d.cost_guard === 'admin_only' ? 'ทำงานอยู่ (ดูยอดได้เฉพาะ SUPER_ADMIN)'
+      : d.budget ? 'ใช้ไป ' + Number(d.budget.spent_usd || 0).toFixed(2) + ' / วงเงิน ' + Number(d.budget.credit_usd || 0).toFixed(0) + ' USD' + (d.budget.blocked ? ' · ถึงเพดานแล้ว' : '') : 'ทำงานอยู่');
+    row('Edge Function Version', true, d.fn_ver + ' · prompt ' + d.prompt_ver);
+    row('ระบบ AI พร้อมใช้งาน', !!d.ready, d.ready ? 'พร้อมอ่านเอกสาร' : 'ยังไม่พร้อม — ดูรายการที่ไม่ผ่านด้านบน');
+    return { rows: R, ready: !!d.ready };
+  }
+  /* 4) Edge Function รุ่นปัจจุบัน (ไม่มี diag) → ตรวจทางอ้อมแบบไม่เสียค่า API */
+  let keyOk = false, keyTxt = 'ตรวจไม่ได้';
+  try {
+    const j = await catAiPost({ action: 'match' });                 // ไม่มี payload → ตรวจ Key ก่อนถึงขั้นเรียก Claude
+    if (j.error === 'no_api_key') { keyOk = false; keyTxt = 'ยังไม่ได้ตั้งค่า ANTHROPIC_API_KEY'; }
+    else if (j.error === 'no_file') { keyOk = true; keyTxt = 'ตั้งค่าไว้ใน Supabase Secrets (ไม่แสดงค่า)'; }
+    else keyTxt = j.msg || j.error || 'ตรวจไม่ได้';
+  } catch (e) { keyTxt = (e && e.message) || 'ตรวจไม่ได้'; }
+  row('ANTHROPIC_API_KEY', keyOk, keyTxt);
+  row('Sonnet 5.5 (ตัวอ่านหลัก)', p.info.model === 'claude-sonnet-5-5', p.info.model || '-');
+  row('Opus 5.5 (ตรวจซ้ำ)', p.info.model_recheck === 'claude-opus-5-5', p.info.model_recheck || '-');
+  let jobsOk = false, jobsTxt = 'ตรวจไม่ได้';
+  try {
+    const j = await catAiPost({ action: 'job_status', job_id: '00000000-0000-4000-8000-000000000000' });
+    if (j.error === 'job_not_found') { jobsOk = true; jobsTxt = 'อ่าน/เขียนได้ (ทดสอบด้วย Job ID ที่ไม่มีจริง)'; }
+    else if (j.error === 'jobs_off') { jobsTxt = 'เข้าถึงตาราง nj_ai_jobs ไม่ได้'; }
+    else jobsTxt = j.msg || j.error || 'ตรวจไม่ได้';
+  } catch (e) { jobsTxt = (e && e.message) || 'ตรวจไม่ได้'; }
+  row('nj_ai_jobs (Cache 3 วัน)', jobsOk, jobsTxt);
+  let cgOk = false, cgTxt = 'ตรวจไม่ได้';
+  try {
+    const j = await catAiPost({ action: 'budget' });
+    if (j.success && j.budget) { cgOk = !j.budget.blocked; cgTxt = 'ใช้ไป ' + Number(j.budget.spent_usd || 0).toFixed(2) + ' / วงเงิน ' + Number(j.budget.credit_usd || 0).toFixed(0) + ' USD' + (j.budget.blocked ? ' · ถึงเพดานแล้ว' : ''); }
+    else if (j._http === 403) { cgOk = true; cgTxt = 'ทำงานอยู่ (ดูยอดได้เฉพาะ SUPER_ADMIN)'; }
+    else cgTxt = j.msg || j.error || 'ตรวจไม่ได้';
+  } catch (e) { cgTxt = (e && e.message) || 'ตรวจไม่ได้'; }
+  row('COST GUARD', cgOk, cgTxt);
+  row('Edge Function Version', true, 'prompt ' + (p.info.prompt_ver || '-') + ' (รุ่นนี้ยังไม่มี action diag)');
+  const ready = sb && p.ok && keyOk && jobsOk && cgOk;
+  row('ระบบ AI พร้อมใช้งาน', ready, ready ? 'พร้อมอ่านเอกสาร' : 'ยังไม่พร้อม — ดูรายการที่ไม่ผ่านด้านบน');
+  return { rows: R, ready: ready };
+}
+
+/* ---------- ตัวช่วย ---------- */
+async function catSha256(bytes) {
+  const d = await crypto.subtle.digest('SHA-256', bytes.buffer ? bytes.slice(0) : bytes);
+  return Array.from(new Uint8Array(d)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+function catB64(bytes) {
+  let s = '', CH = 0x8000;
+  for (let i = 0; i < bytes.length; i += CH) s += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+  return btoa(s);
+}
+/* รอผลงานเบื้องหลัง (Polling 2 วินาที ตามที่ Edge Function กำหนด) */
+async function catAiWait(jobId, onPhase) {
+  const t0 = Date.now();
+  for (;;) {
+    await new Promise(r => setTimeout(r, CAT_AI_POLL));
+    if (Date.now() - t0 > CAT_AI_WAIT) throw new Error('AI ใช้เวลานานเกินกำหนด — กดอ่านซ้ำได้');
+    let j;
+    try { j = await catAiPost({ action: 'job_status', job_id: jobId }); }
+    catch (_) { continue; }
+    if (j.pending) { if (onPhase) onPhase(j.phase || ''); continue; }
+    if (j.success && j.result) return j;
+    throw new Error(j.msg || 'AI อ่านเอกสารไม่สำเร็จ');
+  }
+}
+/* ส่ง 1 ชุดให้ AI (read: pdf/sheet | match) แล้วรอผล */
+async function catAiRun(body, onPhase) {
+  const j = await catAiPost(body);
+  if (j.success && !j.pending && j.result) return j;         // Cache กลางทั้งองค์กร → ค่า API 0
+  if (j.pending && j.job_id) return await catAiWait(j.job_id, onPhase);
+  if (j.error === 'unauthorized') {
+    if (!await catAiAskPw()) throw new Error('ยังไม่ได้เข้าสู่ระบบ AI');
+    const k = await catAiPost(body);
+    if (k.success && !k.pending && k.result) return k;
+    if (k.pending && k.job_id) return await catAiWait(k.job_id, onPhase);
+    throw new Error(k.msg || 'AI อ่านเอกสารไม่สำเร็จ');
+  }
+  throw new Error(j.msg || 'AI อ่านเอกสารไม่สำเร็จ');
+}
+function catAiAddUsage(j) {
+  if (!catAiLast) catAiLast = { calls: 0, cached: 0, cost: 0, tin: 0, tout: 0, models: {} };
+  const u = j.usage || {};
+  catAiLast.calls++;
+  if (j.cached || u.cached) catAiLast.cached++;
+  catAiLast.cost += Number(u.cost_usd_est || 0);
+  catAiLast.tin  += Number(u.input_tokens || 0);
+  catAiLast.tout += Number(u.output_tokens || 0);
+  const m = j.model || u.model; if (m) catAiLast.models[m] = (catAiLast.models[m] || 0) + 1;
+  if (u.recheck && u.recheck.by) catAiLast.models[u.recheck.by] = (catAiLast.models[u.recheck.by] || 0) + 1;
+}
+
+/* ---------- แบ่งชุดหน้า PDF: ตามจำนวนหน้า + ขนาดไบต์ + เพดาน API ---------- */
+async function catAiPdfChunks(src) {
+  const doc = await PDFLib.PDFDocument.load(src.bytes, { ignoreEncryption: true });
+  const total = doc.getPageCount();
+  src.pages = total;
+  const out = [];
+  let from = 0;
+  while (from < total) {
+    let want = Math.min(CAT_AI_MAXPAGES, total - from), made = null;
+    while (want >= 1) {
+      const to = await PDFLib.PDFDocument.create();
+      const idx = []; for (let i = 0; i < want; i++) idx.push(from + i);
+      (await to.copyPages(doc, idx)).forEach(p => to.addPage(p));
+      const bytes = await to.save();
+      if (bytes.length <= CAT_AI_MAXBYTES || want === 1) { made = { from: from + 1, count: want, bytes: bytes }; break; }
+      want = Math.max(1, Math.floor(want / 2));
+    }
+    if (!made) throw new Error('แบ่งชุดหน้าไม่สำเร็จ');
+    if (made.bytes.length > CAT_AI_MAXBYTES) throw new Error('หน้า ' + made.from + ' ใหญ่เกิน 8 MB ส่งให้ AI ไม่ได้');
+    out.push(made);
+    from += made.count;
+    await tick();
+  }
+  return out;
+}
+/* รูปภาพ → หน้า PDF A4 เพื่อให้ AI อ่านได้ (ไม่มีการอ่านด้วย OCR ฝั่งเบราว์เซอร์) */
+async function catAiImgToPdf(src) {
+  const out = await PDFLib.PDFDocument.create();
+  const ext = catExt(src.name);
+  const img = ext === 'png' ? await out.embedPng(src.bytes) : await out.embedJpg(src.bytes);
+  const k = Math.min(CAT_A4.w / img.width, CAT_A4.h / img.height), w = img.width * k, h = img.height * k;
+  out.addPage([CAT_A4.w, CAT_A4.h]).drawImage(img, { x: (CAT_A4.w - w) / 2, y: (CAT_A4.h - h) / 2, width: w, height: h });
+  return await out.save();
+}
+
+/* ---------- อ่าน 1 ไฟล์ด้วย AI (ทุกหน้า) ---------- */
+async function catAiReadSrc(src, onStat) {
+  const ext = catExt(src.name);
+  const stat = s => { src.aiStat = s; if (onStat) onStat(src); };
+  src.aiErr = null; src.aiDocs = null;
+  stat('wait');
+  try {
+    if (!src.sha) src.sha = await catSha256(src.bytes);
+    let parts = [];
+    if (ext === 'pdf') {
+      src.kind = 'pdf';
+      parts = (await catAiPdfChunks(src)).map(c => ({
+        key: src.sha + '|pdf|' + c.from + '|' + c.count, from: c.from, count: c.count,
+        body: { action: 'read', src: 'pdf', mime: 'application/pdf', name: src.name.split('/').pop(), pages: c.count, page_from: c.from, pdf: catB64(c.bytes) }
+      }));
+    } else if (catIsImageExt(ext)) {
+      src.kind = 'pdf'; src.pages = 1;
+      const b = await catAiImgToPdf(src);
+      src.imgPdf = b;
+      parts = [{ key: src.sha + '|img|1|1', from: 1, count: 1,
+        body: { action: 'read', src: 'pdf', mime: 'application/pdf', name: src.name.split('/').pop(), pages: 1, page_from: 1, pdf: catB64(b) } }];
+    } else if (catIsSheetExt(ext) || ext === 'txt') {
+      src.kind = catIsSheetExt(ext) ? 'sheet' : 'other';
+      src.pages = 1;
+      const text = ext === 'txt' ? catZipName(src.bytes) : await catSheetText(src);
+      if (!String(text || '').trim()) throw new Error('ไฟล์นี้ไม่มีข้อมูลให้ AI อ่าน');
+      src.text = text;
+      parts = [{ key: src.sha + '|sheet|1|1', from: 1, count: 1,
+        body: { action: 'read', src: 'sheet', name: src.name.split('/').pop(), text: text } }];
+    } else {
+      throw new Error('ไฟล์ประเภท .' + (ext || '?') + ' ส่งให้ AI อ่านไม่ได้ (รองรับ PDF, Excel, CSV, TXT, JPG, PNG)');
+    }
+    const docs = [], put = [];
+    src.aiPart = 0; src.aiParts = parts.length;
+    for (let i = 0; i < parts.length; i++) {
+      const p = parts[i];
+      src.aiPart = i + 1; src.aiFrom = p.from; src.aiTo = p.from + p.count - 1;
+      stat('read');
+      let j = catAiCache[p.key];
+      if (!j) {
+        j = await catAiRun(p.body, ph => stat(/opus/i.test(ph || '') ? 'recheck' : 'read'));
+        put.push([p.key, j]);          /* เก็บเข้า Cache เฉพาะเมื่ออ่านไฟล์นี้ครบสำเร็จ */
+        catAiAddUsage(j);
+      }
+      const r = j.result || {};
+      (r.docs || []).forEach(d => {
+        const pages = (d.pages || []).filter(n => Number.isInteger(n) && n >= 1 && n <= p.count).map(n => p.from + n - 1);
+        if (!pages.length) return;
+        docs.push({
+          srcId: src.id, name: src.name, pages: pages,
+          kind: String(d.kind || ''), decl_no: String(d.decl_no || ''),
+          invoices: (d.invoices || []).map(String), master_bl: String(d.master_bl || ''), house_bl: String(d.house_bl || ''),
+          bls: (d.bls || []).map(String), permits: (d.permits || []).map(String), refs: (d.refs || []).map(String),
+          parts: (d.parts || []).map(String), forbidden: String(d.forbidden || ''),
+          confidence: String(d.confidence || 'high'), evidence: d.evidence || [], note: String(d.note || ''),
+          remarks: String(r.remarks || '')
+        });
+      });
+      await tick();
+    }
+    /* เอกสารเดียวที่ถูกตัดคนละชุดหน้า → รวมกลับเป็นเอกสารเดียว (ประเภทเดียวกัน · เลขเดียวกัน · หน้าต่อเนื่อง) */
+    docs.sort((a, b) => a.pages[0] - b.pages[0]);
+    const joined = [];
+    for (const d of docs) {
+      const prev = joined[joined.length - 1];
+      const same = prev && prev.kind === d.kind && prev.pages[prev.pages.length - 1] + 1 === d.pages[0] &&
+        catSameNo(prev.decl_no, d.decl_no) && catSameList(prev.invoices, d.invoices) && prev.forbidden === d.forbidden;
+      if (same) {
+        prev.pages = prev.pages.concat(d.pages);
+        prev.evidence = (prev.evidence || []).concat(d.evidence || []);
+        if (d.confidence === 'low') prev.confidence = 'low';
+        ['invoices', 'bls', 'permits', 'refs', 'parts'].forEach(k => d[k].forEach(v => { if (prev[k].indexOf(v) < 0) prev[k].push(v); }));
+        if (!prev.master_bl) prev.master_bl = d.master_bl;
+        if (!prev.house_bl) prev.house_bl = d.house_bl;
+        if (d.note && prev.note.indexOf(d.note) < 0) prev.note = (prev.note ? prev.note + ' · ' : '') + d.note;
+      } else joined.push(d);
+    }
+    src.aiDocs = joined;
+    if (!joined.length) throw new Error('AI ไม่พบเอกสารในไฟล์นี้');
+    put.forEach(function (kv) { catAiCache[kv[0]] = kv[1]; });
+    stat('done');
+    return true;
+  } catch (e) {
+    src.aiErr = (e && e.message) || String(e);
+    src.aiDocs = null;
+    stat('fail');
+    return false;
+  }
+}
+function catNormNo(s) { return String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^0+/, ''); }
+function catSameNo(a, b) { return catNormNo(a) === catNormNo(b); }
+function catSameList(a, b) {
+  if (!a.length && !b.length) return true;
+  const A = a.map(catNormNo), B = b.map(catNormNo);
+  return A.some(x => B.indexOf(x) >= 0);
+}
+
+/* ---------- ขั้นที่ 2: ให้ AI จับคู่เอกสารกับใบขน ---------- */
+async function catAiMatch(docs, onStat) {
+  const decls = [], others = [];
+  docs.forEach(d => {
+    const o = {
+      doc_id: d.id, id: d.id, kind: d.kind, file: d.name.split('/').pop(), pages: d.pages.slice(),   /* เลขหน้าเริ่มที่ 1 ตามที่ AI ตอบ */
+      decl_no: d.decl_no, invoices: d.invoices, master_bl: d.master_bl, house_bl: d.house_bl,
+      bls: d.bls, permits: d.permits, refs: d.refs, parts: d.parts.slice(0, 20)
+    };
+    if (d.kind === '01' && d.decl_no) decls.push(o); else others.push(o);
+  });
+  if (!decls.length || !others.length) return { assignments: {}, conflicts: [], remarks: '', skipped: true };
+  /* ตรวจ Document ID ก่อนส่ง: ต้องมีค่า ไม่ว่าง และไม่ซ้ำกัน */
+  const seenId = {};
+  decls.concat(others).forEach(o => {
+    if (!o.doc_id) throw new Error('พบเอกสารที่ไม่มี Document ID — ไม่ส่งให้ AI จับคู่');
+    if (seenId[o.doc_id]) throw new Error('Document ID ซ้ำกัน: ' + o.doc_id);
+    seenId[o.doc_id] = 1;
+  });
+  if (onStat) onStat('match');
+  const key = 'match|' + decls.map(d => d.doc_id + ':' + d.decl_no).join(',') + '|' + others.map(d => d.doc_id).join(',');
+  let j = catAiCache[key];
+  if (!j) {
+    j = await catAiRun({ action: 'match', payload: { declarations: decls, documents: others } },
+      ph => { if (onStat) onStat(/opus/i.test(ph || '') ? 'match-recheck' : 'match'); });
+    catAiAddUsage(j);
+  }
+  const r = j.result || {}, map = {};
+  const want = others.map(o => o.doc_id), valid = {};
+  decls.forEach(d => valid[String(d.decl_no).toUpperCase()] = 1);
+  (r.assignments || []).forEach(a => {
+    const id = String(a.doc_id || '');
+    if (!id || want.indexOf(id) < 0) return;                       // ไม่รับ ID ที่ไม่ได้ส่งไป (ห้ามสร้างขึ้นเอง)
+    const no = String(a.decl_no || '').toUpperCase().trim();
+    map[id] = {
+      decl_no: valid[no] ? no : '',                                // ห้ามจับคู่กับเลขใบขนที่ไม่มีในรอบนี้
+      also: (a.also_decl_nos || []).map(x => String(x).toUpperCase().trim()).filter(x => valid[x]),
+      matched_on: (a.matched_on || []).map(String),
+      reason: String(a.reason || '') || (valid[no] ? '' : 'AI ตอบเลขใบขนที่ไม่มีในรอบนี้ จึงไม่จับคู่'),
+      confidence: String(a.confidence || 'high')
+    };
+  });
+  /* ตรวจหลังจับคู่: ต้องได้ผลครบทุก Document ID ที่ส่งไป — ไม่ครบ = ไม่นำผลบางส่วนมาใช้ */
+  const lost = want.filter(id => !map[id]);
+  if (lost.length) { delete catAiCache[key]; throw new Error('AI ตอบผลจับคู่ไม่ครบ (' + (want.length - lost.length) + '/' + want.length + ' เอกสาร) — ไม่นำผลบางส่วนมาใช้'); }
+  catAiCache[key] = j;                 /* เก็บเข้า Cache เฉพาะผลที่ครบ */
+  return { assignments: map, conflicts: (r.conflicts || []).map(String), remarks: String(r.remarks || ''),
+           counts: { sent: want.length, got: want.length - lost.length, decls: decls.length } };
+}
+
+/* ============================================================
    MODE CAT — รวมไฟล์ CAT (ส่วนหน้าจอ / อ่านไฟล์ / รวม PDF / EXPORT)
    ============================================================ */
 const CAT_XLSX_URL  = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
 const CAT_CMAP_URL  = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/';
 const CAT_SKIP_RE   = /(^|\/)(__MACOSX\/|\.DS_Store$|Thumbs\.db$|desktop\.ini$|~\$)/i;
 const CAT_FONT      = '"Sarabun","Leelawadee UI","Tahoma","Noto Sans Thai","Loma","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif';
-let catSrc = [];            // ไฟล์ที่อัปโหลดรอบปัจจุบัน {id,name,bytes,kind,pages,text,error}
-let catSets = [];           // ชุดใบขนจาก CATEngine
-let catUnits = [];          // หน่วยเอกสารหลังจับคู่
-let catManual = {};         // unit.key → {sets,type} ที่ผู้ใช้ย้ายเอง
+let catSrc = [];            // ไฟล์ที่อัปโหลดรอบปัจจุบัน {id,name,bytes,sha,kind,pages,text,aiStat,aiErr,aiDocs}
+let catSets = [];           // ชุดใบขนจากผล AI
+let catUnits = [];          // หน่วยเอกสารหลังจับคู่ด้วย AI
+let catMatch = null;        // ผลจับคู่จาก AI (ขั้นที่ 2)
+let catManual = {};         // unit.key → {sets} ที่ผู้ใช้ยืนยันเอง
 let catOpenSets = {};       // ชุดที่กางรายละเอียดอยู่
-let catDup = 0;             // จำนวนไฟล์ซ้ำ (เนื้อหาเหมือนกันทุกไบต์) ที่ข้ามไปในรอบนี้
+let catDup = 0;             // จำนวนไฟล์ซ้ำ (SHA-256 ตรงกัน) ที่ข้ามไปในรอบนี้
 let catLastExport = null;   // สรุปผล EXPORT ล่าสุด (ใช้ตรวจสอบ)
-let catBusy = false, catSeq = 0, catXlsxP = null, catRarP = null;
+let catBusy = false, catSeq = 0, catDocSeq = 0, catXlsxP = null, catRarP = null;
+let catRunSecs = 0;        // ระยะเวลาอ่าน+จับคู่ของรอบล่าสุด (วินาที จริง)
 
 function catSrcById(id) { return catSrc.find(s => s.id === id); }
 function catUnitByKey(k) { return catUnits.find(u => u.key === k); }
-function catTextOf(u) {
-  const s = catSrcById(u.srcId); if (!s) return '';
-  if (s.kind === 'pdf' && s.pages) {
-    if (u.pages) return CATEngine.up(u.pages.map(i => s.pages[i].text).join('\n'));
-    if (s._U == null) s._U = CATEngine.up(s.pages.map(p => p.text).join('\n'));
-    return s._U;
-  }
-  if (s._U == null) s._U = CATEngine.up(s.text || '');
-  return s._U;
-}
 function catTypeLabel(code) { const t = CATEngine.TYPES.find(x => x.code === code); return t ? t.label : code; }
 function catProgress(msg, pct) {
   const box = document.getElementById('cat-progress'); if (!box) return;
@@ -3122,71 +3664,47 @@ function catIsImageExt(ext) { return ext === 'jpg' || ext === 'jpeg' || ext === 
 /* ไฟล์ที่นำไปต่อใน PDF รวมได้: PDF, Excel/CSV (แปลงเป็นหน้า PDF), รูป JPG/PNG */
 function catMergeable(u) { const e = catExt(u.name); return !!u.pages || e === 'pdf' || catIsSheetExt(e) || catIsImageExt(e); }
 
-/* อ่านเนื้อหาจริงภายในไฟล์ */
-async function catReadDoc(src) {
-  const ext = catExt(src.name);
-  try {
-    if (ext === 'pdf') {
-      src.kind = 'pdf';
-      const task = pdfjsLib.getDocument({ data: src.bytes.slice(0), cMapUrl: CAT_CMAP_URL, cMapPacked: true });
-      const doc = await task.promise;
-      src.pages = [];
-      for (let i = 1; i <= doc.numPages; i++) {
-        const pg = await doc.getPage(i);
-        const tc = await pg.getTextContent();
-        const text = tc.items.map(x => x.str).join(' ');
-        /* เก็บตำแหน่งข้อความเฉพาะหน้าที่อาจเป็นใบขน เพื่อประหยัดหน่วยความจำ */
-        const items = CATEngine.findDeclNos(CATEngine.up(text)).length
-          ? tc.items.filter(x => x.str && x.str.trim()).map(x => ({ s: x.str, x: x.transform[4], y: x.transform[5] })) : null;
-        src.pages.push({ text: text, items: items });
-        pg.cleanup();
-        if (i % 8 === 0) await tick();
-      }
-      try { await task.destroy(); } catch (_) {}
-    } else if (catIsSheetExt(ext)) {
-      src.kind = 'sheet';
-      await catLoadXlsx();
-      const wb = XLSX.read(src.bytes, { type: 'array' });
-      const parts = [];
-      for (const sn of wb.SheetNames) {
-        const ws = wb.Sheets[sn]; if (!ws) continue;
-        parts.push(sn, XLSX.utils.sheet_to_csv(ws, { FS: ' | ', blankrows: false }));
-        /* เลข INVOICE สั้น: ผูกค่ากับหัวคอลัมน์/ป้ายด้านซ้าย เพื่อให้มีคำกำกับ */
-        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
-        const invCol = {}; let extra = 0;
-        for (let r = 0; r < rows.length && extra < 4000; r++) {
-          const row = rows[r] || [];
-          for (let c = 0; c < row.length; c++) {
-            const v = String(row[c] == null ? '' : row[c]).trim(); if (!v) continue;
-            if (/INV|บัญชีราคา/i.test(v) && v.length <= 40) { if (r < 40 && invCol[c] == null) invCol[c] = r; continue; }
-            const left = c > 0 ? String(row[c - 1] || '') : '';
-            if ((invCol[c] != null && r > invCol[c]) || (/INV|บัญชีราคา/i.test(left) && left.length <= 40)) { parts.push('INVOICE ' + v); extra++; }
-          }
-        }
-      }
-      src.text = parts.join('\n');
-    } else if (ext === 'txt') {
-      src.kind = 'other';
-      src.text = catZipName(src.bytes);
-    } else { src.kind = 'other'; src.text = ''; }
-  } catch (e) {
-    src.error = (e && e.message) || String(e);
-    if (src.kind === 'pdf') src.pages = [];
-    src.text = '';
+/* ข้อความทุกเซลล์ของไฟล์ Excel/CSV — ส่งให้ AI อ่าน (ไม่ตีความเองด้วย Regex) */
+async function catSheetText(src) {
+  await catLoadXlsx();
+  const wb = XLSX.read(src.bytes, { type: 'array' });
+  const parts = [];
+  for (const sn of wb.SheetNames) {
+    const ws = wb.Sheets[sn]; if (!ws) continue;
+    parts.push('[' + sn + ']', XLSX.utils.sheet_to_csv(ws, { FS: '\t', blankrows: false }));
   }
+  return parts.join('\n').slice(0, 880000);
+}
+
+/* ---------- คิวอ่านเอกสารด้วย AI (ขนานได้ CAT_AI_PAR งาน) ---------- */
+async function catAiReadAll(srcs) {
+  let done = 0;
+  const q = srcs.slice();
+  const step = () => catProgress('🔵 AI กำลังอ่านเอกสาร ' + done + '/' + srcs.length + ' ไฟล์', 15 + 70 * done / Math.max(1, srcs.length));
+  step();
+  const worker = async () => {
+    for (;;) {
+      const s = q.shift(); if (!s) return;
+      await catAiReadSrc(s, () => catRenderFiles());
+      done++; step(); catRenderFiles();
+      await tick();
+    }
+  };
+  const n = Math.min(CAT_AI_PAR, Math.max(1, srcs.length));
+  await Promise.all(Array.from({ length: n }, worker));
 }
 
 async function catAddFiles(list) {
   if (!list || !list.length) return;
   if (catBusy) { toast('กำลังประมวลผลอยู่ กรุณารอสักครู่', 'warning'); return; }
   /* รอบใหม่ = ใช้เฉพาะไฟล์ที่อัปโหลดครั้งนี้ — ล้างไฟล์/ผลจับคู่ของรอบก่อนทั้งหมด ไม่ดึงไฟล์เก่ามาแนบ */
-  catSrc = []; catSets = []; catUnits = []; catManual = {}; catOpenSets = {}; catDup = 0; catLastExport = null;
+  catSrc = []; catSets = []; catUnits = []; catMatch = null; catManual = {}; catOpenSets = {}; catDup = 0; catLastExport = null; catAiLast = null;
   catBusy = true; catUpdateButtons(); catRender();
   const t0 = Date.now();
   try {
     const raw = [];
     for (let i = 0; i < list.length; i++) {
-      catProgress('กำลังรับไฟล์ ' + (i + 1) + '/' + list.length + ' : ' + list[i].path, 10 * (i + 1) / list.length);
+      catProgress('กำลังรับไฟล์ ' + (i + 1) + '/' + list.length + ' : ' + list[i].path, 8 * (i + 1) / list.length);
       try {
         const bytes = new Uint8Array(await list[i].file.arrayBuffer());
         await catExpand(list[i].path, bytes, raw, 0);
@@ -3195,23 +3713,36 @@ async function catAddFiles(list) {
     }
     const seen = {};
     for (let i = 0; i < raw.length; i++) {
-      catProgress('กำลังอ่านเอกสาร ' + (i + 1) + '/' + raw.length + ' : ' + raw[i].name.split('/').pop(), 10 + 85 * (i + 1) / raw.length);
-      const hk = catHash(raw[i].bytes);
-      if (seen[hk]) { catDup++; continue; }           // ไฟล์ซ้ำทุกไบต์ → ไม่นำเข้าซ้ำ
-      seen[hk] = 1;
-      const src = { id: 'c' + (++catSeq), name: raw[i].name, bytes: raw[i].bytes, kind: 'other', pages: null, text: '', error: null };
-      await catReadDoc(src);
-      catSrc.push(src);
-      await tick();
+      catProgress('กำลังตรวจไฟล์ซ้ำ ' + (i + 1) + '/' + raw.length, 8 + 6 * (i + 1) / raw.length);
+      const sha = await catSha256(raw[i].bytes);
+      if (seen[sha]) { catDup++; continue; }           // SHA-256 ตรงกัน = ไฟล์เดียวกัน → ไม่นำเข้าซ้ำ
+      seen[sha] = 1;
+      catSrc.push({ id: 'c' + (++catSeq), name: raw[i].name, bytes: raw[i].bytes, sha: sha, kind: 'other',
+                    pages: 0, text: '', aiStat: 'wait', aiErr: null, aiDocs: null, aiPart: 0, aiParts: 0 });
+      if (i % 20 === 0) await tick();
     }
-    catProgress('กำลังจับคู่เอกสารกับใบขน...', 97);
-    await tick();
-    catAnalyze();
-    if (raw.length) {
-      logAudit('upload_pdf', 'CAT: ' + raw.length + ' ไฟล์', null, true, 'รวมไฟล์ CAT');
-      const pend = catPending().length, cut = catCut().length;
-      toast('อ่านเอกสาร ' + catSrc.length + ' ไฟล์ · พบ ' + catSets.length + ' ใบขน' + (cut ? ' · ตัดออก ' + cut : '') + (catDup ? ' · ไฟล์ซ้ำ ' + catDup : '') + (pend ? ' · รอตรวจสอบ ' + pend : '') + ' (' + ((Date.now() - t0) / 1000).toFixed(1) + ' วินาที)', pend ? 'warning' : 'success');
+    catRender();
+    if (!catSrc.length) return;
+    /* ต้องมี Session ที่เซิร์ฟเวอร์ก่อนเรียก AI — ไม่มีการถอยกลับไปใช้ตัวอ่านเดิม */
+    catProgress('กำลังเชื่อมต่อ AI...', 14);
+    const ai = await catAiEnsure();
+    if (!ai.ok) {
+      catSrc.forEach(s => { s.aiStat = 'fail'; s.aiErr = 'ยังไม่ได้เปิดใช้งาน AI: ' + (ai.msg || ''); });
+      catAnalyze();
+      toast('เปิดใช้งาน AI ไม่สำเร็จ: ' + (ai.msg || '') + ' — ระบบไม่อ่านเอกสารด้วยวิธีอื่น', 'error');
+      return;
     }
+    await catAiReadAll(catSrc);
+    catProgress('🟣 กำลังให้ AI จับคู่เอกสารกับใบขน...', 88);
+    await catAnalyzeAsync();
+    logAudit('upload_pdf', 'CAT: ' + catSrc.length + ' ไฟล์', null, true,
+      'รวมไฟล์ CAT (AI) · ค่า API ' + ((catAiLast && catAiLast.cost) || 0).toFixed(4) + ' USD');
+    catRunSecs = (Date.now() - t0) / 1000;
+    const pend = catPending().length, cut = catCut().length, bad = catSrc.filter(s => s.aiStat === 'fail').length;
+    toast('AI อ่านเอกสาร ' + (catSrc.length - bad) + '/' + catSrc.length + ' ไฟล์ · พบ ' + catSets.length + ' ใบขน' +
+      (cut ? ' · ตัดออก ' + cut : '') + (catDup ? ' · ไฟล์ซ้ำ ' + catDup : '') + (pend ? ' · รอตรวจสอบ ' + pend : '') +
+      (bad ? ' · อ่านไม่สำเร็จ ' + bad : '') + ' (' + ((Date.now() - t0) / 1000).toFixed(1) + ' วินาที)',
+      (pend || bad) ? 'warning' : 'success');
   } catch (e) {
     toast('ประมวลผลล้มเหลว: ' + ((e && e.message) || e), 'error');
   } finally {
@@ -3219,16 +3750,76 @@ async function catAddFiles(list) {
   }
 }
 
-/* จับคู่ใหม่ทั้งชุด โดยคงการย้ายด้วยตนเองของผู้ใช้ไว้ */
+/* อ่านซ้ำเฉพาะไฟล์ที่ล้ม (ชุดที่อ่านสำเร็จแล้วใช้ Cache → ไม่เสียค่า API ซ้ำ) */
+async function catRetry(srcId) {
+  if (catBusy) { toast('กำลังประมวลผลอยู่ กรุณารอสักครู่', 'warning'); return; }
+  const list = srcId ? [catSrcById(srcId)].filter(Boolean) : catSrc.filter(s => s.aiStat === 'fail');
+  if (!list.length) return;
+  catBusy = true; catUpdateButtons();
+  try {
+    const ai = await catAiEnsure();
+    if (!ai.ok) { toast('เปิดใช้งาน AI ไม่สำเร็จ: ' + (ai.msg || ''), 'error'); return; }
+    await catAiReadAll(list);
+    catProgress('🟣 กำลังให้ AI จับคู่เอกสารกับใบขน...', 90);
+    await catAnalyzeAsync();
+    const bad = list.filter(s => s.aiStat === 'fail').length;
+    toast(bad ? 'ยังอ่านไม่สำเร็จ ' + bad + ' ไฟล์' : 'อ่านซ้ำสำเร็จ ' + list.length + ' ไฟล์', bad ? 'error' : 'success');
+  } catch (e) {
+    toast('อ่านซ้ำล้มเหลว: ' + ((e && e.message) || e), 'error');
+  } finally { catBusy = false; catProgress(null); catRender(); }
+}
+
+/* จับคู่ซ้ำเฉพาะขั้นจับคู่ (ไม่อ่านไฟล์ใหม่) */
+async function catRematch() {
+  if (catBusy) { toast('กำลังประมวลผลอยู่ กรุณารอสักครู่', 'warning'); return; }
+  catBusy = true; catUpdateButtons();
+  try {
+    const ai = await catAiEnsure();
+    if (!ai.ok) { toast('เปิดใช้งาน AI ไม่สำเร็จ: ' + (ai.msg || ''), 'error'); return; }
+    await catAnalyzeAsync();
+    toast(catMatch && catMatch.error ? 'ยังจับคู่ไม่สำเร็จ' : 'จับคู่ซ้ำสำเร็จ', catMatch && catMatch.error ? 'error' : 'success');
+  } catch (e) { toast('จับคู่ซ้ำล้มเหลว: ' + ((e && e.message) || e), 'error'); }
+  finally { catBusy = false; catProgress(null); catRender(); }
+}
+
+/* ตรวจระบบ AI แยกรายการ (PROBE) */
+async function catDiagShow() {
+  showModal('ตรวจระบบ AI', '<div class="text-muted">กำลังตรวจสอบ...</div>', [{ label: 'ปิด', cls: 'btn-secondary', action: 'closeModal()' }]);
+  let r;
+  try { r = await catAiDiag(); }
+  catch (e) { r = { rows: [{ k: 'ตรวจระบบ', ok: false, txt: (e && e.message) || String(e) }], ready: false }; }
+  const body = '<div class="cat-diag">' + r.rows.map(x =>
+    '<div class="cat-diag-row"><span class="cat-diag-k">' + esc(x.k) + '</span>' +
+    '<span class="cat-diag-v ' + (x.ok ? 'text-grn' : 'text-red') + '">' + (x.ok ? '✅' : '❌') + ' ' + esc(x.txt) + '</span></div>').join('') + '</div>';
+  showModal(r.ready ? '✅ ระบบ AI พร้อมใช้งาน' : '❌ ระบบ AI ยังไม่พร้อมใช้งาน', body,
+    [{ label: 'ปิด', cls: 'btn-primary', action: 'closeModal()' }]);
+}
+
+/* ให้ AI จับคู่ใหม่ แล้วจัดชุด */
+async function catAnalyzeAsync() {
+  /* Document ID: ไม่ซ้ำกันทุกเอกสาร (ผูกกับไฟล์ต้นทาง) และไม่มีค่าว่าง */
+  const docs = [], used = {};
+  catDocSeq = 0;
+  catSrc.forEach(s => (s.aiDocs || []).forEach((d, k) => {
+    let id = s.id + '#' + (k + 1);
+    while (!id || used[id]) id = s.id + '#' + (k + 1) + '_' + (++catDocSeq);
+    used[id] = 1; d.id = id; docs.push(d);
+  }));
+  try { catMatch = await catAiMatch(docs, st => catProgress(st === 'match-recheck' ? '🟣 Opus กำลังตรวจสอบการจับคู่ซ้ำ...' : '🔵 AI กำลังจับคู่เอกสารกับใบขน...', 90)); }
+  catch (e) { catMatch = { assignments: {}, conflicts: [], remarks: '', error: (e && e.message) || String(e) }; }
+  catAnalyze();
+  if (catMatch && catMatch.error) toast('AI จับคู่เอกสารไม่สำเร็จ: ' + catMatch.error + ' — เอกสารอยู่ในรายการรอตรวจสอบ', 'error');
+}
+
+/* จัดชุดจากผล AI โดยคงการยืนยันด้วยตนเองของผู้ใช้ไว้ */
 function catAnalyze() {
-  const r = CATEngine.analyze(catSrc.map(s => ({ id: s.id, name: s.name, kind: s.kind, pages: s.pages, text: s.text, error: s.error })));
+  const r = CATEngine.analyzeAI(catSrc, catMatch);
   catSets = r.sets; catUnits = r.units;
   const valid = {}; catSets.forEach(s => valid[s.declNo] = 1);
   catUnits.forEach(u => {
     const m = catManual[u.key]; if (!m || u.cut) return;
-    u.manual = true; u.type = m.type || u.type;
+    u.manual = true;
     if (m.sets) { u.sets = m.sets.filter(n => valid[n]); u.multi = u.sets.length > 1; }
-    if (u.type === '07') { u.sets = []; u.multi = false; }
   });
   /* จับคู่ได้แต่ไฟล์ประเภทนี้ต่อเป็น PDF ไม่ได้ → รอตรวจสอบ (ไม่แนบแยกในชุด) */
   catUnits.forEach(u => {
@@ -3247,16 +3838,112 @@ function catUpdateButtons() {
   if (cl) cl.style.display = catSrc.length ? '' : 'none';
 }
 function catCutPages(u) {
-  const s = catSrcById(u.srcId), n = u.pages ? u.pages.length : (s && s.kind === 'pdf' && s.pages ? s.pages.length : 0);
+  const s = catSrcById(u.srcId), n = u.pages ? u.pages.length : (s && s.kind === 'pdf' ? (s.pages || 0) : 0);
   return n ? 'ตัดออก ' + n + ' หน้า · นำไปรวม 0 หน้า' : 'ตัดออกทั้งไฟล์';
 }
 function catUnitPagesTxt(u) {
   const s = catSrcById(u.srcId);
   if (u.pages) return u.pages.length + ' หน้า';
-  if (s && s.kind === 'pdf' && s.pages) return s.pages.length + ' หน้า';
+  if (s && s.kind === 'pdf' && s.pages) return s.pages + ' หน้า';
   if (catIsSheetExt(catExt(u.name))) return 'Excel → PDF A4 แนวตั้ง';
   if (catIsImageExt(catExt(u.name))) return 'รูป → 1 หน้า';
   return 'รวมเป็น PDF ไม่ได้';
+}
+
+/* ---------- สรุปผลรอบนี้ (ตัวเลขจริงทั้งหมด ใช้ส่งรายงาน) ---------- */
+function catRunSummary() {
+  const L = [];
+  const pgTotal = catSrc.reduce((a, s) => a + (s.pages || 0), 0);
+  const pgDone = catSrc.filter(s => s.aiStat === 'done').reduce((a, s) => a + (s.pages || 0), 0);
+  L.push('สรุปผลรอบนี้ — โหมดรวมไฟล์ CAT (' + (document.getElementById('tb-ver') || {}).textContent + ')');
+  L.push('เวลา: ' + new Date().toLocaleString('th-TH'));
+  L.push('ไฟล์ที่อัปโหลด: ' + catSrc.length + ' ไฟล์' + (catDup ? ' (ข้ามไฟล์ซ้ำ ' + catDup + ')' : '') +
+         ' · หน้าทั้งหมด ' + pgTotal + ' · AI อ่านสำเร็จ ' + pgDone + ' หน้า จาก ' + catSrc.filter(s => s.aiStat === 'done').length + ' ไฟล์');
+  const bad = catSrc.filter(s => s.aiStat === 'fail');
+  if (bad.length) L.push('อ่านไม่สำเร็จ ' + bad.length + ' ไฟล์: ' + bad.map(s => s.name.split('/').pop() + ' (' + (s.aiErr || '') + ')').join(' | '));
+  if (catAiLast) L.push('AI: ' + Object.keys(catAiLast.models).join(' + ') + ' · เรียก ' + catAiLast.calls + ' ครั้ง · ใช้ Cache ' + catAiLast.cached +
+    ' · token เข้า ' + catAiLast.tin + ' / ออก ' + catAiLast.tout + ' · ค่า API จริง ' + catAiLast.cost.toFixed(4) + ' USD');
+  if (catRunSecs) L.push('ระยะเวลาอ่าน+จับคู่: ' + catRunSecs.toFixed(1) + ' วินาที');
+  const pending = catPending();
+  L.push('');
+  L.push('ผลแยกรายชุด (' + catSets.length + ' ใบขน):');
+  catSets.forEach(s => {
+    const us = catUnitsOf(s.declNo), st = CATEngine.statusAI(s, us, pending);
+    const plan = CATEngine.planOrderAI(us);
+    const pg = plan.reduce((a, p) => a + (p.unit.pages ? p.unit.pages.length : (catSrcById(p.unit.srcId) || {}).pages || 1), 0);
+    const ex = (catLastExport || []).find(x => x.declNo === s.declNo);
+    L.push('• ' + s.declNo + ' — เอกสาร ' + plan.length + ' รายการ (' + plan.map(p => p.type).join(' ') + ') · ประมาณ ' + pg + ' หน้า' +
+      (ex ? ' · EXPORT แล้ว ' + ex.total + ' หน้า' : '') + ' · สถานะ ' + st.status +
+      (st.missing.length ? ' · ขาด: ' + st.missing.join(', ') : '') + ' · ' + (st.missing.length || st.status !== 'ครบ' ? 'FAIL/ตรวจสอบ' : 'PASS'));
+    L.push('   INVOICE: ' + (s.invoices.join(', ') || '-') + ' · B/L: ' + (s.bls.join(', ') || '-') + (s.permits.length ? ' · ใบอนุญาต: ' + s.permits.join(', ') : ''));
+  });
+  const cut = catCut();
+  if (cut.length) { L.push(''); L.push('ตัดออกตามกฎ ' + cut.length + ' รายการ:'); cut.forEach(u => L.push('• ' + u.name.split('/').pop() + ' — ' + u.cut)); }
+  if (pending.length) { L.push(''); L.push('รอตรวจสอบ ' + pending.length + ' รายการ:'); pending.forEach(u => L.push('• ' + u.name.split('/').pop() + ' — ' + (u.reason || ''))); }
+  if (catMatch && catMatch.conflicts && catMatch.conflicts.length) { L.push(''); L.push('ข้อมูลขัดแย้งที่ AI แจ้ง:'); catMatch.conflicts.forEach(c => L.push('• ' + c)); }
+  if (catMatch && catMatch.remarks) { L.push(''); L.push('หมายเหตุจาก AI: ' + catMatch.remarks); }
+  return L.join('\n');
+}
+function catCopySummary() {
+  const txt = catRunSummary();
+  try { if (navigator.clipboard) navigator.clipboard.writeText(txt); } catch (_) {}
+  showModal('สรุปผลรอบนี้ (คัดลอกได้)', '<textarea class="form-input" id="cat-sum-box" style="width:100%;height:320px;font-family:monospace;font-size:11.5px">' + esc(txt) + '</textarea>',
+    [{ label: 'คัดลอกอีกครั้ง', cls: 'btn-secondary', action: 'document.getElementById("cat-sum-box").select();document.execCommand("copy")' },
+     { label: 'ปิด', cls: 'btn-primary', action: 'closeModal()' }]);
+}
+
+/* ---------- สถานะรายไฟล์ (6 สถานะตามข้อกำหนด) ---------- */
+function catFileStat(s) {
+  if (s.aiStat === 'fail')    return { cls: 'cs-red',  txt: '🔴 อ่านไม่สำเร็จ — อ่านซ้ำ' };
+  if (s.aiStat === 'recheck') return { cls: 'cs-pur',  txt: '🟣 Opus กำลังตรวจสอบซ้ำ' };
+  if (s.aiStat === 'read')    return { cls: 'cs-blu',  txt: '🔵 Sonnet กำลังอ่าน หน้า ' + (s.aiFrom || 1) + '-' + (s.aiTo || s.pages || 1) + '/' + (s.pages || '?') };
+  if (s.aiStat !== 'done')    return { cls: 'cs-gry',  txt: '⏳ รอ AI อ่าน' };
+  const us = catUnits.filter(u => u.srcId === s.id);
+  if (us.length && us.every(u => u.cut)) return { cls: 'cs-gry', txt: '⚪ ตัดออกตามกฎ (เอกสารต้องห้าม)' };
+  if (us.some(u => !u.cut && !u.sets.length)) return { cls: 'cs-org', txt: '🟠 รอตรวจสอบ' };
+  return { cls: 'cs-grn', txt: '🟢 อ่านสำเร็จและจับคู่แล้ว' };
+}
+function catRenderFiles() {
+  const box = document.getElementById('cat-files'); if (!box) return;
+  if (!catSrc.length) { box.innerHTML = ''; return; }
+  const bad = catSrc.filter(s => s.aiStat === 'fail').length;
+  const cost = catAiLast ? catAiLast.cost : 0;
+  const models = catAiLast ? Object.keys(catAiLast.models).join(' + ') : '';
+  let h = '<div class="card"><div class="card-hdr"><div class="card-title">ไฟล์ในรอบนี้ — ' + catSrc.length + ' ไฟล์' +
+    (catDup ? ' (ข้ามไฟล์ซ้ำ ' + catDup + ')' : '') + '</div>' +
+    (bad ? '<button class="btn btn-secondary btn-sm" onclick="catRetry()">↻ อ่านซ้ำทุกไฟล์ที่ล้ม (' + bad + ')</button>' : '') +
+    '<button class="btn btn-secondary btn-sm" onclick="catCopySummary()">📋 คัดลอกสรุปผล</button></div>';
+  /* ความคืบหน้าจากผลประมวลจริง (ไม่ใช่ค่าจำลอง) */
+  const pgTotal = catSrc.reduce((a, s) => a + (s.pages || 0), 0);
+  const pgDone = catSrc.filter(s => s.aiStat === 'done').reduce((a, s) => a + (s.pages || 0), 0);
+  const nRead = catSrc.filter(s => s.aiStat === 'read').length, nRe = catSrc.filter(s => s.aiStat === 'recheck').length;
+  const nMatched = catUnits.filter(u => !u.cut && u.sets.length).length;
+  const nPend = catUnits.filter(u => !u.cut && !u.sets.length).length;
+  h += '<div class="cat-live">' +
+    '<span>ไฟล์ทั้งหมด <b>' + catSrc.length + '</b></span>' +
+    '<span>หน้าทั้งหมด <b>' + pgTotal + '</b></span>' +
+    '<span>อ่านสำเร็จ <b class="text-grn">' + pgDone + '</b> หน้า</span>' +
+    '<span>🔵 Sonnet <b>' + nRead + '</b></span>' +
+    '<span>🟣 Opus <b>' + nRe + '</b></span>' +
+    '<span>จับคู่แล้ว <b class="text-grn">' + nMatched + '</b></span>' +
+    '<span>จับคู่ไม่ได้ <b' + (nPend ? ' class="text-red"' : '') + '>' + nPend + '</b></span>' +
+    '<span>อ่านไม่สำเร็จ <b' + (bad ? ' class="text-red"' : '') + '>' + bad + '</b></span>' +
+    '</div>';
+  if (catMatch && catMatch.error) h += '<div class="cat-ai-note text-red">จับคู่ไม่สำเร็จ: ' + esc(catMatch.error) +
+    ' <button class="btn btn-secondary btn-sm" onclick="catRematch()">↻ จับคู่ซ้ำ</button></div>';
+  if (catAiLast) h += '<div class="cat-ai-note">AI: ' + esc(models || '—') + ' · เรียก ' + catAiLast.calls + ' ครั้ง' +
+    (catAiLast.cached ? ' (ใช้ Cache ' + catAiLast.cached + ')' : '') + ' · ค่า API ประมาณ ' + cost.toFixed(4) + ' USD</div>';
+  h += '<div class="cat-flist">';
+  catSrc.forEach(s => {
+    const st = catFileStat(s);
+    h += '<div class="cat-frow"><div class="cat-fname">' + esc(s.name.split('/').pop()) +
+      '<span class="cat-fsub">' + (s.pages ? s.pages + ' หน้า' : catIsSheetExt(catExt(s.name)) ? 'Excel' : '—') +
+      (s.aiDocs ? ' · AI พบ ' + s.aiDocs.length + ' เอกสาร' : '') + (s.aiErr ? ' · ' + esc(s.aiErr) : '') + '</span></div>' +
+      '<div class="cat-fstat"><span class="cat-chip ' + st.cls + '">' + st.txt + '</span>' +
+      (s.aiStat === 'fail' ? ' <button class="btn btn-secondary btn-sm" onclick="catRetry(\'' + s.id + '\')">↻ อ่านซ้ำ</button>' : '') +
+      '</div></div>';
+  });
+  box.innerHTML = h + '</div></div>';
 }
 
 /* ---------- หน้าต่างรายงาน ---------- */
@@ -3264,13 +3951,14 @@ function catRender() {
   catUpdateButtons();
   const sum = document.getElementById('cat-summary'), rep = document.getElementById('cat-report'), pen = document.getElementById('cat-pending');
   if (!sum) return;
+  catRenderFiles();
   if (!catSrc.length) { sum.innerHTML = ''; rep.innerHTML = ''; pen.innerHTML = ''; return; }
   const pending = catPending();
-  const stats = catSets.map(s => CATEngine.setStatus(s, catUnitsOf(s.declNo), pending, catTextOf));
+  const stats = catSets.map(s => CATEngine.statusAI(s, catUnitsOf(s.declNo), pending));
   const nOk = stats.filter(x => x.status === 'ครบ').length;
   const card = (ic, bg, val, cls, label) => '<div class="cat-stat"><div class="cat-stat-ic" style="background:' + bg + '">' + ic + '</div><div><b' + (cls ? ' class="' + cls + '"' : '') + '>' + val + '</b><span>' + label + '</span></div></div>';
   sum.innerHTML = '<div class="cat-stats">' +
-    card('📄', '#EFF6FF', catSrc.length, '', 'ไฟล์ที่อ่าน') +
+    card('📄', '#EFF6FF', catSrc.filter(s => s.aiStat === 'done').length + '/' + catSrc.length, '', 'ไฟล์ที่ AI อ่านสำเร็จ') +
     card('🗂️', '#FEF3C7', catSets.length, '', 'ใบขน (ชุด)') +
     card('✅', '#DCFCE7', nOk, '', 'ชุดที่ครบ') +
     card('⚠️', '#FEE2E2', pending.length, pending.length ? 'text-red' : '', 'รอตรวจสอบ') +
@@ -3293,7 +3981,7 @@ function catRender() {
       '<td data-l="จำนวนเอกสาร">' + us.length + ' ไฟล์</td>' +
       '<td data-l="สถานะ"><span class="badge ' + cls + '">' + st.status + '</span>' + (why ? '<div class="cat-why">' + esc(why) + '</div>' : '') + '</td></tr>';
     if (open) {
-      const plan = CATEngine.planOrder(us, catTextOf);
+      const plan = CATEngine.planOrderAI(us);
       h += '<tr class="cat-detail-row"><td colspan="5"><div class="cat-detail">' +
         '<div class="cat-detail-hd">📦 ' + esc(s.declNo) + '.zip → ' + esc(s.declNo) + '.pdf (PDF เดียวต่อเนื่อง เรียงตามลำดับด้านล่าง ' + plan.length + ' เอกสาร)' +
         (s.permits.length ? ' · ใบอนุญาตในใบขน: ' + esc(s.permits.join(', ')) : '') +
@@ -3314,14 +4002,14 @@ function catRender() {
 }
 function catUnitRow(u, head, declNo) {
   const k = esc(u.key), base = u.name.split('/').pop() + (u.pages ? ' (หน้า ' + CATEngine.pagesLabel(u.pages) + ')' : '');
-  const known = u.type !== '07', pend = !u.sets.length;
+  const known = !!u.type && u.type !== '07', pend = !u.sets.length;
   let h = '<div class="cat-unit' + (pend ? ' cat-unit-pend' : '') + '">';
   h += '<div class="cat-unit-main">';
   if (head) h += '<div class="cat-out">' + esc(head) + '</div>';
   h += '<div class="cat-orig"><a href="#" onclick="catOpenUnit(\'' + k + '\');return false" title="เปิดดูเอกสาร">📄 ' + esc(base) + '</a>' +
     (u.manual ? ' <span class="badge b-blu">จับคู่เอง</span>' : '') + (u.multi ? ' <span class="badge b-gold">เกี่ยวข้องหลายใบขน</span>' : '') + '</div>';
-  if (pend) h += '<div class="cat-ev">ประเภทที่ระบบตรวจพบ: ' + (known
-    ? '<b class="text-blu">' + u.type + ' ' + esc(catTypeLabel(u.type)) + '</b>'
+  if (pend) h += '<div class="cat-ev">ประเภทที่ AI อ่านได้: ' + (known
+    ? '<b class="text-blu">' + u.type + ' ' + esc(catTypeLabel(u.type)) + '</b>' + (u.conf === 'low' ? ' <span class="badge b-gold">AI ไม่มั่นใจ</span>' : '')
     : '<b class="text-red">ไม่สามารถระบุประเภท</b> — ต้องตรวจสอบเอกสารเพิ่มเติม (ระบบไม่เดาประเภท)') + '</div>';
   if (u.sets.length && u.evidence) h += '<div class="cat-ev">หลักฐาน: ' + esc(u.evidence) + '</div>';
   if (pend && u.reason) h += '<div class="cat-ev text-red">เหตุผล: ' + esc(u.reason) + '</div>';
@@ -3351,7 +4039,7 @@ function catConfirm(key) {
 function catToggle(n) { catOpenSets[n] = !catOpenSets[n]; catRender(); }
 function catMove(key, declNo) {
   const u = catUnitByKey(key); if (!u || u.cut) return;
-  if (declNo && u.type === '07') { toast('ระบบระบุประเภทเอกสารนี้ไม่ได้ จึงนำเข้าชุดไม่ได้ (ไม่เดาประเภท) — ตรวจสอบเอกสารเพิ่มเติม', 'error'); catRender(); return; }
+  if (declNo && (!u.type || u.type === '07')) { toast('AI ระบุประเภทเอกสารนี้ไม่ได้ จึงนำเข้าชุดไม่ได้ (ไม่เดาประเภท) — ตรวจสอบเอกสารเพิ่มเติม', 'error'); catRender(); return; }
   if (declNo && !catMergeable(u)) { toast('ไฟล์ประเภทนี้รวมเป็น PDF ไม่ได้ (รองรับ PDF, Excel, JPG, PNG)', 'error'); catRender(); return; }
   const m = catManual[key] || (catManual[key] = {});
   m.sets = declNo ? [declNo] : []; m.type = u.type;
@@ -3382,17 +4070,53 @@ async function catOpenUnit(key) {
 }
 function catClear() {
   if (catBusy) return;
-  catSrc = []; catSets = []; catUnits = []; catManual = {}; catOpenSets = {}; catDup = 0; catLastExport = null;
+  catSrc = []; catSets = []; catUnits = []; catMatch = null; catManual = {}; catOpenSets = {}; catDup = 0; catLastExport = null; catAiLast = null;
   catRender(); toast('ล้างไฟล์ทั้งหมดแล้ว', 'info');
+}
+
+/* ---------- Page Manifest: ตรวจหน้าหาย / หน้าซ้ำ / หน้าอยู่ผิดใบขน ก่อน EXPORT ---------- */
+function catManifest() {
+  const bySet = {}, use = {};                       // use[srcId][page] = [declNo...]
+  catSets.forEach(s => { bySet[s.declNo] = []; });
+  catSets.forEach(s => {
+    CATEngine.planOrderAI(catUnitsOf(s.declNo)).forEach(p => {
+      const u = p.unit, src = catSrcById(u.srcId);
+      const pages = u.pages ? u.pages.slice() : (src && src.kind === 'pdf' ? Array.from({ length: src.pages || 0 }, (_, i) => i) : [-1]);
+      pages.forEach(i => {
+        if (src && src.kind === 'pdf' && src.pages && i >= 0 && i >= src.pages)
+          bySet[s.declNo].push('ไฟล์ ' + u.name.split('/').pop() + ' อ้างถึงหน้า ' + (i + 1) + ' ที่ไม่มีในไฟล์ (' + src.pages + ' หน้า)');
+        const k = u.srcId; (use[k] = use[k] || {});
+        (use[k][i] = use[k][i] || []).push(s.declNo);
+      });
+    });
+  });
+  Object.keys(use).forEach(srcId => {
+    const src = catSrcById(srcId);
+    Object.keys(use[srcId]).forEach(pg => {
+      const owners = use[srcId][pg].filter((v, i, a) => a.indexOf(v) === i);
+      if (use[srcId][pg].length > 1) {
+        const txt = 'ไฟล์ ' + (src ? src.name.split('/').pop() : srcId) + ' หน้า ' + (Number(pg) + 1) +
+          (owners.length > 1 ? ' ถูกจัดเข้าใบขนหลายชุด (' + owners.join(', ') + ')' : ' ถูกนำมารวมซ้ำในชุดเดียวกัน');
+        owners.forEach(n => { if (bySet[n].indexOf(txt) < 0) bySet[n].push(txt); });
+      }
+    });
+  });
+  return bySet;
 }
 
 /* ---------- รวมเอกสารของหนึ่งใบขนเป็น PDF เดียวต่อเนื่อง (01→07) ---------- */
 async function catBuildSetPdf(set, onStep) {
-  const plan = CATEngine.planOrder(catUnitsOf(set.declNo), catTextOf);
-  /* ด่านสุดท้ายก่อน MERGE: ห้ามมีหมวด 07 / เอกสารต้องห้ามหลุดเข้ามา */
+  const plan = CATEngine.planOrderAI(catUnitsOf(set.declNo));
+  /* ── Safety Guard ก่อน MERGE (ป้องกันเท่านั้น ไม่ใช้แทน AI ในการอ่าน/จับคู่) ──
+     ตรวจเอกสารต้องห้าม: ผลจาก AI + ชื่อไฟล์ BIRTIMP1 / THCI / TAX_INVOICE / Proforma
+     ถ้าผลขัดแย้งกัน (AI ว่าใช้ได้ แต่ Guard ว่าต้องห้าม) → หยุด EXPORT ชุดนี้ พร้อมชื่อไฟล์ หน้า และสาเหตุ */
   for (const p of plan) {
-    const bad = p.unit.cut || (p.type === '07' ? 'หมวด 07' : null) || (p.type !== '01' ? CATEngine.cutRule(catTextOf(p.unit), p.unit.name) : null);
-    if (bad) throw new Error('พบเอกสารต้องห้ามในชุด ' + set.declNo + ': ' + p.unit.name.split('/').pop() + ' (' + bad + ')');
+    const base = p.unit.name.split('/').pop();
+    const pg = p.unit.pages ? ' หน้า ' + CATEngine.pagesLabel(p.unit.pages) : ' (ทั้งไฟล์)';
+    if (p.unit.cut) throw new Error('พบเอกสารต้องห้ามในชุด ' + set.declNo + ': ' + base + pg + ' — ' + p.unit.cut);
+    if (!p.type || p.type === '07') throw new Error('ชุด ' + set.declNo + ': ' + base + pg + ' — AI ระบุประเภทไม่ได้/เป็นหมวด 07 จึงรวมไม่ได้');
+    const byName = CATEngine.cutByName(p.unit.name);
+    if (byName) throw new Error('ผลตรวจขัดแย้งกันในชุด ' + set.declNo + ': ' + base + pg + ' — AI อ่านเป็น ' + p.type + ' ' + catTypeLabel(p.type) + ' แต่ Safety Guard พบว่า ' + byName + ' → หยุด EXPORT ชุดนี้');
   }
   const out = await PDFLib.PDFDocument.create();
   const parts = [], notes = []; let total = 0;
@@ -3406,7 +4130,7 @@ async function catBuildSetPdf(set, onStep) {
       catch (e) { throw new Error('เปิด PDF "' + base + '" เพื่อรวมไม่ได้ (' + e.message + ') — ย้ายไฟล์นี้ไปรอตรวจสอบแล้ว EXPORT ใหม่'); }
       if (from.isEncrypted) throw new Error('PDF "' + base + '" ถูกเข้ารหัส รวมไม่ได้ — ย้ายไฟล์นี้ไปรอตรวจสอบแล้ว EXPORT ใหม่');
       const idx = u.pages ? u.pages.slice() : from.getPageIndices();
-      if (!u.pages && s.pages && s.pages.length && idx.length !== s.pages.length) throw new Error('จำนวนหน้า PDF "' + base + '" ไม่ตรงกับที่อ่านได้ (' + idx.length + ' / ' + s.pages.length + ')');
+      if (!u.pages && s.pages && idx.length !== s.pages) throw new Error('จำนวนหน้า PDF "' + base + '" ไม่ตรงกับที่ AI อ่าน (' + idx.length + ' / ' + s.pages + ')');
       const fitted = await catAppendPdfPages(out, from, idx);
       if (fitted) notes.push(base + ': ' + fitted + ' หน้าไม่ใช่ A4 แนวตั้ง จึงวางหน้าเดิมลงบน A4 แนวตั้งโดยคงสัดส่วน');
       n = idx.length;
@@ -3439,7 +4163,8 @@ async function catBuildSetPdf(set, onStep) {
     const vp = pg.getViewport({ scale: 1 });
     if (Math.abs(vp.width - CAT_A4.w) > 3 || Math.abs(vp.height - CAT_A4.h) > 3) notA4 = notA4 || i;
     const tc = await pg.getTextContent(), ptxt = tc.items.map(x => x.str).join(' ');
-    if (ptxt.indexOf('ใบขนสินค้า') < 0) {                      // หน้าใบขน (MASTER) ไม่ต้องตรวจ
+    const inDecl = parts.some(p => p.type === '01' && i >= p.from && i <= p.to);
+    if (!inDecl) {                                             // หน้าใบขน (MASTER) ไม่ต้องตรวจ
       const why = CATEngine.cutByText(CATEngine.up(ptxt));
       if (why) { badPage = i; badWhy = why; }
     }
@@ -3447,7 +4172,11 @@ async function catBuildSetPdf(set, onStep) {
   }
   try { await task.destroy(); } catch (_) {}
   if (got !== total) throw new Error('PDF รวมของ ' + set.declNo + ' หน้าไม่ครบ (' + got + ' / ' + total + ')');
-  if (badPage) throw new Error('พบเอกสารต้องห้ามใน PDF รวมของ ' + set.declNo + ' หน้า ' + badPage + ' (' + badWhy + ') — ยกเลิกการ EXPORT');
+  if (badPage) {
+    const pp = parts.find(p => badPage >= p.from && badPage <= p.to);
+    throw new Error('ผลตรวจขัดแย้งกัน: PDF รวมของ ' + set.declNo + ' หน้า ' + badPage +
+      (pp ? ' (ไฟล์ ' + pp.name.split('/').pop() + ')' : '') + ' — Safety Guard พบ ' + badWhy + ' → หยุด EXPORT ชุดนี้');
+  }
   if (notA4) throw new Error('PDF รวมของ ' + set.declNo + ' หน้า ' + notA4 + ' ไม่ใช่ A4 แนวตั้ง — ยกเลิกการ EXPORT');
   return { bytes: bytes, parts: parts, total: total, notes: notes };
 }
@@ -3461,11 +4190,18 @@ async function catExport(force) {
       [{ label: 'ปิด', cls: 'btn-primary', action: 'closeModal()' }]);
     return;
   }
-  if (pending.length && !force) {
-    showModal('⚠ มีเอกสารรอตรวจสอบ ' + pending.length + ' ไฟล์',
-      'เอกสารต่อไปนี้ยังจับคู่กับใบขนไม่ได้ จึง<b>ไม่ถูกรวมใน EXPORT ZIP</b> จนกว่าจะกำหนดชุดใบขนให้ถูกต้อง' +
-      '<div class="cat-modal-list">' + pending.slice(0, 30).map(u => '• ' + esc(u.name.split('/').pop()) + (u.pages ? ' (หน้า ' + CATEngine.pagesLabel(u.pages) + ')' : '')).join('<br>') +
-      (pending.length > 30 ? '<br>… และอีก ' + (pending.length - 30) + ' ไฟล์' : '') + '</div>ต้องการ EXPORT ต่อหรือไม่?',
+  const lack = catSets.map(s => ({ no: s.declNo, st: CATEngine.statusAI(s, catUnitsOf(s.declNo), pending) })).filter(x => x.st.missing.length);
+  const nFail = catSrc.filter(s => s.aiStat === 'fail').length;
+  if ((pending.length || lack.length || nFail) && !force) {
+    let b = '';
+    if (nFail) b += '<b class="text-red">AI อ่านไม่สำเร็จ ' + nFail + ' ไฟล์</b> — ควรกด “อ่านซ้ำ” ก่อน EXPORT<br><br>';
+    if (lack.length) b += '<b>ชุดที่เอกสารไม่ครบ ' + lack.length + ' ชุด</b><div class="cat-modal-list">' +
+      lack.slice(0, 20).map(x => '• ' + esc(x.no) + ' — ขาด: ' + esc(x.st.missing.join(', '))).join('<br>') +
+      (lack.length > 20 ? '<br>… และอีก ' + (lack.length - 20) + ' ชุด' : '') + '</div>';
+    if (pending.length) b += '<b>เอกสารรอตรวจสอบ ' + pending.length + ' ไฟล์</b> (ไม่ถูกรวมใน EXPORT ZIP)' +
+      '<div class="cat-modal-list">' + pending.slice(0, 20).map(u => '• ' + esc(u.name.split('/').pop()) + (u.pages ? ' (หน้า ' + CATEngine.pagesLabel(u.pages) + ')' : '')).join('<br>') +
+      (pending.length > 20 ? '<br>… และอีก ' + (pending.length - 20) + ' ไฟล์' : '') + '</div>';
+    showModal('⚠ ตรวจสอบก่อน EXPORT', b + 'ต้องการ EXPORT ต่อหรือไม่?',
       [{ label: 'กลับไปตรวจสอบ', cls: 'btn-secondary', action: 'closeModal()' },
        { label: 'EXPORT ZIP FILE', cls: 'btn-primary', action: 'closeModal();catExport(true)' }]);
     return;
@@ -3477,23 +4213,40 @@ async function catExport(force) {
     const big = new JSZip(), stamp = new Date(), summary = [];
     const sets = catSets.slice().sort((a, b) => CATEngine.natCmp(a.declNo, b.declNo));
     let nPages = 0;
+    const stopped = [], man = catManifest();
     for (let i = 0; i < sets.length; i++) {
       const s = sets[i];
-      const r = await catBuildSetPdf(s, nm => catProgress('กำลังรวม ' + s.declNo + '.pdf (' + (i + 1) + '/' + sets.length + ') : ' + nm, 100 * i / (sets.length + 1)));
-      const sub = new JSZip();
-      sub.file(s.declNo + '.pdf', r.bytes, { date: stamp });
-      big.file(s.declNo + '.zip', await sub.generateAsync({ type: 'uint8array', compression: 'DEFLATE', compressionOptions: { level: 4 } }), { date: stamp, compression: 'STORE' });
-      summary.push({ declNo: s.declNo, total: r.total, parts: r.parts, notes: r.notes });
-      nPages += r.total;
+      try {
+        if ((man[s.declNo] || []).length) throw new Error('Page Manifest ไม่ผ่าน: ' + man[s.declNo].join(' · '));
+        const r = await catBuildSetPdf(s, nm => catProgress('กำลังรวม ' + s.declNo + '.pdf (' + (i + 1) + '/' + sets.length + ') : ' + nm, 100 * i / (sets.length + 1)));
+        const sub = new JSZip();
+        sub.file(s.declNo + '.pdf', r.bytes, { date: stamp });
+        big.file(s.declNo + '.zip', await sub.generateAsync({ type: 'uint8array', compression: 'DEFLATE', compressionOptions: { level: 4 } }), { date: stamp, compression: 'STORE' });
+        summary.push({ declNo: s.declNo, total: r.total, parts: r.parts, notes: r.notes });
+        nPages += r.total;
+      } catch (err) {
+        /* หยุดเฉพาะชุดที่มีปัญหา ชุดอื่นยัง EXPORT ต่อ */
+        stopped.push({ declNo: s.declNo, why: (err && err.message) || String(err) });
+      }
       await tick();
     }
+    if (!summary.length) {
+      showModal('หยุด EXPORT ทุกชุด (' + stopped.length + ')', 'ไม่มีชุดใดผ่านการตรวจสอบ:<div class="cat-modal-list">' +
+        stopped.map(x => '• <b>' + esc(x.declNo) + '</b> — ' + esc(x.why)).join('<br>') + '</div>',
+        [{ label: 'ปิด', cls: 'btn-primary', action: 'closeModal()' }]);
+      return;
+    }
+    if (stopped.length) showModal('⚠ หยุด EXPORT ' + stopped.length + ' ชุด (ชุดอื่น EXPORT ต่อแล้ว)',
+      'ชุดต่อไปนี้ไม่ถูกใส่ใน CAT_ALL.zip:<div class="cat-modal-list">' +
+      stopped.map(x => '• <b>' + esc(x.declNo) + '</b> — ' + esc(x.why)).join('<br>') + '</div>',
+      [{ label: 'รับทราบ', cls: 'btn-primary', action: 'closeModal()' }]);
     /* เอกสารรอตรวจสอบ: แสดงเฉพาะหน้าจอ ไม่ใส่ใน ZIP — ZIP ใหญ่มีเฉพาะ ZIP ย่อยตามเลขใบขน */
     catProgress('กำลังบีบอัด CAT_ALL.zip ...', 96);
     const blob = await big.generateAsync({ type: 'blob', compression: 'STORE' });
     catLastExport = summary;
     dlBlob(blob, 'CAT_ALL.zip');
     const allNotes = []; summary.forEach(x => (x.notes || []).forEach(n => { if (allNotes.indexOf(n) < 0) allNotes.push(n); }));
-    if (allNotes.length) showModal('ℹ ข้อจำกัดที่พบระหว่างแปลงเอกสาร (' + allNotes.length + ')', 'EXPORT สำเร็จ ข้อมูลครบทุกหน้า แต่มีจุดที่ควรทราบ:<div class="cat-modal-list">' + allNotes.map(n => '• ' + esc(n)).join('<br>') + '</div>', [{ label: 'รับทราบ', cls: 'btn-primary', action: 'closeModal()' }]);
+    if (allNotes.length && !stopped.length) showModal('ℹ ข้อจำกัดที่พบระหว่างแปลงเอกสาร (' + allNotes.length + ')', 'EXPORT สำเร็จ ข้อมูลครบทุกหน้า แต่มีจุดที่ควรทราบ:<div class="cat-modal-list">' + allNotes.map(n => '• ' + esc(n)).join('<br>') + '</div>', [{ label: 'รับทราบ', cls: 'btn-primary', action: 'closeModal()' }]);
     logAudit('rename_pdf', 'CAT: ' + sets.length + ' ใบขน / ' + nPages + ' หน้า', 'CAT_ALL.zip', true, 'EXPORT ZIP รวมไฟล์ CAT' + (pending.length ? ' · รอตรวจสอบ ' + pending.length : ''));
     toast('✅ EXPORT CAT_ALL.zip — ' + sets.length + ' ใบขน / ' + nPages + ' หน้า' + (pending.length ? ' · ไม่รวมเอกสารรอตรวจสอบ ' + pending.length + ' ไฟล์' : ''), 'success');
   } catch (e) {
