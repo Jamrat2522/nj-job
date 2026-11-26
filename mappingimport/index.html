@@ -16057,6 +16057,9 @@ function spNumPdf(v){
    ══════════════════════════════════════════════════════════════════════════ */
 const SP_AI_FN = 'nj-invoice-ai-fz-ako2';
 const SP_AI_MAXMS = 9 * 60 * 1000, SP_AI_MAXBYTES = 8 * 1024 * 1024;
+/* [488] PDF ใหญ่ / หลายหน้า: เกิน 7 MB หรือเกิน 30 หน้า → แบ่งเป็นชุดละไม่เกิน 12 หน้าใหม่ (+ ซ้อนหน้าก่อนหน้า 1 หน้า) และไม่เกิน 6 MB ต่อชุด
+   ไฟล์ที่ไม่เกินเกณฑ์อ่านทั้งไฟล์ในคำขอเดียวตามเดิม (Cache เดิมยังใช้ได้) */
+const SP_SPLIT = { bytes: 7 * 1024 * 1024, pages: 30, partPages: 12, partBytes: 6 * 1024 * 1024 };
 const SP_AI_CHECKS = { function:'Edge Function', session:'Session / สิทธิ์ผู้ใช้', api_key:'ANTHROPIC_API_KEY', jobs:'ตาราง nj_ai_jobs', cost_guard:'ระบบ COST GUARD', budget:'วงเงินคงเหลือ' };
 const spRd = { seq:0, running:false, mapping:false, intake:0, tried:false, probe:null, probing:null, unk:[], clcSheet:'', rmSheet:'' };
 function spEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -16176,8 +16179,8 @@ function spRenderAiLine(){
   else { el.dataset.state = 'err';
     el.innerHTML = '✕ AI ยังไม่พร้อมใช้งาน — ' + spEsc(p.msg) + '<button type="button" onclick="spAiProbe(true)">ตรวจอีกครั้ง</button>'; }
 }
-async function spAiRead(f, buf, m){
-  let j = await spAiPost({ name:String(f.name).slice(-200), mime:'application/pdf', pdf: spB64(buf) });
+async function spAiRead(f, buf, m, part){
+  let j = await spAiPost(Object.assign({ name:String(f.name).slice(-200), mime:'application/pdf', pdf: spB64(buf) }, part ? { part:{ pages:part.pages } } : {}));
   const t0 = Date.now();
   while(j && j.success && j.pending && j.job_id){
     if(Date.now() - t0 > SP_AI_MAXMS) throw new Error('AI ใช้เวลานานเกินกำหนด');
@@ -16190,6 +16193,120 @@ async function spAiRead(f, buf, m){
   if(!j || !j.success) throw new Error((j && j.msg) || 'ไม่ทราบสาเหตุ');
   if(!j.result || !Array.isArray(j.result.invoices)) throw new Error('AI ไม่ได้ส่งผลแบบมีโครงสร้าง');
   return j;
+}
+/* ── [488] PDF ใหญ่ / หลายหน้า — แบ่งเป็นชุดหน้า (ยังเป็น PDF ต้นฉบับ) → AI อ่านทีละชุด → รวมกลับ ──
+   • ชุดที่ 2 เป็นต้นไป "ซ้อนหน้าสุดท้ายของชุดก่อน 1 หน้า": รายการที่ขึ้นหน้าใหม่กลางรายการถูกอ่านครบในชุดที่เห็นทั้งสองหน้า
+     และหน้าที่ซ้อนถูกอ่าน 2 รอบ → ใช้เทียบกันเป็นการตรวจรอยต่อ (ไม่ตรงกัน = WARNING)
+   • ชุดที่อ่านสำเร็จเก็บไว้กับไฟล์ (m.parts) → Retry อ่านเฉพาะชุดที่ผิดพลาด · ชุดเดิม = ไบต์เดิม → Cache 3 วันของ Edge ใช้ได้ */
+function spPartPlan(nPages){
+  const out = []; let a = 1;
+  while(a <= nPages){ const b = Math.min(nPages, a + SP_SPLIT.partPages - 1); out.push({ from: a > 1 ? a - 1 : 1, own: a, to: b, st:'wait', res:null, msg:'', cached:false }); a = b + 1; }
+  return out;
+}
+async function spPartBytes(src, from, to){
+  const doc = await PDFLib.PDFDocument.create({ updateMetadata:false });
+  const idx = []; for(let p = from; p <= to; p++) idx.push(p - 1);
+  (await doc.copyPages(src, idx)).forEach(pg => doc.addPage(pg));
+  return await doc.save({ useObjectStreams:true });
+}
+async function spAiReadParts(f, buf, m){
+  if(typeof PDFLib === 'undefined') throw new Error('ไม่พบตัวแบ่งหน้า PDF (pdf-lib) — แบ่งไฟล์ใหญ่ไม่ได้');
+  const N = m.pages;
+  let src; try{ src = await PDFLib.PDFDocument.load(buf, { ignoreEncryption:true, updateMetadata:false }); }
+  catch(e){ throw new Error('เปิด PDF เพื่อแบ่งหน้าไม่ได้ (' + ((e && e.message) || e) + ')'); }
+  if(!Array.isArray(m.parts) || m.partsN !== N){ m.parts = spPartPlan(N); m.partsN = N; }
+  const done = () => m.parts.reduce((a, p) => a + (p.st === 'ok' ? p.to - p.own + 1 : 0), 0);
+  let netDown = null;
+  for(let i = 0; i < m.parts.length; i++){
+    const p = m.parts[i];
+    if(p.st === 'ok') continue;                               // อ่านสำเร็จแล้ว — ไม่อ่านซ้ำ
+    m.part = { from:p.from, to:p.to, total:N, done:done(), i:i + 1, n:m.parts.length }; m.sec = 0; m.st = 'run';
+    spRenderPdfList();
+    try{
+      let bytes = await spPartBytes(src, p.from, p.to);
+      if(bytes.length > SP_SPLIT.partBytes && p.to > p.own){       // ชุดนี้ยังใหญ่เกิน → ผ่าครึ่ง (ทำซ้ำได้จนเหลือ 1 หน้าใหม่ต่อชุด)
+        const mid = p.own + Math.floor((p.to - p.own) / 2);
+        m.parts.splice(i, 1, { from:p.from, own:p.own, to:mid, st:'wait', res:null, msg:'', cached:false },
+                             { from:mid, own:mid + 1, to:p.to, st:'wait', res:null, msg:'', cached:false });
+        i--; continue;
+      }
+      if(bytes.length > SP_AI_MAXBYTES) throw new Error('หน้า ' + p.own + ' มีขนาดเกิน 8 MB ในหน้าเดียว — AI รับไม่ได้');
+      const j = await spAiRead(f, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), m, { pages:p.to - p.from + 1 });
+      if(Number(j.result.pages_total) !== p.to - p.from + 1 || j.result.complete !== true) throw new Error('AI อ่านชุดนี้ไม่ครบทุกหน้า');
+      p.res = j.result; p.cached = !!j.cached; p.st = 'ok'; p.msg = '';
+    }catch(e){
+      p.st = 'err'; p.res = null; p.msg = (e && e.message) ? e.message : String(e);
+      if(e && e.spNet){ netDown = e; break; }                 // AI / เครือข่ายใช้ไม่ได้ → หยุดทั้งไฟล์ (ชุดถัดไปก็จะล้มเหมือนกัน)
+    }
+    m.st = 'run';
+  }
+  m.part = { from:0, to:0, total:N, done:done(), i:m.parts.length, n:m.parts.length };
+  const bad = m.parts.filter(p => p.st !== 'ok');
+  if(bad.length){
+    const e2 = new Error('อ่านได้ ' + done() + '/' + N + ' หน้า — ยังไม่สำเร็จ: ' + bad.filter(p => p.st === 'err').map(p => 'หน้า ' + p.own + '–' + p.to + ' (' + p.msg + ')').join(' · ')
+      + (bad.some(p => p.st === 'wait') ? ' · และยังไม่ได้อ่านอีก ' + bad.filter(p => p.st === 'wait').length + ' ชุด' : '') + ' — กด Retry เพื่ออ่านเฉพาะส่วนที่เหลือ');
+    if(netDown) e2.spNet = true;
+    throw e2;
+  }
+  return { result: spAiMerge(m.parts, N), cached: m.parts.every(p => p.cached) };
+}
+/* รวมผลของทุกชุดกลับเป็นผลอ่านทั้งไฟล์ (รูปเดียวกับที่ Edge ส่งเมื่ออ่านทั้งไฟล์) — ลำดับ ITEM ตามเอกสาร · ไม่ซ้ำ · ไม่ตกหล่น */
+function spAiMerge(parts, N){
+  const T = v => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+  const HEAD = ['doc_date','cur','amount','delivery_conditions','po_no'];
+  const CMP = ['mat','cust','qty','unit','desig','price','per','value','coo','delivery','po_no','nw'];
+  const invs = [], byNo = {}, warn = [], reasons = []; let anyOpus = false, note = '';
+  parts.forEach((p, k) => {
+    const r = p.res, off = p.from - 1;
+    if(/opus/i.test(String(r.read_by || ''))) anyOpus = true;
+    const rc = r.recheck || {};
+    if(Array.isArray(rc.reasons) && rc.reasons.length && rc.done !== true){ rc.reasons.forEach(x => reasons.push('หน้า ' + p.own + '–' + p.to + ': ' + x)); if(!note) note = rc.note || 'ตรวจซ้ำไม่สำเร็จ'; }
+    (Array.isArray(r.warnings) ? r.warnings : []).forEach(x => warn.push('หน้า ' + p.own + '–' + p.to + ': ' + x));
+    for(const iv of (r.invoices || [])){
+      const no = T(iv.doc_no); if(!no) throw new Error('หน้า ' + p.own + '–' + p.to + ': อ่าน Document No. ไม่ได้');
+      let t = byNo[no];
+      if(!t){ t = byNo[no] = { doc_no:iv.doc_no, doc_date:null, cur:null, amount:null, delivery_conditions:null, po_no:null, pages:[], items:[] }; invs.push(t); }
+      for(const h of HEAD) if(t[h] == null && iv[h] != null && T(iv[h]) !== '') t[h] = iv[h];
+      const items = (iv.items || []).map(it => Object.assign({}, it, { page: Number(it.page) + off }));
+      if(k > 0 && p.from < p.own){
+        /* หน้าที่ซ้อน (= หน้าสุดท้ายของชุดก่อน): ใช้ผลของชุดนี้ซึ่งเห็นหน้าถัดไปด้วย แทนผลของชุดก่อน — และเทียบสองรอบ */
+        const P = p.from, prev = t.items.filter(x => x.page === P), now = items.filter(x => x.page === P);
+        const tag = 'Invoice ' + no + ' หน้า ' + P;
+        if(prev.map(x => T(x.item)).join(',') !== now.map(x => T(x.item)).join(','))
+          warn.push(tag + ': อ่านสองรอบได้รายการไม่ตรงกัน (' + (prev.map(x => T(x.item)).join(', ') || '-') + ' ↔ ' + (now.map(x => T(x.item)).join(', ') || '-') + ')');
+        else prev.forEach((a, i2) => { const b = now[i2];
+          for(const c of CMP){ const va = T(a[c]), vb = T(b[c]);
+            if(va && vb && va !== vb) warn.push(tag + ' Item ' + T(a.item) + ': อ่านสองรอบได้ค่าไม่ตรงกัน (' + c + ': ' + va + ' ↔ ' + vb + ')');
+            if(va && !vb) b[c] = a[c]; } });
+        t.items = t.items.filter(x => x.page !== P);
+      }
+      for(const it of items){ if(!(Number.isInteger(it.page) && it.page >= p.from && it.page <= p.to)) throw new Error('หน้า ' + p.own + '–' + p.to + ': เลขหน้าที่ AI รายงานไม่ถูกต้อง (Item ' + T(it.item) + ')'); t.items.push(it); }
+    }
+  });
+  if(!invs.length) throw new Error('ไม่พบ Invoice ใน PDF');
+  for(const t of invs){
+    const tag = 'Invoice ' + T(t.doc_no);
+    if(!t.items.length) throw new Error(tag + ': ไม่พบรายการสินค้า');
+    const seen = {}; let last = -1, sum = 0, sumOk = true; const steps = {};
+    for(const it of t.items){
+      const no = T(it.item), n = parseInt(no, 10);
+      if(seen[no]) throw new Error(tag + ': Item ' + no + ' ซ้ำหลังรวมชุดหน้า — ไม่นำผลมาใช้');
+      seen[no] = true;
+      if(isFinite(n)){ if(n <= last) throw new Error(tag + ': ลำดับ Item สลับ (' + no + ') หลังรวมชุดหน้า — ไม่นำผลมาใช้'); if(last >= 0) steps[n - last] = (steps[n - last] || 0) + 1; last = n; }
+      const q = spAiQty(it.qty), pr = it.price ? spNumPdf(T(it.price)) : null, v = it.value ? spNumPdf(T(it.value)) : null, per = spNumPdf(T(it.per).replace(/[^\d.,]/g, '')) || 1;
+      if(v != null) sum += v; else if(q != null && pr != null) sum += q * pr / per; else sumOk = false;
+    }
+    const ks = Object.keys(steps);
+    if(ks.length > 1) warn.push(tag + ': เลข Item ไม่ต่อเนื่องสม่ำเสมอ — โปรดตรวจว่าไม่มีรายการตกหล่น');
+    const amt = t.amount ? spNumPdf(T(t.amount)) : null;
+    if(sumOk && amt != null && Math.abs(sum - amt) > Math.max(0.05, 0.01 * t.items.length))
+      warn.push(tag + ': ผลรวมรายการ ' + sum.toFixed(2) + ' ไม่ตรงกับยอดรวมของเอกสาร ' + amt.toFixed(2));
+    t.pages = Array.from(new Set(t.items.map(x => x.page)));
+  }
+  const pages = []; for(let i = 1; i <= N; i++) pages.push(i);
+  return { pages_total:N, pages_read:pages, complete:true, remarks:null, invoices:invs,
+           read_by: anyOpus ? 'claude-opus-5-5' : 'claude-sonnet-5-5', recheck:{ done:false, model: reasons.length ? 'claude-opus-5-5' : null, reasons, note },
+           warnings: warn, parts: parts.length, merged:true };
 }
 /* จำนวนตามที่พิมพ์ → number : "600" / "1,200" ใช้กฎเดิม (spNum) · รูปแบบอื่นใช้กฎตัวคั่นของ spNumPdf */
 function spAiQty(t){
@@ -16282,11 +16399,14 @@ async function spAiRun(){
         if(!(u8[0] === 0x25 && u8[1] === 0x50 && u8[2] === 0x44 && u8[3] === 0x46)) throw new Error('เนื้อไฟล์ไม่ใช่ PDF');
         try{ const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf.slice(0)) }).promise; m.pages = pdf.numPages || 0; }catch(_){ m.pages = 0; }   // นับหน้าเท่านั้น — ไม่อ่านข้อความ
         spRenderPdfList();
-        if(f.size > SP_AI_MAXBYTES) throw new Error('ไฟล์ใหญ่เกิน 8 MB');
         const pr = await spAiProbe(!!m.retry);     // [487] Retry = ตรวจความพร้อมใหม่จริง ไม่ใช้ผลตรวจเดิม
         m.retry = false;
         if(!pr.ready){ const e2 = new Error('AI ยังไม่พร้อมใช้งาน — ' + pr.msg); e2.spNet = true; throw e2; }
-        const j = await spAiRead(f, buf, m);
+        /* [488] ไม่ปฏิเสธไฟล์เกิน 8 MB อีกต่อไป — เกินเกณฑ์ขนาด/จำนวนหน้า = แบ่งชุดหน้าอัตโนมัติ */
+        const big = f.size > SP_SPLIT.bytes || m.pages > SP_SPLIT.pages;
+        if(big && !m.pages) throw new Error('นับจำนวนหน้า PDF ไม่ได้ จึงแบ่งไฟล์ใหญ่ไม่ได้');
+        if(!big){ m.parts = null; m.part = null; }
+        const j = big ? await spAiReadParts(f, buf, m) : await spAiRead(f, buf, m);
         const list = spAiToItems(j.result, f.name, m.pages);
         if(!m.pages) m.pages = Number(j.result.pages_total) || 0;
         m.ai = j.result; m.list = list; m.n = list.length; m.cached = !!j.cached;
@@ -16294,11 +16414,13 @@ async function spAiRun(){
         /* [487] ผลผิดปกติที่ต้องให้ Opus ตรวจซ้ำ แต่ Opus ตรวจไม่สำเร็จ → ต้องขึ้น WARNING (ห้ามแสดงเหมือนผ่านปกติ) */
         const rc = j.result.recheck || {};
         m.opusFail = !!(Array.isArray(rc.reasons) && rc.reasons.length && rc.done !== true);
+        m.risk = !!(j.result.merged && m.warn.length);        // [488] รอยต่อชุดหน้า / ยอดรวม / ลำดับ Item มีข้อสังเกต → WARNING (ไม่แสดงเป็นผ่านปกติ)
+        m.nParts = j.result.merged ? j.result.parts : 0; m.part = null;
         if(m.opusFail) m.warn.unshift('WARNING: Opus ตรวจซ้ำไม่สำเร็จ' + (rc.note ? ' (' + rc.note + ')' : '') + ' — ผลนี้อ่านโดย Sonnet และยังไม่ผ่านการตรวจซ้ำ โปรดตรวจกับ PDF ต้นฉบับ');
         m.aiDown = false;
         m.st = 'ok'; m.msg = '';
       }catch(e){
-        m.st = 'err'; m.list = null; m.ai = null; m.retry = false;
+        m.st = 'err'; m.list = null; m.ai = null; m.retry = false; m.risk = false;
         m.aiDown = !!(e && e.spNet);
         m.msg = (e && e.message) ? e.message : String(e);
         try{ console.warn('[FZ AKO 2] AI อ่านไม่สำเร็จ', f.name, m.msg); }catch(_){}
@@ -16334,13 +16456,18 @@ function spRetryPdf(i){
 function spStText(f, kind){
   const m = spMeta(f), sec = m.sec ? ' · ' + m.sec + ' วินาที' : '';
   if(m.st === 'wait') return 'รออ่าน';
+  if(kind === 'pdf' && m.part && (m.st === 'run' || m.st === 'opus')){   /* [488] ความคืบหน้าจริงของไฟล์ที่แบ่งชุด: หน้า + เปอร์เซ็นต์ */
+    const pt = m.part, pc = pt.total ? Math.floor(pt.done * 100 / pt.total) : 0;
+    return (m.st === 'opus' ? 'กำลังตรวจสอบด้วย Opus' : 'กำลังอ่านด้วย AI') + (pt.from ? ' — หน้า ' + pt.from + '–' + pt.to + ' จาก ' + pt.total + ' (ชุด ' + pt.i + '/' + pt.n + ')' : '')
+      + ' · อ่านแล้ว ' + pt.done + '/' + pt.total + ' หน้า (' + pc + '%)' + sec;
+  }
   if(m.st === 'run')  return kind === 'pdf' ? 'กำลังอ่านด้วย AI' + (m.pages ? ' · ทั้งไฟล์ ' + m.pages + ' หน้า' : '') + sec : 'กำลังอ่าน Excel…';
   if(m.st === 'opus') return 'กำลังตรวจสอบด้วย Opus' + (m.pages ? ' · ทั้งไฟล์ ' + m.pages + ' หน้า' : '') + sec;
   if(m.st === 'err')  return 'อ่านไม่สำเร็จ — ' + (m.msg || 'ไม่ทราบสาเหตุ');
   const P = spState.pdf || [];
   const waitMap = kind !== 'dwak' && !(P.length > 0 && P.every(spFileOk) && spFileOk(spState.inv) && spFileOk(spState.rm));
   return (kind === 'pdf'
-      ? (m.opusFail ? 'อ่านแล้ว (มี WARNING) — ' : 'อ่านสำเร็จ — ') + m.pages + ' หน้า / ' + m.n + ' รายการ' + (/opus/i.test(m.by) ? ' · ตรวจซ้ำด้วย Opus แล้ว' : '') + (m.cached ? ' · ใช้ผลเดิมจาก Cache' : '')
+      ? ((m.opusFail || m.risk) ? 'อ่านแล้ว (มี WARNING) — ' : 'อ่านสำเร็จ — ') + m.pages + ' หน้า / ' + m.n + ' รายการ' + (m.nParts ? ' · อ่าน ' + m.nParts + ' ชุดหน้า' : '') + (/opus/i.test(m.by) ? ' · ตรวจซ้ำด้วย Opus แล้ว' : '') + (m.cached ? ' · ใช้ผลเดิมจาก Cache' : '')
       : 'อ่านสำเร็จ — ' + m.n + ' รายการ' + (m.sheet ? ' · Sheet "' + m.sheet + '"' : ''))
     + (waitMap ? ' · รอไฟล์สำหรับ Mapping' : '')
     + ((m.warn && m.warn.length) ? '\n⚠ ' + m.warn.join('\n⚠ ') : '');
@@ -16506,7 +16633,7 @@ function spRenderPdfList(){
   if(!box) return;
   const fs = spState.pdf || [];
   box.innerHTML = fs.length
-    ? fs.map((f,i)=>{ const m = spMeta(f), cls = m.st === 'ok' ? (m.opusFail ? 'warn' : 'ok') : m.st === 'err' ? 'err' : 'run';
+    ? fs.map((f,i)=>{ const m = spMeta(f), cls = m.st === 'ok' ? ((m.opusFail || m.risk) ? 'warn' : 'ok') : m.st === 'err' ? 'err' : 'run';
         return '<div class="doa-file-entry '+cls+'" data-st="'+m.st+'"><span class="dfn">'+spEsc(f.name)+'</span>'
         +(m.st === 'err' ? '<button class="sp-retry" onclick="event.preventDefault();event.stopPropagation();spRetryPdf('+i+')">↻ Retry</button>' : '')
         +'<button class="drm" onclick="event.preventDefault();event.stopPropagation();spRemovePdf('+i+')">×</button>'
@@ -28343,7 +28470,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local487';
+const DEPLOY_VERSION = 'local488';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
