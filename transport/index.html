@@ -773,7 +773,7 @@ html, body { overflow-x: hidden !important; }
 <body>
 
 <!-- ══ DEPLOY VERSION (แสดงมุมขวาบน) ══ -->
-<div id="deployVerBadge" data-version="local102" style="position:fixed;top:4px;right:8px;z-index:300;pointer-events:none;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.3px;color:#F5A623;background:#111827;border:1px solid #374151;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.18);padding:2px 8px;white-space:nowrap;">Deploy github local102</div>
+<div id="deployVerBadge" data-version="local105" style="position:fixed;top:4px;right:8px;z-index:300;pointer-events:none;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.3px;color:#F5A623;background:#111827;border:1px solid #374151;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.18);padding:2px 8px;white-space:nowrap;">Deploy github local105</div>
 
 <!-- ══ LOGIN ══ -->
 <div id="loginScreen">
@@ -991,13 +991,17 @@ html, body { overflow-x: hidden !important; }
 
     </div>
     <!-- ══ /ปิดบัญชีชิปปิ้ง TAB ══ -->
-    <!-- ══ 📋 OVERDUE TAB (local102 · แยกอิสระจากโหมดอื่น) ══ -->
+    <!-- ══ 📋 OVERDUE TAB (local102 · แยกอิสระจากโหมดอื่น · local103 เพิ่มรูปแบบ DSV AIR SERVICE · local104 แยก SERVICE / ADVANCE · local105 เพิ่ม DSV AIR ADVANCE) ══ -->
     <div class="tab-panel" id="tab-overdue">
       <div class="ovd-wrap">
         <div class="ovd-head">
           <div class="ovd-title">
             <span class="ovd-title-ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M9 10h6M9 14h6M9 18h4"/></svg></span>
             <div><h2>OVERDUE</h2><p>ระบบติดตามยอดค้างชำระ</p></div>
+          </div>
+          <div class="ovd-cats" id="ovd_cats" role="tablist" aria-label="หมวด OVERDUE">
+            <button type="button" data-cat="service" class="active">🔵 SERVICE</button>
+            <button type="button" data-cat="advance">🟠 ADVANCE</button>
           </div>
         </div>
 
@@ -1008,8 +1012,10 @@ html, body { overflow-x: hidden !important; }
         </div>
 
         <div class="ovd-toolbar">
-          <button type="button" id="ovd_uploadBtn" class="ovd-btn ovd-btn-upload"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg><span>UPLOAD FILE</span></button>
-          <input type="file" id="ovd_file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" multiple style="position:fixed;left:-10000px;opacity:0;width:1px;height:1px;"/>
+          <button type="button" id="ovd_uploadSerBtn" class="ovd-btn ovd-btn-ser" title="นำเข้าไฟล์ SERVICE"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg><span>UPLOAD SER</span></button>
+          <button type="button" id="ovd_uploadAdBtn" class="ovd-btn ovd-btn-upload" title="นำเข้าไฟล์ ADVANCE"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg><span>UPLOAD AD</span></button>
+          <input type="file" id="ovd_fileSer" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" multiple style="position:fixed;left:-10000px;opacity:0;width:1px;height:1px;"/>
+          <input type="file" id="ovd_fileAd" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" multiple style="position:fixed;left:-10000px;opacity:0;width:1px;height:1px;"/>
           <div class="ovd-exp-wrap" id="ovd_expWrap">
             <button type="button" id="ovd_exportBtn" class="ovd-btn ovd-btn-export"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg><span>EXPORT EXCEL ▾</span></button>
             <div class="ovd-exp-menu" id="ovd_expMenu" hidden>
@@ -1034,6 +1040,8 @@ html, body { overflow-x: hidden !important; }
           <select id="ovd_fCs" title="Name CS"><option value="">Name CS: ทั้งหมด</option></select>
           <button type="button" id="ovd_clearBtn" class="ovd-btn ovd-btn-light ovd-btn-sm">ล้างตัวกรอง</button>
         </div>
+
+        <div class="ovd-formats" id="ovd_formats" hidden></div>
 
         <div class="ovd-tabs" role="tablist" aria-label="สถานะชำระเงิน">
           <button type="button" data-tab="all" class="active">ทั้งหมด (<span id="ovd_tAll">0</span>)</button>
@@ -1233,6 +1241,17 @@ html, body { overflow-x: hidden !important; }
 }
 #tab-overdue .ovd-wrap{ background:#FFFFFF; border:1px solid #E5E7EB; border-radius:14px; padding:18px 20px;
   box-shadow:0 1px 2px rgba(16,24,40,.04),0 2px 8px rgba(16,24,40,.05); }
+#tab-overdue .ovd-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+#tab-overdue .ovd-cats{ display:inline-flex; gap:4px; padding:4px; background:#F1F5F9; border:1px solid #E5E7EB; border-radius:12px; }
+#tab-overdue .ovd-cats button{ height:36px; padding:0 18px; border:none; border-radius:9px; background:transparent; color:#4B5563;
+  font-family:'Sarabun',sans-serif; font-size:14px; font-weight:700; cursor:pointer; letter-spacing:.3px; }
+#tab-overdue .ovd-cats button:hover{ background:#FFFFFF; }
+#tab-overdue .ovd-cats button.active[data-cat="service"]{ background:#2563EB; color:#FFFFFF; box-shadow:0 2px 8px rgba(37,99,235,.28); }
+#tab-overdue .ovd-cats button.active[data-cat="advance"]{ background:#EA580C; color:#FFFFFF; box-shadow:0 2px 8px rgba(234,88,12,.28); }
+#tab-overdue[data-cat="service"] .ovd-caption{ color:#1E3A8A; }
+#tab-overdue[data-cat="advance"] .ovd-caption{ color:#9A3412; }
+#tab-overdue .ovd-btn-ser{ background:#2563EB; color:#FFFFFF; }
+#tab-overdue .ovd-btn-ser:hover:not(:disabled){ background:#1D4ED8; }
 #tab-overdue .ovd-title{ display:flex; align-items:center; gap:10px; }
 #tab-overdue .ovd-title-ic{ width:40px; height:40px; border-radius:10px; background:#FFF1E0; color:#EA6C00; display:flex; align-items:center; justify-content:center; flex:none; }
 #tab-overdue .ovd-title h2{ font-size:20px; font-weight:700; color:#1F2937; line-height:1.2; letter-spacing:.3px; }
@@ -1279,6 +1298,13 @@ html, body { overflow-x: hidden !important; }
 #tab-overdue .ovd-q{ flex:1 1 300px; min-width:220px; }
 #tab-overdue #ovd_fCompany, #tab-overdue #ovd_fInvoice, #tab-overdue #ovd_fJob{ width:150px; }
 #tab-overdue .ovd-date{ display:inline-flex; align-items:center; gap:6px; font-size:13px; color:#4B5563; }
+#tab-overdue .ovd-formats{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:12px; }
+#tab-overdue .ovd-formats[hidden]{ display:none; }
+#tab-overdue .ovd-formats-lbl{ font-size:13px; font-weight:700; color:#4B5563; margin-right:2px; }
+#tab-overdue .ovd-formats button{ height:32px; padding:0 14px; border-radius:16px; border:1px solid #D1D5DB; background:#FFFFFF; color:#1F2937;
+  font-family:'Sarabun',sans-serif; font-size:13.5px; font-weight:600; cursor:pointer; }
+#tab-overdue .ovd-formats button:hover{ border-color:#1D4ED8; color:#1D4ED8; }
+#tab-overdue .ovd-formats button.active{ background:#1D4ED8; border-color:#1D4ED8; color:#FFFFFF; }
 #tab-overdue .ovd-tabs{ display:flex; gap:4px; margin:12px 0 8px; border-bottom:1px solid #E5E7EB; }
 #tab-overdue .ovd-tabs button{ background:none; border:none; border-bottom:3px solid transparent; padding:8px 14px; font-family:'Sarabun',sans-serif;
   font-size:14px; font-weight:700; cursor:pointer; margin-bottom:-1px; }
@@ -1334,6 +1360,8 @@ html, body { overflow-x: hidden !important; }
 @media (max-width:768px){
   #tab-overdue{ padding-top:40px; }
   #tab-overdue .ovd-wrap{ padding:14px 12px; }
+  #tab-overdue .ovd-cats{ width:100%; }
+  #tab-overdue .ovd-cats button{ flex:1; }
   #tab-overdue .ovd-cards{ grid-template-columns:1fr; gap:8px; }
   #tab-overdue .ovd-card{ display:grid; grid-template-columns:1fr auto; align-items:center; column-gap:10px; padding:10px 14px; }
   #tab-overdue .ovd-card-n{ font-size:22px; grid-row:span 2; grid-column:2; }
@@ -4129,23 +4157,35 @@ window.renderShipClose = renderShipClose;
 })();
 
 // ═══════════════════════════════════════════════════════════════════════
-// 📋 OVERDUE — ระบบติดตามยอดค้างชำระ (local102)
+// 📋 OVERDUE — ระบบติดตามยอดค้างชำระ (local102 · local103: รองรับหลายรูปแบบไฟล์ RHENUS / DSV AIR SERVICE
+//    · local104: แยก SERVICE / ADVANCE — คนละตาราง คนละหน้าต่าง คนละการนำเข้า/Export
+//    · local105: ADVANCE รองรับรูปแบบ DSV AIR ADVANCE เพิ่ม (APL คงเดิม))
 //   โมดูลอิสระ: ใช้เฉพาะตาราง overdue_files / overdue_invoices (app_code='overdue')
 //   ไม่อ่าน/ไม่เขียนตารางของโหมดอื่น · ไม่แก้ฟังก์ชันส่วนกลาง (ใช้ sb / toast / CU / renderPager แบบอ่านอย่างเดียว)
 //   สถานะชำระเงินมาจาก is_paid เท่านั้น — ไม่ตีความ Status (เช่น POSTED) จากไฟล์ Excel
 // ═══════════════════════════════════════════════════════════════════════
 (function overdueModule(){
   'use strict';
-  const APP = 'overdue';
-  const T_INV = 'overdue_invoices';
-  const T_FILE = 'overdue_files';
+  // SERVICE = ตารางเดิม (ไม่เปลี่ยน) · ADVANCE = ตารางใหม่แยกต่างหาก (RUN-02)
+  const CATS = {
+    service: {key: 'service', label: 'SERVICE', APP: 'overdue', T_INV: 'overdue_invoices', T_FILE: 'overdue_files',
+              sql: 'RUN-01_overdue.sql', filePrefix: 'OVERDUE', useFormats: true, searchAll: false},
+    advance: {key: 'advance', label: 'ADVANCE', APP: 'overdue_adv', T_INV: 'overdue_adv_invoices', T_FILE: 'overdue_adv_files',
+              sql: 'RUN-02_overdue_advance.sql', filePrefix: 'OVERDUE_ADVANCE', useFormats: false, searchAll: true},
+  };
   const PS = 50;                 // แถวต่อหน้า
   const CHUNK = 200;             // ขนาดชุดสำหรับ insert / delete
+  const newState = () => ({rows: [], files: new Map(), loaded: false, loading: false, loadError: '',
+    sel: new Set(), tab: 'all', page: 1, filtered: [], base: [], fmt: null, fvals: null, status: null});
+  const ST = {service: newState(), advance: newState()};
   const OVD = {
-    rows: [], files: new Map(), loaded: false, loading: false, loadError: '',
-    sel: new Set(), tab: 'all', page: 1, filtered: [], base: [],
-    noteTimers: new Map(), noteChain: new Map(), busy: false, bound: false, pendingImport: null,
+    cat: 'service',
+    noteTimers: new Map(), noteChain: new Map(), noteRows: new Map(), busy: false, bound: false, pendingImport: null,
   };
+  // OVD.rows / OVD.sel / ... = ข้อมูลของหมวดที่เปิดอยู่ (SERVICE หรือ ADVANCE)
+  ['rows', 'files', 'loaded', 'loading', 'loadError', 'sel', 'tab', 'page', 'filtered', 'base', 'fmt'].forEach(k =>
+    Object.defineProperty(OVD, k, {get(){ return ST[OVD.cat][k]; }, set(v){ ST[OVD.cat][k] = v; }, enumerable: true}));
+  const CUR = () => CATS[OVD.cat];
   const $ = id => document.getElementById(id);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const lc = s => String(s == null ? '' : s).toLowerCase();
@@ -4156,8 +4196,37 @@ window.renderShipClose = renderShipClose;
   const msg = e => (e && (e.message || e.details || e.hint)) || String(e || 'ไม่ทราบสาเหตุ');
   const say = (t, type) => { if (typeof toast === 'function') toast(t, type); };
   const isMissingTable = e => /PGRST205|42P01|does not exist|schema cache|Could not find the table/i.test(((e && e.code) || '') + ' ' + msg(e));
-  const KEY = {invoice: 'invoiceno', customer: 'customername', company: 'companyinvoice', job: 'customerjobno',
-               date: 'date', cs: 'namecs', total: ['totalamout', 'totalamount']};
+  // หัวข้อที่ใช้ระบุฟิลด์ (ตัวแรกของแต่ละรายการ = รูปแบบ RHENUS / APL เดิม · ถัดไป = DSV AIR SERVICE · ท้ายสุด = DSV AIR ADVANCE)
+  //   ระบบเลือกชื่อที่พบก่อนตามลำดับ จึงไม่เปลี่ยนผลของรูปแบบเดิม
+  const KEY = {invoice: ['invoiceno', 'invoicenj', 'invoiceadv'], customer: ['customername', 'ลูกค้า'], company: ['companyinvoice', 'บริษัทinvoice', 'บริษัท*'],
+               job: ['customerjobno'], date: ['date'], cs: ['namecs'], total: ['totalamout', 'totalamount', 'total']};
+  const isInvKey = k => KEY.invoice.includes(k);
+  // ── รูปแบบไฟล์ (แยกอัตโนมัติจากหัวตาราง — ไม่ต้องเก็บคอลัมน์เพิ่มในฐานข้อมูล) ──
+  const FORMATS = [
+    {id: 'dsv', label: 'DSV AIR SERVICE', test: k => k.includes('invoicenj')},
+    {id: 'rhenus', label: 'RHENUS', test: k => k.includes('invoiceno')},
+  ];
+  // ADVANCE: รูปแบบที่รู้จัก (APL ใช้การแยกจากหัวตารางแบบเดิม → ชื่อตามลูกค้า ไม่เปลี่ยน)
+  const ADV_FORMATS = [
+    {id: 'dsvadv', label: 'DSV AIR ADVANCE', test: k => k.includes('invoiceadv')},
+  ];
+  function formatOfHeaders(headers, cust, catKey){
+    const keys = (headers || []).map(nh);
+    const d = (CATS[catKey || 'service'].useFormats ? FORMATS : ADV_FORMATS).find(f => f.test(keys));
+    return d ? {id: d.id, label: d.label} : {id: 'x' + hash(keys.join('|')), label: cust || 'อื่น ๆ'};
+  }
+  function fmtOf(r){ if (!r._fmt) r._fmt = formatOfHeaders(r.headers, r.customer_name, r._cat); return r._fmt; }
+  // รายการรูปแบบที่มีในชุดข้อมูล เรียงตามลำดับที่ Upload ก่อน-หลัง
+  function formatsIn(rows){
+    const m = new Map();
+    rows.forEach(r => {
+      const f = fmtOf(r); const t = String(r.created_at || '');
+      const o = m.get(f.id);
+      if (!o) m.set(f.id, {id: f.id, label: f.label, n: 1, first: t});
+      else { o.n++; if (t < o.first) o.first = t; }
+    });
+    return [...m.values()].sort((a, b) => a.first < b.first ? -1 : (a.first > b.first ? 1 : 0));
+  }
 
   // ── hash รายละเอียดรายการ (ใช้ตรวจว่าข้อมูลเปลี่ยนหรือไม่) ──
   function hash(str){
@@ -4192,10 +4261,10 @@ window.renderShipClose = renderShipClose;
   const byId = id => OVD.rows.find(r => String(r.id) === String(id)) || null;
 
   // ═══════════ โหลดข้อมูล ═══════════
-  async function fetchAll(table, cols, orders){
+  async function fetchAll(table, cols, orders, app){
     const out = [], step = 1000;
     for (let from = 0; ; from += step){
-      let q = sb.from(table).select(cols).eq('app_code', APP);
+      let q = sb.from(table).select(cols).eq('app_code', app);
       orders.forEach(([c, asc]) => { q = q.order(c, {ascending: asc}); });
       const {data, error} = await q.range(from, from + step - 1);
       if (error) throw error;
@@ -4204,34 +4273,39 @@ window.renderShipClose = renderShipClose;
     }
     return out;
   }
-  function setStatus(t, type){
+  function setStatus(t, type, catKey){
+    const k = catKey || OVD.cat;
+    ST[k].status = t ? {t, type} : null;
+    if (k !== OVD.cat) return;                 // ข้อความของอีกหมวด → เก็บไว้แสดงเมื่อสลับกลับ
     const el = $('ovd_status'); if (!el) return;
     el.textContent = t || ''; el.className = 'ovd-status' + (type ? ' ' + type : ''); el.style.display = t ? 'block' : 'none';
   }
-  async function load(){
-    if (OVD.loading) return;
-    OVD.loading = true;
-    setStatus('⏳ กำลังโหลดข้อมูล OVERDUE...');
+  async function load(catKey){
+    const k = catKey || OVD.cat, st = ST[k], cfg = CATS[k];
+    if (st.loading) return;
+    st.loading = true;
+    setStatus('⏳ กำลังโหลดข้อมูล OVERDUE' + (k === 'advance' ? ' ADVANCE' : '') + '...', undefined, k);
     try{
       const [files, rows] = await Promise.all([
-        fetchAll(T_FILE, 'id,file_name,sheet_name,customer_name,headers,template,created_at', [['created_at', true]]),
-        fetchAll(T_INV, '*', [['customer_name', true], ['created_at', true], ['source_row', true], ['id', true]]),
+        fetchAll(cfg.T_FILE, 'id,file_name,sheet_name,customer_name,headers,template,created_at', [['created_at', true]], cfg.APP),
+        fetchAll(cfg.T_INV, '*', [['customer_name', true], ['created_at', true], ['source_row', true], ['id', true]], cfg.APP),
       ]);
-      OVD.files = new Map(files.map(f => [f.id, f]));
+      st.files = new Map(files.map(f => [f.id, f]));
       // หมายเหตุที่กำลังพิมพ์ (ยังไม่ถึงรอบบันทึก) ต้องไม่ถูกค่าจากฐานข้อมูลทับ
-      const pending = new Map([...OVD.noteTimers.keys()].map(id => { const o = byId(id); return [String(id), o ? o.note : null]; }));
-      rows.forEach(r => { r._savedNote = r.note || ''; if (pending.has(String(r.id)) && pending.get(String(r.id)) != null) r.note = pending.get(String(r.id)); });
-      OVD.rows = rows; OVD.loaded = true; OVD.loadError = '';
+      const pending = new Map([...OVD.noteTimers.keys()].map(id => { const o = OVD.noteRows.get(id); return [String(id), o && o._cat === k ? o.note : null]; }));
+      rows.forEach(r => { r._cat = k; r._savedNote = r.note || ''; if (pending.has(String(r.id)) && pending.get(String(r.id)) != null){ r.note = pending.get(String(r.id)); OVD.noteRows.set(String(r.id), r); } });
+      st.rows = rows; st.loaded = true; st.loadError = '';
       const ids = new Set(rows.map(r => String(r.id)));
-      [...OVD.sel].forEach(id => { if (!ids.has(String(id))) OVD.sel.delete(id); });
-      setStatus('');
+      [...st.sel].forEach(id => { if (!ids.has(String(id))) st.sel.delete(id); });
+      setStatus('', undefined, k);
     }catch(e){
-      console.error('[OVERDUE] load error:', e);
-      OVD.loadError = isMissingTable(e)
-        ? '⚠️ ยังไม่พบตาราง OVERDUE ในฐานข้อมูล — กรุณารันไฟล์ RUN-01_overdue.sql ใน Supabase ก่อนใช้งาน'
+      console.error('[OVERDUE] load error:', k, e);
+      st.loadError = isMissingTable(e)
+        ? '⚠️ ยังไม่พบตาราง OVERDUE' + (k === 'advance' ? ' ADVANCE' : '') + ' ในฐานข้อมูล — กรุณารันไฟล์ ' + cfg.sql + ' ใน Supabase ก่อนใช้งาน'
         : '⚠️ โหลดข้อมูลไม่สำเร็จ: ' + msg(e) + ' — กด Refresh เพื่อลองใหม่';
-      setStatus(OVD.loadError, 'err');
-    }finally{ OVD.loading = false; }
+      setStatus(st.loadError, 'err', k);
+    }finally{ st.loading = false; }
+    if (k !== OVD.cat) return;
     fillFilterOptions();
     render();
   }
@@ -4253,7 +4327,8 @@ window.renderShipClose = renderShipClose;
       if (f.from && (!r.doc_date || r.doc_date < f.from)) return false;
       if (f.to && (!r.doc_date || r.doc_date > f.to)) return false;
       if (f.q){
-        const hay = lc([r.invoice_no, r.customer_name, r.company_invoice, r.customer_job_no, r.name_cs, r.note].join(' '));
+        const hay = lc([r.invoice_no, r.customer_name, r.company_invoice, r.customer_job_no, r.name_cs, r.note].join(' ')
+          + (CUR().searchAll ? ' ' + (r.cells || []).map(cellText).join(' ') : ''));
         if (!hay.includes(f.q)) return false;
       }
       return true;
@@ -4275,7 +4350,16 @@ window.renderShipClose = renderShipClose;
 
   // ═══════════ แสดงผล ═══════════
   function render(){
-    const base = baseFiltered();
+    const all = baseFiltered();
+    const fmts = formatsIn(all);
+    if (!fmts.some(f => f.id === OVD.fmt)) OVD.fmt = fmts.length ? fmts[0].id : (formatsIn(OVD.rows)[0] || {}).id || null;
+    const base = fmts.length > 1 ? all.filter(r => fmtOf(r).id === OVD.fmt) : all;
+    const chips = $('ovd_formats');
+    if (chips){
+      chips.hidden = fmts.length <= 1;
+      chips.innerHTML = fmts.length <= 1 ? '' : '<span class="ovd-formats-lbl">รูปแบบไฟล์:</span>' + fmts.map(f =>
+        `<button type="button" data-fmt="${esc(f.id)}" class="${f.id === OVD.fmt ? 'active' : ''}">${esc(f.label)} (${f.n})</button>`).join('');
+    }
     const paid = base.filter(r => r.is_paid), unpaid = base.filter(r => !r.is_paid);
     const sum = list => r2(list.reduce((s, r) => s + r2(r.total_amount), 0));
     const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
@@ -4288,16 +4372,19 @@ window.renderShipClose = renderShipClose;
     OVD.filtered = OVD.tab === 'paid' ? paid : (OVD.tab === 'unpaid' ? unpaid : base);
     const f = readF();
     const custs = [...new Set(OVD.filtered.map(r => r.customer_name || ''))];
-    set('ovd_caption', 'รายงาน OVERDUE — ' + (f.customer && f.customer !== '__EMPTY__' ? f.customer : (custs.length === 1 && custs[0] ? custs[0] : 'ทั้งหมด')));
+    const multiFmt = formatsIn(OVD.rows).length > 1;
+    const curFmt = formatsIn(OVD.rows).find(x => x.id === OVD.fmt);
+    set('ovd_caption', 'รายงาน OVERDUE ' + CUR().label + ' — ' + (f.customer && f.customer !== '__EMPTY__' ? f.customer : (custs.length === 1 && custs[0] ? custs[0] : 'ทั้งหมด'))
+      + (multiFmt && curFmt ? ' · รูปแบบ ' + curFmt.label : ''));
     renderTable();
     syncSel();
   }
   function renderTable(){
     const thead = $('ovd_thead'), tbody = $('ovd_tbody'); if (!thead || !tbody) return;
-    const cols = colsOf(OVD.rows.length ? OVD.rows : []);
-    const invKey = KEY.invoice;
+    const fmtRows = OVD.rows.filter(r => fmtOf(r).id === OVD.fmt);
+    const cols = colsOf(fmtRows.length ? fmtRows : OVD.rows);
     thead.innerHTML = '<tr><th class="ovd-c-chk"><input type="checkbox" id="ovd_chkAll" title="เลือกทั้งหมด (ตามตัวกรอง)"></th>'
-      + cols.map(c => `<th class="${c.key === invKey ? 'ovd-c-inv' : ''}">${esc(c.label)}</th>`).join('')
+      + cols.map(c => `<th class="${isInvKey(c.key) ? 'ovd-c-inv' : ''}">${esc(c.label)}</th>`).join('')
       + '<th class="ovd-c-note">หมายเหตุ</th><th class="ovd-c-paid">สถานะชำระเงิน</th><th class="ovd-c-act">จัดการ</th></tr>';
     const list = OVD.filtered;
     const tp = Math.max(1, Math.ceil(list.length / PS));
@@ -4315,7 +4402,7 @@ window.renderShipClose = renderShipClose;
           + `<td class="ovd-c-chk"><input type="checkbox" class="ovd-rowchk" data-id="${id}" ${OVD.sel.has(String(r.id)) ? 'checked' : ''}></td>`
           + cols.map(c => {
               const cell = cm.get(c.key) || null;
-              const cls = (c.key === invKey ? 'ovd-c-inv ' : '') + (cell && cell.t === 'n' ? 'num' : '');
+              const cls = (isInvKey(c.key) ? 'ovd-c-inv ' : '') + (cell && cell.t === 'n' ? 'num' : '');
               return `<td class="${cls}">${esc(cellText(cell))}</td>`;
             }).join('')
           + `<td class="ovd-c-note"><div class="ovd-note-wrap"><input type="text" class="ovd-note" data-id="${id}" value="${esc(r.note || '')}" placeholder="ระบุหมายเหตุ" maxlength="2000"><span class="ovd-note-st" data-id="${id}"></span></div></td>`
@@ -4351,6 +4438,7 @@ window.renderShipClose = renderShipClose;
   }
   function queueNote(id, val){
     const r = byId(id); if (!r) return;
+    OVD.noteRows.set(String(id), r);
     r.note = val;
     noteSt(id, '…', 'wait');
     clearTimeout(OVD.noteTimers.get(id));
@@ -4364,12 +4452,13 @@ window.renderShipClose = renderShipClose;
     return next;
   }
   async function saveNote(id){
-    const r = byId(id); if (!r) return;
+    const r = OVD.noteRows.get(String(id)) || byId(id); if (!r) return;
+    const cfg = CATS[r._cat || 'service'];
     const val = r.note || '';
     if (val === (r._savedNote || '')) { noteSt(id, '✓', 'ok'); return; }
     const now = new Date().toISOString();
-    const {data, error} = await sb.from(T_INV).update({note: val, note_updated_at: now, note_updated_by: who(), updated_at: now})
-      .eq('id', r.id).eq('app_code', APP).select('id');
+    const {data, error} = await sb.from(cfg.T_INV).update({note: val, note_updated_at: now, note_updated_by: who(), updated_at: now})
+      .eq('id', r.id).eq('app_code', cfg.APP).select('id');
     if (error || !data || !data.length){
       noteSt(id, '⚠️', 'err');
       say('บันทึกหมายเหตุไม่สำเร็จ: ' + (error ? msg(error) : 'ไม่พบรายการในฐานข้อมูล'), 'err');
@@ -4382,13 +4471,14 @@ window.renderShipClose = renderShipClose;
   // ═══════════ สถานะชำระเงิน ═══════════
   async function setPaid(id, val){
     const r = byId(id); if (!r) return;
+    const cfg = CATS[r._cat || 'service'];
     const prev = !!r.is_paid;
     if (prev === val) return;
     r.is_paid = val;
     render();                                   // อัปเดตแถบสรุป/แท็บทันที
     const now = new Date().toISOString();
-    const {data, error} = await sb.from(T_INV).update({is_paid: val, paid_updated_at: now, paid_updated_by: who(), updated_at: now})
-      .eq('id', r.id).eq('app_code', APP).select('id');
+    const {data, error} = await sb.from(cfg.T_INV).update({is_paid: val, paid_updated_at: now, paid_updated_by: who(), updated_at: now})
+      .eq('id', r.id).eq('app_code', cfg.APP).select('id');
     if (error || !data || !data.length){
       r.is_paid = prev; render();
       say('เปลี่ยนสถานะไม่สำเร็จ: ' + (error ? msg(error) : 'ไม่พบรายการในฐานข้อมูล'), 'err');
@@ -4400,19 +4490,20 @@ window.renderShipClose = renderShipClose;
 
   // ═══════════ ลบ (เฉพาะ OVERDUE) ═══════════
   async function deleteIds(ids){
+    const st = ST[OVD.cat], cfg = CUR();
     ids = [...new Set(ids.map(String))].filter(id => byId(id));
     if (!ids.length) return;
     const sample = ids.slice(0, 5).map(id => byId(id).invoice_no).join(', ');
-    if (!confirm(`ยืนยันลบ ${ids.length} รายการ ออกจาก OVERDUE ?\n\n${sample}${ids.length > 5 ? ' …' : ''}\n\n(ลบเฉพาะข้อมูลในโหมด OVERDUE เท่านั้น)`)) return;
+    if (!confirm(`ยืนยันลบ ${ids.length} รายการ ออกจาก OVERDUE${cfg.key === 'advance' ? ' ADVANCE' : ''} ?\n\n${sample}${ids.length > 5 ? ' …' : ''}\n\n(ลบเฉพาะข้อมูลในโหมด OVERDUE เท่านั้น)`)) return;
     let done = 0;
     try{
       for (let i = 0; i < ids.length; i += CHUNK){
         const chunk = ids.slice(i, i + CHUNK);
-        const {data, error} = await sb.from(T_INV).delete().in('id', chunk).eq('app_code', APP).select('id');
+        const {data, error} = await sb.from(cfg.T_INV).delete().in('id', chunk).eq('app_code', cfg.APP).select('id');
         if (error) throw error;
         const got = new Set((data || []).map(x => String(x.id)));
-        OVD.rows = OVD.rows.filter(r => !got.has(String(r.id)));
-        got.forEach(id => OVD.sel.delete(id));
+        st.rows = st.rows.filter(r => !got.has(String(r.id)));
+        got.forEach(id => st.sel.delete(id));
         done += got.size;
       }
       say(`🗑️ ลบแล้ว ${done} รายการ`);
@@ -4545,6 +4636,7 @@ window.renderShipClose = renderShipClose;
         widths: colIdx.map(c => (S.cols[c] && S.cols[c].w) || null),
         sum: null,
       };
+      if (qa(shDoc, 'autoFilter').length) t.autoFilter = true;          // ต้นฉบับมีตัวกรองหัวตาราง
       if (sumRow != null){
         const row = S.rows.get(sumRow);
         t.sum = {ht: ht(sumRow), cols: colIdx.map(c => (row && row.cells.has(c)) ? styleAt(sumRow, c) : null),
@@ -4610,7 +4702,7 @@ window.renderShipClose = renderShipClose;
     const n = parseFloat(String(c.v).replace(/[,\s฿]/g, ''));
     return Number.isFinite(n) ? r2(n) : null;
   }
-  async function parseFile(file){
+  async function parseFile(file, catKey){
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(new Uint8Array(buf), {type: 'array', cellStyles: true, cellNF: true, cellDates: false, cellFormula: true});
     const out = [];
@@ -4623,7 +4715,7 @@ window.renderShipClose = renderShipClose;
       // หาแถวหัวข้อที่มี "Invoice No."
       let hr = -1;
       for (let r = 0; r <= Math.min(maxR, 40) && hr < 0; r++){
-        for (let c = 0; c <= maxC; c++){ const cl = ws[XLSX.utils.encode_cell({r, c})]; if (cl && nh(cl.v) === KEY.invoice){ hr = r; break; } }
+        for (let c = 0; c <= maxC; c++){ const cl = ws[XLSX.utils.encode_cell({r, c})]; if (cl && isInvKey(nh(cl.v))){ hr = r; break; } }
       }
       if (hr < 0) continue;
       const colIdx = [], headers = [];
@@ -4670,36 +4762,42 @@ window.renderShipClose = renderShipClose;
       const template = (/\.xlsx$/i.test(file.name) ? xlsxTemplate(buf, sheetName, hr, firstData, sumRow, colIdx) : null)
         || fallbackTemplate(ws, sheetName, hr, firstData, sumRow, colIdx);
       template.keys = keys; template.headers = headers;
-      out.push({file: file.name, sheet: sheetName, headers, rows, skipped, template});
+      out.push({file: file.name, sheet: sheetName, headers, rows, skipped, template, format: formatOfHeaders(headers, rows[0] && rows[0].customer_name, catKey)});
     }
     if (!out.length) throw new Error('ไม่พบหัวข้อ "Invoice No." ในไฟล์');
     return out;
   }
 
   // ═══════════ นำเข้า (Upload) ═══════════
-  function setBusy(b, label){
+  function setBusy(b, label, catKey){
     OVD.busy = b;
-    const u = $('ovd_uploadBtn'); if (u){ u.disabled = b; u.querySelector('span').textContent = b ? (label || 'กำลังนำเข้า...') : 'UPLOAD FILE'; }
+    [['ovd_uploadSerBtn', 'service', 'UPLOAD SER'], ['ovd_uploadAdBtn', 'advance', 'UPLOAD AD']].forEach(([id, k, txt]) => {
+      const u = $(id); if (!u) return;
+      u.disabled = b;
+      u.querySelector('span').textContent = (b && k === catKey) ? (label || 'กำลังนำเข้า...') : txt;
+    });
   }
-  async function handleFiles(list){
+  async function handleFiles(list, catKey){
     if (OVD.busy) return;
+    const k = catKey || 'service', cfg = CATS[k];
+    if (OVD.cat !== k) switchCat(k);                // เปิดหน้าต่างของหมวดที่กำลังนำเข้า
     const files = [...(list || [])];
     const bad = files.filter(f => !/\.(xlsx|xls)$/i.test(f.name));
     const ok = files.filter(f => /\.(xlsx|xls)$/i.test(f.name));
     if (bad.length) say('ข้ามไฟล์ที่ไม่ใช่ Excel: ' + bad.map(f => f.name).join(', '), 'err');
     if (!ok.length) return;
-    setBusy(true, 'กำลังอ่านไฟล์...');
-    setStatus(`⏳ กำลังอ่าน ${ok.length} ไฟล์...`);
+    setBusy(true, 'กำลังอ่านไฟล์...', k);
+    setStatus(`⏳ กำลังอ่าน ${ok.length} ไฟล์...`, undefined, k);
     try{
       const sheets = [], errs = [];
       for (const f of ok){
-        try{ sheets.push(...await parseFile(f)); }catch(e){ errs.push(f.name + ': ' + msg(e)); }
+        try{ sheets.push(...await parseFile(f, k)); }catch(e){ errs.push(f.name + ': ' + msg(e)); }
       }
       if (errs.length) say('อ่านไฟล์ไม่สำเร็จ: ' + errs.join(' · '), 'err');
       const totalRows = sheets.reduce((s, x) => s + x.rows.length, 0);
-      if (!totalRows){ setStatus(errs.length ? '⚠️ ' + errs.join(' · ') : '⚠️ ไม่พบรายการ Invoice ในไฟล์', 'err'); return; }
-      setStatus('⏳ กำลังตรวจข้อมูลซ้ำกับฐานข้อมูล...');
-      const existingRows = await fetchAll(T_INV, 'id,dup_key,row_hash,invoice_no,customer_name', [['id', true]]);
+      if (!totalRows){ setStatus(errs.length ? '⚠️ ' + errs.join(' · ') : '⚠️ ไม่พบรายการ Invoice ในไฟล์', 'err', k); return; }
+      setStatus('⏳ กำลังตรวจข้อมูลซ้ำกับฐานข้อมูล...', undefined, k);
+      const existingRows = await fetchAll(cfg.T_INV, 'id,dup_key,row_hash,invoice_no,customer_name', [['id', true]], cfg.APP);
       const existing = new Map(existingRows.map(r => [r.dup_key, r]));
       const seen = new Map();
       const plan = {sheets, newRows: [], dup: [], changed: [], fileDup: [], fileConflict: [], skipped: sheets.reduce((s, x) => s + x.skipped, 0), errs};
@@ -4715,29 +4813,30 @@ window.renderShipClose = renderShipClose;
         else { row._existingId = ex.id; plan.changed.push(row); }
       }));
       if (plan.dup.length || plan.changed.length || plan.fileDup.length || plan.fileConflict.length){
-        setStatus('');
-        const choice = await askImport(plan);
-        if (!choice){ setStatus('ยกเลิกการนำเข้าแล้ว — ไม่มีการบันทึกข้อมูล'); return; }
-        await runImport(plan, choice === 'update');
+        setStatus('', undefined, k);
+        const choice = await askImport(plan, k);
+        if (!choice){ setStatus('ยกเลิกการนำเข้าแล้ว — ไม่มีการบันทึกข้อมูล', undefined, k); return; }
+        await runImport(plan, choice === 'update', k);
       } else {
-        await runImport(plan, false);
+        await runImport(plan, false, k);
       }
     }catch(e){
-      console.error('[OVERDUE] import error:', e);
-      setStatus(isMissingTable(e) ? '⚠️ ยังไม่พบตาราง OVERDUE ในฐานข้อมูล — กรุณารันไฟล์ RUN-01_overdue.sql ก่อน' : '⚠️ นำเข้าไม่สำเร็จ: ' + msg(e), 'err');
+      console.error('[OVERDUE] import error:', k, e);
+      setStatus(isMissingTable(e) ? '⚠️ ยังไม่พบตาราง OVERDUE' + (k === 'advance' ? ' ADVANCE' : '') + ' ในฐานข้อมูล — กรุณารันไฟล์ ' + cfg.sql + ' ก่อน' : '⚠️ นำเข้าไม่สำเร็จ: ' + msg(e), 'err', k);
       say('นำเข้าไม่สำเร็จ: ' + msg(e), 'err');
     }finally{
       setBusy(false);
-      const fi = $('ovd_file'); if (fi) fi.value = '';
+      ['ovd_fileSer', 'ovd_fileAd'].forEach(id => { const fi = $(id); if (fi) fi.value = ''; });
     }
   }
-  function askImport(plan){
+  function askImport(plan, catKey){
     return new Promise(resolve => {
       const mo = $('ovd_importMo'), body = $('ovd_impBody'); if (!mo || !body){ resolve(null); return; }
+      const ttl = mo.querySelector('.md-title'); if (ttl) ttl.textContent = '⚠️ ตรวจพบข้อมูลซ้ำก่อนบันทึก — ' + CATS[catKey || 'service'].label;
       const li = (label, n, cls) => `<div class="ovd-imp-row ${cls || ''}"><span>${esc(label)}</span><b>${n}</b></div>`;
       const sample = (list, f) => list.length ? `<div class="ovd-imp-sample">${list.slice(0, 8).map(f).map(esc).join(' · ')}${list.length > 8 ? ' …' : ''}</div>` : '';
       body.innerHTML =
-        `<div class="ovd-imp-files">${plan.sheets.map(s => `📄 ${esc(s.file)}${s.sheet ? ' / ' + esc(s.sheet) : ''} — ${s.rows.length} รายการ`).join('<br>')}</div>`
+        `<div class="ovd-imp-files">${plan.sheets.map(s => `📄 ${esc(s.file)}${s.sheet ? ' / ' + esc(s.sheet) : ''} — ${s.rows.length} รายการ${s.format ? ' · รูปแบบ ' + esc(s.format.label) : ''}`).join('<br>')}</div>`
         + li('🆕 รายการใหม่ (จะบันทึก)', plan.newRows.length, 'new')
         + li('♻️ ซ้ำกับข้อมูลเดิม ทุกช่องเหมือนเดิม (ข้าม)', plan.dup.length, 'dup')
         + sample(plan.dup, r => r.invoice_no)
@@ -4754,8 +4853,9 @@ window.renderShipClose = renderShipClose;
       mo.classList.add('open');
     });
   }
-  async function runImport(plan, doUpdate){
-    setBusy(true, 'กำลังบันทึก...');
+  async function runImport(plan, doUpdate, catKey){
+    const k = catKey || 'service', cfg = CATS[k];
+    setBusy(true, 'กำลังบันทึก...', k);
     const user = who();
     // 1) บันทึกไฟล์ + Template (เฉพาะชีตที่มีรายการจะบันทึก/อัปเดต)
     const needSheets = new Set([...plan.newRows, ...(doUpdate ? plan.changed : [])].map(r => r._si));
@@ -4763,15 +4863,15 @@ window.renderShipClose = renderShipClose;
     for (const si of needSheets){
       const sh = plan.sheets[si];
       const custs = [...new Set(sh.rows.map(r => r.customer_name).filter(Boolean))];
-      const {data, error} = await sb.from(T_FILE).insert([{
-        app_code: APP, file_name: sh.file, sheet_name: sh.sheet, customer_name: custs.join(', ') || null,
+      const {data, error} = await sb.from(cfg.T_FILE).insert([{
+        app_code: cfg.APP, file_name: sh.file, sheet_name: sh.sheet, customer_name: custs.join(', ') || null,
         headers: sh.headers, template: sh.template, row_count: sh.rows.length, uploaded_by: user,
       }]).select('id');
       if (error) throw error;
       fileIds.set(si, data && data[0] ? data[0].id : null);
     }
     const payload = r => ({
-      app_code: APP, file_id: fileIds.get(r._si) || null, customer_name: r.customer_name, invoice_no: r.invoice_no,
+      app_code: cfg.APP, file_id: fileIds.get(r._si) || null, customer_name: r.customer_name, invoice_no: r.invoice_no,
       dup_key: r.dup_key, row_hash: r.row_hash, headers: r.headers, cells: r.cells, total_amount: r.total_amount,
       doc_date: r.doc_date, company_invoice: r.company_invoice, customer_job_no: r.customer_job_no, name_cs: r.name_cs,
       source_file: r.source_file, source_sheet: r.source_sheet, source_row: r.source_row,
@@ -4780,13 +4880,13 @@ window.renderShipClose = renderShipClose;
     let inserted = 0, conflicts = 0, updated = 0, failed = 0;
     for (let i = 0; i < plan.newRows.length; i += CHUNK){
       const chunk = plan.newRows.slice(i, i + CHUNK);
-      setStatus(`⏳ กำลังบันทึก ${Math.min(i + CHUNK, plan.newRows.length)}/${plan.newRows.length} รายการ...`);
+      setStatus(`⏳ กำลังบันทึก ${Math.min(i + CHUNK, plan.newRows.length)}/${plan.newRows.length} รายการ...`, undefined, k);
       const rows = chunk.map(r => Object.assign(payload(r), {created_by: user}));
-      const {error} = await sb.from(T_INV).insert(rows);
+      const {error} = await sb.from(cfg.T_INV).insert(rows);
       if (!error){ inserted += chunk.length; continue; }
       if (error.code !== '23505') throw error;
       for (const one of rows){                               // มีผู้อื่นบันทึกพร้อมกัน → บันทึกทีละรายการ ข้ามรายการซ้ำ
-        const res = await sb.from(T_INV).insert([one]);
+        const res = await sb.from(cfg.T_INV).insert([one]);
         if (!res.error) inserted++; else if (res.error.code === '23505') conflicts++; else throw res.error;
       }
     }
@@ -4795,7 +4895,7 @@ window.renderShipClose = renderShipClose;
       for (const r of plan.changed){
         const p = payload(r); delete p.app_code; delete p.dup_key;
         p.updated_at = new Date().toISOString();
-        const {data, error} = await sb.from(T_INV).update(p).eq('id', r._existingId).eq('app_code', APP).select('id');
+        const {data, error} = await sb.from(cfg.T_INV).update(p).eq('id', r._existingId).eq('app_code', cfg.APP).select('id');
         if (error || !data || !data.length){ failed++; console.warn('[OVERDUE] update failed', r.invoice_no, error); } else updated++;
       }
     }
@@ -4804,13 +4904,16 @@ window.renderShipClose = renderShipClose;
       if (!fid) continue;
       const sh = plan.sheets[si];
       const ins = plan.newRows.filter(r => r._si === si).length, upd = doUpdate ? plan.changed.filter(r => r._si === si).length : 0;
-      await sb.from(T_FILE).update({inserted_count: ins, updated_count: upd, skipped_count: sh.rows.length - ins - upd}).eq('id', fid).eq('app_code', APP);
+      await sb.from(cfg.T_FILE).update({inserted_count: ins, updated_count: upd, skipped_count: sh.rows.length - ins - upd}).eq('id', fid).eq('app_code', cfg.APP);
     }
     const skippedTotal = plan.dup.length + plan.fileDup.length + plan.fileConflict.length + conflicts + (doUpdate ? 0 : plan.changed.length);
     const summary = `นำเข้าสำเร็จ: เพิ่ม ${inserted} รายการ` + (updated ? ` · อัปเดต ${updated}` : '') + (skippedTotal ? ` · ข้ามรายการซ้ำ ${skippedTotal}` : '')
       + (plan.skipped ? ` · ไม่นับแถวสรุป/SUM ${plan.skipped}` : '') + (failed ? ` · อัปเดตไม่สำเร็จ ${failed}` : '');
-    await load();
-    setStatus('✅ ' + summary, failed ? 'err' : 'ok');
+    const firstNew = plan.sheets.find((sh, si) => plan.newRows.some(r => r._si === si) && sh.format);
+    if (firstNew) ST[k].fmt = firstNew.format.id;
+    if (OVD.cat !== k) switchCat(k);                // นำเข้าสำเร็จ → เปิดหน้าต่างของหมวดนั้นทันที
+    await load(k);
+    setStatus('✅ ' + summary, failed ? 'err' : 'ok', k);
     say('✅ ' + summary, failed ? 'err' : undefined);
   }
 
@@ -4822,8 +4925,10 @@ window.renderShipClose = renderShipClose;
                  alignment: {horizontal: 'center', vertical: 'center', wrapText: true}, numFmt: 'General'};
   const clone = o => o ? JSON.parse(JSON.stringify(o)) : o;
   function pickTemplate(rows){
-    let best = null;
-    rows.forEach(r => { const f = OVD.files.get(r.file_id); if (f && f.template && (!best || String(f.created_at) > String(best.created_at))) best = f; });
+    const cnt = new Map();
+    rows.forEach(r => { const f = OVD.files.get(r.file_id); if (f && f.template) cnt.set(f, (cnt.get(f) || 0) + 1); });
+    let best = null, bn = -1;
+    cnt.forEach((n, f) => { if (n > bn || (n === bn && String(f.created_at) > String(best.created_at))){ best = f; bn = n; } });
     return best ? best.template : null;
   }
   function tplStyle(tpl, part, key){
@@ -4839,6 +4944,26 @@ window.renderShipClose = renderShipClose;
     const rows = mode === 'selected' ? OVD.rows.filter(r => sel.has(String(r.id)))
                : mode === 'filter' ? OVD.filtered.slice() : OVD.rows.slice();
     if (!rows.length){ say('ไม่มีรายการให้ Export', 'err'); return; }
+    const groups = formatsIn(rows).map(f => rows.filter(r => fmtOf(r).id === f.id));
+    const wb = XLSX.utils.book_new();
+    const used = new Set();
+    groups.forEach(g => {
+      const {ws, sheetName} = buildSheet(g);
+      let nm = sheetName, k = 2;
+      while (used.has(nm.toLowerCase())){ nm = (sheetName.slice(0, 27) + ' (' + k + ')'); k++; }
+      used.add(nm.toLowerCase());
+      XLSX.utils.book_append_sheet(wb, ws, nm);
+    });
+    const custs = [...new Set(rows.map(r => r.customer_name || ''))];
+    const cname = custs.length === 1 && custs[0] ? custs[0] : 'ALL';
+    const d = new Date(), pad = n => String(n).padStart(2, '0');
+    const tag = mode === 'selected' ? 'ที่เลือก' : (mode === 'filter' ? 'ตามตัวกรอง' : 'ทั้งหมด');
+    const fname = `${CUR().filePrefix}_${cname}_${tag}_${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.xlsx`.replace(/[\\\/:*?"<>|]/g, '_');
+    XLSX.writeFile(wb, fname, {bookType: 'xlsx', cellStyles: true});
+    say(`📊 Export ${rows.length} รายการแล้ว` + (groups.length > 1 ? ` (${groups.length} ชีตตามรูปแบบไฟล์)` : ''));
+  }
+  // สร้าง 1 ชีตจากรายการรูปแบบเดียวกัน ตาม Template ของไฟล์ต้นฉบับ
+  function buildSheet(rows){
     const tpl = pickTemplate(rows);
     const cols = colsOf(rows);
     const nCols = cols.length;
@@ -4903,16 +5028,9 @@ window.renderShipClose = renderShipClose;
     if (tpl && tpl.sum && tpl.sum.ht) meta[sumR] = {hpt: tpl.sum.ht};
     ws['!rows'] = meta;
     ws['!ref'] = XLSX.utils.encode_range({s: {r: 0, c: 0}, e: {r: sumR, c: nCols + 1}});
-    const wb = XLSX.utils.book_new();
+    if (tpl && tpl.autoFilter) ws['!autofilter'] = {ref: `A1:${colName(nCols - 1)}${rows.length + 1}`};
     const sheetName = String((tpl && tpl.sheet) || 'Sheet1').replace(/[\\\/\?\*\[\]:]/g, ' ').slice(0, 31) || 'Sheet1';
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    const custs = [...new Set(rows.map(r => r.customer_name || ''))];
-    const cname = custs.length === 1 && custs[0] ? custs[0] : 'ALL';
-    const d = new Date(), pad = n => String(n).padStart(2, '0');
-    const tag = mode === 'selected' ? 'ที่เลือก' : (mode === 'filter' ? 'ตามตัวกรอง' : 'ทั้งหมด');
-    const fname = `OVERDUE_${cname}_${tag}_${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.xlsx`.replace(/[\\\/:*?"<>|]/g, '_');
-    XLSX.writeFile(wb, fname, {bookType: 'xlsx', cellStyles: true});
-    say(`📊 Export ${rows.length} รายการแล้ว`);
+    return {ws, sheetName};
   }
   function closeExpMenu(){ const m = $('ovd_expMenu'); if (m) m.hidden = true; }
 
@@ -4920,9 +5038,12 @@ window.renderShipClose = renderShipClose;
   function bindOnce(){
     if (OVD.bound) return; OVD.bound = true;
     const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
-    on('ovd_uploadBtn', 'click', () => { if (!OVD.busy){ const f = $('ovd_file'); if (f){ f.value = ''; f.click(); } } });
-    on('ovd_file', 'change', e => handleFiles(e.target.files));
-    on('ovd_refreshBtn', 'click', async () => { await load(); if (!OVD.loadError) say('🔄 โหลดข้อมูลใหม่แล้ว'); });
+    on('ovd_uploadSerBtn', 'click', () => { if (!OVD.busy){ const f = $('ovd_fileSer'); if (f){ f.value = ''; f.click(); } } });
+    on('ovd_uploadAdBtn', 'click', () => { if (!OVD.busy){ const f = $('ovd_fileAd'); if (f){ f.value = ''; f.click(); } } });
+    on('ovd_fileSer', 'change', e => handleFiles(e.target.files, 'service'));
+    on('ovd_fileAd', 'change', e => handleFiles(e.target.files, 'advance'));
+    on('ovd_cats', 'click', e => { const b = e.target.closest('button[data-cat]'); if (b && b.dataset.cat !== OVD.cat){ switchCat(b.dataset.cat); } });
+    on('ovd_refreshBtn', 'click', async () => { const k = OVD.cat; await load(k); if (!ST[k].loadError && OVD.cat === k) say('🔄 โหลดข้อมูลใหม่แล้ว'); });
     on('ovd_exportBtn', 'click', e => { e.stopPropagation(); const m = $('ovd_expMenu'); if (m){ syncSel(); m.hidden = !m.hidden; } });
     document.querySelectorAll('#ovd_expMenu [data-mode]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); exportRows(b.dataset.mode); }));
     document.addEventListener('click', e => { const w = $('ovd_expWrap'); if (w && !w.contains(e.target)) closeExpMenu(); });
@@ -4935,6 +5056,7 @@ window.renderShipClose = renderShipClose;
       OVD.tab = 'all'; re();
     });
     document.querySelectorAll('#tab-overdue .ovd-tabs button').forEach(b => b.addEventListener('click', () => { OVD.tab = b.dataset.tab; re(); }));
+    on('ovd_formats', 'click', e => { const b = e.target.closest('button[data-fmt]'); if (b){ OVD.fmt = b.dataset.fmt; re(); } });
     const tb = $('ovd_tbody');
     if (tb){
       tb.addEventListener('change', e => {
@@ -4956,11 +5078,28 @@ window.renderShipClose = renderShipClose;
     window.addEventListener('beforeunload', e => { if (OVD.noteTimers.size){ e.preventDefault(); e.returnValue = ''; } });
   }
 
+  // ── สลับหน้าต่าง SERVICE / ADVANCE (ตัวกรองของแต่ละหมวดเก็บแยกกัน) ──
+  const F_IDS = ['ovd_q', 'ovd_fCustomer', 'ovd_fCompany', 'ovd_fInvoice', 'ovd_fJob', 'ovd_fFrom', 'ovd_fTo', 'ovd_fCs'];
+  function switchCat(k){
+    if (!CATS[k]) return;
+    ST[OVD.cat].fvals = Object.fromEntries(F_IDS.map(id => [id, ($(id) || {}).value || '']));
+    OVD.cat = k;
+    const fv = ST[k].fvals || {};
+    fillFilterOptions();
+    F_IDS.forEach(id => { const el = $(id); if (el) el.value = fv[id] || ''; });
+    document.querySelectorAll('#ovd_cats button[data-cat]').forEach(b => b.classList.toggle('active', b.dataset.cat === k));
+    const panel = $('tab-overdue'); if (panel) panel.dataset.cat = k;
+    const stt = ST[k].status; setStatus(stt ? stt.t : '', stt ? stt.type : undefined, k);
+    closeExpMenu();
+    render();
+    if (!ST[k].loaded && !ST[k].loading) load(k);
+  }
   // เปิดเมนู → แสดงหน้ารายงานทันที แล้วโหลดข้อมูลล่าสุดจากฐานข้อมูล
   function renderOverdue(){
     bindOnce();
+    const panel = $('tab-overdue'); if (panel) panel.dataset.cat = OVD.cat;
     render();
-    load();
+    load(OVD.cat);
   }
   window.renderOverdue = renderOverdue;
 })();
