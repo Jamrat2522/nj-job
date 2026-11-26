@@ -171,13 +171,15 @@ workChart356ExportPng=function(){return workChart363ExportPng()};workChart359Exp
    ช่วงเวลา = เวลาปิดงานจริง (closed_at) · เช้า 08:30–11:59 · บ่าย 12:00–08:29 (ช่วง 00:00–08:29 อยู่ในช่วงบ่าย 12:00–08:30) · รวม = เช้า + บ่าย
    แหล่งข้อมูล = ตาราง jobs ของระบบนี้ (app_code massenger) เท่านั้น → Transport / Billing / Maersk PO / เปลี่ยนชื่อไฟล์ PDF (ระบบอื่น) ไม่ถูกนับ
    อัปเดตอัตโนมัติเมื่อข้อมูลงานเปลี่ยน (Realtime / Refresh) + ตรวจทุก 5 วิ · เวลาอัปเดตล่าสุดเลื่อนทุก 1 นาที */
+/* local389: 1 แมส = 1 สี · เช้า / บ่าย ใช้สีเดียวกัน · 18 สีไม่ซ้ำกัน */
+var _DT388_COL=["#2563EB","#16A34A","#EA580C","#9333EA","#DB2777","#0D9488","#DC2626","#4F46E5","#CA8A04","#0891B2","#65A30D","#475569","#C026D3","#0369A1","#B45309","#15803D","#7C3AED","#BE123C"];
 var _DT388_PAL=[["#2563EB","#93C5FD"],["#16A34A","#86EFAC"],["#EA580C","#FDBA74"],["#9333EA","#D8B4FE"],["#DB2777","#F9A8D4"],["#0D9488","#5EEAD4"],["#DC2626","#FCA5A5"],["#4F46E5","#A5B4FC"],["#CA8A04","#FDE047"],["#0891B2","#67E8F9"],["#65A30D","#BEF264"],["#475569","#CBD5E1"]];
 function _dt388Slot(j){const t=new Date(j&&j.closed_at).getTime();if(isNaN(t))return null;const d=new Date(t),m=d.getHours()*60+d.getMinutes();return m>=510&&m<720?"am":"pm"}
 function _dt388Mode(){const f=S.filters||{},p=[];if(f.category&&f.category!=="ALL")p.push(f.category===ALL_LCB_FILTER?"ALL LCB ของแมส":normalizeCategoryLabel(f.category));if(f.user)p.push("USER: "+f.user);if(f.search)p.push('ค้นหา "'+f.search+'"');return p.length?p.join(" · "):"ทั้งหมด"}
 function _dt388Data(){const K=S.messengerKpiFilterByView||(S.messengerKpiFilterByView={});const cur=K[S.view]||"";let list=[];K[S.view]="";try{list=(typeof filteredJobs==="function"?filteredJobs():[])||[]}finally{K[S.view]=cur}
 const seen=new Set,m=new Map;let am=0,pm=0;
 for(const j of list){if(!j||j.status!=="DONE"||seen.has(j.id)||!_closedToday(j))continue;const sl=_dt388Slot(j);if(!sl)continue;seen.add(j.id);const name=String(j.assigned_to_name||"").trim()||"ไม่ระบุแมส";const key=j.assigned_to||"__"+name;if(!m.has(key))m.set(key,{key,g:name,am:0,pm:0});m.get(key)[sl]++;if(sl==="am")am++;else pm++}
-const bars=[...m.values()].sort((a,b)=>(b.am+b.pm)-(a.am+a.pm)||a.g.localeCompare(b.g,"th",{sensitivity:"base"}));bars.forEach((b,i)=>{const c=_DT388_PAL[i%_DT388_PAL.length];b.c1=c[0];b.c2=c[1]});const mode=_dt388Mode();
+const bars=[...m.values()].sort((a,b)=>(b.am+b.pm)-(a.am+a.pm)||a.g.localeCompare(b.g,"th",{sensitivity:"base"}));bars.forEach((b,i)=>{b.c1=b.c2=_DT388_COL[i%_DT388_COL.length]});const mode=_dt388Mode();
 return{total:seen.size,am,pm,bars,mode,sel:cur,ver:_jobsVersion,sig:seen.size+"|"+am+"|"+pm+"|"+mode+"|"+cur+"|"+_todayYMD()+"|"+bars.map(b=>b.key+":"+b.g+":"+b.am+":"+b.pm).join(",")}}
 function _dt388Tick(){if(S._dt388Timer)return;S._dt388At=Date.now();S._dt388Timer=setInterval(()=>{try{if(S.view!=="done-today"||!document.getElementById("done-sum388")){clearInterval(S._dt388Timer);S._dt388Timer=null;return}if(S._dt388Ver!==_jobsVersion||Date.now()-(S._dt388At||0)>=60000)_dt388Sync()}catch(_){}},5000)}
 function _dt388Html(data){_dt388Tick();const D=data||_dt388Data(),mob=_IW<=768;S._dt388Ver=D.ver;S._dt388At=Date.now();const H=mob?140:170;const max=Math.max(1,...D.bars.map(b=>Math.max(b.am,b.pm)));const want=max*1.15;const step=[1,2,5,10,20,25,50,100,200,500].find(x=>Math.ceil(want/x)<=6)||1000;const top=Math.max(step,Math.ceil(want/step)*step);const ticks=[];for(let v=0;v<=top;v+=step)ticks.push(v);
@@ -187,7 +189,46 @@ const cols=D.bars.map(b=>`<div class="dt388-col${D.sel&&D.sel===b.key?" sel":""}
 const grid=ticks.map(v=>`<i style="bottom:${(v/top*H).toFixed(1)}px"></i>`).join("");
 const plot=D.bars.length?`<div class="dt388-plot"><div class="dt388-ticks" style="height:${H}px">${ticks.map(v=>`<span style="bottom:${(v/top*H).toFixed(1)}px">${v}</span>`).join("")}</div><div class="dt388-scroll"><div class="dt388-cols"><div class="dt388-grid" style="height:${H}px">${grid}</div>${cols}</div></div></div>`:`<div class="dt388-empty">ยังไม่มีงานเสร็จวันนี้${D.mode!=="ทั้งหมด"?" (ตามตัวกรอง)":""} · เช้า 0 · บ่าย 0</div>`;
 const st=_wc356Stamp();
-return`<div class="dt388" id="done-sum388" data-sig="${esc(D.sig)}"><div class="dt388-head"><b>✅ งานเสร็จแล้ววันนี้</b><span class="dt388-mode">${esc(D.mode)}</span><span class="dt388-at">อัปเดตล่าสุด ${st.txt}</span></div>
+return`<div class="dt388" id="done-sum388" data-sig="${esc(D.sig)}"><div class="dt388-head"><b>✅ งานเสร็จแล้ววันนี้</b><span class="dt388-mode">${esc(D.mode)}</span><span class="dt388-at">อัปเดตล่าสุด ${st.txt}</span><span class="dt388-acts"><button class="dt388-btn dt388-rf" onclick="dt388Refresh()" title="รีเฟรชข้อมูลล่าสุด">🔄 Refresh</button><button class="dt388-btn dt388-ex" onclick="dt388ExportPng()" title="ดาวน์โหลดแถบสรุปและกราฟเป็นรูป PNG">📥 EXPORT กราฟ</button></span></div>
 <div class="dt388-sum">${box("tot","🔵","รวมงานทั้งหมด","เสร็จวันนี้",D.total)}${box("am","🟢","ช่วงเช้า","08:30–12:00",D.am)}${box("pm","🟡","ช่วงบ่าย","12:00–08:30 (วันถัดไป)",D.pm)}</div>
-<div class="dt388-sub"><b>📊 สรุปจำนวนงานแมสรายบุคคล</b><span class="dt388-lg"><i style="background:#334155"></i>สีเข้ม = เช้า <i style="background:#CBD5E1"></i>สีอ่อน = บ่าย</span></div>${plot}${D.bars.length>(mob?3:10)?`<div class="dt388-hint">⇆ เลื่อนซ้าย-ขวาเพื่อดูครบ ${D.bars.length} คน</div>`:""}</div>`}
+<div class="dt388-sub"><b>📊 สรุปจำนวนงานแมสรายบุคคล</b><span class="dt388-lg">แท่งซ้าย = เช้า · แท่งขวา = บ่าย</span></div>${plot}${D.bars.length>(mob?3:10)?`<div class="dt388-hint">⇆ เลื่อนซ้าย-ขวาเพื่อดูครบ ${D.bars.length} คน</div>`:""}</div>`}
 function _dt388Sync(){if(S.view!=="done-today")return;const el=document.getElementById("done-sum388");if(!el)return;const D=_dt388Data();if(el.getAttribute("data-sig")===D.sig){S._dt388Ver=D.ver;S._dt388At=Date.now();const a=el.querySelector(".dt388-at");if(a)a.textContent="อัปเดตล่าสุด "+_wc356Stamp().txt;return}const sc=el.querySelector(".dt388-scroll"),x=sc?sc.scrollLeft:0;el.outerHTML=_dt388Html(D);const s2=document.querySelector("#done-sum388 .dt388-scroll");if(s2&&x)s2.scrollLeft=x}
+
+/* local389: ปุ่ม 🔄 Refresh / 📥 EXPORT กราฟ (รูป PNG ความละเอียดสูง พื้นขาว · แถบสรุป 3 ช่อง + กราฟแท่งคู่ · วันที่และเวลาออกรายงาน · ไม่มีเมนู / ปุ่ม)
+   ใช้ข้อมูลชุดเดียวกับหน้าจอ (_dt388Data ณ เวลากด → อัปเดตหน้าจอให้ตรงก่อน) · สี / ชื่อแมส / จำนวน ตรงหน้าจอ · กว้างพอแสดงครบทุกคน (ไม่ตัด) */
+async function dt388Refresh(){try{await refreshAll()}catch(e){console.error("[dt388 refresh]",e);try{toast("Refresh ไม่สำเร็จ: "+(e&&e.message||e),"error")}catch(_){}}try{_dt388Sync()}catch(_){}}
+async function dt388ExportPng(){const btn=document.querySelector("#done-sum388 .dt388-ex");if(S._dt388Busy)return;S._dt388Busy=true;if(btn)btn.disabled=true;
+try{try{_dt388Sync()}catch(_){}const D=_dt388Data();try{if(document.fonts&&document.fonts.ready)await document.fonts.ready}catch(_){}
+const FF=(getComputedStyle(document.body).fontFamily||"sans-serif");const F=(w,s)=>`${w} ${s}px ${FF}`;const SC=3;const mc=document.createElement("canvas").getContext("2d");
+const bw=42,bg=10,pairW=bw*2+bg,ggap=30;mc.font=F(800,15);const gw=D.bars.map(b=>Math.max(pairW+12,Math.ceil(mc.measureText(b.g).width)+28));
+const PADX=40,AXW=48;const plotW=Math.max(600,24+gw.reduce((s,w)=>s+w+ggap,0));const W=Math.max(1100,PADX*2+AXW+plotW);
+const BH=300;const H=146+118+46+44+BH+34+32+78;
+const cv=document.createElement("canvas");cv.width=W*SC;cv.height=H*SC;const g=cv.getContext("2d");g.scale(SC,SC);
+const rr=(x,y,w,h,r)=>{r=Math.min(r,w/2,h/2);g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath()};
+g.fillStyle="#fff";g.fillRect(0,0,W,H);rr(10,10,W-20,H-20,20);g.strokeStyle="#BFDBFE";g.lineWidth=2;g.stroke();
+/* หัวรายงาน */
+rr(PADX,34,34,34,8);g.fillStyle="#16A34A";g.fill();g.strokeStyle="#fff";g.lineWidth=4;g.lineCap="round";g.lineJoin="round";g.beginPath();g.moveTo(PADX+9,51);g.lineTo(PADX+15,58);g.lineTo(PADX+26,44);g.stroke();
+g.textBaseline="alphabetic";g.textAlign="left";g.fillStyle="#0F172A";g.font=F(800,28);g.fillText("งานเสร็จแล้ววันนี้",PADX+46,61);
+const st=_wc356Stamp();g.fillStyle="#475569";g.font=F(600,15);g.fillText("ออกรายงาน "+st.txt+"   ·   ตัวกรอง: "+D.mode+(S.user?"   ·   ผู้ออกรายงาน: "+(S.user.full_name||S.user.username||""):""),PADX,98);
+g.strokeStyle="#E2E8F0";g.lineWidth=1;g.beginPath();g.moveTo(PADX,122);g.lineTo(W-PADX,122);g.stroke();
+/* แถบสรุป 3 ช่อง */
+const BX=[["รวมงานทั้งหมด","เสร็จวันนี้",D.total,"#EFF6FF","#2563EB"],["ช่วงเช้า","08:30–12:00",D.am,"#ECFDF5","#15803D"],["ช่วงบ่าย","12:00–08:30 (วันถัดไป)",D.pm,"#FEFCE8","#CA8A04"]];
+const gap=16,bxw=(W-PADX*2-gap*2)/3,by=146,bh=118;BX.forEach((x,i)=>{const bx=PADX+i*(bxw+gap);rr(bx,by,bxw,bh,14);g.fillStyle=x[3];g.fill();const cx=bx+bxw/2;g.textAlign="center";
+ g.font=F(800,17);const lw=g.measureText(x[0]).width;g.fillStyle=x[4];g.beginPath();g.arc(cx-lw/2-12,by+29,6,0,Math.PI*2);g.fill();g.fillText(x[0],cx+4,by+35);
+ g.font=F(800,40);g.fillText(String(x[2]),cx,by+80);g.fillStyle="#475569";g.font=F(600,13.5);g.fillText("งาน · "+x[1],cx,by+104)});
+/* หัวกราฟ */
+let y=by+bh+46;g.textAlign="left";g.fillStyle="#0F172A";g.font=F(800,18);g.fillText("สรุปจำนวนงานแมสรายบุคคล",PADX,y);g.textAlign="right";g.fillStyle="#475569";g.font=F(600,13.5);g.fillText("แท่งซ้าย = เช้า   ·   แท่งขวา = บ่าย",W-PADX,y);
+const PY0=y+44,PY1=PY0+BH,PX0=PADX+AXW,PX1=W-PADX;
+const max=Math.max(1,...D.bars.map(b=>Math.max(b.am,b.pm)));const want=max*1.15;const step=[1,2,5,10,20,25,50,100,200,500].find(x=>Math.ceil(want/x)<=6)||1000;const top=Math.max(step,Math.ceil(want/step)*step);
+g.textAlign="right";g.font=F(600,13);for(let v=0;v<=top;v+=step){const yy=PY1-v/top*BH;g.strokeStyle=v?"#E5E7EB":"#94A3B8";g.lineWidth=v?1:1.5;g.beginPath();g.moveTo(PX0,yy);g.lineTo(PX1,yy);g.stroke();g.fillStyle="#334155";g.fillText(String(v),PX0-10,yy+4)}
+if(!D.bars.length){g.textAlign="center";g.fillStyle="#64748B";g.font=F(700,18);g.fillText("ยังไม่มีงานเสร็จวันนี้ · เช้า 0 · บ่าย 0",(PX0+PX1)/2,PY0+BH/2)}
+let x=PX0+24;g.textAlign="center";D.bars.forEach((b,i)=>{const w=gw[i],x0=x+(w-pairW)/2;[["am",x0,"เช้า"],["pm",x0+bw+bg,"บ่าย"]].forEach(([k,bx,lab])=>{const n=b[k],h=n/top*BH;if(h>0){rr(bx,PY1-h,bw,h,5);g.fillStyle=b.c1;g.fill();g.fillRect(bx,PY1-Math.min(h,5),bw,Math.min(h,5))}
+  g.fillStyle=b.c1;g.font=F(800,22);g.fillText(String(n),bx+bw/2,PY1-h-9);g.fillStyle="#334155";g.font=F(600,14);g.fillText(lab,bx+bw/2,PY1+22)});
+ let fs=15;g.font=F(800,fs);while(fs>9&&g.measureText(b.g).width>w-14){fs-=.5;g.font=F(800,fs)}rr(x,PY1+34,w,32,9);g.fillStyle=b.c1;g.fill();g.fillStyle="#fff";g.fillText(b.g,x+w/2,PY1+55);x+=w+ggap});
+/* ท้ายรายงาน */
+g.textAlign="left";g.fillStyle="#64748B";g.font=F(600,13);g.fillText(`รวม ${D.total} งาน  ·  ช่วงเช้า ${D.am} งาน  ·  ช่วงบ่าย ${D.pm} งาน  ·  แมส ${D.bars.length} คน  ·  นับจากเวลาปิดงานจริง (1 JOB นับครั้งเดียว)`,PADX,H-40);g.textAlign="right";g.fillText("MASSERGER",W-PADX,H-40);
+const blob=await new Promise(r=>cv.toBlob(r,"image/png"));if(!blob)throw new Error("สร้างรูปไม่สำเร็จ");const fname=`MASSERGER_DONE_TODAY_${st.fn}.png`;
+const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=fname;a.rel="noopener";a.style.display="none";document.body.appendChild(a);a.click();setTimeout(()=>{try{a.remove();URL.revokeObjectURL(url)}catch(_){}},4e3);
+try{toast("EXPORT กราฟสำเร็จ — ส่งรูปใน LINE ได้ทันที","success")}catch(_){}const info={fname,w:cv.width,h:cv.height,total:D.total,am:D.am,pm:D.pm,bars:D.bars.map(b=>[b.g,b.am,b.pm,b.c1]),stamp:st.txt,mode:D.mode};window.__dt389Last=info;return info}
+catch(e){console.error("[dt389 export]",e);try{toast("EXPORT กราฟไม่สำเร็จ: "+(e&&e.message||e),"error")}catch(_){}}finally{S._dt388Busy=false;const b2=document.querySelector("#done-sum388 .dt388-ex");if(b2)b2.disabled=false}}
+window.dt388Refresh=dt388Refresh;window.dt388ExportPng=dt388ExportPng;
