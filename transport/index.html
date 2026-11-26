@@ -773,7 +773,7 @@ html, body { overflow-x: hidden !important; }
 <body>
 
 <!-- ══ DEPLOY VERSION (แสดงมุมขวาบน) ══ -->
-<div id="deployVerBadge" data-version="local107" style="position:fixed;top:4px;right:8px;z-index:300;pointer-events:none;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.3px;color:#F5A623;background:#111827;border:1px solid #374151;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.18);padding:2px 8px;white-space:nowrap;">Deploy github local107</div>
+<div id="deployVerBadge" data-version="local111" style="position:fixed;top:4px;right:8px;z-index:300;pointer-events:none;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.3px;color:#F5A623;background:#111827;border:1px solid #374151;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.18);padding:2px 8px;white-space:nowrap;">Deploy github local111</div>
 
 <!-- ══ LOGIN ══ -->
 <div id="loginScreen">
@@ -991,7 +991,7 @@ html, body { overflow-x: hidden !important; }
 
     </div>
     <!-- ══ /ปิดบัญชีชิปปิ้ง TAB ══ -->
-    <!-- ══ 📋 OVERDUE TAB (local102 · แยกอิสระจากโหมดอื่น · local103 เพิ่มรูปแบบ DSV AIR SERVICE · local104 แยก SERVICE / ADVANCE · local105 เพิ่ม DSV AIR ADVANCE · local106 SERVICE / ADVANCE รายงานเดียวต่อเมนู · local107 KPI ยอดเงินค้างจ่าย) ══ -->
+    <!-- ══ 📋 OVERDUE TAB (local102 · แยกอิสระจากโหมดอื่น · local103 เพิ่มรูปแบบ DSV AIR SERVICE · local104 แยก SERVICE / ADVANCE · local105 เพิ่ม DSV AIR ADVANCE · local106 SERVICE / ADVANCE รายงานเดียวต่อเมนู · local107 KPI ยอดเงินค้างจ่าย · local108 แท็บสถานะแบบปุ่ม · local109 เลขที่ใบเสร็จ · local110 สิทธิ์ลบ SUPER_ADMIN + อัปเดตข้อมูลซ้ำ · local111 PASTE INVOICE) ══ -->
     <div class="tab-panel" id="tab-overdue">
       <div class="ovd-wrap">
         <div class="ovd-head">
@@ -1025,6 +1025,7 @@ html, body { overflow-x: hidden !important; }
               <button type="button" data-mode="selected">☑️ Export รายการที่ติ๊กเลือก (<span id="ovd_expNSel">0</span>)</button>
             </div>
           </div>
+          <button type="button" id="ovd_pasteBtn" class="ovd-btn ovd-btn-paste" title="วางเลข Invoice เพื่อบันทึกชำระเงินหลายรายการ"><span>📋 PASTE INVOICE</span></button>
           <button type="button" id="ovd_refreshBtn" class="ovd-btn ovd-btn-light"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Refresh</span></button>
           <div class="ovd-spacer"></div>
           <span class="ovd-selinfo" id="ovd_selInfo"></span>
@@ -1232,7 +1233,62 @@ html, body { overflow-x: hidden !important; }
   </div>
 </div>
 
-<!-- ══ 📋 OVERDUE — CSS (scope: #tab-overdue และ #ovd_importMo เท่านั้น) ══ -->
+<!-- ══ 📋 OVERDUE — ระบุเลขที่ใบเสร็จก่อนเปลี่ยนสถานะเป็นจ่ายแล้ว (local109) ══ -->
+<div class="mo" id="ovd_rcptMo" style="z-index:910;" role="dialog" aria-modal="true" aria-labelledby="ovd_rcptTitle">
+  <div class="md ovd-md">
+    <div class="md-hd">
+      <div class="md-title" id="ovd_rcptTitle">🧾 ระบุเลขที่ใบเสร็จ</div>
+      <button class="md-x" type="button" id="ovd_rcptX" aria-label="ปิด">&times;</button>
+    </div>
+    <div class="ovd-rcpt-info" id="ovd_rcptInfo"></div>
+    <label class="ovd-rcpt-lbl" for="ovd_rcptInput">เลขที่ใบเสร็จ <b>*</b></label>
+    <input type="text" id="ovd_rcptInput" class="ovd-rcpt-input" maxlength="100" autocomplete="off" placeholder="กรอกเลขที่ใบเสร็จ (บังคับ)"/>
+    <label class="ovd-rcpt-lbl ovd-rcpt-lbl2" for="ovd_rcptDate">วันที่ใบเสร็จ <b>*</b></label>
+    <input type="date" id="ovd_rcptDate" class="ovd-rcpt-input"/>
+    <div class="ovd-rcpt-err" id="ovd_rcptErr"></div>
+    <div class="ovd-rcpt-hint" id="ovd_rcptHint"></div>
+    <div class="ovd-imp-actions">
+      <button type="button" class="ovd-btn ovd-btn-light" id="ovd_rcptCancel">ยกเลิก</button>
+      <button type="button" class="ovd-btn ovd-btn-export" id="ovd_rcptSave">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 📋 OVERDUE — PASTE INVOICE บันทึกชำระเงินหลายรายการ (local111) ══ -->
+<div class="mo" id="ovd_pasteMo" style="z-index:905;" role="dialog" aria-modal="true" aria-labelledby="ovd_pTitle">
+  <div class="md ovd-pmd">
+    <div class="md-hd">
+      <div class="md-title" id="ovd_pTitle">📋 PASTE INVOICE</div>
+      <button class="md-x" type="button" id="ovd_pX" aria-label="ปิด">&times;</button>
+    </div>
+    <div class="ovd-p-cats" id="ovd_pCats">
+      <button type="button" data-cat="service">🔵 SERVICE</button>
+      <button type="button" data-cat="advance">🟠 ADVANCE</button>
+      <span class="ovd-p-rule" id="ovd_pRule"></span>
+    </div>
+    <div class="ovd-p-grid">
+      <div><label class="ovd-p-lbl" for="ovd_pRcpt">เลขที่ใบเสร็จ <b>*</b></label>
+        <input type="text" id="ovd_pRcpt" class="ovd-p-in" maxlength="100" autocomplete="off" placeholder="กรอกเลขที่ใบเสร็จ"/></div>
+      <div><label class="ovd-p-lbl" for="ovd_pDate">วันที่ใบเสร็จ <b>*</b></label>
+        <input type="date" id="ovd_pDate" class="ovd-p-in"/></div>
+    </div>
+    <label class="ovd-p-lbl" for="ovd_pText">PASTE — Invoice No.</label>
+    <textarea id="ovd_pText" class="ovd-p-text" spellcheck="false" placeholder="วางเลข Invoice จาก Excel ได้หลายรายการพร้อมกัน (แนวตั้งหรือแนวนอน)"></textarea>
+    <div class="ovd-p-hint">วางเลข Invoice จาก Excel ได้หลายรายการพร้อมกัน · ระบบข้ามหัวตาราง "Invoice No." และเลขที่วางซ้ำให้อัตโนมัติ</div>
+    <div class="ovd-p-err" id="ovd_pErr"></div>
+    <div class="ovd-p-actions">
+      <button type="button" class="ovd-btn ovd-btn-dark" id="ovd_pCheck">🔍 ตรวจสอบรายการ</button>
+      <button type="button" class="ovd-btn ovd-btn-export" id="ovd_pSave" disabled>💾 บันทึกจ่ายแล้ว</button>
+      <button type="button" class="ovd-btn ovd-btn-light" id="ovd_pClear">🔄 ล้างข้อมูล</button>
+      <button type="button" class="ovd-btn ovd-btn-light" id="ovd_pCancel">✖ ยกเลิก</button>
+    </div>
+    <div class="ovd-p-status" id="ovd_pStatus"></div>
+    <div class="ovd-p-kpis" id="ovd_pKpis" hidden></div>
+    <div class="ovd-p-detail" id="ovd_pDetail"></div>
+  </div>
+</div>
+
+<!-- ══ 📋 OVERDUE — CSS (scope: #tab-overdue, #ovd_importMo, #ovd_rcptMo และ #ovd_pasteMo เท่านั้น) ══ -->
 <style id="ovd-style">
 #appScreen > .main:has(> #tab-overdue.active){ background:#F5F6F8; min-height:100vh; }
 #tab-overdue{
@@ -1310,13 +1366,19 @@ html, body { overflow-x: hidden !important; }
   font-family:'Sarabun',sans-serif; font-size:13.5px; font-weight:600; cursor:pointer; }
 #tab-overdue .ovd-formats button:hover{ border-color:#1D4ED8; color:#1D4ED8; }
 #tab-overdue .ovd-formats button.active{ background:#1D4ED8; border-color:#1D4ED8; color:#FFFFFF; }
-#tab-overdue .ovd-tabs{ display:flex; gap:4px; margin:12px 0 8px; border-bottom:1px solid #E5E7EB; }
-#tab-overdue .ovd-tabs button{ background:none; border:none; border-bottom:3px solid transparent; padding:8px 14px; font-family:'Sarabun',sans-serif;
-  font-size:14px; font-weight:700; cursor:pointer; margin-bottom:-1px; }
-#tab-overdue .ovd-tabs button[data-tab="all"]{ color:#EA6C00; }
-#tab-overdue .ovd-tabs button[data-tab="paid"]{ color:#15803D; }
-#tab-overdue .ovd-tabs button[data-tab="unpaid"]{ color:#DC2626; }
-#tab-overdue .ovd-tabs button.active{ border-bottom-color:currentColor; background:#FAFAFA; }
+/* local108: แท็บสถานะเป็นปุ่มทรงสี่เหลี่ยมมุมโค้งแบบเดียวกับปุ่ม UPLOAD (สีตามสถานะ · ใช้ทั้ง SERVICE / ADVANCE) */
+#tab-overdue .ovd-tabs{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:12px 0 10px; }
+#tab-overdue .ovd-tabs button{ display:inline-block; vertical-align:middle; text-align:center; min-height:38px; padding:8px 16px;
+  border:1px solid var(--t-bd); border-radius:10px; background:var(--t-bg); color:var(--t-fg); font-family:'Sarabun',sans-serif;
+  font-size:14px; font-weight:600; line-height:20px; white-space:nowrap; cursor:pointer; transition:background .15s, border-color .15s, box-shadow .15s, transform .1s; }
+#tab-overdue .ovd-tabs button[data-tab="all"]{ --t-bg:#FFF7ED; --t-hv:#FFEDD5; --t-on:#FED7AA; --t-bd:#FDBA74; --t-st:#EA580C; --t-fg:#C2410C; }
+#tab-overdue .ovd-tabs button[data-tab="paid"]{ --t-bg:#F0FDF4; --t-hv:#DCFCE7; --t-on:#BBF7D0; --t-bd:#86EFAC; --t-st:#16A34A; --t-fg:#15803D; }
+#tab-overdue .ovd-tabs button[data-tab="unpaid"]{ --t-bg:#FEF2F2; --t-hv:#FEE2E2; --t-on:#FECACA; --t-bd:#FCA5A5; --t-st:#DC2626; --t-fg:#B91C1C; }
+#tab-overdue .ovd-tabs button:hover{ background:var(--t-hv); border-color:var(--t-st); }
+#tab-overdue .ovd-tabs button.active{ background:var(--t-on); border-color:var(--t-st); font-weight:700;
+  box-shadow:0 0 0 1px var(--t-st), 0 2px 8px rgba(17,24,39,.12); }
+#tab-overdue .ovd-tabs button:active{ transform:translateY(1px); }
+#tab-overdue .ovd-tabs button:focus-visible{ outline:2px solid var(--t-st); outline-offset:2px; }
 #tab-overdue .ovd-status{ margin:6px 0; padding:9px 12px; border-radius:8px; font-size:13.5px; background:#EFF6FF; color:#1E40AF; border:1px solid #DBEAFE; }
 #tab-overdue .ovd-status.ok{ background:#ECFDF5; color:#166534; border-color:#BBF7D0; }
 #tab-overdue .ovd-status.err{ background:#FEF2F2; color:#B91C1C; border-color:#FECACA; }
@@ -1331,6 +1393,7 @@ html, body { overflow-x: hidden !important; }
 #tab-overdue .ovd-table .ovd-c-chk{ position:sticky; left:0; z-index:2; width:40px; min-width:40px; max-width:40px; text-align:center; padding:7px 6px; }
 #tab-overdue .ovd-table .ovd-c-inv{ position:sticky; left:40px; z-index:2; font-weight:700; color:#1D4ED8; box-shadow:2px 0 0 #E5E7EB; }
 #tab-overdue .ovd-table .ovd-c-act{ position:sticky; right:0; z-index:2; text-align:center; box-shadow:-2px 0 0 #E5E7EB; }
+#tab-overdue .ovd-act-none{ color:#9CA3AF; }
 #tab-overdue .ovd-table th.ovd-c-chk, #tab-overdue .ovd-table th.ovd-c-inv, #tab-overdue .ovd-table th.ovd-c-act{ z-index:4; background:#F1F5F9; color:#1F2937; }
 #tab-overdue .ovd-table input[type=checkbox]{ width:16px; height:16px; cursor:pointer; accent-color:#EA6C00; }
 #tab-overdue .ovd-note-wrap{ display:flex; align-items:center; gap:6px; }
@@ -1361,8 +1424,97 @@ html, body { overflow-x: hidden !important; }
 #ovd_importMo .ovd-imp-row.skip{ background:#F8FAFC; color:#64748B; }
 #ovd_importMo .ovd-imp-sample{ font-size:12px; color:#6B7280; padding:2px 10px 4px; word-break:break-all; }
 #ovd_importMo .ovd-imp-note{ font-size:12.5px; color:#15803D; margin-top:10px; }
+/* local111: PASTE INVOICE */
+#tab-overdue .ovd-btn-paste{ background:#7C3AED; color:#FFFFFF; }
+#tab-overdue .ovd-btn-paste:hover:not(:disabled){ background:#6D28D9; }
+#tab-overdue .ovd-table td.ovd-c-rdate{ white-space:nowrap; }
+#ovd_rcptMo .ovd-rcpt-lbl2{ margin-top:10px; }
+#ovd_pasteMo .ovd-pmd{ max-width:880px; width:calc(100% - 24px); max-height:92vh; overflow:auto; background:#FFFFFF; border:1px solid #E5E7EB; color:#1F2937; }
+#ovd_pasteMo .md-hd{ border-bottom-color:#E5E7EB; }
+#ovd_pasteMo .md-title{ color:#6D28D9; }
+#ovd_pasteMo .md-x{ color:#6B7280; }
+#ovd_pasteMo .ovd-p-cats{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:12px; }
+#ovd_pasteMo .ovd-p-cats button{ height:34px; padding:0 16px; border-radius:17px; border:1px solid #E5E7EB; background:#F3F4F6; color:#374151; font-family:'Sarabun',sans-serif; font-size:13.5px; font-weight:700; cursor:pointer; }
+#ovd_pasteMo .ovd-p-cats button.active[data-cat="service"]{ background:#2563EB; border-color:#2563EB; color:#FFFFFF; }
+#ovd_pasteMo .ovd-p-cats button.active[data-cat="advance"]{ background:#EA580C; border-color:#EA580C; color:#FFFFFF; }
+#ovd_pasteMo .ovd-p-rule{ font-size:12.5px; color:#6B7280; }
+#ovd_pasteMo .ovd-p-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; border-top:1px solid #E5E7EB; padding-top:12px; margin-bottom:10px; }
+#ovd_pasteMo .ovd-p-lbl{ display:block; font-size:13.5px; font-weight:700; margin-bottom:6px; }
+#ovd_pasteMo .ovd-p-lbl b{ color:#DC2626; }
+#ovd_pasteMo .ovd-p-in{ width:100%; box-sizing:border-box; height:40px; padding:0 12px; border:1px solid #D1D5DB; border-radius:10px; font-family:'Sarabun',sans-serif; font-size:15px; color:#1F2937; background:#FFFFFF; }
+#ovd_pasteMo .ovd-p-in.bad, #ovd_pasteMo .ovd-p-text.bad{ border-color:#DC2626; box-shadow:0 0 0 3px rgba(220,38,38,.15); }
+#ovd_pasteMo .ovd-p-in:focus, #ovd_pasteMo .ovd-p-text:focus{ outline:none; border-color:#7C3AED; box-shadow:0 0 0 3px rgba(124,58,237,.16); }
+#ovd_pasteMo .ovd-p-text{ width:100%; box-sizing:border-box; min-height:170px; resize:vertical; padding:10px 12px; border:1px solid #D1D5DB; border-radius:10px; font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:14px; line-height:1.55; color:#1F2937; background:#FFFFFF; }
+#ovd_pasteMo .ovd-p-hint{ font-size:12px; color:#6B7280; margin-top:4px; }
+#ovd_pasteMo .ovd-p-err{ min-height:18px; font-size:13px; color:#DC2626; margin-top:6px; font-weight:600; }
+#ovd_pasteMo .ovd-p-actions{ display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+#ovd_pasteMo .ovd-btn{ display:inline-flex; align-items:center; gap:7px; height:38px; padding:0 16px; border-radius:8px; font-family:'Sarabun',sans-serif; font-size:14px; font-weight:700; cursor:pointer; white-space:nowrap; border:1px solid transparent; transition:all .15s; }
+#ovd_pasteMo .ovd-btn:disabled{ opacity:.5; cursor:not-allowed; }
+#ovd_pasteMo .ovd-btn-dark{ background:#111827; color:#FFFFFF; }
+#ovd_pasteMo .ovd-btn-dark:hover:not(:disabled){ background:#1F2937; }
+#ovd_pasteMo .ovd-btn-export{ background:#15803D; color:#FFFFFF; }
+#ovd_pasteMo .ovd-btn-export:hover:not(:disabled){ background:#166534; }
+#ovd_pasteMo .ovd-btn-light{ background:#FFFFFF; color:#1F2937; border-color:#D1D5DB; font-weight:600; }
+#ovd_pasteMo .ovd-btn-light:hover:not(:disabled){ background:#F9FAFB; border-color:#9CA3AF; }
+#ovd_pasteMo .ovd-btn-sm{ height:28px; padding:0 10px; font-size:12.5px; }
+#ovd_pasteMo .ovd-p-status{ font-size:13.5px; margin-top:10px; font-weight:600; }
+#ovd_pasteMo .ovd-p-status.ok{ color:#15803D; } #ovd_pasteMo .ovd-p-status.warn{ color:#B45309; } #ovd_pasteMo .ovd-p-status.err{ color:#DC2626; }
+#ovd_pasteMo .ovd-p-kpis{ display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr)); gap:8px; margin-top:10px; }
+#ovd_pasteMo .ovd-p-kpis[hidden]{ display:none; }
+#ovd_pasteMo .ovd-p-kpi{ border-radius:10px; padding:8px 10px; border:1px solid #E5E7EB; background:#F8FAFC; }
+#ovd_pasteMo .ovd-p-kpi span{ display:block; font-size:12px; font-weight:700; color:#4B5563; }
+#ovd_pasteMo .ovd-p-kpi b{ display:block; font-size:20px; line-height:1.3; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+#ovd_pasteMo .ovd-p-kpi.k-all{ background:#EFF6FF; border-color:#DBEAFE; } #ovd_pasteMo .ovd-p-kpi.k-all b{ color:#1D4ED8; }
+#ovd_pasteMo .ovd-p-kpi.k-ok{ background:#ECFDF5; border-color:#D1FAE5; } #ovd_pasteMo .ovd-p-kpi.k-ok b{ color:#15803D; }
+#ovd_pasteMo .ovd-p-kpi.k-paid{ background:#FEFCE8; border-color:#FEF08A; } #ovd_pasteMo .ovd-p-kpi.k-paid b{ color:#A16207; }
+#ovd_pasteMo .ovd-p-kpi.k-nf{ background:#FEF2F2; border-color:#FEE2E2; } #ovd_pasteMo .ovd-p-kpi.k-nf b{ color:#DC2626; }
+#ovd_pasteMo .ovd-p-kpi.k-wrong{ background:#FFF7ED; border-color:#FED7AA; } #ovd_pasteMo .ovd-p-kpi.k-wrong b{ color:#C2410C; }
+#ovd_pasteMo .ovd-p-kpi.k-fail{ background:#FEF2F2; border-color:#FCA5A5; } #ovd_pasteMo .ovd-p-kpi.k-fail b{ color:#B91C1C; }
+#ovd_pasteMo .ovd-p-kpi.k-amt{ background:#F5F3FF; border-color:#DDD6FE; } #ovd_pasteMo .ovd-p-kpi.k-amt b{ color:#6D28D9; font-size:18px; }
+#ovd_pasteMo .ovd-p-sec{ margin-top:12px; border:1px solid #E5E7EB; border-radius:10px; overflow:hidden; }
+#ovd_pasteMo .ovd-p-sec h4{ margin:0; padding:8px 12px; font-size:13.5px; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+#ovd_pasteMo .ovd-p-sec.s-ok h4{ background:#ECFDF5; color:#166534; } #ovd_pasteMo .ovd-p-sec.s-paid h4{ background:#FEFCE8; color:#854D0E; }
+#ovd_pasteMo .ovd-p-sec.s-nf h4{ background:#FEF2F2; color:#991B1B; } #ovd_pasteMo .ovd-p-sec.s-wrong h4{ background:#FFF7ED; color:#9A3412; }
+#ovd_pasteMo .ovd-p-sec.s-amb h4{ background:#FFFBEB; color:#92400E; } #ovd_pasteMo .ovd-p-sec.s-dup h4{ background:#F1F5F9; color:#334155; }
+#ovd_pasteMo .ovd-p-sec.s-fail h4{ background:#FEE2E2; color:#991B1B; }
+#ovd_pasteMo .ovd-p-tw{ max-height:240px; overflow:auto; }
+#ovd_pasteMo .ovd-p-tw table{ width:100%; border-collapse:collapse; font-size:13px; }
+#ovd_pasteMo .ovd-p-tw th, #ovd_pasteMo .ovd-p-tw td{ padding:6px 10px; border:0; border-top:1px solid #F1F5F9; text-align:left; white-space:nowrap; text-transform:none; letter-spacing:normal; font-size:13px; color:#1F2937; background:transparent; }
+#ovd_pasteMo .ovd-p-tw th{ position:sticky; top:0; background:#F8FAFC; font-weight:700; color:#374151; border-bottom:1px solid #E5E7EB; }
+#ovd_pasteMo .ovd-p-tw td.num{ text-align:right; font-variant-numeric:tabular-nums; }
+#ovd_pasteMo .ovd-p-list{ padding:8px 12px; font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:13px; line-height:1.7; max-height:160px; overflow:auto; word-break:break-all; }
+@media (max-width:640px){ #ovd_pasteMo .ovd-p-grid{ grid-template-columns:1fr; } #ovd_pasteMo .ovd-p-actions .ovd-btn{ flex:1 1 calc(50% - 8px); justify-content:center; } }
+/* local109: เลขที่ใบเสร็จ */
+#tab-overdue .ovd-table td.ovd-c-rcpt{ white-space:nowrap; }
+#tab-overdue .ovd-rcpt-wrap{ display:inline-flex; align-items:center; gap:6px; }
+#tab-overdue .ovd-rcpt-v{ font-weight:600; color:#1F2937; }
+#tab-overdue .ovd-rcpt-v.none{ color:#9CA3AF; font-weight:400; }
+#tab-overdue .ovd-rcpt-edit{ border:1px solid #D1D5DB; background:#FFFFFF; border-radius:6px; padding:2px 6px; font-size:12px; cursor:pointer; line-height:1.4; }
+#tab-overdue .ovd-rcpt-edit:hover{ background:#F3F4F6; border-color:#9CA3AF; }
+#tab-overdue .ovd-rcpt-edit.need{ border-color:#F59E0B; background:#FFFBEB; color:#92400E; font-weight:700; }
+#ovd_rcptMo .ovd-md{ max-width:460px; width:calc(100% - 24px); background:#FFFFFF; border:1px solid #E5E7EB; color:#1F2937; }
+#ovd_rcptMo .md-hd{ border-bottom-color:#E5E7EB; }
+#ovd_rcptMo .md-title{ color:#15803D; }
+#ovd_rcptMo .md-x{ color:#6B7280; }
+#ovd_rcptMo .ovd-rcpt-info{ font-size:13px; color:#374151; background:#F8FAFC; border:1px solid #E5E7EB; border-radius:8px; padding:8px 10px; margin-bottom:12px; line-height:1.7; }
+#ovd_rcptMo .ovd-rcpt-lbl{ display:block; font-size:13.5px; font-weight:700; margin-bottom:6px; }
+#ovd_rcptMo .ovd-rcpt-lbl b{ color:#DC2626; }
+#ovd_rcptMo .ovd-rcpt-input{ width:100%; box-sizing:border-box; height:40px; padding:0 12px; border:1px solid #D1D5DB; border-radius:8px; font-family:'Sarabun',sans-serif; font-size:15px; color:#1F2937; background:#FFFFFF; }
+#ovd_rcptMo .ovd-rcpt-input:focus{ outline:none; border-color:#16A34A; box-shadow:0 0 0 3px rgba(22,163,74,.18); }
+#ovd_rcptMo .ovd-rcpt-input.bad{ border-color:#DC2626; box-shadow:0 0 0 3px rgba(220,38,38,.15); }
+#ovd_rcptMo .ovd-rcpt-err{ min-height:18px; font-size:12.5px; color:#DC2626; margin-top:6px; }
+#ovd_rcptMo .ovd-rcpt-hint{ font-size:12px; color:#6B7280; }
+#ovd_rcptMo .ovd-imp-actions{ display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; margin-top:14px; }
+#ovd_rcptMo .ovd-btn{ display:inline-flex; align-items:center; gap:7px; height:38px; padding:0 16px; border-radius:8px;
+  font-family:'Sarabun',sans-serif; font-size:14px; font-weight:700; cursor:pointer; white-space:nowrap; border:1px solid transparent; transition:all .15s; }
+#ovd_rcptMo .ovd-btn:disabled{ opacity:.5; cursor:not-allowed; }
+#ovd_rcptMo .ovd-btn-export{ background:#15803D; color:#FFFFFF; }
+#ovd_rcptMo .ovd-btn-export:hover:not(:disabled){ background:#166534; }
+#ovd_rcptMo .ovd-btn-light{ background:#FFFFFF; color:#1F2937; border-color:#D1D5DB; font-weight:600; }
+#ovd_rcptMo .ovd-btn-light:hover{ background:#F9FAFB; border-color:#9CA3AF; }
 #ovd_importMo .ovd-imp-actions{ display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; margin-top:16px; }
 @media (max-width:768px){
+  #tab-overdue .ovd-tabs button{ flex:1 1 auto; padding:8px 12px; }
   #tab-overdue{ padding-top:40px; }
   #tab-overdue .ovd-wrap{ padding:14px 12px; }
   #tab-overdue .ovd-cats{ width:100%; }
@@ -4167,7 +4319,13 @@ window.renderShipClose = renderShipClose;
 //    · local105: ADVANCE รองรับรูปแบบ DSV AIR ADVANCE เพิ่ม (APL คงเดิม)
 //    · local106: SERVICE / ADVANCE แต่ละเมนูเป็นรายงานเดียว ไม่แยกแท็บตามรูปแบบไฟล์ · Export 1 ไฟล์ 1 ชีต
 //                (แสดงผล/Export เท่านั้น — ข้อมูลในฐานข้อมูล ID หมายเหตุ สถานะ และหัวข้อ/ค่าต้นฉบับคงเดิมทุกช่อง)
-//    · local107: KPI ช่องที่ 4 "ยอดเงินค้างจ่าย" = ผลรวมรายการที่ยังไม่จ่าย ของเมนูที่เปิดอยู่ ตามลูกค้า/ตัวกรองที่เลือก)
+//    · local107: KPI ช่องที่ 4 "ยอดเงินค้างจ่าย" = ผลรวมรายการที่ยังไม่จ่าย ของเมนูที่เปิดอยู่ ตามลูกค้า/ตัวกรองที่เลือก
+//    · local108: แท็บสถานะ ทั้งหมด / จ่ายแล้ว / ยังไม่จ่าย เป็นปุ่มสีตามสถานะ (CSS เท่านั้น ไม่เปลี่ยนการทำงาน)
+//    · local109: เลขที่ใบเสร็จ (receipt_no · RUN-03) — ติ๊กจ่ายแล้วต้องกรอกเลขที่ใบเสร็จก่อนเสมอ · แก้ไขภายหลังได้
+//    · local110: ลบได้เฉพาะ SUPER_ADMIN (ซ่อนปุ่ม + ตรวจสิทธิ์ในฐานข้อมูลผ่าน RPC overdue_delete_invoices · RUN-04)
+//                Upload ซ้ำ: ยังไม่จ่าย → อัปเดตจากไฟล์ล่าสุด · จ่ายแล้ว → ข้าม · JOB ไม่ตรง → ไม่อัปเดต
+//                (หมายเหตุ / สถานะชำระเงิน / เลขที่ใบเสร็จ / ID เดิม ไม่ถูกเปลี่ยนทุกกรณี)
+//    · local111: วันที่ใบเสร็จ (receipt_date · RUN-05) + 📋 PASTE INVOICE บันทึกจ่ายแล้วหลายรายการ (จับคู่เฉพาะเมนูของตัวเอง))
 //   โมดูลอิสระ: ใช้เฉพาะตาราง overdue_files / overdue_invoices (app_code='overdue')
 //   ไม่อ่าน/ไม่เขียนตารางของโหมดอื่น · ไม่แก้ฟังก์ชันส่วนกลาง (ใช้ sb / toast / CU / renderPager แบบอ่านอย่างเดียว)
 //   สถานะชำระเงินมาจาก is_paid เท่านั้น — ไม่ตีความ Status (เช่น POSTED) จากไฟล์ Excel
@@ -4188,7 +4346,7 @@ window.renderShipClose = renderShipClose;
   const ST = {service: newState(), advance: newState()};
   const OVD = {
     cat: 'service',
-    noteTimers: new Map(), noteChain: new Map(), noteRows: new Map(), busy: false, bound: false, pendingImport: null,
+    noteTimers: new Map(), noteChain: new Map(), noteRows: new Map(), busy: false, bound: false, pendingImport: null, rcpt: null,
   };
   // OVD.rows / OVD.sel / ... = ข้อมูลของหมวดที่เปิดอยู่ (SERVICE หรือ ADVANCE)
   ['rows', 'files', 'loaded', 'loading', 'loadError', 'sel', 'tab', 'page', 'filtered', 'base', 'fmt'].forEach(k =>
@@ -4345,6 +4503,13 @@ window.renderShipClose = renderShipClose;
     return [...seen.values()];
   }
   const byId = id => OVD.rows.find(r => String(r.id) === String(id)) || null;
+  // local111: วันที่ใบเสร็จ (เก็บเป็น yyyy-mm-dd · แสดง dd/mm/yyyy)
+  const todayISO = () => { const d = new Date(), p2 = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`; };
+  const isIsoDate = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) && !isNaN(Date.parse(v));
+  const fmtD = v => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || '')); return m ? `${m[3]}/${m[2]}/${m[1]}` : ''; };
+  const isoSerial = v => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || '')); return m ? (Date.UTC(+m[1], +m[2] - 1, +m[3]) - Date.UTC(1899, 11, 30)) / 86400000 : null; };
+  // local110: ปุ่มลบ / การลบ — เฉพาะ SUPER_ADMIN (ADMIN และพนักงานไม่เห็นปุ่ม · ฐานข้อมูลตรวจซ้ำอีกชั้น)
+  const canDelete = () => !!(typeof CU !== 'undefined' && CU && String(CU.role || '').toLowerCase() === 'super_admin');
 
   // ═══════════ โหลดข้อมูล ═══════════
   async function fetchAll(table, cols, orders, app){
@@ -4413,7 +4578,7 @@ window.renderShipClose = renderShipClose;
       if (f.from && (!r.doc_date || r.doc_date < f.from)) return false;
       if (f.to && (!r.doc_date || r.doc_date > f.to)) return false;
       if (f.q){
-        const hay = lc([r.invoice_no, r.customer_name, r.company_invoice, r.customer_job_no, r.name_cs, r.note].join(' ')
+        const hay = lc([r.invoice_no, r.customer_name, r.company_invoice, r.customer_job_no, r.name_cs, r.note, r.receipt_no].join(' ')
           + (CUR().searchAll ? ' ' + (r.cells || []).map(cellText).join(' ') : ''));
         if (!hay.includes(f.q)) return false;
       }
@@ -4487,7 +4652,7 @@ window.renderShipClose = renderShipClose;
     const isInv = c => uni ? c.inv : isInvKey(c.key);
     thead.innerHTML = '<tr><th class="ovd-c-chk"><input type="checkbox" id="ovd_chkAll" title="เลือกทั้งหมด (ตามตัวกรอง)"></th>'
       + cols.map(c => `<th class="${isInv(c) ? 'ovd-c-inv' : ''}">${esc(c.label)}</th>`).join('')
-      + '<th class="ovd-c-note">หมายเหตุ</th><th class="ovd-c-paid">สถานะชำระเงิน</th><th class="ovd-c-act">จัดการ</th></tr>';
+      + '<th class="ovd-c-note">หมายเหตุ</th><th class="ovd-c-rcpt">เลขที่ใบเสร็จ</th><th class="ovd-c-rdate">วันที่ใบเสร็จ</th><th class="ovd-c-paid">สถานะชำระเงิน</th><th class="ovd-c-act">จัดการ</th></tr>';
     const list = OVD.filtered;
     const tp = Math.max(1, Math.ceil(list.length / PS));
     if (OVD.page > tp) OVD.page = tp;
@@ -4495,9 +4660,10 @@ window.renderShipClose = renderShipClose;
     if (!list.length){
       const txt = OVD.loadError ? OVD.loadError
         : (OVD.rows.length ? 'ไม่พบรายการตามตัวกรอง' : (OVD.loaded ? 'ยังไม่มีข้อมูล — กด ' + (OVD.cat === 'advance' ? 'UPLOAD AD' : 'UPLOAD SER') + ' เพื่อนำเข้าไฟล์ Excel' : '⏳ กำลังโหลด...'));
-      tbody.innerHTML = `<tr><td class="ovd-empty" colspan="${cols.length + 4}">${esc(txt)}</td></tr>`;
+      tbody.innerHTML = `<tr><td class="ovd-empty" colspan="${cols.length + 6}">${esc(txt)}</td></tr>`;
     } else {
       const st = (OVD.page - 1) * PS;
+      const canDel = canDelete();
       tbody.innerHTML = list.slice(st, st + PS).map(r => {
         const cm = uni ? uniMap(r) : cellMap(r), id = esc(r.id);
         return `<tr data-id="${id}" class="${r.is_paid ? 'is-paid' : ''}">`
@@ -4508,8 +4674,9 @@ window.renderShipClose = renderShipClose;
               return `<td class="${cls}">${esc(cellText(cell))}</td>`;
             }).join('')
           + `<td class="ovd-c-note"><div class="ovd-note-wrap"><input type="text" class="ovd-note" data-id="${id}" value="${esc(r.note || '')}" placeholder="ระบุหมายเหตุ" maxlength="2000"><span class="ovd-note-st" data-id="${id}"></span></div></td>`
+          + `<td class="ovd-c-rcpt">${rcptCell(r)}</td><td class="ovd-c-rdate">${esc(fmtD(r.receipt_date)) || '<span class="ovd-rcpt-v none">–</span>'}</td>`
           + `<td class="ovd-c-paid"><label class="ovd-paid ${r.is_paid ? 'on' : 'off'}"><input type="checkbox" class="ovd-paidchk" data-id="${id}" ${r.is_paid ? 'checked' : ''}><span>${r.is_paid ? 'จ่ายแล้ว' : 'ยังไม่จ่าย'}</span></label></td>`
-          + `<td class="ovd-c-act"><button type="button" class="ovd-del" data-id="${id}" title="ลบรายการนี้">🗑️</button></td></tr>`;
+          + `<td class="ovd-c-act">${canDel ? `<button type="button" class="ovd-del" data-id="${id}" title="ลบรายการนี้">🗑️</button>` : '<span class="ovd-act-none">–</span>'}</td></tr>`;
       }).join('');
     }
     if (typeof renderPager === 'function') renderPager('ovd_pager', OVD.page, tp, list.length, p => { OVD.page = p; renderTable(); syncSel(); });
@@ -4527,7 +4694,7 @@ window.renderShipClose = renderShipClose;
     const ca = $('ovd_chkAll');
     if (ca){ ca.checked = OVD.filtered.length > 0 && inView === OVD.filtered.length; ca.indeterminate = inView > 0 && inView < OVD.filtered.length; }
     const info = $('ovd_selInfo'); if (info) info.textContent = n ? `เลือกแล้ว ${n} รายการ` : '';
-    const del = $('ovd_delSelBtn'); if (del){ del.disabled = !n; del.textContent = n ? `🗑️ ลบที่เลือก (${n})` : '🗑️ ลบที่เลือก'; }
+    const del = $('ovd_delSelBtn'); if (del){ del.hidden = !canDelete(); del.style.display = canDelete() ? '' : 'none'; del.disabled = !n; del.textContent = n ? `🗑️ ลบที่เลือก (${n})` : '🗑️ ลบที่เลือก'; }
     const a = $('ovd_expNAll'); if (a) a.textContent = OVD.rows.length;
     const b = $('ovd_expNFilter'); if (b) b.textContent = OVD.filtered.length;
     const c = $('ovd_expNSel'); if (c) c.textContent = n;
@@ -4552,6 +4719,269 @@ window.renderShipClose = renderShipClose;
     const next = prev.then(() => saveNote(id)).catch(() => {});
     OVD.noteChain.set(id, next);
     return next;
+  }
+  // ═══════════ เลขที่ใบเสร็จ (local109) ═══════════
+  function rcptCell(r){
+    const v = String(r.receipt_no || '').trim(), id = esc(r.id);
+    const need = r.is_paid && (!v || !r.receipt_date);
+    const btn = r.is_paid || v
+      ? `<button type="button" class="ovd-rcpt-edit${need ? ' need' : ''}" data-id="${id}" title="${need ? 'ระบุเลขที่/วันที่ใบเสร็จ' : 'แก้ไขเลขที่ใบเสร็จ'}">${need ? '✏️ ระบุ' : '✏️'}</button>` : '';
+    return `<div class="ovd-rcpt-wrap"><span class="ovd-rcpt-v${v ? '' : ' none'}">${v ? esc(v) : '–'}</span>${btn}</div>`;
+  }
+  // mode 'pay' = ติ๊กจ่ายแล้ว (บังคับกรอก · ยกเลิก = คงยังไม่จ่าย) · 'edit' = แก้ไขเลขที่ใบเสร็จภายหลัง (ไม่เปลี่ยนสถานะ)
+  function openReceipt(id, mode){
+    const r = byId(id), mo = $('ovd_rcptMo'); if (!r || !mo) return;
+    const inp = $('ovd_rcptInput'), err = $('ovd_rcptErr');
+    OVD.rcpt = {id: String(r.id), mode, cat: r._cat || OVD.cat, busy: false};
+    $('ovd_rcptTitle').textContent = mode === 'pay' ? '🧾 ระบุเลขที่ใบเสร็จ ก่อนเปลี่ยนเป็นจ่ายแล้ว' : '🧾 แก้ไขเลขที่ใบเสร็จ';
+    $('ovd_rcptInfo').innerHTML = `Invoice: <b>${esc(r.invoice_no)}</b><br>ลูกค้า: ${esc(r.customer_name || '-')}<br>ยอดเงิน: <b>${money(r.total_amount)}</b> บาท`;
+    $('ovd_rcptHint').textContent = mode === 'pay' ? 'กดบันทึกแล้วสถานะจะเปลี่ยนเป็น 🟢 จ่ายแล้ว · กดยกเลิกสถานะคงเป็น 🔴 ยังไม่จ่าย' : 'ใช้เลขที่ใบเสร็จเดียวกันกับหลาย Invoice ได้';
+    inp.value = r.receipt_no || ''; inp.classList.remove('bad'); err.textContent = '';
+    const dt = $('ovd_rcptDate'); if (dt){ dt.value = isIsoDate(r.receipt_date) ? r.receipt_date : todayISO(); dt.classList.remove('bad'); }
+    $('ovd_rcptSave').disabled = false; $('ovd_rcptCancel').disabled = false;
+    mo.classList.add('open');
+    setTimeout(() => { inp.focus(); inp.select(); }, 30);
+  }
+  function closeReceipt(){
+    const mo = $('ovd_rcptMo'); if (mo) mo.classList.remove('open');
+    const st = OVD.rcpt; OVD.rcpt = null;
+    if (st && st.mode === 'pay'){                 // ยกเลิก → คงยังไม่จ่าย (ช่องติ๊กกลับเป็นไม่ติ๊ก)
+      const cb = document.querySelector(`#ovd_tbody .ovd-paidchk[data-id="${CSS.escape(st.id)}"]`);
+      const r = byId(st.id); if (cb && r) cb.checked = !!r.is_paid;
+    }
+  }
+  async function saveReceipt(){
+    const st = OVD.rcpt; if (!st || st.busy) return;
+    const r = byId(st.id); if (!r){ closeReceipt(); return; }
+    const inp = $('ovd_rcptInput'), err = $('ovd_rcptErr');
+    const val = inp.value.trim();
+    if (!val){ inp.classList.add('bad'); err.textContent = 'กรุณากรอกเลขที่ใบเสร็จ — ต้องระบุก่อน' + (st.mode === 'pay' ? 'เปลี่ยนสถานะเป็นจ่ายแล้ว' : 'บันทึก'); inp.focus(); return; }
+    const dtEl = $('ovd_rcptDate'), dval = dtEl ? dtEl.value : '';
+    if (!isIsoDate(dval)){ if (dtEl){ dtEl.classList.add('bad'); dtEl.focus(); } err.textContent = 'กรุณาเลือกวันที่ใบเสร็จ'; return; }
+    if (dtEl) dtEl.classList.remove('bad');
+    const cfg = CATS[st.cat], now = new Date().toISOString(), user = who();
+    const patch = {receipt_no: val, receipt_date: dval, receipt_updated_at: now, receipt_updated_by: user, updated_at: now};
+    if (st.mode === 'pay') Object.assign(patch, {is_paid: true, paid_updated_at: now, paid_updated_by: user});
+    st.busy = true; $('ovd_rcptSave').disabled = true; $('ovd_rcptCancel').disabled = true; err.textContent = '⏳ กำลังบันทึก...';
+    const {data, error} = await sb.from(cfg.T_INV).update(patch).eq('id', r.id).eq('app_code', cfg.APP).select('id');
+    st.busy = false; $('ovd_rcptSave').disabled = false; $('ovd_rcptCancel').disabled = false;
+    if (error || !data || !data.length){
+      const m = error ? msg(error) : 'ไม่พบรายการในฐานข้อมูล';
+      err.textContent = /receipt_/i.test(m) ? '⚠️ ยังไม่พบคอลัมน์เลขที่/วันที่ใบเสร็จในฐานข้อมูล — กรุณารันไฟล์ RUN-03_overdue_receipt.sql และ RUN-05_overdue_receipt_date.sql ใน Supabase ก่อน (สถานะยังไม่เปลี่ยน)'
+        : '⚠️ บันทึกไม่สำเร็จ: ' + m + ' (สถานะยังไม่เปลี่ยน)';
+      return;
+    }
+    Object.assign(r, patch);
+    OVD.rcpt = null; const mo = $('ovd_rcptMo'); if (mo) mo.classList.remove('open');
+    render();                                         // อัปเดต KPI / แท็บ / ยอดค้างจ่ายทันที
+    say(st.mode === 'pay' ? `🟢 ${r.invoice_no} → จ่ายแล้ว (ใบเสร็จ ${val} · ${fmtD(dval)})` : `🧾 ${r.invoice_no} → เลขที่ใบเสร็จ ${val} · ${fmtD(dval)}`);
+  }
+  // ═══════════ 📋 PASTE INVOICE — บันทึกจ่ายแล้วหลายรายการ (local111) ═══════════
+  //   SERVICE รับ NJL / NJD / NJ · ADVANCE รับ ADV-NJ / NJAD (ตรวจ ADV-NJ / NJAD ก่อน NJ เสมอ)
+  //   จับคู่เลข Invoice เต็มตรงกัน 100% กับฐานข้อมูลทั้งหมดของเมนูที่เลือก · ไม่จับคู่ข้ามเมนู · ไม่แก้ตัวอักษร/ขีดของเลขต้นฉบับ
+  const PASTE_CHUNK = 150;
+  const PST = {cat: 'service', check: null, busy: false, sig: ''};
+  const invType = t => { const u = String(t).toUpperCase(); return (u.startsWith('ADV-NJ') || u.startsWith('NJAD')) ? 'advance' : (u.startsWith('NJ') ? 'service' : ''); };
+  const isHeaderTok = t => /^(invoice|inv|no\.?|invoiceno\.?|invoice_no|เลขที่|เลข|ใบแจ้งหนี้|invoicenj|invoiceadv|adv|nj)$/i.test(String(t).replace(/[:#]/g, ''));
+  function parsePaste(text){
+    const toks = String(text || '').split(/[\s,;|]+/).map(x => x.trim()).filter(Boolean);
+    const out = {raw: toks.length, uniq: [], dups: [], headers: 0}, seen = new Set();
+    toks.forEach(t => {
+      if (!invType(t) && isHeaderTok(t)){ out.headers++; return; }   // หัวตาราง "Invoice No." ที่ติดมาจาก Excel
+      if (seen.has(t)){ out.dups.push(t); return; }
+      seen.add(t); out.uniq.push(t);
+    });
+    return out;
+  }
+  const pSig = () => PST.cat + '\u0001' + ($('ovd_pText') || {}).value;
+  function pSet(id, t, cls){ const el = $(id); if (el){ el.textContent = t || ''; if (cls != null) el.className = cls; } }
+  function pCats(){
+    document.querySelectorAll('#ovd_pCats button[data-cat]').forEach(b => b.classList.toggle('active', b.dataset.cat === PST.cat));
+    pSet('ovd_pRule', PST.cat === 'advance' ? 'รับเลขที่ขึ้นต้น ADV-NJ / NJAD · จับคู่เฉพาะรายงาน ADVANCE' : 'รับเลขที่ขึ้นต้น NJL / NJD / NJ · จับคู่เฉพาะรายงาน SERVICE');
+  }
+  function pSaveState(){
+    const b = $('ovd_pSave'); if (!b) return;
+    const ok = !!(PST.check && PST.check.sig === pSig() && PST.check.ready.length && !PST.busy);
+    b.disabled = !ok;
+    ['ovd_pCheck', 'ovd_pClear', 'ovd_pCancel'].forEach(id => { const x = $(id); if (x) x.disabled = PST.busy; });
+    document.querySelectorAll('#ovd_pCats button').forEach(x => { x.disabled = PST.busy; });
+  }
+  function openPaste(){
+    const mo = $('ovd_pasteMo'); if (!mo) return;
+    PST.cat = OVD.cat; PST.check = null; PST.busy = false;
+    const d = $('ovd_pDate'); if (d && !isIsoDate(d.value)) d.value = todayISO();
+    pCats(); pSet('ovd_pErr', ''); pSet('ovd_pStatus', '', 'ovd-p-status');
+    const k = $('ovd_pKpis'); if (k){ k.hidden = true; k.innerHTML = ''; }
+    const dt = $('ovd_pDetail'); if (dt) dt.innerHTML = '';
+    ['ovd_pRcpt', 'ovd_pDate', 'ovd_pText'].forEach(id => { const x = $(id); if (x) x.classList.remove('bad'); });
+    pSaveState();
+    mo.classList.add('open');
+    setTimeout(() => { const t = $('ovd_pText'); if (t) t.focus(); }, 30);
+  }
+  function closePaste(){ if (PST.busy) return; const mo = $('ovd_pasteMo'); if (mo) mo.classList.remove('open'); }
+  function clearPaste(){
+    if (PST.busy) return;
+    ['ovd_pRcpt', 'ovd_pText'].forEach(id => { const x = $(id); if (x){ x.value = ''; x.classList.remove('bad'); } });
+    const d = $('ovd_pDate'); if (d){ d.value = todayISO(); d.classList.remove('bad'); }
+    PST.check = null; pSet('ovd_pErr', ''); pSet('ovd_pStatus', '', 'ovd-p-status');
+    const k = $('ovd_pKpis'); if (k){ k.hidden = true; k.innerHTML = ''; }
+    const dt = $('ovd_pDetail'); if (dt) dt.innerHTML = '';
+    pSaveState();
+    const t = $('ovd_pText'); if (t) t.focus();
+  }
+  // ── ตรวจสอบรายการ: อ่านสถานะล่าสุดจากฐานข้อมูลของเมนูที่เลือก (ทุกรายการ ไม่จำกัดเฉพาะที่แสดงบนจอ) ──
+  async function checkPaste(){
+    if (PST.busy) return;
+    const cat = PST.cat, cfg = CATS[cat], txt = $('ovd_pText');
+    const p = parsePaste(txt ? txt.value : '');
+    pSet('ovd_pErr', '');
+    if (!p.uniq.length){ if (txt) txt.classList.add('bad'); pSet('ovd_pErr', 'กรุณาวางเลข Invoice อย่างน้อย 1 รายการ'); PST.check = null; pSaveState(); return; }
+    if (txt) txt.classList.remove('bad');
+    const sig = pSig();
+    const mine = [], wrong = [];
+    p.uniq.forEach(t => { const ty = invType(t); if (ty === cat) mine.push(t); else wrong.push({inv: t, type: ty}); });
+    PST.busy = true; pSaveState();
+    const found = new Map();
+    try{
+      for (let i = 0; i < mine.length; i += PASTE_CHUNK){
+        pSet('ovd_pStatus', `⏳ กำลังตรวจสอบกับฐานข้อมูล ${Math.min(i + PASTE_CHUNK, mine.length).toLocaleString('en-US')}/${mine.length.toLocaleString('en-US')} ...`, 'ovd-p-status');
+        const chunk = mine.slice(i, i + PASTE_CHUNK);
+        const {data, error} = await sb.from(cfg.T_INV).select('*').eq('app_code', cfg.APP).in('invoice_no', chunk);
+        if (error) throw error;
+        (data || []).forEach(r => { if (!found.has(r.invoice_no)) found.set(r.invoice_no, []); found.get(r.invoice_no).push(r); });
+        await new Promise(r => setTimeout(r, 0));          // คืนจังหวะให้หน้าจอ ไม่ค้าง
+      }
+    }catch(e){
+      PST.busy = false; PST.check = null; pSaveState();
+      pSet('ovd_pStatus', '⚠️ ตรวจสอบไม่สำเร็จ: ' + msg(e), 'ovd-p-status err');
+      return;
+    }
+    PST.busy = false;
+    const c = {sig, cat, total: p.uniq.length, raw: p.raw, headers: p.headers, dups: p.dups, ready: [], paid: [], notFound: [], wrong, amb: []};
+    mine.forEach(t => {
+      const list = found.get(t) || [];                     // เทียบเลขเต็มแบบตรงตัว 100%
+      if (!list.length) c.notFound.push(t);
+      else if (list.length > 1) c.amb.push({inv: t, rows: list});
+      else if (list[0].is_paid) c.paid.push(list[0]);
+      else c.ready.push(list[0]);
+    });
+    PST.check = c; PST.last = null; PST.result = null;
+    renderPasteCheck(c);
+    pSaveState();
+  }
+  const pCopyBtn = (key, label) => `<button type="button" class="ovd-btn ovd-btn-light ovd-btn-sm" data-pcopy="${key}">📋 COPY ${label || ''}</button>`;
+  function pKpis(items){
+    const k = $('ovd_pKpis'); if (!k) return;
+    k.hidden = false;
+    k.innerHTML = items.map(([cls, lbl, v]) => `<div class="ovd-p-kpi ${cls}"><span>${esc(lbl)}</span><b>${esc(v)}</b></div>`).join('');
+  }
+  function pSec(cls, title, body, copyKey){
+    return `<div class="ovd-p-sec ${cls}"><h4><span>${title}</span>${copyKey ? pCopyBtn(copyKey) : ''}</h4>${body}</div>`;
+  }
+  const pTable = (head, rows) => `<div class="ovd-p-tw"><table><thead><tr>${head.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+  const pList = list => `<div class="ovd-p-list">${list.map(esc).join('<br>')}</div>`;
+  const otherLbl = ty => ty === 'service' ? 'เป็นเลข SERVICE' : (ty === 'advance' ? 'เป็นเลข ADVANCE' : 'ไม่ใช่รูปแบบเลข Invoice ที่รองรับ');
+  function renderPasteCheck(c){
+    const amt = r2(c.ready.reduce((s, r) => s + r2(r.total_amount), 0));
+    pKpis([['k-all', '🔵 PASTE ทั้งหมด', c.total.toLocaleString('en-US')], ['k-ok', '🟢 พร้อมบันทึก', c.ready.length.toLocaleString('en-US')],
+           ['k-paid', '🟡 จ่ายแล้ว', c.paid.length.toLocaleString('en-US')], ['k-nf', '🔴 ไม่พบ', (c.notFound.length + c.amb.length).toLocaleString('en-US')],
+           ['k-wrong', '🟠 ผิดประเภท', c.wrong.length.toLocaleString('en-US')], ['k-amt', '💰 ยอดพร้อมบันทึก', money(amt)]]);
+    const cn = CATS[c.cat].label;
+    let h = '';
+    if (c.wrong.length) h += pSec('s-wrong', `🟠 เลข Invoice ผิดประเภท ${c.wrong.length} รายการ — ไม่บันทึกในเมนู ${cn}`,
+      pTable(['Invoice No.', 'ประเภท'], c.wrong.map(w => `<tr><td>${esc(w.inv)}</td><td>${esc(otherLbl(w.type))}</td></tr>`)), 'wrong');
+    if (c.notFound.length) h += pSec('s-nf', `🔴 ไม่พบในรายงาน ${cn} ${c.notFound.length} รายการ`, pList(c.notFound), 'nf');
+    if (c.amb.length) h += pSec('s-amb', `⚠️ พบ Invoice เดียวกันหลายรายการ ${c.amb.length} เลข — ระบุรายการไม่ได้ กรุณาตรวจสอบ (ไม่บันทึก)`,
+      pTable(['Invoice No.', 'ลูกค้า', 'ยอดเงิน', 'สถานะ'], c.amb.flatMap(a => a.rows.map(r => `<tr><td>${esc(a.inv)}</td><td>${esc(r.customer_name || '-')}</td><td class="num">${money(r.total_amount)}</td><td>${r.is_paid ? 'จ่ายแล้ว' : 'ยังไม่จ่าย'}</td></tr>`))), 'amb');
+    if (c.paid.length) h += pSec('s-paid', `🟡 จ่ายแล้ว ${c.paid.length} รายการ — ไม่บันทึกซ้ำ / ไม่เขียนทับ`,
+      pTable(['Invoice No.', 'ลูกค้า', 'ยอดเงิน', 'เลขที่ใบเสร็จเดิม', 'วันที่ใบเสร็จเดิม'], c.paid.map(r => `<tr><td>${esc(r.invoice_no)}</td><td>${esc(r.customer_name || '-')}</td><td class="num">${money(r.total_amount)}</td><td>${esc(r.receipt_no || '-')}</td><td>${esc(fmtD(r.receipt_date) || '-')}</td></tr>`)), 'paid');
+    if (c.ready.length) h += pSec('s-ok', `🟢 พร้อมบันทึกจ่ายแล้ว ${c.ready.length} รายการ · ${money(amt)} บาท`,
+      pTable(['Invoice No.', 'ลูกค้า', 'ยอดเงิน', 'สถานะ'], c.ready.map(r => `<tr><td>${esc(r.invoice_no)}</td><td>${esc(r.customer_name || '-')}</td><td class="num">${money(r.total_amount)}</td><td>พร้อมบันทึก</td></tr>`)));
+    if (c.dups.length) h += pSec('s-dup', `♻️ เลขที่วางซ้ำ ${c.dups.length} ครั้ง (นับ/บันทึกครั้งเดียว)`, pList([...new Set(c.dups)]));
+    const dt = $('ovd_pDetail'); if (dt) dt.innerHTML = h;
+    const prob = c.notFound.length + c.wrong.length + c.amb.length;
+    pSet('ovd_pStatus', c.ready.length
+      ? `✅ ตรวจสอบแล้ว — พร้อมบันทึก ${c.ready.length} รายการ` + (prob || c.paid.length ? ` · มีรายการที่ไม่บันทึก ${prob + c.paid.length} รายการ (ดูรายละเอียดด้านล่าง)` : '')
+      : '⚠️ ไม่มีรายการที่พร้อมบันทึก', 'ovd-p-status ' + (c.ready.length ? (prob ? 'warn' : 'ok') : 'err'));
+  }
+  // ── บันทึกจ่ายแล้ว: ตรวจซ้ำในฐานข้อมูลอีกชั้น (.eq is_paid=false) กันการชำระซ้ำ · ไม่แตะหมายเหตุ / ยอดเงิน / ข้อมูล Invoice ──
+  async function savePaste(){
+    if (PST.busy) return;
+    const c = PST.check, rc = $('ovd_pRcpt'), dt = $('ovd_pDate');
+    const rcpt = rc ? rc.value.trim() : '', date = dt ? dt.value : '';
+    let bad = '';
+    if (!rcpt){ rc.classList.add('bad'); bad = 'กรุณากรอกเลขที่ใบเสร็จ'; } else rc.classList.remove('bad');
+    if (!isIsoDate(date)){ dt.classList.add('bad'); bad = bad ? bad + ' และเลือกวันที่ใบเสร็จ' : 'กรุณาเลือกวันที่ใบเสร็จ'; } else dt.classList.remove('bad');
+    if (!c || c.sig !== pSig()){ bad = (bad ? bad + ' · ' : '') + 'ข้อมูลเปลี่ยน กรุณากด 🔍 ตรวจสอบรายการอีกครั้ง'; }
+    else if (!c.ready.length) bad = (bad ? bad + ' · ' : '') + 'ไม่มีรายการที่จับคู่สำเร็จและยังไม่จ่าย';
+    if (bad){ pSet('ovd_pErr', bad); if (!rcpt && rc) rc.focus(); return; }
+    pSet('ovd_pErr', '');
+    const cfg = CATS[c.cat], now = new Date().toISOString(), user = who();
+    const patch = {is_paid: true, receipt_no: rcpt, receipt_date: date, receipt_updated_at: now, receipt_updated_by: user, paid_updated_at: now, paid_updated_by: user, updated_at: now};
+    PST.busy = true; pSaveState();
+    const okIds = new Set(), failInv = [], failMsg = new Set();
+    for (let i = 0; i < c.ready.length; i += PASTE_CHUNK){
+      const chunk = c.ready.slice(i, i + PASTE_CHUNK);
+      pSet('ovd_pStatus', `⏳ กำลังบันทึก ${Math.min(i + PASTE_CHUNK, c.ready.length).toLocaleString('en-US')}/${c.ready.length.toLocaleString('en-US')} ...`, 'ovd-p-status');
+      const {data, error} = await sb.from(cfg.T_INV).update(patch).in('id', chunk.map(r => r.id)).eq('app_code', cfg.APP).eq('is_paid', false).select('id');
+      if (error){ chunk.forEach(r => failInv.push(r.invoice_no)); failMsg.add(msg(error)); continue; }
+      (data || []).forEach(x => okIds.add(String(x.id)));
+      await new Promise(r => setTimeout(r, 0));
+    }
+    const saved = c.ready.filter(r => okIds.has(String(r.id)));
+    const failedSet = new Set(failInv);
+    const paidNow = c.ready.filter(r => !okIds.has(String(r.id)) && !failedSet.has(r.invoice_no));   // ถูกบันทึกจ่ายแล้วโดยผู้อื่นก่อนหน้า
+    PST.busy = false;
+    const amt = r2(saved.reduce((s, r) => s + r2(r.total_amount), 0));
+    pKpis([['k-all', '🔵 Invoice ทั้งหมด', c.total.toLocaleString('en-US')], ['k-ok', '🟢 บันทึกสำเร็จ', saved.length.toLocaleString('en-US')],
+           ['k-paid', '🟡 จ่ายแล้วก่อนหน้า', (c.paid.length + paidNow.length).toLocaleString('en-US')], ['k-nf', '🔴 ไม่พบ', (c.notFound.length + c.amb.length).toLocaleString('en-US')],
+           ['k-wrong', '🟠 ผิดประเภท', c.wrong.length.toLocaleString('en-US')], ['k-fail', '❌ บันทึกไม่สำเร็จ', failInv.length.toLocaleString('en-US')],
+           ['k-amt', '💰 ยอดบันทึกสำเร็จ', money(amt)]]);
+    const cn = cfg.label;
+    let h = '';
+    const err0 = [...failMsg][0] || '';
+    if (failInv.length) h += pSec('s-fail', `❌ บันทึกไม่สำเร็จ ${failInv.length} รายการ — สถานะยังไม่เปลี่ยน` + (err0 ? ' · ' + esc(/receipt_/i.test(err0) ? 'ยังไม่พบคอลัมน์เลขที่/วันที่ใบเสร็จ — กรุณารัน RUN-03 และ RUN-05' : err0) : ''), pList(failInv), 'fail');
+    if (paidNow.length) h += pSec('s-paid', `🟡 ถูกบันทึกจ่ายแล้วก่อนหน้า (ระหว่างตรวจสอบ) ${paidNow.length} รายการ — ไม่บันทึกซ้ำ`, pList(paidNow.map(r => r.invoice_no)), 'paidNow');
+    if (c.wrong.length) h += pSec('s-wrong', `🟠 ผิดประเภท ${c.wrong.length} รายการ — ไม่บันทึกในเมนู ${cn}`, pTable(['Invoice No.', 'ประเภท'], c.wrong.map(w => `<tr><td>${esc(w.inv)}</td><td>${esc(otherLbl(w.type))}</td></tr>`)), 'wrong');
+    if (c.notFound.length) h += pSec('s-nf', `🔴 ไม่พบ ${c.notFound.length} รายการ`, pList(c.notFound), 'nf');
+    if (c.amb.length) h += pSec('s-amb', `⚠️ Invoice เดียวกันหลายรายการ ${c.amb.length} เลข — ไม่บันทึก`, pList(c.amb.map(a => a.inv)), 'amb');
+    if (c.paid.length) h += pSec('s-paid', `🟡 จ่ายแล้วก่อนหน้านี้ ${c.paid.length} รายการ`, pTable(['Invoice No.', 'เลขที่ใบเสร็จเดิม', 'วันที่ใบเสร็จเดิม'], c.paid.map(r => `<tr><td>${esc(r.invoice_no)}</td><td>${esc(r.receipt_no || '-')}</td><td>${esc(fmtD(r.receipt_date) || '-')}</td></tr>`)), 'paid');
+    if (saved.length) h += pSec('s-ok', `🟢 บันทึกจ่ายแล้วสำเร็จ ${saved.length} รายการ · ใบเสร็จ ${esc(rcpt)} · ${esc(fmtD(date))} · ${money(amt)} บาท`,
+      pTable(['Invoice No.', 'ลูกค้า', 'ยอดเงิน'], saved.map(r => `<tr><td>${esc(r.invoice_no)}</td><td>${esc(r.customer_name || '-')}</td><td class="num">${money(r.total_amount)}</td></tr>`)));
+    const dtl = $('ovd_pDetail'); if (dtl) dtl.innerHTML = h;
+    PST.result = {fail: failInv, paidNow: paidNow.map(r => r.invoice_no)};
+    PST.last = c; PST.check = null;                     // ต้องตรวจสอบใหม่ก่อนบันทึกรอบถัดไป
+    pSet('ovd_pStatus', !saved.length ? '❌ บันทึกไม่สำเร็จ — ไม่มีรายการใดเปลี่ยนสถานะ'
+      : (failInv.length ? `⚠️ บันทึกสำเร็จบางส่วน ${saved.length} รายการ · ไม่สำเร็จ ${failInv.length} รายการ` : `✅ บันทึกจ่ายแล้วสำเร็จ ${saved.length} รายการ · ${money(amt)} บาท`),
+      'ovd-p-status ' + (!saved.length ? 'err' : (failInv.length ? 'warn' : 'ok')));
+    pSaveState();
+    if (saved.length){
+      if (OVD.cat !== c.cat) switchCat(c.cat);
+      await load(c.cat);                                // Refresh ตาราง + KPI ทั้ง 4 ช่อง
+      say(failInv.length ? `⚠️ บันทึกจ่ายแล้ว ${saved.length} รายการ · ไม่สำเร็จ ${failInv.length}` : `🟢 บันทึกจ่ายแล้ว ${saved.length} รายการ (ใบเสร็จ ${rcpt})`, failInv.length ? 'err' : undefined);
+    } else say('บันทึกไม่สำเร็จ — สถานะยังไม่เปลี่ยน', 'err');
+  }
+  function pCopy(key){
+    const c = PST.check || PST.last, res = PST.result || {};
+    const lists = {
+      wrong: () => (c ? c.wrong.map(w => w.inv) : []), nf: () => (c ? c.notFound : []), amb: () => (c ? c.amb.map(a => a.inv) : []),
+      paid: () => (c ? c.paid.map(r => r.invoice_no) : []), fail: () => res.fail || [], paidNow: () => res.paidNow || [],
+    };
+    // หลังบันทึก PST.check ถูกล้าง → อ่านจากตารางที่แสดงอยู่
+    let list = lists[key] ? lists[key]() : [];
+    if (!list.length){
+      const sec = document.querySelector(`#ovd_pDetail [data-pcopy="${key}"]`);
+      const box = sec && sec.closest('.ovd-p-sec');
+      if (box) list = [...box.querySelectorAll('.ovd-p-list, td:first-child')].flatMap(el => el.classList && el.classList.contains('ovd-p-list') ? el.innerText.split('\n') : [el.textContent]).map(x => x.trim()).filter(Boolean);
+    }
+    const text = list.join('\n');
+    const done = () => say(`📋 คัดลอกแล้ว ${list.length} รายการ`);
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
+    else fallbackCopy(text, done);
+  }
+  function fallbackCopy(text, done){
+    const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); done(); }catch(e){ say('คัดลอกไม่สำเร็จ', 'err'); } ta.remove();
   }
   async function saveNote(id){
     const r = OVD.noteRows.get(String(id)) || byId(id); if (!r) return;
@@ -4593,15 +5023,21 @@ window.renderShipClose = renderShipClose;
   // ═══════════ ลบ (เฉพาะ OVERDUE) ═══════════
   async function deleteIds(ids){
     const st = ST[OVD.cat], cfg = CUR();
+    if (!canDelete()){ say('เฉพาะ SUPER_ADMIN เท่านั้นที่ลบรายการได้', 'err'); return; }
     ids = [...new Set(ids.map(String))].filter(id => byId(id));
     if (!ids.length) return;
     const sample = ids.slice(0, 5).map(id => byId(id).invoice_no).join(', ');
     if (!confirm(`ยืนยันลบ ${ids.length} รายการ ออกจาก OVERDUE${cfg.key === 'advance' ? ' ADVANCE' : ''} ?\n\n${sample}${ids.length > 5 ? ' …' : ''}\n\n(ลบเฉพาะข้อมูลในโหมด OVERDUE เท่านั้น)`)) return;
-    let done = 0;
+    let done = 0, legacy = false;
     try{
       for (let i = 0; i < ids.length; i += CHUNK){
         const chunk = ids.slice(i, i + CHUNK);
-        const {data, error} = await sb.from(cfg.T_INV).delete().in('id', chunk).eq('app_code', cfg.APP).select('id');
+        // ฐานข้อมูลตรวจสิทธิ์ SUPER_ADMIN อีกชั้น (RUN-04) — ตรวจผู้ใช้แบบเดียวกับหน้า Login
+        let {data, error} = await sb.rpc('overdue_delete_invoices', {p_username: CU.username, p_password: CU.password, p_cat: cfg.key, p_ids: chunk});
+        if (error && /PGRST202|42883|Could not find the function/i.test((error.code || '') + ' ' + msg(error))){
+          legacy = true;                              // ยังไม่ได้รัน RUN-04 → ลบแบบเดิม (หน้าเว็บจำกัดเฉพาะ SUPER_ADMIN แล้ว)
+          ({data, error} = await sb.from(cfg.T_INV).delete().in('id', chunk).eq('app_code', cfg.APP).select('id'));
+        }
         if (error) throw error;
         const got = new Set((data || []).map(x => String(x.id)));
         st.rows = st.rows.filter(r => !got.has(String(r.id)));
@@ -4609,13 +5045,17 @@ window.renderShipClose = renderShipClose;
         done += got.size;
       }
       say(`🗑️ ลบแล้ว ${done} รายการ`);
+      if (legacy) console.warn('[OVERDUE] ยังไม่พบฟังก์ชัน overdue_delete_invoices — กรุณารัน RUN-04_overdue_delete_superadmin.sql');
     }catch(e){
       console.error('[OVERDUE] delete error:', e);
-      say('ลบไม่สำเร็จ: ' + msg(e) + (done ? ` (ลบไปแล้ว ${done} รายการ)` : ''), 'err');
+      const m = msg(e);
+      say((/OVD_FORBIDDEN|42501|permission denied/i.test(((e && e.code) || '') + ' ' + m) ? 'ไม่มีสิทธิ์ลบ — เฉพาะ SUPER_ADMIN เท่านั้น' : 'ลบไม่สำเร็จ: ' + m)
+        + (done ? ` (ลบไปแล้ว ${done} รายการ)` : ''), 'err');
     }
     fillFilterOptions();
     render();
   }
+
 
   // ═══════════ อ่านไฟล์ Excel + Template ═══════════
   const THEME_RGB = {0:'FFFFFF',1:'000000',2:'E7E6E6',3:'44546A',4:'4472C4',5:'ED7D31',6:'A5A5A5',7:'FFC000',8:'5B9BD5',9:'70AD47'};
@@ -4900,10 +5340,15 @@ window.renderShipClose = renderShipClose;
       const totalRows = sheets.reduce((s, x) => s + x.rows.length, 0);
       if (!totalRows){ setStatus(errs.length ? '⚠️ ' + errs.join(' · ') : '⚠️ ไม่พบรายการ Invoice ในไฟล์', 'err', k); return; }
       setStatus('⏳ กำลังตรวจข้อมูลซ้ำกับฐานข้อมูล...', undefined, k);
-      const existingRows = await fetchAll(cfg.T_INV, 'id,dup_key,row_hash,invoice_no,customer_name', [['id', true]], cfg.APP);
+      // ตรวจซ้ำเฉพาะในเมนูเดียวกัน (SERVICE กับ SERVICE · ADVANCE กับ ADVANCE)
+      const existingRows = await fetchAll(cfg.T_INV, 'id,dup_key,row_hash,invoice_no,customer_name,customer_job_no,is_paid,total_amount', [['id', true]], cfg.APP);
       const existing = new Map(existingRows.map(r => [r.dup_key, r]));
       const seen = new Map();
-      const plan = {sheets, newRows: [], dup: [], changed: [], fileDup: [], fileConflict: [], skipped: sheets.reduce((s, x) => s + x.skipped, 0), errs};
+      const nj = v => String(v == null ? '' : v).trim().replace(/\s+/g, '').toLowerCase();
+      // local110: same = ยังไม่จ่าย ข้อมูลเหมือนเดิม · changed = ยังไม่จ่าย → อัปเดตจากไฟล์ล่าสุด · paidSkip = จ่ายแล้ว → ข้าม
+      //           jobConflict = Invoice/ลูกค้าเดิม แต่ Customer Job No. ไม่ตรง → ไม่อัปเดต (กันเขียนทับผิดรายการ)
+      const plan = {sheets, newRows: [], dup: [], changed: [], paidSkip: [], jobConflict: [], fileDup: [], fileConflict: [],
+                    skipped: sheets.reduce((s, x) => s + x.skipped, 0), errs};
       sheets.forEach((sh, si) => sh.rows.forEach(row => {
         row._si = si;
         if (seen.has(row.dup_key)){
@@ -4912,16 +5357,18 @@ window.renderShipClose = renderShipClose;
         seen.set(row.dup_key, row.row_hash);
         const ex = existing.get(row.dup_key);
         if (!ex) plan.newRows.push(row);
+        else if (ex.is_paid){ row._existing = ex; plan.paidSkip.push(row); }
+        else if (nj(ex.customer_job_no) && nj(row.customer_job_no) && nj(ex.customer_job_no) !== nj(row.customer_job_no)){ row._existing = ex; plan.jobConflict.push(row); }
         else if (ex.row_hash === row.row_hash) plan.dup.push(row);
-        else { row._existingId = ex.id; plan.changed.push(row); }
+        else { row._existingId = ex.id; row._existing = ex; plan.changed.push(row); }
       }));
-      if (plan.dup.length || plan.changed.length || plan.fileDup.length || plan.fileConflict.length){
+      if (plan.dup.length || plan.changed.length || plan.paidSkip.length || plan.jobConflict.length || plan.fileDup.length || plan.fileConflict.length){
         setStatus('', undefined, k);
         const choice = await askImport(plan, k);
         if (!choice){ setStatus('ยกเลิกการนำเข้าแล้ว — ไม่มีการบันทึกข้อมูล', undefined, k); return; }
-        await runImport(plan, choice === 'update', k);
+        await runImport(plan, true, k);
       } else {
-        await runImport(plan, false, k);
+        await runImport(plan, true, k);
       }
     }catch(e){
       console.error('[OVERDUE] import error:', k, e);
@@ -4940,17 +5387,23 @@ window.renderShipClose = renderShipClose;
       const sample = (list, f) => list.length ? `<div class="ovd-imp-sample">${list.slice(0, 8).map(f).map(esc).join(' · ')}${list.length > 8 ? ' …' : ''}</div>` : '';
       body.innerHTML =
         `<div class="ovd-imp-files">${plan.sheets.map(s => `📄 ${esc(s.file)}${s.sheet ? ' / ' + esc(s.sheet) : ''} — ${s.rows.length} รายการ${s.format ? ' · รูปแบบ ' + esc(s.format.label) : ''}`).join('<br>')}</div>`
-        + li('🆕 รายการใหม่ (จะบันทึก)', plan.newRows.length, 'new')
-        + li('♻️ ซ้ำกับข้อมูลเดิม ทุกช่องเหมือนเดิม (ข้าม)', plan.dup.length, 'dup')
+        + li('🔵 JOB ใหม่ — เพิ่มรายการ (สถานะเริ่มต้น ยังไม่จ่าย)', plan.newRows.length, 'new')
+        + li('🔴 JOB ซ้ำ ยังไม่จ่าย — อัปเดตข้อมูล/ยอดเงินจากไฟล์ล่าสุด', plan.changed.length, 'chg')
+        + sample(plan.changed, r => r.invoice_no + ' (' + (r.customer_name || '-') + ') ' + money(r._existing && r._existing.total_amount) + ' → ' + money(r.total_amount))
+        + li('♻️ JOB ซ้ำ ยังไม่จ่าย — ข้อมูลเหมือนเดิม (ไม่ต้องอัปเดต)', plan.dup.length, 'dup')
         + sample(plan.dup, r => r.invoice_no)
-        + li('⚠️ Invoice เดิม แต่รายละเอียดต่างจากเดิม', plan.changed.length, 'chg')
-        + sample(plan.changed, r => r.invoice_no + ' (' + (r.customer_name || '-') + ')')
+        + li('🟢 JOB ซ้ำ จ่ายแล้ว — ข้าม (คงข้อมูลเดิมทั้งหมด)', plan.paidSkip.length, 'dup')
+        + sample(plan.paidSkip, r => r.invoice_no)
+        + (plan.jobConflict.length ? li('⚠️ Invoice เดิม แต่ Customer Job No. ไม่ตรงกัน — ไม่อัปเดต (กรุณาตรวจสอบ)', plan.jobConflict.length, 'chg')
+            + sample(plan.jobConflict, r => r.invoice_no + ' (เดิม ' + (r._existing.customer_job_no || '-') + ' · ไฟล์ ' + (r.customer_job_no || '-') + ')') : '')
         + (plan.fileDup.length ? li('♻️ ซ้ำกันเองในไฟล์ที่เลือก (ข้าม)', plan.fileDup.length, 'dup') : '')
         + (plan.fileConflict.length ? li('⚠️ Invoice ซ้ำในไฟล์ แต่ข้อมูลต่างกัน (ใช้รายการแรก)', plan.fileConflict.length, 'chg') + sample(plan.fileConflict, r => r.invoice_no) : '')
         + (plan.skipped ? li('➖ แถวสรุป / แถว SUM / แถวที่ไม่ใช่ Invoice (ไม่นำเข้า)', plan.skipped, 'skip') : '')
-        + `<div class="ovd-imp-note">หมายเหตุและสถานะชำระเงินของรายการเดิมจะคงไว้ทุกกรณี</div>`;
-      const upd = $('ovd_impUpd'); if (upd) upd.style.display = plan.changed.length ? '' : 'none';
-      const nw = $('ovd_impNew'); if (nw) nw.textContent = plan.newRows.length ? `บันทึกเฉพาะรายการใหม่ (${plan.newRows.length})` : 'ไม่บันทึก (ไม่มีรายการใหม่)';
+        + `<div class="ovd-imp-note">หมายเหตุ · สถานะชำระเงิน · เลขที่ใบเสร็จ · ID รายการเดิม คงไว้ 100% ทุกกรณี · ไม่ลบรายการที่ไม่มีในไฟล์</div>`;
+      const nw = $('ovd_impNew'); if (nw) nw.style.display = 'none';
+      const upd = $('ovd_impUpd');
+      if (upd){ upd.style.display = ''; upd.textContent = (plan.newRows.length || plan.changed.length)
+        ? `✅ ยืนยันบันทึก (เพิ่ม ${plan.newRows.length} · อัปเดต ${plan.changed.length})` : '✅ ตกลง (ไม่มีรายการต้องบันทึก)'; }
       const done = v => { mo.classList.remove('open'); OVD.pendingImport = null; resolve(v); };
       OVD.pendingImport = done;
       mo.classList.add('open');
@@ -4980,7 +5433,7 @@ window.renderShipClose = renderShipClose;
       source_file: r.source_file, source_sheet: r.source_sheet, source_row: r.source_row,
     });
     // 2) เพิ่มรายการใหม่ (is_paid = false เสมอ · ไม่อ่าน Status จากไฟล์)
-    let inserted = 0, conflicts = 0, updated = 0, failed = 0;
+    let inserted = 0, conflicts = 0, updated = 0, failed = 0, paidNow = 0;
     for (let i = 0; i < plan.newRows.length; i += CHUNK){
       const chunk = plan.newRows.slice(i, i + CHUNK);
       setStatus(`⏳ กำลังบันทึก ${Math.min(i + CHUNK, plan.newRows.length)}/${plan.newRows.length} รายการ...`, undefined, k);
@@ -4998,8 +5451,11 @@ window.renderShipClose = renderShipClose;
       for (const r of plan.changed){
         const p = payload(r); delete p.app_code; delete p.dup_key;
         p.updated_at = new Date().toISOString();
-        const {data, error} = await sb.from(cfg.T_INV).update(p).eq('id', r._existingId).eq('app_code', cfg.APP).select('id');
-        if (error || !data || !data.length){ failed++; console.warn('[OVERDUE] update failed', r.invoice_no, error); } else updated++;
+        // ไม่ส่ง note / is_paid / receipt_* / id → คงค่าเดิม 100% · .eq('is_paid', false) กันอัปเดตรายการที่เพิ่งถูกติ๊กจ่ายแล้ว
+        const {data, error} = await sb.from(cfg.T_INV).update(p).eq('id', r._existingId).eq('app_code', cfg.APP).eq('is_paid', false).select('id');
+        if (error){ failed++; console.warn('[OVERDUE] update failed', r.invoice_no, error); }
+        else if (!data || !data.length) paidNow++;
+        else updated++;
       }
     }
     // 4) บันทึกยอดสรุปของไฟล์
@@ -5010,7 +5466,9 @@ window.renderShipClose = renderShipClose;
       await sb.from(cfg.T_FILE).update({inserted_count: ins, updated_count: upd, skipped_count: sh.rows.length - ins - upd}).eq('id', fid).eq('app_code', cfg.APP);
     }
     const skippedTotal = plan.dup.length + plan.fileDup.length + plan.fileConflict.length + conflicts + (doUpdate ? 0 : plan.changed.length);
+    const paidSkip = (plan.paidSkip ? plan.paidSkip.length : 0) + paidNow, jobC = plan.jobConflict ? plan.jobConflict.length : 0;
     const summary = `นำเข้าสำเร็จ: เพิ่ม ${inserted} รายการ` + (updated ? ` · อัปเดต ${updated}` : '') + (skippedTotal ? ` · ข้ามรายการซ้ำ ${skippedTotal}` : '')
+      + (paidSkip ? ` · ข้ามรายการจ่ายแล้ว ${paidSkip}` : '') + (jobC ? ` · JOB ไม่ตรง (ไม่อัปเดต) ${jobC}` : '')
       + (plan.skipped ? ` · ไม่นับแถวสรุป/SUM ${plan.skipped}` : '') + (failed ? ` · อัปเดตไม่สำเร็จ ${failed}` : '');
     const firstNew = plan.sheets.find((sh, si) => plan.newRows.some(r => r._si === si) && sh.format);
     if (firstNew) ST[k].fmt = firstNew.format.id;
@@ -5078,7 +5536,9 @@ window.renderShipClose = renderShipClose;
     cols.forEach((c, i) => put(0, i, {t: 's', v: c.label, s: tplStyle(tpl, 'header', c.key) || clone(DEF_H)}));
     const hLast = tplStyle(tpl, 'header', lastKey) || clone(DEF_H);
     put(0, nCols, {t: 's', v: 'หมายเหตุ', s: clone(hLast)});
-    put(0, nCols + 1, {t: 's', v: 'สถานะชำระเงิน', s: clone(hLast)});
+    put(0, nCols + 1, {t: 's', v: 'เลขที่ใบเสร็จ', s: clone(hLast)});
+    put(0, nCols + 2, {t: 's', v: 'วันที่ใบเสร็จ', s: clone(hLast)});
+    put(0, nCols + 3, {t: 's', v: 'สถานะชำระเงิน', s: clone(hLast)});
     // ── ข้อมูล ──
     const dLast = tplStyle(tpl, 'data', lastKey) || clone(DEF_D);
     const sums = new Array(nCols).fill(0);
@@ -5103,9 +5563,12 @@ window.renderShipClose = renderShipClose;
       });
       const sn = clone(dLast); sn.numFmt = '@'; sn.alignment = Object.assign({}, sn.alignment || {}, {horizontal: 'left'});
       put(R, nCols, {t: 's', v: r.note || '', s: sn});
+      put(R, nCols + 1, {t: 's', v: String(r.receipt_no || ''), s: clone(sn)});
+      { const ser = isoSerial(r.receipt_date), sd = clone(sn); sd.numFmt = 'dd/mm/yyyy';
+        put(R, nCols + 2, ser != null ? {t: 'n', v: ser, s: sd, z: 'dd/mm/yyyy'} : {t: 's', v: '', s: clone(sn)}); }
       const sp = clone(dLast); sp.numFmt = '@';
       sp.font = Object.assign({}, sp.font || {}, {bold: true, color: {rgb: r.is_paid ? 'FF008000' : 'FFC00000'}});
-      put(R, nCols + 1, {t: 's', v: r.is_paid ? 'จ่ายแล้ว' : 'ยังไม่จ่าย', s: sp});
+      put(R, nCols + 3, {t: 's', v: r.is_paid ? 'จ่ายแล้ว' : 'ยังไม่จ่าย', s: sp});
     });
     // ── แถวสรุป SUM (เฉพาะรายการที่ Export จริง) ──
     const lastRow = rows.length;            // index แถวข้อมูลสุดท้าย (0-based) → Excel row = lastRow+1
@@ -5125,13 +5588,13 @@ window.renderShipClose = renderShipClose;
       const i = tpl && tpl.keys ? tpl.keys.indexOf(c.key) : -1;
       const w = i >= 0 && tpl.widths ? tpl.widths[i] : null;
       return w ? {width: w, customWidth: 1} : null;
-    }).concat([{width: 30, customWidth: 1}, {width: 14, customWidth: 1}]);
+    }).concat([{width: 30, customWidth: 1}, {width: 18, customWidth: 1}, {width: 13, customWidth: 1}, {width: 14, customWidth: 1}]);
     const meta = [];
     meta[0] = tpl && tpl.header && tpl.header.ht ? {hpt: tpl.header.ht} : undefined;
     for (let i = 1; i <= rows.length; i++) meta[i] = tpl && tpl.data && tpl.data.ht ? {hpt: tpl.data.ht} : undefined;
     if (tpl && tpl.sum && tpl.sum.ht) meta[sumR] = {hpt: tpl.sum.ht};
     ws['!rows'] = meta;
-    ws['!ref'] = XLSX.utils.encode_range({s: {r: 0, c: 0}, e: {r: sumR, c: nCols + 1}});
+    ws['!ref'] = XLSX.utils.encode_range({s: {r: 0, c: 0}, e: {r: sumR, c: nCols + 3}});
     if (tpl && tpl.autoFilter) ws['!autofilter'] = {ref: `A1:${colName(nCols - 1)}${rows.length + 1}`};
     const sheetName = String((tpl && tpl.sheet) || 'Sheet1').replace(/[\\\/\?\*\[\]:]/g, ' ').slice(0, 31) || 'Sheet1';
     return {ws, sheetName};
@@ -5164,7 +5627,9 @@ window.renderShipClose = renderShipClose;
     cols.forEach((c, i) => put(0, i, {t: 's', v: c.label, s: styleOf('header', c, isNum(i)).s || clone(DEF_H)}));
     const hLast = styleOf('header', cols[nCols - 1], isNum(nCols - 1)).s || clone(DEF_H);
     put(0, nCols, {t: 's', v: 'หมายเหตุ', s: clone(hLast)});
-    put(0, nCols + 1, {t: 's', v: 'สถานะชำระเงิน', s: clone(hLast)});
+    put(0, nCols + 1, {t: 's', v: 'เลขที่ใบเสร็จ', s: clone(hLast)});
+    put(0, nCols + 2, {t: 's', v: 'วันที่ใบเสร็จ', s: clone(hLast)});
+    put(0, nCols + 3, {t: 's', v: 'สถานะชำระเงิน', s: clone(hLast)});
     // ── ข้อมูล (ค่าต้นฉบับทุกช่อง · เลขเอกสารเก็บเป็นข้อความ · รูปแบบตัวเลข/วันที่ตามช่องต้นฉบับ) ──
     const dLast = styleOf('data', cols[nCols - 1], isNum(nCols - 1)).s || clone(DEF_D);
     const sums = new Array(nCols).fill(0);
@@ -5186,9 +5651,12 @@ window.renderShipClose = renderShipClose;
       });
       const sn = clone(dLast); sn.numFmt = '@'; sn.alignment = Object.assign({}, sn.alignment || {}, {horizontal: 'left'});
       put(R, nCols, {t: 's', v: r.note || '', s: sn});
+      put(R, nCols + 1, {t: 's', v: String(r.receipt_no || ''), s: clone(sn)});
+      { const ser = isoSerial(r.receipt_date), sd = clone(sn); sd.numFmt = 'dd/mm/yyyy';
+        put(R, nCols + 2, ser != null ? {t: 'n', v: ser, s: sd, z: 'dd/mm/yyyy'} : {t: 's', v: '', s: clone(sn)}); }
       const sp = clone(dLast); sp.numFmt = '@';
       sp.font = Object.assign({}, sp.font || {}, {bold: true, color: {rgb: r.is_paid ? 'FF008000' : 'FFC00000'}});
-      put(R, nCols + 1, {t: 's', v: r.is_paid ? 'จ่ายแล้ว' : 'ยังไม่จ่าย', s: sp});
+      put(R, nCols + 3, {t: 's', v: r.is_paid ? 'จ่ายแล้ว' : 'ยังไม่จ่าย', s: sp});
     });
     // ── แถวสรุป SUM (เฉพาะรายการที่ Export จริง ไม่นับเป็นรายการ) — คอลัมน์ที่ไฟล์ต้นฉบับมี SUM + Total Amount เสมอ ──
     const sumR = rows.length + 1;
@@ -5208,13 +5676,13 @@ window.renderShipClose = renderShipClose;
     ws['!cols'] = cols.map(c => {
       for (const t of [tpl].concat(tpls)){ const i = idxIn(t, c); if (i >= 0 && t.widths && t.widths[i]) return {width: t.widths[i], customWidth: 1}; }
       return null;
-    }).concat([{width: 30, customWidth: 1}, {width: 14, customWidth: 1}]);
+    }).concat([{width: 30, customWidth: 1}, {width: 18, customWidth: 1}, {width: 13, customWidth: 1}, {width: 14, customWidth: 1}]);
     const meta = [];
     meta[0] = tpl && tpl.header && tpl.header.ht ? {hpt: tpl.header.ht} : undefined;
     for (let i = 1; i <= rows.length; i++) meta[i] = tpl && tpl.data && tpl.data.ht ? {hpt: tpl.data.ht} : undefined;
     if (tpl && tpl.sum && tpl.sum.ht) meta[sumR] = {hpt: tpl.sum.ht};
     ws['!rows'] = meta;
-    ws['!ref'] = XLSX.utils.encode_range({s: {r: 0, c: 0}, e: {r: sumR, c: nCols + 1}});
+    ws['!ref'] = XLSX.utils.encode_range({s: {r: 0, c: 0}, e: {r: sumR, c: nCols + 3}});
     if (tpls.some(t => t.autoFilter)) ws['!autofilter'] = {ref: `A1:${colName(nCols - 1)}${rows.length + 1}`};
     return {ws, sheetName: cfg.label};
   }
@@ -5248,18 +5716,43 @@ window.renderShipClose = renderShipClose;
       tb.addEventListener('change', e => {
         const t = e.target;
         if (t.classList.contains('ovd-rowchk')){ if (t.checked) OVD.sel.add(t.dataset.id); else OVD.sel.delete(t.dataset.id); syncSel(); }
-        else if (t.classList.contains('ovd-paidchk')) setPaid(t.dataset.id, t.checked);
+        else if (t.classList.contains('ovd-paidchk')){
+          if (t.checked){ t.checked = false; openReceipt(t.dataset.id, 'pay'); }   // จ่ายแล้ว → ต้องกรอกเลขที่ใบเสร็จก่อน
+          else setPaid(t.dataset.id, false);
+        }
       });
       tb.addEventListener('input', e => { if (e.target.classList.contains('ovd-note')) queueNote(e.target.dataset.id, e.target.value); });
       tb.addEventListener('focusout', e => { if (e.target.classList.contains('ovd-note') && OVD.noteTimers.has(e.target.dataset.id)) flushNote(e.target.dataset.id); });
       tb.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.classList.contains('ovd-note')){ e.preventDefault(); e.target.blur(); } });
-      tb.addEventListener('click', e => { const b = e.target.closest('.ovd-del'); if (b) deleteIds([b.dataset.id]); });
+      tb.addEventListener('click', e => {
+        const b = e.target.closest('.ovd-del'); if (b) deleteIds([b.dataset.id]);
+        const rb = e.target.closest('.ovd-rcpt-edit'); if (rb) openReceipt(rb.dataset.id, 'edit');
+      });
     }
     const fin = v => () => { if (typeof OVD.pendingImport === 'function') OVD.pendingImport(v); };
     on('ovd_impNew', 'click', fin('new'));
     on('ovd_impUpd', 'click', fin('update'));
     on('ovd_impCancel', 'click', fin(null));
     on('ovd_impX', 'click', fin(null));
+    on('ovd_rcptSave', 'click', () => saveReceipt());
+    on('ovd_rcptDate', 'keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); saveReceipt(); } else if (e.key === 'Escape' && !(OVD.rcpt && OVD.rcpt.busy)) closeReceipt(); });
+    // PASTE INVOICE
+    on('ovd_pasteBtn', 'click', () => openPaste());
+    on('ovd_pCheck', 'click', () => checkPaste());
+    on('ovd_pSave', 'click', () => savePaste());
+    on('ovd_pClear', 'click', () => clearPaste());
+    on('ovd_pCancel', 'click', () => closePaste());
+    on('ovd_pX', 'click', () => closePaste());
+    on('ovd_pCats', 'click', e => { const b = e.target.closest('button[data-cat]'); if (b && !PST.busy && b.dataset.cat !== PST.cat){ PST.cat = b.dataset.cat; pCats(); pSaveState(); } });
+    on('ovd_pText', 'input', () => pSaveState());
+    on('ovd_pRcpt', 'input', () => { const x = $('ovd_pRcpt'); if (x.value.trim()) x.classList.remove('bad'); });
+    on('ovd_pDate', 'change', () => { const x = $('ovd_pDate'); if (isIsoDate(x.value)) x.classList.remove('bad'); });
+    on('ovd_pDetail', 'click', e => { const b = e.target.closest('[data-pcopy]'); if (b) pCopy(b.dataset.pcopy); });
+    on('ovd_pasteMo', 'keydown', e => { if (e.key === 'Escape') closePaste(); });
+    on('ovd_rcptCancel', 'click', () => { if (!(OVD.rcpt && OVD.rcpt.busy)) closeReceipt(); });
+    on('ovd_rcptX', 'click', () => { if (!(OVD.rcpt && OVD.rcpt.busy)) closeReceipt(); });
+    on('ovd_rcptInput', 'keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); saveReceipt(); } else if (e.key === 'Escape' && !(OVD.rcpt && OVD.rcpt.busy)) closeReceipt(); });
+    on('ovd_rcptInput', 'input', () => { const i = $('ovd_rcptInput'); if (i.value.trim()){ i.classList.remove('bad'); $('ovd_rcptErr').textContent = ''; } });
     // กันปิดหน้าเว็บขณะยังมีหมายเหตุที่ยังไม่บันทึก
     window.addEventListener('beforeunload', e => { if (OVD.noteTimers.size){ e.preventDefault(); e.returnValue = ''; } });
   }
