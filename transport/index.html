@@ -773,7 +773,7 @@ html, body { overflow-x: hidden !important; }
 <body>
 
 <!-- ══ DEPLOY VERSION (แสดงมุมขวาบน) ══ -->
-<div id="deployVerBadge" data-version="local106" style="position:fixed;top:4px;right:8px;z-index:300;pointer-events:none;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.3px;color:#F5A623;background:#111827;border:1px solid #374151;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.18);padding:2px 8px;white-space:nowrap;">Deploy github local106</div>
+<div id="deployVerBadge" data-version="local107" style="position:fixed;top:4px;right:8px;z-index:300;pointer-events:none;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.3px;color:#F5A623;background:#111827;border:1px solid #374151;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.18);padding:2px 8px;white-space:nowrap;">Deploy github local107</div>
 
 <!-- ══ LOGIN ══ -->
 <div id="loginScreen">
@@ -991,7 +991,7 @@ html, body { overflow-x: hidden !important; }
 
     </div>
     <!-- ══ /ปิดบัญชีชิปปิ้ง TAB ══ -->
-    <!-- ══ 📋 OVERDUE TAB (local102 · แยกอิสระจากโหมดอื่น · local103 เพิ่มรูปแบบ DSV AIR SERVICE · local104 แยก SERVICE / ADVANCE · local105 เพิ่ม DSV AIR ADVANCE · local106 SERVICE / ADVANCE รายงานเดียวต่อเมนู) ══ -->
+    <!-- ══ 📋 OVERDUE TAB (local102 · แยกอิสระจากโหมดอื่น · local103 เพิ่มรูปแบบ DSV AIR SERVICE · local104 แยก SERVICE / ADVANCE · local105 เพิ่ม DSV AIR ADVANCE · local106 SERVICE / ADVANCE รายงานเดียวต่อเมนู · local107 KPI ยอดเงินค้างจ่าย) ══ -->
     <div class="tab-panel" id="tab-overdue">
       <div class="ovd-wrap">
         <div class="ovd-head">
@@ -1009,6 +1009,7 @@ html, body { overflow-x: hidden !important; }
           <div class="ovd-card ovd-card-all"><div class="ovd-card-lbl">🔵 รายการทั้งหมด</div><div class="ovd-card-n" id="ovd_nAll">0</div><div class="ovd-card-sub">รายการ · <b id="ovd_aAll">0.00</b> บาท</div></div>
           <div class="ovd-card ovd-card-paid"><div class="ovd-card-lbl">🟢 จ่ายแล้ว</div><div class="ovd-card-n" id="ovd_nPaid">0</div><div class="ovd-card-sub">รายการ · <b id="ovd_aPaid">0.00</b> บาท</div></div>
           <div class="ovd-card ovd-card-unpaid"><div class="ovd-card-lbl">🔴 ยังไม่จ่าย</div><div class="ovd-card-n" id="ovd_nUnpaid">0</div><div class="ovd-card-sub">รายการ · <b id="ovd_aUnpaid">0.00</b> บาท</div></div>
+          <div class="ovd-card ovd-card-due"><div class="ovd-card-lbl">🟠 ยอดเงินค้างจ่าย</div><div class="ovd-card-n" id="ovd_aDue">0.00</div><div class="ovd-card-sub">บาท · <span id="ovd_dueScope">ยอดค้างชำระทั้งหมด</span></div></div>
         </div>
 
         <div class="ovd-toolbar">
@@ -1256,15 +1257,19 @@ html, body { overflow-x: hidden !important; }
 #tab-overdue .ovd-title-ic{ width:40px; height:40px; border-radius:10px; background:#FFF1E0; color:#EA6C00; display:flex; align-items:center; justify-content:center; flex:none; }
 #tab-overdue .ovd-title h2{ font-size:20px; font-weight:700; color:#1F2937; line-height:1.2; letter-spacing:.3px; }
 #tab-overdue .ovd-title p{ font-size:13px; color:#6B7280; }
-#tab-overdue .ovd-cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:16px 0 14px; }
+#tab-overdue .ovd-cards{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:16px 0 14px; }
 #tab-overdue .ovd-card{ border-radius:12px; padding:14px 16px; border:1px solid transparent; }
 #tab-overdue .ovd-card-all{ background:#EFF6FF; border-color:#DBEAFE; }
 #tab-overdue .ovd-card-paid{ background:#ECFDF5; border-color:#D1FAE5; }
 #tab-overdue .ovd-card-unpaid{ background:#FEF2F2; border-color:#FEE2E2; }
+#tab-overdue .ovd-card-due{ background:#FFF7ED; border-color:#FED7AA; }
 #tab-overdue .ovd-card-lbl{ font-size:13.5px; font-weight:700; }
 #tab-overdue .ovd-card-all .ovd-card-lbl, #tab-overdue .ovd-card-all .ovd-card-n{ color:#1D4ED8; }
 #tab-overdue .ovd-card-paid .ovd-card-lbl, #tab-overdue .ovd-card-paid .ovd-card-n{ color:#15803D; }
 #tab-overdue .ovd-card-unpaid .ovd-card-lbl, #tab-overdue .ovd-card-unpaid .ovd-card-n{ color:#DC2626; }
+#tab-overdue .ovd-card-due .ovd-card-lbl, #tab-overdue .ovd-card-due .ovd-card-n{ color:#C2410C; }
+#tab-overdue .ovd-card-due .ovd-card-n{ overflow-wrap:anywhere; }
+@media (min-width:769px) and (max-width:1180px){ #tab-overdue .ovd-cards{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
 #tab-overdue .ovd-card-n{ font-size:28px; font-weight:700; line-height:1.25; margin:2px 0; font-variant-numeric:tabular-nums; }
 #tab-overdue .ovd-card-sub{ font-size:13px; color:#4B5563; }
 #tab-overdue .ovd-card-sub b{ color:#1F2937; font-variant-numeric:tabular-nums; }
@@ -4161,7 +4166,8 @@ window.renderShipClose = renderShipClose;
 //    · local104: แยก SERVICE / ADVANCE — คนละตาราง คนละหน้าต่าง คนละการนำเข้า/Export
 //    · local105: ADVANCE รองรับรูปแบบ DSV AIR ADVANCE เพิ่ม (APL คงเดิม)
 //    · local106: SERVICE / ADVANCE แต่ละเมนูเป็นรายงานเดียว ไม่แยกแท็บตามรูปแบบไฟล์ · Export 1 ไฟล์ 1 ชีต
-//                (แสดงผล/Export เท่านั้น — ข้อมูลในฐานข้อมูล ID หมายเหตุ สถานะ และหัวข้อ/ค่าต้นฉบับคงเดิมทุกช่อง))
+//                (แสดงผล/Export เท่านั้น — ข้อมูลในฐานข้อมูล ID หมายเหตุ สถานะ และหัวข้อ/ค่าต้นฉบับคงเดิมทุกช่อง)
+//    · local107: KPI ช่องที่ 4 "ยอดเงินค้างจ่าย" = ผลรวมรายการที่ยังไม่จ่าย ของเมนูที่เปิดอยู่ ตามลูกค้า/ตัวกรองที่เลือก)
 //   โมดูลอิสระ: ใช้เฉพาะตาราง overdue_files / overdue_invoices (app_code='overdue')
 //   ไม่อ่าน/ไม่เขียนตารางของโหมดอื่น · ไม่แก้ฟังก์ชันส่วนกลาง (ใช้ sb / toast / CU / renderPager แบบอ่านอย่างเดียว)
 //   สถานะชำระเงินมาจาก is_paid เท่านั้น — ไม่ตีความ Status (เช่น POSTED) จากไฟล์ Excel
@@ -4450,6 +4456,11 @@ window.renderShipClose = renderShipClose;
     set('ovd_nAll', base.length); set('ovd_aAll', money(sum(base)));
     set('ovd_nPaid', paid.length); set('ovd_aPaid', money(sum(paid)));
     set('ovd_nUnpaid', unpaid.length); set('ovd_aUnpaid', money(sum(unpaid)));
+    // KPI ยอดเงินค้างจ่าย: เฉพาะรายการที่ยังไม่จ่าย ของเมนูนี้เท่านั้น (SERVICE / ADVANCE ไม่รวมกัน)
+    { const fv = readF(), cust = fv.customer === '__EMPTY__' ? '(ไม่ระบุลูกค้า)' : fv.customer;
+      const other = fv.q || fv.cs || fv.company || fv.invoice || fv.job || fv.from || fv.to;
+      set('ovd_aDue', money(sum(unpaid)));
+      set('ovd_dueScope', (cust ? 'ยอดค้างชำระของ ' + cust : 'ยอดค้างชำระทั้งหมด') + (other ? ' (ตามตัวกรอง)' : '')); }
     set('ovd_tAll', base.length); set('ovd_tPaid', paid.length); set('ovd_tUnpaid', unpaid.length);
     Object.keys(CATS).forEach(k => set('ovd_catN_' + k, k === OVD.cat && ST[k].loaded ? ` (${ST[k].rows.length.toLocaleString('en-US')})` : ''));
     document.querySelectorAll('#tab-overdue .ovd-tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === OVD.tab));
