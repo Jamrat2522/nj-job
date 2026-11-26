@@ -773,7 +773,7 @@ html, body { overflow-x: hidden !important; }
 <body>
 
 <!-- ══ DEPLOY VERSION (แสดงมุมขวาบน) ══ -->
-<div id="deployVerBadge" data-version="local105" style="position:fixed;top:4px;right:8px;z-index:300;pointer-events:none;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.3px;color:#F5A623;background:#111827;border:1px solid #374151;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.18);padding:2px 8px;white-space:nowrap;">Deploy github local105</div>
+<div id="deployVerBadge" data-version="local106" style="position:fixed;top:4px;right:8px;z-index:300;pointer-events:none;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.3px;color:#F5A623;background:#111827;border:1px solid #374151;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.18);padding:2px 8px;white-space:nowrap;">Deploy github local106</div>
 
 <!-- ══ LOGIN ══ -->
 <div id="loginScreen">
@@ -991,7 +991,7 @@ html, body { overflow-x: hidden !important; }
 
     </div>
     <!-- ══ /ปิดบัญชีชิปปิ้ง TAB ══ -->
-    <!-- ══ 📋 OVERDUE TAB (local102 · แยกอิสระจากโหมดอื่น · local103 เพิ่มรูปแบบ DSV AIR SERVICE · local104 แยก SERVICE / ADVANCE · local105 เพิ่ม DSV AIR ADVANCE) ══ -->
+    <!-- ══ 📋 OVERDUE TAB (local102 · แยกอิสระจากโหมดอื่น · local103 เพิ่มรูปแบบ DSV AIR SERVICE · local104 แยก SERVICE / ADVANCE · local105 เพิ่ม DSV AIR ADVANCE · local106 SERVICE / ADVANCE รายงานเดียวต่อเมนู) ══ -->
     <div class="tab-panel" id="tab-overdue">
       <div class="ovd-wrap">
         <div class="ovd-head">
@@ -1000,8 +1000,8 @@ html, body { overflow-x: hidden !important; }
             <div><h2>OVERDUE</h2><p>ระบบติดตามยอดค้างชำระ</p></div>
           </div>
           <div class="ovd-cats" id="ovd_cats" role="tablist" aria-label="หมวด OVERDUE">
-            <button type="button" data-cat="service" class="active">🔵 SERVICE</button>
-            <button type="button" data-cat="advance">🟠 ADVANCE</button>
+            <button type="button" data-cat="service" class="active">🔵 SERVICE<span id="ovd_catN_service"></span></button>
+            <button type="button" data-cat="advance">🟠 ADVANCE<span id="ovd_catN_advance"></span></button>
           </div>
         </div>
 
@@ -1020,7 +1020,7 @@ html, body { overflow-x: hidden !important; }
             <button type="button" id="ovd_exportBtn" class="ovd-btn ovd-btn-export"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg><span>EXPORT EXCEL ▾</span></button>
             <div class="ovd-exp-menu" id="ovd_expMenu" hidden>
               <button type="button" data-mode="all">📄 Export ทั้งหมด (<span id="ovd_expNAll">0</span>)</button>
-              <button type="button" data-mode="filter">🔎 Export ตามตัวกรอง (<span id="ovd_expNFilter">0</span>)</button>
+              <button type="button" data-mode="filter">🔎 Export ตามลูกค้า / สถานะ / ตัวกรอง (<span id="ovd_expNFilter">0</span>)</button>
               <button type="button" data-mode="selected">☑️ Export รายการที่ติ๊กเลือก (<span id="ovd_expNSel">0</span>)</button>
             </div>
           </div>
@@ -4159,7 +4159,9 @@ window.renderShipClose = renderShipClose;
 // ═══════════════════════════════════════════════════════════════════════
 // 📋 OVERDUE — ระบบติดตามยอดค้างชำระ (local102 · local103: รองรับหลายรูปแบบไฟล์ RHENUS / DSV AIR SERVICE
 //    · local104: แยก SERVICE / ADVANCE — คนละตาราง คนละหน้าต่าง คนละการนำเข้า/Export
-//    · local105: ADVANCE รองรับรูปแบบ DSV AIR ADVANCE เพิ่ม (APL คงเดิม))
+//    · local105: ADVANCE รองรับรูปแบบ DSV AIR ADVANCE เพิ่ม (APL คงเดิม)
+//    · local106: SERVICE / ADVANCE แต่ละเมนูเป็นรายงานเดียว ไม่แยกแท็บตามรูปแบบไฟล์ · Export 1 ไฟล์ 1 ชีต
+//                (แสดงผล/Export เท่านั้น — ข้อมูลในฐานข้อมูล ID หมายเหตุ สถานะ และหัวข้อ/ค่าต้นฉบับคงเดิมทุกช่อง))
 //   โมดูลอิสระ: ใช้เฉพาะตาราง overdue_files / overdue_invoices (app_code='overdue')
 //   ไม่อ่าน/ไม่เขียนตารางของโหมดอื่น · ไม่แก้ฟังก์ชันส่วนกลาง (ใช้ sb / toast / CU / renderPager แบบอ่านอย่างเดียว)
 //   สถานะชำระเงินมาจาก is_paid เท่านั้น — ไม่ตีความ Status (เช่น POSTED) จากไฟล์ Excel
@@ -4201,6 +4203,84 @@ window.renderShipClose = renderShipClose;
   const KEY = {invoice: ['invoiceno', 'invoicenj', 'invoiceadv'], customer: ['customername', 'ลูกค้า'], company: ['companyinvoice', 'บริษัทinvoice', 'บริษัท*'],
                job: ['customerjobno'], date: ['date'], cs: ['namecs'], total: ['totalamout', 'totalamount', 'total']};
   const isInvKey = k => KEY.invoice.includes(k);
+  // local106: ชื่อหัวข้อเพิ่มเติมสำหรับรูปแบบไฟล์ในอนาคต — ต่อท้ายรายการเดิม จึงไม่เปลี่ยนผลของรูปแบบที่มีอยู่
+  const KEY_X = Object.assign({}, KEY, {
+    invoice: KEY.invoice.concat(['invoice', 'invoicenumber', 'invno', 'เลขที่ใบแจ้งหนี้', 'เลขที่invoice']),
+    total: KEY.total.concat(['grandtotal', 'totalthb', 'nettotal']),
+  });
+  const keysFor = () => KEY_X;                  // ใช้ร่วมกันทั้ง SERVICE / ADVANCE
+  // ── คอลัมน์รวมของแต่ละเมนู: หัวข้อที่มีความหมายเดียวกันจากทุกรูปแบบไฟล์แสดงในคอลัมน์เดียวกัน ──
+  //   จับคู่เฉพาะชื่อที่ความหมายตรงกัน (ตรวจจากข้อมูลจริงแล้ว) · หัวข้อความหมายต่างกันแยกคอลัมน์
+  //   (เช่น Status ≠ สถานะ ≠ PAY / UNPAID · Date ≠ วันที่วางบิล) · หัวข้อที่ไม่อยู่ในรายการ → คอลัมน์เพิ่มต่อท้าย (เก็บข้อมูลครบ)
+  const G = (key, label, alias, inv) => ({key: 'g:' + key, label, alias, inv: !!inv});
+  CATS.service.cols = [
+    G('date', 'Date', KEY.date),
+    G('invoice', 'Invoice No.', KEY_X.invoice, true),
+    G('master', 'Master B/L No.', ['master', 'masterblno']),
+    G('house', 'House B/L No.', ['houseblno']),
+    G('datatype', 'Data Type', ['datatype']),
+    G('company', 'Company Invoice', KEY.company),
+    G('dcl', 'DCL INV.', ['dclinv']),
+    G('job', 'Customer Job No.', KEY.job),
+    G('decl', 'เลขใบขนสินค้า', ['เลขใบขนสินค้า']),
+    G('srcinv', 'Invoice ต้นทาง (Source)', ['invoiceต้นทาง(source)']),
+    G('service', 'Service charge', ['servicecharge']),
+    G('advance', 'Advance', ['advance']),
+    G('vat', 'VAT 7%', ['vat7%']),
+    G('amount', 'Amount', ['amount']),
+    G('wht', 'WHT 3%', ['wht3%']),
+    G('total', 'Total Amount', KEY_X.total),
+    G('credit', 'Credit Term', ['creditterm']),
+    G('cs', 'Name CS', KEY.cs),
+    G('status', 'Status', ['status']),
+    G('customer', 'Customer name', KEY.customer),
+  ];
+  CATS.advance.cols = [
+    G('date', 'Date', KEY.date),
+    G('invoice', 'Invoice No.', KEY_X.invoice, true),
+    G('billdate', 'วันที่วางบิล', ['วันที่วางบิล']),
+    G('master', 'Master B/L No.', ['master', 'masterblno']),
+    G('house', 'House B/L No.', ['houseblno']),
+    G('datatype', 'Data Type', ['datatype']),
+    G('company', 'Company Invoice', KEY.company),
+    G('dcl', 'DCL INV.', ['dclinv']),
+    G('job', 'Customer Job No.', KEY.job),
+    G('decl', 'เลขใบขนสินค้า', ['เลขใบขนสินค้า']),
+    G('srcinv', 'Invoice ต้นทาง (Source)', ['invoiceต้นทาง(source)']),
+    G('advance', 'Advance', ['advance']),
+    G('total', 'Total Amount', KEY_X.total),
+    G('credit', 'Credit Term', ['creditterm']),
+    G('cs', 'Name CS', KEY.cs),
+    G('status', 'Status', ['status']),
+    G('thstatus', 'สถานะ', ['สถานะ']),
+    G('payunpaid', 'PAY / UNPAID', ['pay/unpaid', 'payunpaid']),
+    G('customer', 'Customer name', KEY.customer),
+  ];
+  Object.values(CATS).forEach(c => {
+    c.alias = new Map(); c.byKey = new Map(c.cols.map(x => [x.key, x]));
+    c.cols.forEach(x => x.alias.forEach(a => { if (!c.alias.has(a)) c.alias.set(a, x.key); }));
+  });
+  // แผนที่ช่องของ 1 รายการ → คอลัมน์รวม (ช่องแรกของแต่ละความหมายเข้าคอลัมน์รวม · ช่องที่เหลือเป็นคอลัมน์เพิ่ม — ไม่ทิ้งข้อมูล)
+  function uniMap(r){
+    if (r._um) return r._um;
+    const cfg = CATS[r._cat] || CUR();
+    const m = new Map(), extra = [];
+    (r.headers || []).forEach((h, i) => {
+      const k = nh(h); if (!k) return;
+      const g = cfg.alias.get(k);
+      const key = g && !m.has(g) ? g : 'x:' + k;
+      if (m.has(key)) return;
+      m.set(key, (r.cells || [])[i] || null);
+      if (key[0] === 'x') extra.push({key, label: String(h), src: k});
+    });
+    r._um = m; r._ux = extra; return m;
+  }
+  function uniColsOf(rows){
+    const cfg = CUR(), used = new Set(), extra = new Map();
+    rows.forEach(r => { uniMap(r).forEach((v, k) => used.add(k)); r._ux.forEach(x => { if (!extra.has(x.key)) extra.set(x.key, x); }); });
+    return cfg.cols.filter(c => used.has(c.key)).map(c => ({key: c.key, label: c.label, inv: c.inv, alias: c.alias}))
+      .concat([...extra.values()].map(x => ({key: x.key, label: x.label, inv: false, alias: [x.src]})));
+  }
   // ── รูปแบบไฟล์ (แยกอัตโนมัติจากหัวตาราง — ไม่ต้องเก็บคอลัมน์เพิ่มในฐานข้อมูล) ──
   const FORMATS = [
     {id: 'dsv', label: 'DSV AIR SERVICE', test: k => k.includes('invoicenj')},
@@ -4334,25 +4414,29 @@ window.renderShipClose = renderShipClose;
       return true;
     });
   }
-  function fillSelect(id, values, allLabel, emptyLabel){
+  function fillSelect(id, values, allLabel, emptyLabel, withCount){
     const sel = $(id); if (!sel) return;
     const keep = sel.value;
     const hasEmpty = values.includes('');
     const opts = [...new Set(values.filter(v => v !== ''))].sort((a, b) => a.localeCompare(b, 'th'));
-    sel.innerHTML = `<option value="">${esc(allLabel)}</option>` + opts.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('')
-      + (hasEmpty && emptyLabel ? `<option value="__EMPTY__">${esc(emptyLabel)}</option>` : '');
+    const cnt = new Map(); if (withCount) values.forEach(v => cnt.set(v, (cnt.get(v) || 0) + 1));
+    const n = v => withCount ? ` (${(cnt.get(v) || 0).toLocaleString('en-US')})` : '';
+    sel.innerHTML = `<option value="">${esc(allLabel)}</option>` + opts.map(v => `<option value="${esc(v)}">${esc(v + n(v))}</option>`).join('')
+      + (hasEmpty && emptyLabel ? `<option value="__EMPTY__">${esc(emptyLabel + n(''))}</option>` : '');
     sel.value = keep; if (sel.value !== keep) sel.value = '';
   }
   function fillFilterOptions(){
-    fillSelect('ovd_fCustomer', OVD.rows.map(r => r.customer_name || ''), 'Customer name: ทั้งหมด', '(ไม่ระบุลูกค้า)');
+    // เลือกลูกค้าแทนแท็บรูปแบบไฟล์ (แสดงจำนวนรายการ)
+    fillSelect('ovd_fCustomer', OVD.rows.map(r => r.customer_name || ''), `ลูกค้าทั้งหมด (${OVD.rows.length.toLocaleString('en-US')})`, '(ไม่ระบุลูกค้า)', true);
     fillSelect('ovd_fCs', OVD.rows.map(r => r.name_cs || '').filter(Boolean), 'Name CS: ทั้งหมด');
   }
 
   // ═══════════ แสดงผล ═══════════
   function render(){
     const all = baseFiltered();
-    const fmts = formatsIn(all);
-    if (!fmts.some(f => f.id === OVD.fmt)) OVD.fmt = fmts.length ? fmts[0].id : (formatsIn(OVD.rows)[0] || {}).id || null;
+    const uni = !!CUR().cols;                      // แต่ละเมนู = รายงานเดียว ไม่แยกตามรูปแบบไฟล์
+    const fmts = uni ? [] : formatsIn(all);
+    if (!uni && !fmts.some(f => f.id === OVD.fmt)) OVD.fmt = fmts.length ? fmts[0].id : (formatsIn(OVD.rows)[0] || {}).id || null;
     const base = fmts.length > 1 ? all.filter(r => fmtOf(r).id === OVD.fmt) : all;
     const chips = $('ovd_formats');
     if (chips){
@@ -4367,12 +4451,13 @@ window.renderShipClose = renderShipClose;
     set('ovd_nPaid', paid.length); set('ovd_aPaid', money(sum(paid)));
     set('ovd_nUnpaid', unpaid.length); set('ovd_aUnpaid', money(sum(unpaid)));
     set('ovd_tAll', base.length); set('ovd_tPaid', paid.length); set('ovd_tUnpaid', unpaid.length);
+    Object.keys(CATS).forEach(k => set('ovd_catN_' + k, k === OVD.cat && ST[k].loaded ? ` (${ST[k].rows.length.toLocaleString('en-US')})` : ''));
     document.querySelectorAll('#tab-overdue .ovd-tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === OVD.tab));
     OVD.base = base;
     OVD.filtered = OVD.tab === 'paid' ? paid : (OVD.tab === 'unpaid' ? unpaid : base);
     const f = readF();
     const custs = [...new Set(OVD.filtered.map(r => r.customer_name || ''))];
-    const multiFmt = formatsIn(OVD.rows).length > 1;
+    const multiFmt = !uni && formatsIn(OVD.rows).length > 1;
     const curFmt = formatsIn(OVD.rows).find(x => x.id === OVD.fmt);
     set('ovd_caption', 'รายงาน OVERDUE ' + CUR().label + ' — ' + (f.customer && f.customer !== '__EMPTY__' ? f.customer : (custs.length === 1 && custs[0] ? custs[0] : 'ทั้งหมด'))
       + (multiFmt && curFmt ? ' · รูปแบบ ' + curFmt.label : ''));
@@ -4381,10 +4466,16 @@ window.renderShipClose = renderShipClose;
   }
   function renderTable(){
     const thead = $('ovd_thead'), tbody = $('ovd_tbody'); if (!thead || !tbody) return;
-    const fmtRows = OVD.rows.filter(r => fmtOf(r).id === OVD.fmt);
-    const cols = colsOf(fmtRows.length ? fmtRows : OVD.rows);
+    const uni = !!CUR().cols;
+    let cols;
+    if (uni) cols = uniColsOf(OVD.base && OVD.base.length ? OVD.base : OVD.rows);     // คอลัมน์ตามข้อมูลที่แสดง (เช่น เลือกลูกค้า)
+    else {
+      const fmtRows = OVD.rows.filter(r => fmtOf(r).id === OVD.fmt);
+      cols = colsOf(fmtRows.length ? fmtRows : OVD.rows);
+    }
+    const isInv = c => uni ? c.inv : isInvKey(c.key);
     thead.innerHTML = '<tr><th class="ovd-c-chk"><input type="checkbox" id="ovd_chkAll" title="เลือกทั้งหมด (ตามตัวกรอง)"></th>'
-      + cols.map(c => `<th class="${isInvKey(c.key) ? 'ovd-c-inv' : ''}">${esc(c.label)}</th>`).join('')
+      + cols.map(c => `<th class="${isInv(c) ? 'ovd-c-inv' : ''}">${esc(c.label)}</th>`).join('')
       + '<th class="ovd-c-note">หมายเหตุ</th><th class="ovd-c-paid">สถานะชำระเงิน</th><th class="ovd-c-act">จัดการ</th></tr>';
     const list = OVD.filtered;
     const tp = Math.max(1, Math.ceil(list.length / PS));
@@ -4392,17 +4483,17 @@ window.renderShipClose = renderShipClose;
     if (OVD.page < 1) OVD.page = 1;
     if (!list.length){
       const txt = OVD.loadError ? OVD.loadError
-        : (OVD.rows.length ? 'ไม่พบรายการตามตัวกรอง' : (OVD.loaded ? 'ยังไม่มีข้อมูล — กด UPLOAD FILE เพื่อนำเข้าไฟล์ Excel' : '⏳ กำลังโหลด...'));
+        : (OVD.rows.length ? 'ไม่พบรายการตามตัวกรอง' : (OVD.loaded ? 'ยังไม่มีข้อมูล — กด ' + (OVD.cat === 'advance' ? 'UPLOAD AD' : 'UPLOAD SER') + ' เพื่อนำเข้าไฟล์ Excel' : '⏳ กำลังโหลด...'));
       tbody.innerHTML = `<tr><td class="ovd-empty" colspan="${cols.length + 4}">${esc(txt)}</td></tr>`;
     } else {
       const st = (OVD.page - 1) * PS;
       tbody.innerHTML = list.slice(st, st + PS).map(r => {
-        const cm = cellMap(r), id = esc(r.id);
+        const cm = uni ? uniMap(r) : cellMap(r), id = esc(r.id);
         return `<tr data-id="${id}" class="${r.is_paid ? 'is-paid' : ''}">`
           + `<td class="ovd-c-chk"><input type="checkbox" class="ovd-rowchk" data-id="${id}" ${OVD.sel.has(String(r.id)) ? 'checked' : ''}></td>`
           + cols.map(c => {
               const cell = cm.get(c.key) || null;
-              const cls = (isInvKey(c.key) ? 'ovd-c-inv ' : '') + (cell && cell.t === 'n' ? 'num' : '');
+              const cls = (isInv(c) ? 'ovd-c-inv ' : '') + (cell && cell.t === 'n' ? 'num' : '');
               return `<td class="${cls}">${esc(cellText(cell))}</td>`;
             }).join('')
           + `<td class="ovd-c-note"><div class="ovd-note-wrap"><input type="text" class="ovd-note" data-id="${id}" value="${esc(r.note || '')}" placeholder="ระบุหมายเหตุ" maxlength="2000"><span class="ovd-note-st" data-id="${id}"></span></div></td>`
@@ -4706,6 +4797,7 @@ window.renderShipClose = renderShipClose;
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(new Uint8Array(buf), {type: 'array', cellStyles: true, cellNF: true, cellDates: false, cellFormula: true});
     const out = [];
+    const K = keysFor(catKey);
     for (const sheetName of wb.SheetNames){
       const ws = wb.Sheets[sheetName]; if (!ws) continue;
       // ขอบเขตจริงของข้อมูล (บางไฟล์ระบุ !ref ถึงแถว 1,000,000)
@@ -4715,7 +4807,7 @@ window.renderShipClose = renderShipClose;
       // หาแถวหัวข้อที่มี "Invoice No."
       let hr = -1;
       for (let r = 0; r <= Math.min(maxR, 40) && hr < 0; r++){
-        for (let c = 0; c <= maxC; c++){ const cl = ws[XLSX.utils.encode_cell({r, c})]; if (cl && isInvKey(nh(cl.v))){ hr = r; break; } }
+        for (let c = 0; c <= maxC; c++){ const cl = ws[XLSX.utils.encode_cell({r, c})]; if (cl && K.invoice.includes(nh(cl.v))){ hr = r; break; } }
       }
       if (hr < 0) continue;
       const colIdx = [], headers = [];
@@ -4726,8 +4818,8 @@ window.renderShipClose = renderShipClose;
       }
       const keys = headers.map(nh);
       const ix = k => { const list = Array.isArray(k) ? k : [k]; for (const x of list){ const i = keys.indexOf(x); if (i >= 0) return i; } return -1; };
-      const iInv = ix(KEY.invoice), iCust = ix(KEY.customer), iComp = ix(KEY.company), iJob = ix(KEY.job),
-            iDate = ix(KEY.date), iCs = ix(KEY.cs), iTot = ix(KEY.total);
+      const iInv = ix(K.invoice), iCust = ix(K.customer), iComp = ix(K.company), iJob = ix(K.job),
+            iDate = ix(K.date), iCs = ix(K.cs), iTot = ix(K.total);
       const rows = []; let skipped = 0, firstData = null, lastData = null, sumRow = null;
       for (let r = hr + 1; r <= maxR; r++){
         const raw = colIdx.map(c => ws[XLSX.utils.encode_cell({r, c})]);
@@ -4944,11 +5036,12 @@ window.renderShipClose = renderShipClose;
     const rows = mode === 'selected' ? OVD.rows.filter(r => sel.has(String(r.id)))
                : mode === 'filter' ? OVD.filtered.slice() : OVD.rows.slice();
     if (!rows.length){ say('ไม่มีรายการให้ Export', 'err'); return; }
-    const groups = formatsIn(rows).map(f => rows.filter(r => fmtOf(r).id === f.id));
+    // ไฟล์เดียว ชีตเดียว รวมทุกลูกค้า/ทุกรูปแบบของเมนูที่เปิดอยู่ (SERVICE กับ ADVANCE ไม่ปนกัน)
+    const groups = CUR().cols ? [rows] : formatsIn(rows).map(f => rows.filter(r => fmtOf(r).id === f.id));
     const wb = XLSX.utils.book_new();
     const used = new Set();
     groups.forEach(g => {
-      const {ws, sheetName} = buildSheet(g);
+      const {ws, sheetName} = CUR().cols ? buildUniSheet(g) : buildSheet(g);
       let nm = sheetName, k = 2;
       while (used.has(nm.toLowerCase())){ nm = (sheetName.slice(0, 27) + ' (' + k + ')'); k++; }
       used.add(nm.toLowerCase());
@@ -4957,7 +5050,7 @@ window.renderShipClose = renderShipClose;
     const custs = [...new Set(rows.map(r => r.customer_name || ''))];
     const cname = custs.length === 1 && custs[0] ? custs[0] : 'ALL';
     const d = new Date(), pad = n => String(n).padStart(2, '0');
-    const tag = mode === 'selected' ? 'ที่เลือก' : (mode === 'filter' ? 'ตามตัวกรอง' : 'ทั้งหมด');
+    const tag = mode === 'selected' ? 'ที่เลือก' : (mode === 'filter' ? 'ตามตัวกรอง' + (OVD.tab === 'paid' ? '_จ่ายแล้ว' : (OVD.tab === 'unpaid' ? '_ยังไม่จ่าย' : '')) : 'ทั้งหมด');
     const fname = `${CUR().filePrefix}_${cname}_${tag}_${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.xlsx`.replace(/[\\\/:*?"<>|]/g, '_');
     XLSX.writeFile(wb, fname, {bookType: 'xlsx', cellStyles: true});
     say(`📊 Export ${rows.length} รายการแล้ว` + (groups.length > 1 ? ` (${groups.length} ชีตตามรูปแบบไฟล์)` : ''));
@@ -5031,6 +5124,88 @@ window.renderShipClose = renderShipClose;
     if (tpl && tpl.autoFilter) ws['!autofilter'] = {ref: `A1:${colName(nCols - 1)}${rows.length + 1}`};
     const sheetName = String((tpl && tpl.sheet) || 'Sheet1').replace(/[\\\/\?\*\[\]:]/g, ' ').slice(0, 31) || 'Sheet1';
     return {ws, sheetName};
+  }
+  // 1 ชีตรวมทุกรูปแบบของเมนู — รูปแบบตัวอักษร/สี/ความกว้างตาม Template ของไฟล์หลัก (ไฟล์ที่มีรายการมากที่สุดในชุดที่ Export)
+  function buildUniSheet(rows){
+    const cfg = CUR();
+    const tplOf = r => { const f = OVD.files.get(r.file_id); return f && f.template && f.template.keys ? f.template : null; };
+    const tpl = (() => { const t = pickTemplate(rows); return t && t.keys ? t : null; })();
+    const tpls = [...new Set(rows.map(tplOf).filter(Boolean))];
+    const cols = uniColsOf(rows);
+    const nCols = cols.length;
+    const idxIn = (t, c) => { if (!t) return -1; for (const a of c.alias){ const i = t.keys.indexOf(a); if (i >= 0) return i; } return -1; };
+    const invC = cfg.byKey.get('g:invoice'), totC = cfg.byKey.get('g:total');
+    // คืน {s, own}: own = คอลัมน์นี้มีในไฟล์หลัก · ไม่มี → ใช้รูปแบบคอลัมน์ใกล้เคียงของไฟล์หลัก (ตัวเลข → Total · ข้อความ → Invoice)
+    const styleOf = (part, c, numeric) => {
+      if (!tpl || !tpl[part] || !tpl[part].cols) return {s: null, own: false};
+      let i = idxIn(tpl, c); const own = i >= 0;
+      if (i < 0) i = idxIn(tpl, numeric ? totC : invC);
+      if (i < 0) i = 0;
+      return {s: clone(tpl[part].cols[i]) || null, own};
+    };
+    const ws = {};
+    const put = (r, c, cell) => { ws[XLSX.utils.encode_cell({r, c})] = cell; };
+    const numericCol = new Array(nCols).fill(true), hasVal = new Array(nCols).fill(false);
+    rows.forEach(r => { const m = uniMap(r); cols.forEach((c, i) => { const cell = m.get(c.key);
+      if (!cell || cell.v == null || cell.v === '') return; hasVal[i] = true; if (cell.t !== 'n') numericCol[i] = false; }); });
+    const isNum = i => numericCol[i] && hasVal[i];
+    // ── หัวตาราง (ตามตารางรายงาน) + หมายเหตุ / สถานะชำระเงิน · ไม่มีคอลัมน์จัดการ ──
+    cols.forEach((c, i) => put(0, i, {t: 's', v: c.label, s: styleOf('header', c, isNum(i)).s || clone(DEF_H)}));
+    const hLast = styleOf('header', cols[nCols - 1], isNum(nCols - 1)).s || clone(DEF_H);
+    put(0, nCols, {t: 's', v: 'หมายเหตุ', s: clone(hLast)});
+    put(0, nCols + 1, {t: 's', v: 'สถานะชำระเงิน', s: clone(hLast)});
+    // ── ข้อมูล (ค่าต้นฉบับทุกช่อง · เลขเอกสารเก็บเป็นข้อความ · รูปแบบตัวเลข/วันที่ตามช่องต้นฉบับ) ──
+    const dLast = styleOf('data', cols[nCols - 1], isNum(nCols - 1)).s || clone(DEF_D);
+    const sums = new Array(nCols).fill(0);
+    rows.forEach((r, ri) => {
+      const m = uniMap(r), R = ri + 1;
+      cols.forEach((c, i) => {
+        const cell = m.get(c.key);
+        const st = styleOf('data', c, isNum(i)); const s = st.s || clone(DEF_D);
+        if (!cell || cell.v == null){ put(R, i, {t: 's', v: '', s}); return; }
+        if (cell.t === 'n'){
+          if (cell.z && (!s.numFmt || s.numFmt === 'General' || !st.own || isDateFmt(cell.z) !== isDateFmt(s.numFmt))) s.numFmt = cell.z;
+          put(R, i, {t: 'n', v: cell.v, s, z: s.numFmt});
+          sums[i] += Number(cell.v) || 0;
+        } else if (cell.t === 'b'){
+          put(R, i, {t: 'b', v: !!cell.v, s});
+        } else {
+          put(R, i, {t: 's', v: String(cell.v), s});           // เก็บเป็นข้อความ → เลขศูนย์นำหน้าไม่หาย
+        }
+      });
+      const sn = clone(dLast); sn.numFmt = '@'; sn.alignment = Object.assign({}, sn.alignment || {}, {horizontal: 'left'});
+      put(R, nCols, {t: 's', v: r.note || '', s: sn});
+      const sp = clone(dLast); sp.numFmt = '@';
+      sp.font = Object.assign({}, sp.font || {}, {bold: true, color: {rgb: r.is_paid ? 'FF008000' : 'FFC00000'}});
+      put(R, nCols + 1, {t: 's', v: r.is_paid ? 'จ่ายแล้ว' : 'ยังไม่จ่าย', s: sp});
+    });
+    // ── แถวสรุป SUM (เฉพาะรายการที่ Export จริง ไม่นับเป็นรายการ) — คอลัมน์ที่ไฟล์ต้นฉบับมี SUM + Total Amount เสมอ ──
+    const sumR = rows.length + 1;
+    const sumKeys = new Set();
+    tpls.forEach(t => { if (t.sum && t.sum.formula) t.keys.forEach((k, i) => { if (t.sum.formula[i]) sumKeys.add(cfg.alias.get(k) || 'x:' + k); }); });
+    cols.forEach((c, i) => {
+      const want = c.key === 'g:total' || (sumKeys.size ? sumKeys.has(c.key) : (isNum(i) && !/date|term|no$/.test(c.key)));
+      if (!want || !(c.key === 'g:total' || isNum(i))) return;
+      const ss = tpl && tpl.sum && tpl.sum.cols ? styleOf('sum', c, true).s : null;
+      const s = ss || styleOf('data', c, true).s || clone(DEF_D);
+      if (!ss) s.font = Object.assign({}, s.font || {}, {bold: true});
+      if (isDateFmt(s.numFmt)) s.numFmt = '#,##0.00';            // แถว SUM ห้ามแสดงเป็นวันที่
+      const L = colName(i);
+      put(sumR, i, {t: 'n', f: `SUM(${L}2:${L}${rows.length + 1})`, v: r2(sums[i]), s, z: s.numFmt});
+    });
+    // ── ความกว้าง / ความสูง ──
+    ws['!cols'] = cols.map(c => {
+      for (const t of [tpl].concat(tpls)){ const i = idxIn(t, c); if (i >= 0 && t.widths && t.widths[i]) return {width: t.widths[i], customWidth: 1}; }
+      return null;
+    }).concat([{width: 30, customWidth: 1}, {width: 14, customWidth: 1}]);
+    const meta = [];
+    meta[0] = tpl && tpl.header && tpl.header.ht ? {hpt: tpl.header.ht} : undefined;
+    for (let i = 1; i <= rows.length; i++) meta[i] = tpl && tpl.data && tpl.data.ht ? {hpt: tpl.data.ht} : undefined;
+    if (tpl && tpl.sum && tpl.sum.ht) meta[sumR] = {hpt: tpl.sum.ht};
+    ws['!rows'] = meta;
+    ws['!ref'] = XLSX.utils.encode_range({s: {r: 0, c: 0}, e: {r: sumR, c: nCols + 1}});
+    if (tpls.some(t => t.autoFilter)) ws['!autofilter'] = {ref: `A1:${colName(nCols - 1)}${rows.length + 1}`};
+    return {ws, sheetName: cfg.label};
   }
   function closeExpMenu(){ const m = $('ovd_expMenu'); if (m) m.hidden = true; }
 
