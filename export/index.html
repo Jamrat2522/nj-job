@@ -641,7 +641,7 @@ body.legacy-active .content-area { display: none !important; }
 <!-- ═══ DEPLOY VERSION (ศูนย์กลาง · จุดเดียวทั้งไฟล์) — ทุก Release แก้เฉพาะค่า NJL_DEPLOY_VERSION บรรทัดเดียว ═══ -->
 <div id="njl-deploy-version" style="position:fixed;top:3px;right:6px;z-index:10050;pointer-events:none;font:700 10px/1.2 'Courier New',monospace;color:#3fb950;background:rgba(13,17,23,.78);border:1px solid rgba(63,185,80,.55);border-radius:4px;padding:2px 6px;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis"></div>
 <script>
-var NJL_DEPLOY_VERSION = 'local140';
+var NJL_DEPLOY_VERSION = 'local141';
 (function(){
   var CUR = NJL_DEPLOY_VERSION, el = document.getElementById('njl-deploy-version');
   function show(txt, warn){
@@ -1599,9 +1599,9 @@ var NJL_DEPLOY_VERSION = 'local140';
       <div>
         <div class="page-title">Electrolux P DOM</div>
         <div class="page-sub">อัพโหลด 4 ไฟล์ → กด MAPPING → VALIDATION → Export (ตั้งชื่อไฟล์ด้วยเลข INVOICE แรก)</div>
-            <div style="margin-top:6px;font-size:11px;font-family:'Courier New',monospace"><span style="background:rgba(6,182,212,.18);color:#22d3ee;border:1px solid rgba(6,182,212,.45);border-radius:5px;padding:2px 8px;font-weight:700" id="epdom-build">BUILD local140</span><span style="color:var(--text3);margin-left:8px">DUI Master <b id="epdom-v-dui">-</b> คู่ · FIX MASTER <b id="epdom-v-fix">-</b> รายการ · สรรพสามิต <b id="epdom-v-ex">-</b> rule</span></div>
+            <div style="margin-top:6px;font-size:11px;font-family:'Courier New',monospace"><span style="background:rgba(6,182,212,.18);color:#22d3ee;border:1px solid rgba(6,182,212,.45);border-radius:5px;padding:2px 8px;font-weight:700" id="epdom-build">BUILD local141</span><span style="color:var(--text3);margin-left:8px">DUI Master <b id="epdom-v-dui">-</b> คู่ · FIX MASTER <b id="epdom-v-fix">-</b> รายการ · สรรพสามิต <b id="epdom-v-ex">-</b> rule</span></div>
       </div>
-      <div id="epdom-version" style="position:absolute;top:0;right:4px;font-size:11px;font-family:'Courier New',monospace;font-weight:700;background:rgba(236,72,153,.15);color:#f472b6;border:1px solid rgba(236,72,153,.45);border-radius:5px;padding:3px 10px;white-space:nowrap">Deploy github local140</div>
+      <div id="epdom-version" style="position:absolute;top:0;right:4px;font-size:11px;font-family:'Courier New',monospace;font-weight:700;background:rgba(236,72,153,.15);color:#f472b6;border:1px solid rgba(236,72,153,.45);border-radius:5px;padding:3px 10px;white-space:nowrap">Deploy github local141</div>
     </div>
 
     <div id="epdom-err" style="display:none;border-radius:8px;padding:11px 14px;font-size:13px;margin-bottom:14px;line-height:1.6"></div>
@@ -18015,11 +18015,10 @@ function _epdomRenderGate(R, fname, verifyBad){
        '<td style="'+td+';text-align:center;white-space:nowrap">'+pill(r.ok)+'</td></tr>';
   });
   h+='</tbody></table></div>';
-  if(rows.length>MAXR) h+='<div style="font-size:12px;color:#000;background:#fff;padding:6px 12px">แสดง '+MAXR+' จาก '+rows.length+' แถว — ดูครบทุกแถวใน EXPORT ERROR / AUDIT</div>';
+  if(rows.length>MAXR) h+='<div style="font-size:12px;color:#000;background:#fff;padding:6px 12px">แสดง '+MAXR+' จาก '+rows.length+' แถว — ดูครบทุกแถวใน Sheet AUDIT ของไฟล์ EXPORT EXCEL</div>';
   const btn='display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:230px;padding:11px 22px;border-radius:8px;border:1.5px solid #000;background:#fff;color:#000;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer';
   h+='<div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;background:#fff;padding:14px">'+
-     '<button id="epdom-export-btn" onclick="epdomExportMapping()" style="'+btn+'">📥 EXPORT MAPPING</button>'+
-     '<button id="epdom-audit-btn" onclick="epdomExportAudit()" style="'+btn+'">📥 EXPORT ERROR / AUDIT</button></div>';
+     '<button id="epdom-export-btn" onclick="epdomExportExcel()" style="'+btn+'">📥 EXPORT EXCEL</button></div>';
   h+='</div>';
   el.innerHTML=h; el.style.display='block';
 }
@@ -18040,7 +18039,7 @@ function _epdomXlsxBlob(sheets){
       '<fill><patternFill patternType="solid"><fgColor rgb="FFDC2626"/><bgColor indexed="64"/></patternFill></fill></fills>'+
     '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>'+bd+'</borders>'+
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
-    '<cellXfs count="7">'+
+    '<cellXfs count="8">'+
       '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'+
       '<xf numFmtId="49" fontId="1" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'+
       '<xf numFmtId="49" fontId="0" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>'+
@@ -18048,13 +18047,14 @@ function _epdomXlsxBlob(sheets){
       '<xf numFmtId="49" fontId="2" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'+
       '<xf numFmtId="49" fontId="2" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'+
       '<xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>'+
+      '<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'+
     '</cellXfs></styleSheet>');
   let wbSheets='', wbRels='', ct='', defs='';
   sheets.forEach(function(sh, si){
     const rows=sh.rows, nC=rows.reduce(function(m,r){ return Math.max(m, r.length); }, 1), nR=rows.length;
     const ref='A1:'+colL(nC-1)+nR;
     let x=HDR+'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="'+ref+'"/>'+
-      '<sheetViews><sheetView workbookViewId="0"'+(si===0?' tabSelected="1"':'')+'><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A2" sqref="A2"/></sheetView></sheetViews>'+
+      '<sheetViews><sheetView workbookViewId="0"'+(si===0?' tabSelected="1"':'')+'>'+(sh.plain?'':'<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A2" sqref="A2"/>')+'</sheetView></sheetViews>'+
       '<sheetFormatPr defaultRowHeight="15"/><cols>';
     for(let c=0;c<nC;c++){ const w=(sh.widths && sh.widths[c]) || 16; x+='<col min="'+(c+1)+'" max="'+(c+1)+'" width="'+w+'" customWidth="1"/>'; }
     x+='</cols><sheetData>';
@@ -18063,6 +18063,13 @@ function _epdomXlsxBlob(sheets){
       for(let c=0;c<nC;c++){
         const v=r[c], a=colL(c)+(ri+1);
         let s;
+        if(sh.plain){
+          if(v==='' || v==null) continue;
+          const isT=(ri>0 && sh.textCols && sh.textCols.indexOf(c)>=0);
+          if(typeof v==='number' && isFinite(v) && !isT) x+='<c r="'+a+'"><v>'+v+'</v></c>';
+          else x+='<c r="'+a+'"'+(isT?' s="7"':'')+' t="inlineStr"><is><t xml:space="preserve">'+X(v)+'</t></is></c>';
+          continue;
+        }
         if(ri===0) s=1;
         else if(sh.statusCol===c) s=(v==='ถูก')?4:5;
         else if(typeof v==='number' && isFinite(v) && !(sh.textCols && sh.textCols.indexOf(c)>=0)){ x+='<c r="'+a+'" s="6"><v>'+v+'</v></c>'; continue; }
@@ -18071,13 +18078,13 @@ function _epdomXlsxBlob(sheets){
       }
       x+='</row>';
     });
-    x+='</sheetData><autoFilter ref="'+ref+'"/><pageMargins left="0.5" right="0.5" top="0.5" bottom="0.5" header="0.3" footer="0.3"/></worksheet>';
+    x+='</sheetData>'+(sh.plain?'':'<autoFilter ref="'+ref+'"/>')+'<pageMargins left="0.5" right="0.5" top="0.5" bottom="0.5" header="0.3" footer="0.3"/></worksheet>';
     zip.file('xl/worksheets/sheet'+(si+1)+'.xml', x);
     const nm=X(String(sh.name).slice(0,31));
     wbSheets+='<sheet name="'+nm+'" sheetId="'+(si+1)+'" r:id="rId'+(si+1)+'"/>';
     wbRels+='<Relationship Id="rId'+(si+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(si+1)+'.xml"/>';
     ct+='<Override PartName="/xl/worksheets/sheet'+(si+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
-    defs+='<definedName name="_xlnm._FilterDatabase" localSheetId="'+si+'" hidden="1">\''+nm.replace(/'/g,"''")+'\'!$A$1:$'+colL(nC-1)+'$'+nR+'</definedName>';
+    if(!sh.plain) defs+='<definedName name="_xlnm._FilterDatabase" localSheetId="'+si+'" hidden="1">\''+nm.replace(/'/g,"''")+'\'!$A$1:$'+colL(nC-1)+'$'+nR+'</definedName>';
   });
   zip.file('xl/workbook.xml', HDR+'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+wbSheets+'</sheets><definedNames>'+defs+'</definedNames></workbook>');
   zip.file('xl/_rels/workbook.xml.rels', HDR+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+wbRels+
@@ -18089,129 +18096,71 @@ function _epdomXlsxBlob(sheets){
   return zip.generateAsync({type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', compression:'DEFLATE'});
 }
 
-/* EXPORT ERROR / AUDIT — Excel แยกจาก MAPPING: SUMMARY / ERROR DETAILS / WARNING DETAILS / ALLOCATION AUDIT (+ CT / PL RUNNING BALANCE) */
-function epdomExportAudit(){
-  const L=window._epdomLastResult;
-  if(!L || !L.R){ _epdomErr('ยังไม่มีผล MAPPING — กด MAPPING ก่อน'); return; }
-  const R=L.R, FN=ElePDom.files||{};
-  const list=(window._epdomGate && window._epdomGate.R===R) ? window._epdomGate.list : _epdomIssueList(R, null);
-  const jkSrc=(ElePDom.ct && ElePDom.ct.colNote) || '';
-  const HD=['ระดับ','ERROR CODE','ประเภทปัญหา','Invoice Number','Invoice LINE','Part Number','SAP','DN','J','K',
-            'ชื่อไฟล์ต้นทาง','ชื่อ Sheet','เลขแถว Excel','ชื่อคอลัมน์ที่ผิด','ค่าต้นฉบับ','ค่าที่ระบบคำนวณได้','จำนวนส่วนต่าง',
-            'สาเหตุของปัญหา','วิธีแก้ไขที่แนะนำ','INVOICE Sheet','INVOICE แถว'];
-  const det=function(f){
-    const a=[HD];
-    list.filter(f).forEach(function(x){
-      a.push([(x.level==='AMBIGUOUS'?'ERROR (AMBIGUOUS MATCH)':x.level), x.code, x.type, x.invoice, x.line, x.part, x.sap, x.dn, x.j, x.k,
-              x.srcFile, x.srcSheet, x.srcRow, x.col, x.orig, x.calc, x.diff, x.reason, x.fix, x.invSheet||'', x.invRow||'']);
-    });
-    return a;
-  };
-  const aE=det(function(x){return _epdomLv(x)==='ERROR';}), aW=det(function(x){return _epdomLv(x)==='WARNING';});
-  /* ALLOCATION AUDIT — 1 แถวต่อ 1 ชิ้นที่จัดสรร */
-  const H1=['Invoice Number','Invoice LINE','Part Number','Description','SAP','DN','J (CUSTOM IMPORT ENTRY NR & LINE 2)','K (CUSTOM IMPORT ENTRY NR & LINE)',
-            'QTY INVOICE','QTY PL','QTY CT','Original QTY','Allocated QTY','Remaining QTY','UNIT PRICE','AMOUNT','NW','GW','HS CODE',
-            'Source File','Source Sheet','Source Row','Matching KEY','Matching Status','Error Reason'];
-  const a1=[H1];
-  R.trace.forEach(function(T){
-    const reason=R.issues.filter(function(x){return x.invoice===T.invoice && x.line===T.line && x.part===T.part;})
-                         .map(function(x){return '['+x.code+'] '+x.reason;}).join(' | ');
-    const plQty=(T.plan||[]).map(function(p){return p.plQty==null?'':p.plQty;}).join(' + ');
-    T.pieces.forEach(function(p){
-      a1.push([T.invoice, T.line, T.part, T.desc, T.sap, p.dn, p.entry, p.ctLine,
-               T.qtyInv, plQty, p.ctOrig, p.ctOrig, p.qty, p.ctRem, p.up, p.amt, p.nw, (p.seq===1 && R.recon.gw!=null)?R.recon.gw:'', p.hs,
-               'INVOICE: '+T.srcFile+(p.ctRows.length?(' | CT: '+(FN.ct||'CT')):'')+' | PL: '+(FN.pl||'PL')+' | MASTER: '+(FN.ms||'MASTER'),
-               'INVOICE: '+T.srcSheet+(p.ctSheet?(' | CT: '+p.ctSheet):''),
-               'INVOICE: '+T.srcRow+(p.ctRows.length?(' | CT: '+p.ctRows.join(',')):'')+((T.plan||[]).length?(' | PL: '+T.plan.map(function(q){return (q.plRows||[]).join(',');}).join(' / ')):''),
-               T.keys.join(' || ')+' || เลือกด้วย: '+p.rule,
-               (T.status==='AMBIGUOUS'?'ERROR (AMBIGUOUS MATCH)':(T.status||'')), reason]);
-    });
-  });
-  const a3=[['Source File','Source Sheet','Source Row','DN','Part Number','J (CUSTOM IMPORT ENTRY NR & LINE 2)','K (CUSTOM IMPORT ENTRY NR & LINE)','Original QTY','Allocated QTY','Remaining QTY','จัดสรรให้ (Invoice / LINE : QTY → คงเหลือ)']];
-  R.ctBalance.forEach(function(b){
-    a3.push([b.file,b.sheet,b.row,b.dn,b.part,b.entry,b.line,b.orig,b.alloc,b.rem,
-             b.uses.map(function(u){return u.invoice+' / '+u.line+' : '+u.qty+' → '+u.remAfter;}).join(' | ')]);
-  });
-  const S=R.gate.summary, rc=R.recon;
-  const nErr=aE.length-1, nWarn=aW.length-1;
-  const byCode={}; list.forEach(function(x){ const k=_epdomLv(x)+'\u0001'+x.code+'\u0001'+(x.type||''); byCode[k]=(byCode[k]||0)+1; });
-  const a4=[['หัวข้อ','ค่า'],
-    ['Build','Deploy github '+(typeof NJL_DEPLOY_VERSION==='string'?NJL_DEPLOY_VERSION:'')],['MAPPING File',L.fname||'(ระงับ EXPORT)'],
-    ['Validation',(R.gate.blocked||(window._epdomGate&&window._epdomGate.blocked))?'ไม่ผ่าน — ระงับ EXPORT MAPPING':'ผ่าน'],
-    ['TOTAL (INVOICE LINE)',S.total],['SUCCESS',S.success],['WARNING',S.warning],['ERROR (รวม AMBIGUOUS MATCH)',S.error+S.ambiguous],['SPLIT ITEMS',rc.splitLines.length],
-    ['จำนวนข้อผิดพลาด ERROR',nErr],['ในจำนวนนี้เป็น AMBIGUOUS MATCH',S.ambiguousIssues],['จำนวนข้อสังเกต WARNING',nWarn],
-    ['TOTAL INVOICE',rc.invoiceCount],['LINE INVOICE เดิม',rc.invLines],['รายการหลัง SPLIT',rc.outRows],['LINE ที่ SPLIT',rc.splitLines.join(', ')],
-    ['Total QTY (INVOICE)',rc.qtyInv],['Total QTY (MAPPING)',rc.qtyOut],
-    ['Total AMOUNT (INVOICE)',rc.amtInv],['Total AMOUNT (MAPPING)',rc.amtOut],
-    ['Total NW (MAPPING)',rc.nwOut],['Total NW (PL ทั้งไฟล์)',rc.plNW],['Total GW',rc.gw==null?'':rc.gw],
-    ['TOTAL DN',rc.dnCount],
-    ['CT Original QTY',rc.ctOrig],['CT REMAINING',rc.ctRem],['CT REMAINING (แถว)',rc.ctRemRows],
-    ['PL REMAINING',rc.plRem],['PL REMAINING (กลุ่ม Part+SAP+DN)',rc.plRemGroups],
-    ['QTY จัดสรรเกิน CT',rc.ctOver],['QTY INVOICE ตกหล่น',rc.qtyMissing],
-    ['J/K ดึงจากหัวข้อ CT',jkSrc],
-    ['ยืนยัน Invoice↔DN ด้วย TH Sales Invoice',R.hasLinks?'ใช่':'ไม่ (MASTER ไม่มีข้อมูล Invoice/DN)'],
-    ['INVOICE',FN.inv||''],['CT',FN.ct||''],['PL',FN.pl||''],['MASTER',FN.ms||''],
-    ['',''],['สรุปตาม ERROR CODE','จำนวน']];
-  Object.keys(byCode).sort().forEach(function(k){ const p=k.split('\u0001'); a4.push([p[0]+' · '+p[1]+' · '+p[2], byCode[k]]); });
-  const a5=[['Source File','Source Sheet','Source Row','Part Number','SAP','DN','Original QTY','Allocated QTY','Remaining QTY','Net Weight/หน่วย','Total Net Weight (PL)','NW ที่จัดสรร']];
-  (rc.plRowsBal||[]).forEach(function(g){ a5.push([FN.pl||'PL', g.sheet, g.row, g.part, g.sap, g.dn, g.qty, g.alloc, g.rem, g.nwUnit, g.tnw, g.nwAlloc]); });
-  /* local140: Sheet แรก = ตารางฟ้อง 9 คอลัมน์ เหมือนหน้าเว็บทุกแถว · Sheet ถัดไป = ข้อมูลประกอบการตรวจย้อนกลับ (ของเดิม) */
-  const vRows=(window._epdomGate && window._epdomGate.R===R && window._epdomGate.rows) ? window._epdomGate.rows : _epdomValRows(R, null);
-  const aV=_epdomValAoa(vRows);
-  const wAuto=function(aoa){ return aoa[0].map(function(h){ return Math.max(12, Math.min(46, String(h).length+4)); }); };
-  const sheets=[{name:'VALIDATION', rows:aV, widths:[7,16,8,30,26,26,26,40,10], statusCol:8, centerCols:[0,1,2,4,5,6,7], textCols:[0,1,2,3,4,5,6,7,8]}];
-  if(aW.length>1) sheets.push({name:'WARNING DETAILS', rows:aW, widths:wAuto(aW), textCols:[3,5,6,7,8,9,12,14,15]});
-  sheets.push({name:'ALLOCATION AUDIT', rows:a1, widths:wAuto(a1), textCols:[0,2,4,5,6,7,18]});
-  sheets.push({name:'CT RUNNING BALANCE', rows:a3, widths:wAuto(a3), textCols:[3,4,5,6]});
-  sheets.push({name:'PL RUNNING BALANCE', rows:a5, widths:wAuto(a5), textCols:[3,4,5]});
-  const fn='AUDIT_'+_epdomSanitize(R.invoiceNo||'P_DOM')+'.xlsx';
-  if(typeof JSZip==='undefined'){
-    /* ไม่มี JSZip (โหลด Library ไม่สำเร็จ) → ยัง Export ได้ แต่ไม่มีเส้นตาราง/สี */
-    try{
-      const wb=XLSX.utils.book_new();
-      sheets.forEach(function(sh){ const ws=XLSX.utils.aoa_to_sheet(sh.rows); ws['!cols']=sh.widths.map(function(w){ return {wch:w}; }); XLSX.utils.book_append_sheet(wb, ws, sh.name); });
-      XLSX.writeFile(wb, fn);
-      if(typeof toast==='function') toast('✓ Export '+fn+' (ไม่มีรูปแบบตาราง — โหลด JSZip ไม่สำเร็จ)', 'warn');
-    } catch(e){ _epdomErr('สร้างไฟล์ AUDIT ไม่สำเร็จ: '+e.message); }
-    return;
-  }
-  return _epdomXlsxBlob(sheets).then(function(blob){
-    const a=document.createElement('a'), url=URL.createObjectURL(blob);
-    a.href=url; a.download=fn; a.style.display='none'; document.body.appendChild(a); a.click();
-    setTimeout(function(){ try{ document.body.removeChild(a); URL.revokeObjectURL(url); }catch(e){} }, 1500);
-    if(typeof toast==='function') toast('✓ Export '+fn, 'ok');
-  }).catch(function(e){ _epdomErr('สร้างไฟล์ AUDIT ไม่สำเร็จ: '+e.message); });
-}
-
-/* EXPORT MAPPING — local140: Export ได้เสมอ (ไม่ล็อกเพราะ ERROR) · คงค่าที่ระบบอ่านได้จริง ไม่ตัดรายการ ไม่เดาค่า
-   ยังมีสถานะ "ผิด" → ต่อท้ายชื่อไฟล์ด้วย UNVALIDATED */
-function epdomExportMapping(){
+/* EXPORT EXCEL — local141: ปุ่มเดียว · ไฟล์เดียว 2 Sheet
+     Sheet 1 "MAPPING" = Template เดิมทุกประการ (35 คอลัมน์ · คอลัมน์รหัสเป็น Text · ไม่ตัดรายการ · ไม่เดาค่า)
+     Sheet 2 "AUDIT"   = ตารางฟ้อง 9 คอลัมน์ เหมือนหน้าเว็บทุกแถว (พื้นขาว · ตีเส้นทุกช่อง · ถูกเขียว / ผิดแดง)
+   Export ได้เสมอ (ไม่ล็อกเพราะ ERROR · ไม่ถามยืนยัน) · ยังมีสถานะ "ผิด" → ต่อท้ายชื่อไฟล์ด้วย UNVALIDATED */
+function epdomExportExcel(){
   const L=window._epdomLastResult;
   if(!L || !L.R){ _epdomErr('ยังไม่มีผล MAPPING — กด MAPPING ก่อน'); return false; }
   const R=L.R;
   const M = _epdomMakeWb(R);
   const vb = _epdomVerifyWb(M, R);
   _epdomRenderGate(R, null, vb.length ? vb : null);
-  const bad = window._epdomGate ? window._epdomGate.bad : 0;
+  const G=window._epdomGate, bad = G ? G.bad : 0;
   const fname = _epdomSanitize(R.invoiceNo) + (bad>0 ? '_UNVALIDATED' : '') + '.xlsx';   /* ชื่อไฟล์ = เลข INVOICE แรก (หลังเรียง Invoice No. → No.) */
-  try{
-    XLSX.writeFile(M.wb, fname, {bookType:'xlsx', cellStyles:true});
-  } catch(e1){
-    try{ XLSX.writeFile(M.wb, fname); }
-    catch(e2){
-      console.error('[ELE P DOM] writeFile failed:', e2);
-      _epdomErr('สร้างไฟล์ไม่สำเร็จ: ' + e2.message + ' · วิธีแก้ไข: ปิดไฟล์ชื่อเดียวกันที่เปิดค้างอยู่ แล้วกด EXPORT MAPPING อีกครั้ง');
+  const aV=_epdomValAoa(G ? G.rows : _epdomValRows(R, vb.length?vb:null));
+  const done=function(note){
+    window._epdomLastResult = {R:R, fname:fname};
+    if(window._epdomGate) window._epdomGate.fname=fname;
+    _epdomErr('');
+    _epdomRenderReport(R, fname);
+    if(typeof toast==='function')
+      toast('✓ Export ' + fname + ' · MAPPING ' + R.rows.length + ' รายการ + AUDIT' + (bad>0 ? (' · สถานะผิด ' + bad + ' หัวข้อ') : '') + (note||''), (bad>0||note) ? 'warn' : 'ok');
+    return true;
+  };
+  /* สำรอง: เขียนด้วย SheetJS (AUDIT ไม่มีเส้น/สี) — ใช้เมื่อไม่มี JSZip หรือไฟล์ที่สร้างตรวจซ้ำไม่ผ่าน */
+  const plainWrite=function(note){
+    try{
+      const wsA=XLSX.utils.aoa_to_sheet(aV); wsA['!cols']=[7,16,8,30,26,26,26,40,10].map(function(w){ return {wch:w}; });
+      XLSX.utils.book_append_sheet(M.wb, wsA, 'AUDIT');
+      XLSX.writeFile(M.wb, fname);
+      return done(note);
+    } catch(e){
+      console.error('[ELE P DOM] writeFile failed:', e);
+      _epdomErr('สร้างไฟล์ไม่สำเร็จ: ' + e.message + ' · วิธีแก้ไข: ปิดไฟล์ชื่อเดียวกันที่เปิดค้างอยู่ แล้วกด EXPORT EXCEL อีกครั้ง');
       return false;
     }
-  }
-  window._epdomLastResult = {R:R, fname:fname};
-  if(window._epdomGate) window._epdomGate.fname=fname;
-  _epdomErr('');
-  _epdomRenderReport(R, fname);
-  if(typeof toast==='function')
-    toast('✓ Export ' + fname + ' · ' + R.rows.length + ' รายการ' + (bad>0 ? (' · สถานะผิด ' + bad + ' หัวข้อ') : ''), bad>0 ? 'warn' : 'ok');
-  return true;
+  };
+  if(typeof JSZip==='undefined') return plainWrite(' · AUDIT ไม่มีเส้น/สี (โหลด JSZip ไม่สำเร็จ)');
+  const wsM=M.wb.Sheets.MAPPING;
+  const sheets=[
+    {name:'MAPPING', plain:true, rows:M.aoa, textCols:EPDOM_TEXT_COLS, widths:(wsM['!cols']||[]).map(function(c){ return (c && c.wch) || 12; })},
+    {name:'AUDIT', rows:aV, widths:[7,16,8,30,26,26,26,40,10], statusCol:8, centerCols:[0,1,2,4,5,6,7], textCols:[0,1,2,3,4,5,6,7,8]}
+  ];
+  return _epdomXlsxBlob(sheets).then(function(blob){
+    return blob.arrayBuffer().then(function(buf){
+      /* ตรวจซ้ำไฟล์ที่จะดาวน์โหลดจริง: Sheet MAPPING ต้องเท่ากับ Template เดิมทุกเซลล์ (ค่า + ชนิดข้อมูล) */
+      const back=XLSX.read(new Uint8Array(buf), {type:'array'}), wsB=back.Sheets.MAPPING;
+      let same=!!wsB && back.SheetNames.length===2 && back.SheetNames[1]==='AUDIT';
+      if(same){
+        const rg=XLSX.utils.decode_range(wsM['!ref']);
+        for(let r=0;r<=rg.e.r && same;r++) for(let c=0;c<=rg.e.c;c++){
+          const ad=XLSX.utils.encode_cell({r:r,c:c}), p=wsM[ad], q=wsB[ad];
+          const pv=(p && p.v!=='' && p.v!=null) ? p : null, qv=(q && q.v!=='' && q.v!=null) ? q : null;
+          if(!pv && !qv) continue;
+          if(!pv || !qv || pv.t!==qv.t || String(pv.v)!==String(qv.v)){ same=false; break; }
+        }
+      }
+      if(!same) return plainWrite(' · AUDIT ไม่มีเส้น/สี (ใช้ตัวเขียนสำรอง)');
+      const a=document.createElement('a'), url=URL.createObjectURL(blob);
+      a.href=url; a.download=fname; a.style.display='none'; document.body.appendChild(a); a.click();
+      setTimeout(function(){ try{ document.body.removeChild(a); URL.revokeObjectURL(url); }catch(e){} }, 1500);
+      return done('');
+    });
+  }).catch(function(e){ console.error('[ELE P DOM] export failed:', e); return plainWrite(' · AUDIT ไม่มีเส้น/สี (ใช้ตัวเขียนสำรอง)'); });
 }
+function epdomExportMapping(){ return epdomExportExcel(); }   /* ชื่อเดิม — คงไว้ให้โค้ดที่เรียกอยู่ทำงานต่อได้ */
 
 /* ── MAPPING → VALIDATION → EXPORT ───────────────────────────── */
 function epdomMapping(){
@@ -18237,11 +18186,11 @@ function epdomMapping(){
   _epdomRenderGate(R, null, null);
   const bad = window._epdomGate ? window._epdomGate.bad : 0;
   if(bad>0){
-    if(typeof toast==='function') toast('พบสถานะผิด '+bad+' หัวข้อ — กด EXPORT MAPPING / EXPORT ERROR / AUDIT ได้ทันที', 'warn');
+    if(typeof toast==='function') toast('พบสถานะผิด '+bad+' หัวข้อ — กด EXPORT EXCEL ได้ทันที', 'warn');
     return;
   }
-  /* ถูกทั้งหมด → EXPORT ทันทีเหมือนเดิม (ปุ่ม EXPORT MAPPING ใช้ดาวน์โหลดซ้ำได้) */
-  epdomExportMapping();
+  /* ถูกทั้งหมด → EXPORT ทันทีเหมือนเดิม (ปุ่ม EXPORT EXCEL ใช้ดาวน์โหลดซ้ำได้) */
+  epdomExportExcel();
 }
 
 
