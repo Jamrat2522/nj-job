@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <!-- Build Metadata (local316): เลข Version ของ Build นี้ — กำหนดที่บรรทัดนี้ที่เดียว ใช้ทั้งเว็บไซต์ (ป้ายมุมขวาบนอ่านจากที่นี่) -->
-<meta name="nj-build" content="local330">
+<meta name="nj-build" content="local331">
 <title>Mapping Export Hi-Tech HTML</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -1836,7 +1836,7 @@ function renderUnifiedDeltaView(){
       fileList = '<div class="doa-file-list">' + d.map((f, i) => {
         const info = s.type === 'pdf'
           ? `${f.pages || 0} หน้า`
-          : (s.type === 'excel-multi' ? `${(f.items || f.rows || []).length} items` : '');
+          : (s.type === 'excel-multi' ? `${f.sheet && f.sheetCount > 1 ? 'Sheet ' + f.sheet + ' · ' : ''}${(f.items || f.rows || []).length} items` : '');
         return `<div class="doa-file-entry ok">
           <span class="dfn">${escHtml(f.name)}</span>
           ${info ? `<span class="dcc">${escHtml(info)}</span>` : ''}
@@ -2321,7 +2321,7 @@ async function processFiles(files, key){
     const existing = slotData[activeCustomer][key];
     const arr = Array.isArray(existing) ? existing.slice() : [];
     const filesArr = Array.from(files);
-    let added = 0;
+    let added = 0; const shellSheetNote = [];
     for(const f of filesArr){
       if(!/\.(xlsx|xls)$/i.test(f.name)){
         toast(`ข้าม ${f.name}: ไม่ใช่ .xlsx`, 'warn'); continue;
@@ -2338,6 +2338,7 @@ async function processFiles(files, key){
         }
         arr.push(info);
         added++;
+        if(info.sheet && info.sheetCount > 1) shellSheetNote.push(`Sheet ${info.sheet} = ${info.rows.length} รายการ`);
       } catch(err){
         toast(`อ่าน ${f.name} ไม่ได้: ${err.message}`, 'err');
         console.error('[excel-multi parse error]', err);
@@ -2346,7 +2347,7 @@ async function processFiles(files, key){
     slotData[activeCustomer][key] = arr;
     if(added){
       const totalItems = arr.reduce((a,f)=>a + ((f.items||f.rows||[]).length), 0);
-      toast(`Excel: เพิ่ม ${added} ไฟล์ · รวม ${arr.length} ไฟล์ · ${totalItems} items`, 'ok');
+      toast(`Excel: เพิ่ม ${added} ไฟล์ · รวม ${arr.length} ไฟล์ · ${totalItems} items${shellSheetNote.length ? ' · ' + shellSheetNote.join(' · ') : ''}`, 'ok');
     }
   } else {
     const f = files[0];
@@ -5135,9 +5136,8 @@ function readShellInvoiceXlsx(file){
       try{
         const data = new Uint8Array(e.target.result);
         const wb = XLSX.read(data, {type:'array', cellDates:true});
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        if(!ws) throw new Error('ไฟล์นี้ไม่มี sheet');
-
+        if(!wb.Sheets[wb.SheetNames[0]]) throw new Error('ไฟล์นี้ไม่มี sheet');
+        const readSheet = ws => {
         const cell = (r, c) => { const cc = ws[_hitechColLetter(c) + r]; return cc ? cc.v : ''; };
         const txt = v => v == null ? '' : String(v).trim();
         const toNum = v => { if(v==='' || v==null) return null; const n = parseFloat(String(v).replace(/,/g,'')); return isNaN(n) ? null : n; };
@@ -5178,7 +5178,31 @@ function readShellInvoiceXlsx(file){
             mark, hs
           });
         }
-        resolve({ name: file.name, rows });
+        return rows; };
+        // local331: ตรวจ Header ของแต่ละ Sheet ก่อนอ่าน (F=Plant · G=Delivery · I=Material ภายใน 5 แถวแรก)
+        //   Sheet แรกตรงโครงสร้าง หรือไม่มี Sheet ใดตรงเลย = อ่าน Sheet แรกเหมือนเดิมทุกประการ
+        //   Sheet แรกไม่ตรง = ใช้ Sheet ที่ Header ตรง · หลาย Sheet ข้อมูล Mapping เหมือนกัน = ใช้ Sheet เดียว (Sheet แรกตามลำดับในไฟล์) · ข้อมูลต่างกัน = ให้ผู้ใช้เลือก · ไม่รวมหลาย Sheet
+        const hdrOk = ws => { if(!ws) return false; const h = (r, c) => { const cc = ws[_hitechColLetter(c) + r]; return cc && cc.v != null ? String(cc.v).replace(/\s+/g,'').toLowerCase() : ''; };
+          for(let r = 1; r <= 5; r++) if(h(r, 6) === 'plant' && h(r, 7) === 'delivery' && h(r, 9) === 'material') return true; return false; };
+        const names = wb.SheetNames; let sheet = names[0], rows;
+        const okNames = names.filter(n => hdrOk(wb.Sheets[n]));
+        if(!okNames.length || okNames[0] === names[0]) rows = readSheet(wb.Sheets[names[0]]);
+        else {
+          const cand = okNames.map(n => ({ n, rows: readSheet(wb.Sheets[n]) })).filter(x => x.rows.length);
+          if(!cand.length) throw new Error('ไม่พบ Sheet ที่มีข้อมูล THE SHELL (Plant / Delivery / Material)');
+          // ลายเซ็นข้อมูล Mapping (ไม่นับเลขแถว / ลำดับแถว / Shipment ที่บาง Sheet เว้นว่าง)
+          const sig = rs => rs.map(r => JSON.stringify([r.plant, String(r.delivery), String(r.material), r.desc, r.qty, r.su, r.nw, r.gw, r.vol, r.shipTo, r.mark, String(r.hs)])).sort().join('\n');
+          const sigs = cand.map(x => sig(x.rows));
+          let pick = cand[0];
+          if(sigs.some(g => g !== sigs[0])){
+            const ans = window.prompt(`ไฟล์ ${file.name} มีหลาย Sheet ที่ข้อมูลแตกต่างกัน — พิมพ์หมายเลข Sheet ที่ต้องการใช้ (ใช้ได้ 1 Sheet):\n` + cand.map((x, i) => `${i + 1} = ${x.n} (${x.rows.length} รายการ)`).join('\n'), '');
+            const k = parseInt(String(ans == null ? '' : ans).trim(), 10);
+            if(!(k >= 1 && k <= cand.length)) throw new Error('ยังไม่ได้เลือก Sheet (ข้อมูลแต่ละ Sheet แตกต่างกัน) — กรุณาอัปโหลดใหม่แล้วเลือก Sheet');
+            pick = cand[k - 1];
+          }
+          sheet = pick.n; rows = pick.rows;
+        }
+        resolve({ name: file.name, rows, sheet, sheetCount: names.length });
       } catch(err){ reject(err); }
     };
     reader.onerror = () => reject(new Error('FileReader error'));
@@ -9888,6 +9912,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     const pass = [], skipped = [];
     built.model.forEach(m => {
       const why = m.errs.slice();
+      if(!m.group && built.groups.size && !(S.inv[m.key] || {}).excelGroup) why.unshift(`WARNING: ไม่มีข้อมูล Excel รองรับ Invoice นี้ (${m.items.length} รายการ · TOTAL ${m.total != null ? fmt(m.total) : '—'} ${m.currency || ''}) — ไม่นำไปจับคู่และไม่ส่งออก · Invoice อื่นไม่ได้รับผลกระทบ`);
       m.items.forEach(i => i.errs.forEach(e => why.push(`รายการที่ ${i.seq} หน้า ${i.it.pg || '?'}: ${e}`)));
       if(!why.length && m.items.some(i => !i.ex || i.qtyVal == null || i.amount == null)) why.push('ข้อมูลรายการไม่ครบ กรุณาตรวจสอบ');
       if(why.length) skipped.push({ t:'inv', no:m.invoiceNo || '?', file:m.f.name, why }); else pass.push(m);
