@@ -45,12 +45,19 @@ function css() {
     ".ex7-tt b{display:block;font-size:22px;font-weight:800;color:#1e3a8a;letter-spacing:.3px;line-height:1.1}.ex7-tt small{display:block;font-size:13.5px;font-weight:700;color:#1d4ed8;margin-top:2px}",
     ".ex7-bc{margin-left:auto;display:flex;align-items:center;gap:8px;font-weight:800;color:#1e3a8a;font-size:14px}.ex7-bc a{color:#1e3a8a;text-decoration:none;display:inline-flex}.ex7-bc i{font-style:normal;color:#64748b}",
     /* V.910 : แท็บเก็บลูกค้าได้ / เก็บลูกค้าไม่ได้ */
-    ".ex910{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 12px}",
+    ".ex910{display:flex;flex-wrap:wrap;justify-content:flex-start;align-items:center;gap:10px;margin:0 0 12px}",   /* V.934 */
     ".ex910 button{border:0;border-radius:10px;padding:12px 10px;font-family:inherit;font-size:16px;font-weight:800;line-height:1.2;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;opacity:.55;transition:opacity .15s,box-shadow .15s}",
     ".ex910 button.g{background:#15803d}.ex910 button.r{background:#dc2626}",
     ".ex910 button.on{opacity:1;box-shadow:0 2px 8px rgba(15,23,42,.25)}",
+    /* V.934 : ปุ่ม 200 x 36 px · ปุ่มที่เลือก = ทึบ + กรอบวงแหวนสีเดียวกับปุ่ม · ปุ่มที่ไม่ได้เลือก = จางตามเดิม */
+    ".ex910 button{flex:none;width:200px;height:36px;padding:0 12px;font-size:15px;box-sizing:border-box;white-space:nowrap}.ex910 button:not(.on):hover{opacity:.8}",
+    ".ex910 button.g.on{box-shadow:0 0 0 2px #fff,0 0 0 4px #15803d,0 2px 8px rgba(15,23,42,.25)}.ex910 button.r.on{box-shadow:0 0 0 2px #fff,0 0 0 4px #dc2626,0 2px 8px rgba(15,23,42,.25)}",
+    ".ex910 button:focus-visible{outline:2px solid #1d4ed8;outline-offset:4px}",
     ".ex910 button .n{background:rgba(255,255,255,.22);border-radius:999px;padding:1px 10px;font-size:14px;font-weight:800;min-width:28px;text-align:center}",
-    "@media(max-width:640px){.ex910{grid-template-columns:1fr;gap:8px}}",
+    ".ex910 button .n{font-size:13px;padding:0 8px;line-height:20px}",   /* V.934 : พอดีความสูง 36px */
+    "@media(max-width:640px){.ex910 button{flex:1 1 0;width:auto;min-width:0}}",   /* V.934 : มือถือ = 2 ปุ่มแบ่งความกว้างในแถวเดียว */
+    /* V.934 : แท็บเก็บลูกค้าไม่ได้ — House B/L กว้าง 120px คงที่ (ไม่ขยายตามข้อมูล) */
+    ".ex7-t td.ex934{width:120px;min-width:120px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:clip;box-sizing:border-box}.ex7-t th.ex934{width:120px;min-width:120px;max-width:120px;box-sizing:border-box}",
     ".ex7-fc{border:1px solid #D9E2EC;border-radius:12px;background:#f8fbff;padding:10px 12px 12px;margin:0 0 12px}.ex7-fc h3{margin:0 0 6px;font-size:14px;color:#1d4ed8;display:flex;align-items:center;gap:6px}",
     ".ex7-f{display:flex;align-items:flex-end;gap:8px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}.ex7-f label{display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:700;color:#0f172a;flex:none}",
     ".ex7-f select,.ex7-f input{height:36px;border:1px solid #cbd5e1;border-radius:8px;padding:0 10px;font-size:13px;font-family:inherit;background:#fff;color:#0f172a;box-sizing:border-box}",
@@ -122,23 +129,31 @@ function t802(v) {
   try { g = typeof Intl !== "undefined" && Intl.Segmenter ? Array.from(new Intl.Segmenter("th", { granularity: "grapheme" }).segment(s), function (x) { return x.segment; }) : Array.from(s); } catch (e) { g = Array.from(s); }
   return g.length > 10 ? g.slice(0, 10).join("") + "..." : s;
 }
+/* V.934 · แท็บเก็บลูกค้าไม่ได้ : House B/L = 10 ตัวอักษรแรก (นับแบบตัวอักษรที่เห็น) · ไม่เติม "..." · Tooltip = ข้อมูลเต็ม · EXPORT EXCEL ใช้ข้อมูลเต็มเดิม */
+function t934(v) {
+  var s = String(v == null ? "" : v).trim(), g;
+  if (!s) return "-";
+  try { g = typeof Intl !== "undefined" && Intl.Segmenter ? Array.from(new Intl.Segmenter("th", { granularity: "grapheme" }).segment(s), function (x) { return x.segment; }) : Array.from(s); } catch (e) { g = Array.from(s); }
+  return g.length > 10 ? g.slice(0, 10).join("") : s;
+}
+function td934(v) { var s = String(v == null ? "" : v).trim(); return '<td class="ex934"' + (s ? ' title="' + esc(s) + '"' : "") + ">" + esc(t934(s)) + "</td>"; }
 function td802(v) { var s = String(v == null ? "" : v).trim(); return '<td class="ex802"' + (s ? ' title="' + esc(s) + '"' : "") + ">" + esc(t802(s)) + "</td>"; }
 function rowHTML(x, i) {
   var nf = (x.files || []).length, no = S.off + i + 1;
   return '<tr data-i="' + i + '" tabindex="0"><td class="c">' + no + '</td><td class="nw"><a href="#/job/' + esc(x.job_id) + '" data-lk>' + esc(x.job_no) + "</a></td>" +
-    td802(x.company) + td802(x.customer) + '<td class="nw">' + esc(x.hbl || "-") + "</td>" +
+    td802(x.company) + td802(x.customer) + (S.tab === "CC" ? td934(x.hbl) : '<td class="nw">' + esc(x.hbl || "-") + "</td>") +   /* V.934 */
     '<td><span class="ex7-el">' + esc(x.description) + '</span></td><td class="r">' + fm(x.pay_amount) + '</td><td class="r">' + fm(x.collect_amount) + '</td><td class="c">' + badge(x) + '</td><td class="nw c">' + esc(invNo(x) || "") + "</td>" +
     '<td><div class="ex7-act">' +   /* V.727 : List View แสดงเฉพาะปุ่มลบ — ดูไฟล์ / โหลดไฟล์ อยู่ในหน้าต่างรายละเอียด EXPENSES */
     '<button type="button" class="ex7-ab x" data-a="x" title="ลบออกจาก EXPENSES">' + IC.del + "ลบ</button></div></td></tr>";
 }
 function bodyHTML() {
   var H = ["#", "JOB No.", "Company", "Customer", "House B/L", "รายละเอียด", "ยอดเงิน", "เก็บลูกค้าได้", "สถานะวางบิล", "INVOICE NJ", "จัดการ"];
-  var W = [44, 130, 120, 120, 130, 0, 110, 110, 130, 130, 84];   /* V.802 : Company / Customer = 120px (10 ตัวอักษร + ...) */   /* V.727 : คอลัมน์จัดการ = ปุ่มลบปุ่มเดียว */
+  var W = [44, 130, 120, 120, S.tab === "CC" ? 120 : 130/* V.934 */, 0, 110, 110, 130, 130, 84];   /* V.802 : Company / Customer = 120px (10 ตัวอักษร + ...) */   /* V.727 : คอลัมน์จัดการ = ปุ่มลบปุ่มเดียว */
   var rows = S.rows.map(rowHTML).join(""), sm = S.sum || {};
   var n = Math.max(1, Math.ceil((S.total || 0) / S.lim)), c = Math.floor(S.off / S.lim) + 1, from = S.total ? S.off + 1 : 0, to = S.off + S.rows.length, pg = [], k;
   for (k = 1; k <= n; k++) if (k === 1 || k === n || Math.abs(k - c) <= 2) pg.push(k); else if (pg[pg.length - 1] !== "…") pg.push("…");
   return (S.err ? '<div class="ex7-err">' + esc(S.err) + "</div>" : "") +
-    '<div class="ex7-tw"><table class="ex7-t"><thead><tr>' + H.map(function (h, j) { return "<th" + (W[j] ? ' style="width:' + W[j] + 'px"' : "") + ">" + h + "</th>"; }).join("") + "</tr></thead><tbody>" +
+    '<div class="ex7-tw"><table class="ex7-t"><thead><tr>' + H.map(function (h, j) { return "<th" + (j === 4 && S.tab === "CC" ? ' class="ex934"' : "")/* V.934 */ + (W[j] ? ' style="width:' + W[j] + 'px"' : "") + ">" + h + "</th>"; }).join("") + "</tr></thead><tbody>" +
     (rows || '<tr><td colspan="11" class="ex7-em">' + (S.loading ? "กำลังโหลด…" : "ไม่มีรายการ") + "</td></tr>") + "</tbody>" +
     '<tfoot><tr><td colspan="6" class="c">รวม</td><td class="r">' + fm(sm.pay) + '</td><td class="r">' + fm(sm.collect) + '</td><td class="r" title="ยอดเก็บลูกค้าได้ที่ตรงกับ INVOICE แล้ว">' + fm(sm.billed) + "</td><td></td><td></td></tr></tfoot></table></div>" +
     '<div class="ex7-pg">แสดง <select data-lim>' + [10, 20, 50, 100].map(function (v) { return '<option value="' + v + '"' + (S.lim === v ? " selected" : "") + ">" + v + "</option>"; }).join("") + "</select> รายการต่อหน้า" +
