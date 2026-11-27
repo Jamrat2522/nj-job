@@ -542,6 +542,9 @@ tbody tr:last-child td{border-bottom:none}
       <div class="item" data-view="staedtler" onclick="switchView('staedtler')">
         <span class="ic">✏️</span><span class="lbl">STAEDTLER</span>
       </div>
+      <div class="item" data-view="decathlon" onclick="switchView('decathlon')">
+        <span class="ic">📁</span><span class="lbl">Project Decathlon</span>
+      </div>
       <div class="sec">SYSTEM</div>
       <div class="item" data-view="users" id="nav-users" onclick="switchView('users')">
         <span class="ic">👥</span><span class="lbl">ผู้ใช้งาน</span>
@@ -903,6 +906,7 @@ function switchView(v){
   else if (v==='elec') elecRenderView();
   else if (v==='borgwaner') borgRenderView();
   else if (v==='staedtler') staeRenderView();
+  else if (v==='decathlon') decaRenderView();
   else if (v==='users') loadUsersPage();
   else if (v==='settings') renderSettings();
 }
@@ -8353,7 +8357,8 @@ function cvtReset(){
     { key:'report_grohe_ai_token_v1',     fn:'nj-report-ai-grohe',        th:'GROHE' },
     { key:'report_elec_ai_token_v1',      fn:'nj-invoice-ai-elec',        th:'ELEC' },
     { key:'report_borgwaner_ai_token_v1', fn:'nj-invoice-ai-borgwaner',   th:'BORGWANER' },
-    { key:'report_staedtler_ai_token_v1', fn:'nj-invoice-ai-staedtler',   th:'STAEDTLER' }
+    { key:'report_staedtler_ai_token_v1', fn:'nj-invoice-ai-staedtler',   th:'STAEDTLER' },
+    { key:'report_decathlon_ai_token_v1', fn:'nj-invoice-ai-decathlon',   th:'Project Decathlon' }   // local013: เพิ่มต่อท้ายเท่านั้น
   ];
   window.NJ_AI_FNS = FNS;
 
@@ -8472,7 +8477,7 @@ function cvtReset(){
 #grSummary .gr-banner.err{display:none}
 #grSummary .nj-issuebox{display:none}
 </style>
-<div id="njDeployVer">Deploy github local011</div>
+<div id="njDeployVer">Deploy github local015</div>
 <script id="grohe-core">
 /* ═══════════════════════════════════════════════════════════════════════════
  * REPORT ALL — GROHE (local001) · CORE (ตรรกะล้วน ไม่แตะ DOM / เครือข่าย)
@@ -12188,6 +12193,659 @@ if(typeof module !== 'undefined' && module.exports) module.exports = STAE_CORE;
     </tr>`).join('') || '<tr><td colspan="17" style="text-align:center;color:#8b949e;padding:18px">ไม่พบรายการตามเงื่อนไข</td></tr>';
     const n = $('stShowN'); if(n) n.textContent = rows.length;
   }
+})();
+</script>
+<style id="deca-style">
+/* ===== REPORT ALL — Project Decathlon (local015) · ใช้เฉพาะโหมดนี้ (คลาส dc-*) ===== */
+.dc-view{max-width:1180px}
+.dc-card{background:#161b22;border:1px solid #30363d;border-radius:16px;padding:22px 22px 20px}
+.dc-title{display:flex;align-items:center;gap:10px;font-size:19px;font-weight:800;color:#e6edf3;margin:0 0 16px}
+.dc-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:stretch}
+.dc-drop{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;height:190px;box-sizing:border-box;border:1.5px dashed var(--dc);border-radius:12px;
+  background:color-mix(in srgb,var(--dc) 9%,#161b22);padding:16px 10px 10px;cursor:pointer;text-align:center;transition:.15s;overflow:hidden}
+.dc-drop:hover,.dc-drop.over{background:color-mix(in srgb,var(--dc) 20%,#161b22);border-style:solid}
+.dc-drop input{display:none}
+.dc-drop .ic{font-size:26px;line-height:1;color:var(--dc)}
+.dc-drop .nm{font-weight:800;font-size:13px;color:#e6edf3;letter-spacing:.2px}
+.dc-drop .hint{font-size:13px;color:#8b949e}
+.dc-drop .cnt{font-size:12px;font-weight:700;color:var(--dc)}
+.dc-files{width:100%;flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:3px;margin-top:2px}
+.dc-f{display:flex;align-items:center;gap:6px;font-size:11.5px;color:#c9d1d9;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:3px 6px;text-align:left}
+.dc-f span{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dc-f.err{border-color:rgba(248,81,73,.55);color:#f85149}
+.dc-f button{flex:0 0 auto;border:none;background:none;color:#8b949e;cursor:pointer;font-size:12px;padding:0 2px}
+.dc-f button:hover{color:#f85149}
+.dc-b{--dc:#3b82f6}.dc-g{--dc:#22a55b}.dc-o{--dc:#e08a1e}.dc-p{--dc:#8b5cf6}
+.dc-actions{margin-top:16px;display:flex;justify-content:flex-start}
+.dc-export{display:inline-flex;align-items:center;gap:10px;background:#15803d;color:#fff;border:none;border-radius:10px;padding:14px 22px;font-size:15px;font-weight:800;letter-spacing:.3px;cursor:pointer;transition:.15s}
+.dc-export:hover{background:#166534}.dc-export:disabled{opacity:.6;cursor:progress}
+.dc-actions{align-items:center;gap:14px}
+.dc-prog{font-size:13px;color:#c9d1d9}
+.dc-spin{width:15px;height:15px;border:2.5px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;display:inline-block;animation:dcspin .8s linear infinite}
+@keyframes dcspin{to{transform:rotate(360deg)}}
+.dc-warn{margin:0;padding-left:18px;font-size:13px;line-height:1.75;color:#e6edf3}
+.dc-warn small{color:#8b949e}
+@media (max-width:860px){.dc-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+<script id="deca-core">
+/* ===== REPORT ALL — Project Decathlon (local015) · CORE =====
+   NETBAY CSV (หลัก 100%) · แก้ไข/เติมเฉพาะ 10 คอลัมน์สีฟ้า: AA ← StatMaster · AO ← CIPL PackingList_Form!I · AP = KGM · AD–AJ ← FORM PDF (ผล AI จาก Edge Function)
+   ส่วน CORE ไม่เรียก AI เอง · ไม่ Hardcode ข้อมูลสินค้า · ไม่เดาค่า · ไม่เพิ่ม/ลบ/สลับแถวและคอลัมน์ของ NETBAY */
+const DECA_CORE = (() => {
+  const VER = 'local015';
+  const CIPL_SHEETS = ['ComInv_Form', 'PackingList_Form'];       // อ่านเฉพาะ 2 Sheet นี้ — ไม่แตะ Master_Data / StatMaster / Sheet อื่นใน CIPL
+  const str = v => (v == null ? '' : String(v)).replace(/ /g, ' ').trim();
+  const blank = v => str(v) === '';
+  const up = v => str(v).replace(/\s+/g, ' ').toUpperCase();
+  const num = v => { if(typeof v === 'number') return isFinite(v) ? v : null; const t = str(v).replace(/,/g, ''); if(t === '' || !/^-?\d*\.?\d+(e-?\d+)?$/i.test(t)) return null; const n = Number(t); return isFinite(n) ? n : null; };
+  const r6 = n => Math.round(n * 1e6) / 1e6;
+  const numEq = (a, b) => { const x = num(a), y = num(b); return x != null && y != null && Math.abs(x - y) < 1e-6; };
+  const z3 = v => { const t = str(v); return /^\d{1,3}$/.test(t) ? t.padStart(3, '0') : t; };       // Stat Code / Privilege Code: รักษา 0 นำหน้า (000, 001, 090)
+  const digits = v => (typeof v === 'number' && Number.isInteger(v) ? String(v) : str(v));          // ตัวเลขจาก Excel → ข้อความ · ข้อความคงเดิมทุกตัวอักษร (0 นำหน้าไม่หาย)
+  const poKey = v => digits(v).replace(/\/\d+$/, '');                                            // ตัดเลขต่อท้าย PO เช่น /1
+  const hkey = v => str(v).toLowerCase().replace(/[^a-z0-9ก-๙]/g, '');
+  const colName = i => { let s = ''; i++; while(i > 0){ const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+
+  // ── หัวคอลัมน์ NETBAY ที่ใช้ (อ้างด้วยชื่อหัวข้อจากไฟล์ที่ Upload · ตำแหน่งมาตรฐานใช้ยืนยันเท่านั้น) ──
+  const NB = { inv:['invoiceno'], date:['invoicedate'], item:['itemno'], po:['pono'], code:['productcode'], desc1:['productdescription1'], thai:['thaidescription'], brand:['brandname'],
+    origin:['origin'], nw:['nw'], invQty:['invqty'], qty:['qty'], qtyUnit:['qtyunit'], price:['unitprice'], amount:['amount'], tariff:['tariffcode'], stat:['statcode'], priv:['privilegecode'], seq:['tariffsequence'],
+    remark:['remarkส่งกรม', 'remark'], carton:['carton'], permitNo:['permitnumber'], permitDate:['permitissuedate'], permitAuth:['permitissueauthority1'], permitNo2:['permitno2'], permitDate2:['issuedate2'], permitAuth2:['permitissueauthority2'], gw:['gw'] };
+  const NB_REQUIRED = ['inv', 'item', 'po', 'code'];
+
+  function sheetGrid(XLSX, ws){
+    const ref = ws && ws['!ref']; if(!ref) return { rows:[], nCols:0 };
+    const rg = XLSX.utils.decode_range(ref), rows = [];
+    for(let r = rg.s.r; r <= rg.e.r; r++){ const row = []; for(let c = 0; c <= rg.e.c; c++){ const cell = ws[XLSX.utils.encode_cell({ r, c })]; row.push(cell && cell.v !== undefined ? { t:cell.t, v:cell.v, z:cell.z } : null); } rows.push(row); }
+    return { rows, nCols:rg.e.c + 1 };
+  }
+  const cv = c => (c ? c.v : null);
+
+  // ── 1) NETBAY CSV (XLSX: Sheet "CSV" · ไฟล์ .csv: เนื้อไฟล์ทั้งหมด) ──
+  function readNetbay(XLSX, bytes, name){
+    const isCsv = /\.csv$/i.test(name || '');
+    const wb = isCsv ? XLSX.read(bytes, { type:'array', raw:true, codepage:65001 }) : XLSX.read(bytes, { type:'array', cellDates:false, sheets:['CSV'] });
+    const sn = isCsv ? wb.SheetNames[0] : wb.SheetNames.find(n => n === 'CSV') || wb.SheetNames.find(n => str(n).toUpperCase() === 'CSV');
+    if(!sn || !wb.Sheets[sn] || !wb.Sheets[sn]['!ref']) throw new Error('ไม่พบ Sheet "CSV" ในไฟล์ NETBAY');
+    const ws = wb.Sheets[sn], g = sheetGrid(XLSX, ws);
+    if(g.rows.length < 1) throw new Error('ไฟล์ NETBAY ไม่มีข้อมูล');
+    const head = g.rows[0].map(cv), hk = head.map(hkey), col = {};
+    for(const k of Object.keys(NB)){ const i = hk.findIndex(h => NB[k].includes(h)); col[k] = i; }
+    // "Qty" ต้องไม่ชนกับ "Inv Qty": หา qty ตัวที่ไม่ใช่ invqty
+    col.qty = hk.findIndex(h => h === 'qty');
+    col.gwUnit = col.gw >= 0 && hk[col.gw + 1] === 'kgm' ? col.gw + 1 : -1;      // AP: คอลัมน์หน่วยของ G.W. (หัวข้อ "KGM" ถัดจาก G.W.)
+    const miss = NB_REQUIRED.filter(k => col[k] < 0);
+    if(miss.length) throw new Error('หัวคอลัมน์ NETBAY ไม่ครบ: ' + miss.map(k => NB[k][0]).join(', '));
+    // ตัดแถวท้ายที่ว่างทั้งแถว (ไม่ถือเป็นรายการ)
+    let last = g.rows.length - 1; while(last > 0 && g.rows[last].every(c => !c || blank(c.v))) last--;
+    const rows = g.rows.slice(0, last + 1);
+    return { name, isCsv, sheet:sn, head, nCols:g.nCols, col, rows, orig:rows.map(r => r.map(c => (c ? { t:c.t, v:c.v } : null))), cols:ws['!cols'] || null };
+  }
+
+  // ── 2) CIPL: อ่านเฉพาะ ComInv_Form + PackingList_Form (ค่าที่แสดงในเซลล์ของ 2 Sheet นี้เท่านั้น) ──
+  function fmtDate(XLSX, c){
+    if(!c) return '';
+    if(c.v instanceof Date){ const d = c.v; return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear(); }
+    if(typeof c.v === 'number' && c.v > 20000 && c.v < 80000){ const p = XLSX.SSF.parse_date_code(c.v); if(p) return String(p.d).padStart(2, '0') + '/' + String(p.m).padStart(2, '0') + '/' + p.y; }
+    return str(c.v);
+  }
+  function readCipl(XLSX, bytes, name){
+    const wb = XLSX.read(bytes, { type:'array', cellDates:false, sheets:CIPL_SHEETS });
+    const ci = wb.Sheets.ComInv_Form, pl = wb.Sheets.PackingList_Form;
+    if(!ci || !ci['!ref']) throw new Error('ไม่พบ Sheet ComInv_Form');
+    if(!pl || !pl['!ref']) throw new Error('ไม่พบ Sheet PackingList_Form');
+    const at = (ws, a) => { const c = ws[a]; return c && c.v !== undefined ? c : null; };
+    const inv = digits(cv(at(ci, 'B1'))); if(!inv) throw new Error('ComInv_Form!B1 ไม่มี INVOICE NO.');
+    const date = fmtDate(XLSX, at(ci, 'B4'));
+    const rg = XLSX.utils.decode_range(ci['!ref']), items = [];
+    const g = (ws, r, c) => cv(at(ws, XLSX.utils.encode_cell({ r, c })));
+    let issueCol = -1; for(let c = 0; c <= rg.e.c; c++) if(hkey(g(ci, 17, c)) === 'checkissue'){ issueCol = c; break; }   // ComInv_Form แถว 18: หัวข้อ Check Issue (เช่น No use Form E)
+    for(let r = 18; r <= rg.e.r; r++){                         // ข้อมูลสินค้าเริ่มแถว 19
+      const a = g(ci, r, 0); if(/^TOTAL/i.test(str(a))) break; // ไม่อ่านแถว TOTAL และส่วนสรุปท้ายเอกสาร
+      if(blank(a) && blank(g(ci, r, 2))) continue;
+      items.push({ row:r + 1, po:poKey(a), item:digits(g(ci, r, 1)), code:digits(g(ci, r, 2)), itemId:digits(g(ci, r, 3)), desc:str(g(ci, r, 4)), hs:digits(g(ci, r, 6)), origin:str(g(ci, r, 7)),
+        qty:g(ci, r, 10), ctn:(m => m ? num(m[0]) : null)(/\d+(\.\d+)?/.exec(str(g(ci, r, 9)).replace(/,/g, ''))), price:g(ci, r, 11), amount:g(ci, r, 12), brand:str(g(ci, r, 13)), thai:str(g(ci, r, 14)), stat:z3(g(ci, r, 17)), issue:issueCol >= 0 ? str(g(ci, r, issueCol)) : '' });
+    }
+    const pg = XLSX.utils.decode_range(pl['!ref']), packs = [];
+    for(let r = 17; r <= pg.e.r; r++){                         // ข้อมูลสินค้าเริ่มแถว 18
+      const a = g(pl, r, 0); if(/^TOTAL/i.test(str(a))) break;
+      if(blank(a) || blank(g(pl, r, 1))) continue;
+      packs.push({ row:r + 1, po:poKey(a), itemId:digits(g(pl, r, 1)), desc:str(g(pl, r, 2)), qty:num(str(g(pl, r, 4)).replace(/[^\d.,-]/g, '')), unit:str(g(pl, r, 4)).replace(/^[\d.,\s-]+/, '').trim(), carton:num(str(g(pl, r, 5)).replace(/[^\d.,-]/g, '')), gw:num(g(pl, r, 8)), nw:num(g(pl, r, 9)) });
+    }
+    return { name, inv, date, items, packs, issueCol };
+  }
+
+  // ── 3) StatMaster: Sheet1 เท่านั้น ──
+  function readStat(XLSX, bytes, name){
+    const wb = XLSX.read(bytes, { type:'array', sheets:['Sheet1'] }), ws = wb.Sheets.Sheet1;
+    if(!ws || !ws['!ref']) throw new Error('ไม่พบ Sheet1 ในไฟล์ StatMaster');
+    const g = sheetGrid(XLSX, ws), seq = new Map(), remark = new Map(), at = new Map(); let n = 0, numeric = true;
+    for(let r = 1; r < g.rows.length; r++){ const row = g.rows[r];
+      const a = digits(cv(row[0])), d = cv(row[3]);
+      if(a && /^\d+$/.test(a) && !blank(d)){ const k = a + '|' + z3(cv(row[1])) + '|' + z3(cv(row[2])); if(!seq.has(k)) seq.set(k, new Set()); seq.get(k).add(digits(d)); if(!at.has(k)) at.set(k, []); at.get(k).push(r + 1); if(typeof d !== 'number') numeric = false; n++; }
+      const m = z3(cv(row[12])), rm = str(cv(row[13]));        // M = Privilege Code · N = Remark (ส่งกรม)
+      if(m && !/privil/i.test(m) && !blank(cv(row[10]))){ if(!remark.has(m)) remark.set(m, new Set()); remark.get(m).add(rm); }
+    }
+    if(!n) throw new Error('StatMaster Sheet1 ไม่มีข้อมูล TARIFF CODE / Tariff Sequence');
+    return { name, seq, remark, rows:n, numeric, at };   // at = แถว Excel ใน StatMaster ของแต่ละคีย์ (หลักฐานย้อนหลัง)
+  }
+
+  // ── 3.5) FORM PDF (ผล AI จาก Edge Function nj-invoice-ai-decathlon) → จับคู่กับแถว NETBAY ──
+  //    คีย์: INVOICE NO. + PO (ของรายการ หรือของใบรับรองเมื่อรายการไม่พิมพ์ PO) + HS6 · PRODUCT CODE / DESCRIPTION ใช้ตัดตัวเลือกเมื่อพิมพ์ไว้
+  //    ตรวจยืนยันทั้งกลุ่ม: ผลรวม QTY (NETBAY Qty) = ผลรวม QTY ของ FORM และผลรวม CARTON (CIPL NB OF CARTON) = ผลรวม CARTON ของ FORM
+  //    ไม่ใช้ลำดับรายการของ FORM เทียบกับ Item No. ของ NETBAY · ไม่ใช้ Invoice Date / Departure Date เป็นวันออกใบรับรอง · หลายตัวเลือกที่ให้ค่าต่างกัน = ไม่เลือกเอง
+  const an = v => str(v).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const poN = v => an(str(v).replace(/\/\d+\s*$/, ''));
+  const hs6Of = v => { const d = str(v).replace(/\D/g, ''); return d.length >= 6 ? d.slice(0, 6) : ''; };
+  const COUNTRY = { CHINA:'CN', PEOPLESREPUBLICOFCHINA:'CN', PRCHINA:'CN', PRC:'CN', THEPEOPLESREPUBLICOFCHINA:'CN', BRUNEI:'BN', BRUNEIDARUSSALAM:'BN', CAMBODIA:'KH', INDONESIA:'ID', LAOS:'LA', LAOPDR:'LA',
+    LAOPEOPLESDEMOCRATICREPUBLIC:'LA', MALAYSIA:'MY', MYANMAR:'MM', PHILIPPINES:'PH', THEPHILIPPINES:'PH', SINGAPORE:'SG', THAILAND:'TH', VIETNAM:'VN', VIETNAMSOCIALISTREPUBLICOF:'VN', SOCIALISTREPUBLICOFVIETNAM:'VN' };
+  // Unit Mapping (UN/ECE Rec. 20 ที่ NETBAY ใช้ ↔ หน่วยที่พิมพ์บนเอกสาร) — เฉพาะคู่ที่ยืนยันแล้ว · หน่วยอื่น = ไม่ตรง (UNVERIFIED)
+  const UNIT = { C62:['C62', 'PIECE', 'PIECES', 'PCS', 'PC', 'PCE'], PR:['PR', 'PAIR', 'PAIRS', 'PRS'], SET:['SET', 'SETS'], KGM:['KGM', 'KG', 'KGS'] };
+  const unitOk = (nbU, docU) => { const a = an(nbU), b = an(docU); if(!a || !b) return false; if(a === b) return true; const L = UNIT[a]; return !!L && L.includes(b); };
+  const isoOf = c => { const nm = an(c.issued_country), a = an(c.issued_country_iso2), m = COUNTRY[nm];
+    if(m && a && a !== m) return { v:'', bad:'ประเทศที่ออกใบรับรองกับรหัสประเทศไม่ตรงกัน' };
+    if(m) return { v:m }; if(/^[A-Z]{2}$/.test(a) && nm) return { v:a }; return { v:'', bad:'ไม่พบประเทศที่ออกใบรับรอง (Issued in)' }; };
+  const dmy = v => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str(v)); if(!m) return ''; const y = +m[1], mo = +m[2], d = +m[3], dt = new Date(Date.UTC(y, mo - 1, d));
+    if(y < 2000 || y > 2100 || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return ''; return `${m[3]}/${m[2]}/${m[1]}`; };
+  // ไฟล์ใหญ่ที่ถูกแบ่งส่งเป็นช่วงหน้า → รวมผลกลับเป็นไฟล์เดียว (ต่อเลขหน้า · รวมใบรับรองเดียวกันข้ามช่วง)
+  function mergeParts(parts){
+    const out = { pages:[], certificates:[], complete:true, remarks:'' }, byRef = new Map(); let off = 0;
+    for(const p of parts){ const r = p.result || {}, base = off; off += p.nPages;
+      for(const x of (r.pages || [])) out.pages.push({ ...x, pg:x.pg + base });
+      for(const c of (r.certificates || [])){ const k = an(c.reference_no), items = (c.items || []).map(it => ({ ...it, pg:it.pg + base }));
+        const cur = byRef.get(k);
+        if(!cur || !k){ const n = { ...c, items }; byRef.set(k || ('#' + byRef.size), n); out.certificates.push(n); continue; }
+        const head = (r.pages || []).some(x => x.kind === 'certificate' && an(x.reference_no) === k);
+        if(head) for(const f of Object.keys(c)) if(f !== 'items' && (cur[f] == null || cur[f] === '' || (Array.isArray(cur[f]) && !cur[f].length))) cur[f] = c[f];
+        cur.items = cur.items.concat(items); }
+      if(r.complete !== true) out.complete = false; if(str(r.remarks)) out.remarks += (out.remarks ? ' · ' : '') + str(r.remarks); }
+    return out;
+  }
+  // forms: [{ fid, name, result }] · คืน { assign: Map(แถว → ค่า AD–AJ), risk: Map(fid → เหตุผล), issues, certs }
+  function formMatch(nb, forms, rowInfo){
+    const C = nb.col, data = nb.rows.slice(1), risk = new Map(), issues = [];
+    const R = (fid, why) => { if(!risk.has(fid)) risk.set(fid, new Set()); risk.get(fid).add(why); };
+    const I = (k, text, where) => issues.push({ k, text, where:where || '' });
+    // 1) ใบรับรองทั้งหมด (ไม่อ่านซ้ำ: Reference No. เดียวกันจากหลายไฟล์ที่รายการเหมือนกัน = ใช้ครั้งเดียว · ต่างกัน = ขัดแย้ง ไม่ใช้)
+    const certs = new Map();
+    for(const f of forms){ for(const c of ((f.result && f.result.certificates) || [])){ const ref = an(c.reference_no);
+      if(!ref){ R(f.fid, 'ใบรับรองไม่มี Reference No.'); I('noref', 'FORM ไม่พบ Reference No. — ไม่นำมาใช้', f.name); continue; }
+      const sig = JSON.stringify((c.items || []).map(it => [an(it.item_no), hs6Of(it.hs6 || it.hs_text), num(it.qty), an(it.criteria)]));
+      const cur = certs.get(ref);
+      if(cur){ if(cur.sig !== sig || cur.rawDate !== str(c.certification_date)){ cur.conflict = true; R(cur.fid, 'Reference No. ซ้ำแต่ข้อมูลต่างกัน'); R(f.fid, 'Reference No. ซ้ำแต่ข้อมูลต่างกัน'); } continue; }
+      const iso = isoOf(c), date = dmy(c.certification_date), bad = [];
+      if(!date) bad.push('ไม่พบวันที่ออกใบรับรอง (ช่อง 12)');
+      else if(str(c.certification_date) === str(c.invoice_date) && !(f.confirmed && f.confirmed.has(ref))) bad.push('วันที่ออกใบรับรองตรงกับ Invoice Date — ต้องยืนยันช่อง 12');
+      if(iso.bad) bad.push(iso.bad);
+      const invs = new Set((c.invoice_numbers || []).map(an).filter(Boolean));
+      const items = (c.items || []).map((it, n) => ({ n, fid:f.fid, ref, item:str(it.item_no), invs:new Set([...invs, an(it.invoice_no)].filter(Boolean)), pos:new Set((it.po_numbers || []).map(p => poN(p && p.po)).filter(Boolean)),
+        cpos:new Set((c.po_numbers || []).map(p => poN(p && p.po)).filter(Boolean)), codes:new Set((it.product_codes || []).map(an).filter(Boolean)), hs6:hs6Of(it.hs6 || it.hs_text),
+        qty:num(it.qty), ctn:num(it.cartons), crit:str(it.criteria), desc:an(it.description), unit:str(it.unit), pg:it.pg, fname:f.name, model:f.opus ? 'opus' : 'sonnet', rows:[] }));
+      for(const it of items){ if(!it.invs.size) bad.push(`รายการ ${it.item}: ไม่พบเลข Invoice`); if(!it.hs6) bad.push(`รายการ ${it.item}: ไม่พบ HS Code`); if(it.qty == null) bad.push(`รายการ ${it.item}: ไม่พบจำนวน`); if(!it.crit) bad.push(`รายการ ${it.item}: ไม่พบ Origin Criteria`); }
+      if(!items.length) bad.push('ไม่มีรายการสินค้า');
+      certs.set(ref, { ref, fid:f.fid, name:f.name, sig, date, rawDate:str(c.certification_date), iso:iso.v, items, bad, conflict:false });
+      for(const b of bad) R(f.fid, b); } }
+    const allItems = []; for(const c of certs.values()) if(!c.conflict) for(const it of c.items) allItems.push(it);
+    for(const c of certs.values()) if(c.conflict) I('certconf', 'Reference No. เดียวกันอ่านได้ข้อมูลต่างกัน — ไม่นำมาใช้', c.ref);
+    // 2) แถว NETBAY (+ CARTON / หมายเหตุ No use Form E จาก CIPL ที่จับคู่ INVOICE + PO + PRODUCT CODE + ITEM ได้แน่นอน)
+    const g = (row, k) => (C[k] >= 0 ? cv(row[C[k]]) : null), rows = [];
+    data.forEach((row, i) => { const inv = digits(g(row, 'inv')); if(!inv) return; const ri = (rowInfo && rowInfo.get(i)) || {};
+      rows.push({ i, xr:i + 2, inv, I:an(inv), po:poN(poKey(g(row, 'po'))), code:an(digits(g(row, 'code'))), hs6:hs6Of(g(row, 'tariff')), qty:num(g(row, 'qty')), unit:str(g(row, 'qtyUnit')),
+        ctn:ri.ctn == null ? null : ri.ctn, noFormE:!!ri.noFormE, desc:an(g(row, 'desc1')), origin:an(g(row, 'origin')), p000:z3(g(row, 'priv')) === '000', cand:[] }); });
+    const invInNb = new Set(rows.map(r => r.I));
+    // 3) ตรวจทุกเงื่อนไขกับทุกรายการ (ไม่ใช่เฉพาะเมื่อพบหลายรายการ)
+    const invOk = (it, r) => [...it.invs].some(s => s === r.I || s.includes(r.I));
+    const dEq = (a, b) => !!a && !!b && (a === b || a.includes(b) || b.includes(a));
+    const chk = (it, r) => { const P = it.pos.size ? it.pos : it.cpos;
+      return { inv:invOk(it, r), po:!P.size || P.has(r.po), code:!it.codes.size || it.codes.has(r.code), desc:dEq(it.desc, r.desc), hs:!!it.hs6 && it.hs6 === r.hs6, unit:unitOk(r.unit, it.unit) }; };
+    const COND = 'INVOICE + PO + PRODUCT CODE (เมื่อพิมพ์) + DESCRIPTION + HS6 + UNIT + QTY + CARTON';
+    const miss = new Map();   // แถวที่จับคู่ไม่ผ่าน → เหตุผล
+    for(const r of rows){ const byInv = allItems.filter(it => invOk(it, r)); if(!byInv.length){ miss.set(r, { k:invInNb.size && allItems.some(it => [...it.invs].some(s => s.includes(r.I))) ? 'noform' : 'noforminv', near:[] }); continue; }
+      const cs = byInv.map(it => ({ it, c:chk(it, r) }));
+      const full = cs.filter(x => x.c.po && x.c.code && x.c.desc && x.c.hs && x.c.unit).map(x => x.it);
+      if(full.length){ r.cand = full; for(const it of full) it.rows.push(r); continue; }
+      const idn = cs.filter(x => x.c.po && x.c.code);
+      if(!idn.length){ const poOnly = cs.filter(x => x.c.po && !x.c.code); miss.set(r, poOnly.length ? { k:'code', near:poOnly.map(x => x.it) } : { k:'noform', near:[] }); continue; }   // PRODUCT CODE ผิด = ไม่ข้ามไปจับคู่ด้วยเงื่อนไขอื่น
+      const hsOnly = idn.filter(x => x.c.desc && x.c.unit && !x.c.hs);
+      miss.set(r, hsOnly.length ? { k:'hs', near:hsOnly.map(x => x.it) } : idn.some(x => !x.c.desc) ? { k:'desc', near:idn.map(x => x.it) } : { k:'unit', near:idn.map(x => x.it) }); }
+    // 4) กลุ่มที่เชื่อมกัน → จัดสรร QTY / CARTON ทีละแถว (แต่ละแถวเลือกรายการ FORM 1 รายการ · ห้ามใช้รายการ FORM เกินจำนวนจริง) — นับทุกคำตอบ ไม่เลือกคำตอบแรก
+    const assign = new Map(), seenR = new Set(), used = new Set(), evid = new Map();
+    const put = (r, p, ev) => {
+      const badC = p.certs.find(x => x.bad.length); if(badC){ I('certbad', 'ข้อมูลใบรับรองไม่ครบ/ไม่ชัด — ไม่เติม Permit (' + badC.bad[0] + ')', badC.ref + ' แถว ' + r.xr); return false; }
+      const oMis = p.certs.find(x => r.origin && /^[A-Z]{2}$/.test(r.origin) && x.iso !== r.origin); if(oMis){ R(oMis.fid, 'ประเทศที่ออกใบรับรองไม่ตรงกับ Origin'); I('origin', 'ประเทศที่ออกใบรับรองไม่ตรงกับ Origin ของ NETBAY — ไม่เติม Permit', `แถว ${r.xr} (${oMis.iso} ≠ ${r.origin})`); return false; }
+      assign.set(r.i, { crit:p.crit, p:p.certs.map(x => ({ no:x.ref, date:x.date, auth:x.iso })), src:p.certs.map(x => x.name).join(' + ') }); evid.set(r.i, ev); return true; };
+    const privCheck = r => { if(r.p000 && r.noFormE){ I('nopriv', 'Privilege Code 000 + CIPL ระบุ No use Form E — AD–AG ว่าง ไม่ใช้ FORM', 'แถว ' + r.xr); return false; }
+      if(r.p000){ I('privnote', 'Privilege Code 000 แต่ CIPL ไม่ระบุ No use Form E และพบรายการใน FORM — ไม่เติม ต้องตรวจสอบ', 'แถว ' + r.xr); return false; }
+      if(r.noFormE){ I('privconf', 'CIPL ระบุ No use Form E แต่ Privilege Code ไม่ใช่ 000 — ไม่เติม ต้องตรวจสอบ', 'แถว ' + r.xr); return false; } return true; };
+    for(const r0 of rows){ if(seenR.has(r0) || !r0.cand.length) continue;
+      const gr = new Set(), gi = new Set(), st = [r0];
+      while(st.length){ const r = st.pop(); if(gr.has(r)) continue; gr.add(r); seenR.add(r); for(const it of r.cand){ if(gi.has(it)) continue; gi.add(it); for(const r2 of it.rows) if(!gr.has(r2)) st.push(r2); } }
+      const RS = [...gr].sort((a, b) => a.cand.length - b.cand.length || a.i - b.i), IS = [...gi], files = new Set(IS.map(it => it.fid)), where = 'แถว ' + RS.map(r => r.xr).sort((a, b) => a - b).join(', ');
+      const useCtn = RS.every(r => r.ctn != null) && IS.every(it => it.ctn != null);
+      if(!useCtn) I('ctnskip', 'ไม่มี CARTON ครบทั้ง CIPL / FORM — ตรวจด้วย QTY + เงื่อนไขอื่นครบทุกข้อ', where);
+      const remQ = new Map(IS.map(it => [it, it.qty])), remC = new Map(IS.map(it => [it, it.ctn])), pick = new Map(), sols = [];
+      const bad = RS.some(r => r.qty == null) || IS.some(it => it.qty == null);
+      const dfs = k => { if(sols.length > 64) return; if(k === RS.length){ if(IS.every(it => Math.abs(remQ.get(it)) < 1e-6 && (!useCtn || Math.abs(remC.get(it)) < 1e-6))) sols.push(new Map(pick)); return; }
+        const r = RS[k]; for(const it of r.cand){ const q = remQ.get(it) - r.qty, c = useCtn ? remC.get(it) - r.ctn : 0; if(q < -1e-6 || c < -1e-6) continue;
+          remQ.set(it, q); if(useCtn) remC.set(it, c); pick.set(r, it); dfs(k + 1); remQ.set(it, q + r.qty); if(useCtn) remC.set(it, c + r.ctn); pick.delete(r); } };
+      if(!bad) dfs(0);
+      if(!sols.length){
+        // 1 แถว = 2 ใบรับรอง (มีเอกสารรองรับทั้งสองใบ) → Permit 1 + Permit 2
+        if(RS.length === 1 && IS.length === 2 && new Set(IS.map(it => it.ref)).size === 2 && !bad && Math.abs(IS[0].qty + IS[1].qty - RS[0].qty) < 1e-6 && (!useCtn || Math.abs(IS[0].ctn + IS[1].ctn - RS[0].ctn) < 1e-6) && an(IS[0].crit) === an(IS[1].crit)){
+          const r = RS[0]; IS.forEach(it => used.add(it));
+          if(privCheck(r)){ const cs2 = IS.map(it => certs.get(it.ref)).sort((a, b) => a.rawDate.localeCompare(b.rawDate) || a.ref.localeCompare(b.ref));
+            put(r, { crit:str(IS[0].crit).toUpperCase(), certs:cs2 }, { cond:COND + ' (1 แถว = 2 ใบรับรอง)', items:IS.map(it => ({ pdf:it.fname, page:it.pg, ref:it.ref, item:it.item, model:it.model })) }); }
+          continue; }
+        files.forEach(f => R(f, 'จัดสรร QTY / CARTON ไม่ลงตัว'));
+        const qR = RS.reduce((a, r) => a + (r.qty || 0), 0), qF = IS.reduce((a, it) => a + (it.qty || 0), 0);
+        if(bad || Math.abs(qR - qF) > 1e-6) I('qty', 'QTY ของ FORM ไม่ตรงกับ NETBAY — ไม่เติม Permit', `${where} (NETBAY ${r6(qR)} · FORM ${r6(qF)})`);
+        else if(useCtn) I('ctn', 'CARTON ของ FORM ไม่ตรงกับ CIPL — ไม่เติม Permit', `${where} (CIPL ${r6(RS.reduce((a, r) => a + r.ctn, 0))} · FORM ${r6(IS.reduce((a, it) => a + it.ctn, 0))})`);
+        else I('qty', 'จัดสรร QTY ของ FORM ให้แต่ละแถวไม่ลงตัว — ไม่เติม Permit', where);
+        continue; }
+      sols.forEach(sl => sl.forEach(it => used.add(it)));
+      for(const r of RS){ const opts = new Map(); for(const sl of sols){ const it = sl.get(r); opts.set(it.ref + '|' + an(it.crit), it); }
+        if(!privCheck(r)) continue;
+        if(opts.size !== 1){ [...opts.values()].forEach(it => R(it.fid, 'จับคู่ได้หลายรายการที่ให้ค่าต่างกัน')); I('amb', 'จับคู่ FORM ได้หลายรายการที่ให้ค่าต่างกัน — ไม่เลือกเอง', 'แถว ' + r.xr); continue; }
+        const its = [...new Set(sols.map(sl => sl.get(r)))], it = its[0];
+        if(its.length > 1) I('multi', 'FORM หลายรายการให้ค่าเดียวกัน (Reference No. / Origin Criteria เดียวกัน) — เติมได้', 'แถว ' + r.xr);
+        put(r, { crit:str(it.crit).toUpperCase(), certs:[certs.get(it.ref)] }, { cond:COND, items:its.map(x => ({ pdf:x.fname, page:x.pg, ref:x.ref, item:x.item, model:x.model })) }); } }
+    // 5) แถวที่ไม่ผ่านเงื่อนไข → ไม่เติม · ส่ง Opus ตรวจซ้ำไฟล์ที่เกี่ยวข้อง · ยังไม่ผ่าน = UNVERIFIED
+    const TXT = { hs:'HS6 ของ NETBAY ไม่ตรงกับ FORM — WARNING ไม่เติม Permit จนกว่าผู้รับผิดชอบอนุมัติข้อยกเว้น', desc:'DESCRIPTION ไม่สอดคล้องกับ FORM — ไม่เติม Permit', unit:'UNIT ไม่ตรงกับ FORM (ไม่มี Unit Mapping ที่ยืนยัน) — ไม่ใช้ QTY เป็นหลักฐาน ไม่เติม Permit',
+      code:'PRODUCT CODE ไม่ตรงกับ FORM — ไม่จับคู่ด้วยเงื่อนไขอื่น', noform:'ไม่พบรายการใน FORM ที่ตรงกับแถวนี้ — คงค่าเดิม', noforminv:'ไม่มี FORM ของ Invoice นี้ — คงค่าเดิม' };
+    for(const [r, m] of miss){
+      if(r.p000 && r.noFormE){ m.near.forEach(it => used.add(it)); I('nopriv', 'Privilege Code 000 + CIPL ระบุ No use Form E — AD–AG ว่าง ไม่ใช้ FORM', 'แถว ' + r.xr); continue; }
+      if(r.p000){ m.near.forEach(it => used.add(it)); I('nopriv0', 'Privilege Code 000 (ไม่ใช้สิทธิ FORM) — ไม่เติม AD–AG', 'แถว ' + r.xr); continue; }
+      m.near.forEach(it => R(it.fid, TXT[m.k].split(' — ')[0]));
+      const detail = m.k === 'hs' ? ` (NETBAY ${r.hs6} · FORM ${[...new Set(m.near.map(it => it.hs6))].join('/')})` : m.k === 'unit' ? ` (NETBAY ${r.unit} · FORM ${[...new Set(m.near.map(it => it.unit))].join('/')})` : '';
+      I(m.k, TXT[m.k], (m.k === 'noforminv' ? r.inv + ' ' : '') + 'แถว ' + r.xr + detail); }
+    for(const it of allItems) if(!it.rows.length && !used.has(it) && ![...miss.values()].some(m => m.near.includes(it))){
+      if([...it.invs].some(s => [...invInNb].some(v => s === v || s.includes(v)))){ R(it.fid, 'รายการใน FORM ไม่พบใน NETBAY'); I('unused', 'รายการใน FORM ที่ไม่พบใน NETBAY', `${it.ref} รายการ ${it.item}`); }
+      else I('formother', 'FORM ของ Invoice ที่ไม่มีใน NETBAY — ไม่ได้ใช้', `${it.fname} ${it.ref}`); }
+    return { assign, risk, issues, certs, evid, refs:new Set(certs.keys()) };
+  }
+
+  // ── 4) ประมวลผล: ยึด NETBAY 100% · แก้ไข/เติมได้เฉพาะ 10 คอลัมน์สีฟ้า ──
+  //    AA Tariff Sequence ← StatMaster · AO G.W. ← PackingList_Form คอลัมน์ I · AP ← KGM
+  //    AD CARTON / AE–AG Permit 1 / AH–AJ Permit 2 ← FORM PDF (รอ Mapping — ยังไม่แตะ ไม่สร้างค่าเอง)
+  //    อีก 32 คอลัมน์ไม่ถูกเขียนไม่ว่ากรณีใด
+  const EDITABLE = ['seq', 'carton', 'permitNo', 'permitDate', 'permitAuth', 'permitNo2', 'permitDate2', 'permitAuth2', 'gw', 'gwUnit'];
+  function process(nb, cipls, stat, opt){
+    opt = opt || {};
+    const S = { rows:0, seqFilled:0, seqFixed:0, gwFilled:0, gwFixed:0, unitFilled:0, formCleared:0, issues:[], evidence:[] };
+    const iss = new Map(); const add = (k, text, where) => { let x = iss.get(k); if(!x){ x = { k, text, n:0, where:[] }; iss.set(k, x); } x.n++; if(where && x.where.length < 5) x.where.push(where); };
+    const C = nb.col, data = nb.rows.slice(1), allow = new Set(EDITABLE.map(k => C[k]).filter(c => c >= 0));
+    nb.cleared = new Set();
+    const kind = new Map();   // รูปแบบข้อมูลเดิมของคอลัมน์ (ข้อความ / ตัวเลข) เพื่อคงรูปแบบ NETBAY
+    const kindOf = c => { if(!kind.has(c)){ let s = 0, n = 0; for(const r of data){ const x = r[c]; if(x && !blank(x.v)) (x.t === 'n' ? n++ : s++); } kind.set(c, n + s === 0 ? null : n > s ? 'n' : 's'); } return kind.get(c); };
+    const setCell = (row, c, v) => { if(!allow.has(c)) throw new Error('ห้ามเขียนคอลัมน์ ' + colName(c));   // กันพลาด: เขียนได้เฉพาะคอลัมน์สีฟ้า
+      const kd = kindOf(c), asNum = !nb.isCsv && num(v) != null && (kd === 'n' || (kd === null && typeof v === 'number'));
+      row[c] = asNum ? { t:'n', v:r6(num(v)) } : { t:'s', v:typeof v === 'number' ? String(r6(v)) : str(v) }; };
+    const clearCell = (row, i, c) => { if(!allow.has(c)) throw new Error('ห้ามล้างคอลัมน์ ' + colName(c)); row[c] = { t:'s', v:'' }; nb.cleared.add((i + 1) + '|' + c); };
+    const EV = data.map((row, i) => ({ row:i + 2, netbay:{ file:nb.name, sheet:nb.sheet || 'CSV', row:i + 2 } }));   // หลักฐานย้อนหลังรายแถว (ไม่แสดงบนหน้าจอ)
+
+    // ── CIPL: แยกตาม Invoice · Invoice เดียวกันหลายไฟล์ที่ข้อมูลไม่ตรงกัน = ไม่ใช้ ──
+    const byInv = new Map();
+    for(const f of cipls){ const cur = byInv.get(f.inv);
+      if(!cur){ byInv.set(f.inv, { f, bad:false }); continue; }
+      if(JSON.stringify([cur.f.items, cur.f.packs]) !== JSON.stringify([f.items, f.packs])){ cur.bad = true; add('ciplconf', 'CIPL Invoice เดียวกันมีมากกว่า 1 ไฟล์และข้อมูลไม่ตรงกัน — ไม่นำมาใช้', f.inv); } }
+    const idx = new Map();
+    const ciplIdx = inv => { if(idx.has(inv)) return idx.get(inv); const e = byInv.get(inv); let o = null;
+      if(e && !e.bad){ const im = new Map(), pk = new Map(), pk2 = new Map(), ci2 = new Map();
+        for(const it of e.f.items){ const k = it.po + '|' + it.code + '|' + it.item; im.set(k, (im.get(k) || []).concat(it)); const k2 = it.po + '|' + it.itemId; ci2.set(k2, (ci2.get(k2) || 0) + 1); }
+        for(const p of e.f.packs){ const k = p.po + '|' + p.itemId + '|' + up(p.desc); pk.set(k, (pk.get(k) || []).concat(p)); const k2 = p.po + '|' + p.itemId; pk2.set(k2, (pk2.get(k2) || []).concat(p)); }
+        o = { f:e.f, im, pk, pk2, ci2 }; }
+      idx.set(inv, o); return o; };
+    // ── 1) แถว NETBAY ↔ CIPL (INVOICE + PO + PRODUCT CODE + ITEM) · ตรวจ QTY NETBAY = ComInv = PackingList · หน่วย · ไม่ใช้ PackingList แถวเดียวซ้ำ ──
+    const rowInfo = new Map(), usedPL = new Map(), seen = new Set(), gwVal = new Map();
+    data.forEach((row, i) => {
+      const xr = i + 2, g = k => (C[k] >= 0 ? cv(row[C[k]]) : null);
+      const inv = digits(g('inv')), po = poKey(g('po')), code = digits(g('code')), item = digits(g('item'));
+      if(!inv && !po && !code) return;
+      S.rows++;
+      const key = inv + '|' + po + '|' + code + '|' + item, dup = seen.has(key); seen.add(key);
+      if(dup){ add('dupnb', 'NETBAY มีรายการซ้ำ (INVOICE + PO + PRODUCT CODE + Item No.) — ไม่เติม G.W. ให้แถวซ้ำ', 'แถว ' + xr); return; }
+      if(!cipls.length) return;
+      const X = ciplIdx(inv);
+      if(!X){ add(byInv.has(inv) ? 'ciplbad' : 'nocipl', byInv.has(inv) ? 'CIPL ของ Invoice นี้ใช้ไม่ได้ — ไม่เติม G.W.' : 'ไม่มีไฟล์ CIPL ของ Invoice — ไม่เติม G.W.', inv); return; }
+      const hit = X.im.get(po + '|' + code + '|' + item) || [];
+      if(hit.length !== 1){ add(hit.length ? 'ciplamb' : 'nomatch', hit.length ? 'CIPL มีรายการที่จับคู่ได้มากกว่า 1 แถว — ไม่เลือกเอง' : 'จับคู่กับ CIPL ไม่ได้ (INVOICE + PO + PRODUCT CODE + Item No.) — ไม่เติม G.W.', 'แถว ' + xr); return; }
+      const it = hit[0];
+      rowInfo.set(i, { ctn:it.ctn, noFormE:/no\s*use\s*form\s*e/i.test(it.issue || ''), ci:it });
+      EV[i].cipl = { file:X.f.name, sheet:'ComInv_Form', row:it.row, issue:it.issue || '' };
+      if(C.gw < 0) return;
+      if(num(g('qty')) == null || num(it.qty) == null || !numEq(g('qty'), it.qty)){ add('ciqty', 'QTY ของ NETBAY ไม่ตรงกับ ComInv_Form — ไม่เติม G.W.', `แถว ${xr} (NETBAY ${str(g('qty'))} · CIPL ${str(it.qty)})`); return; }
+      let ps = X.pk.get(it.po + '|' + it.itemId + '|' + up(it.desc)), byItem = false;
+      if(!ps && X.ci2.get(it.po + '|' + it.itemId) === 1){ ps = X.pk2.get(it.po + '|' + it.itemId); byItem = !!ps; }   // DESCRIPTION ใน PackingList ต่าง: ใช้ PO + ITEM ได้เมื่อมีคู่เดียวเท่านั้น
+      if(!ps || !ps.length){ add('nopl', 'ไม่พบรายการใน PackingList_Form — ไม่เติม G.W.', 'แถว ' + xr); return; }
+      if(ps.some(p => p.gw == null)){ add('plblank', 'PackingList_Form คอลัมน์ I ไม่มีค่า G.W. — ไม่เติม', 'แถว ' + xr); return; }
+      if(Math.abs(ps.reduce((a, p) => a + (p.qty || 0), 0) - num(it.qty)) > 1e-6){ add('plqty', 'QTY ของ PackingList_Form ไม่ตรงกับ ComInv_Form / NETBAY — ไม่เติม G.W.', 'แถว ' + xr); return; }
+      if(ps.some(p => p.unit && !unitOk(g('qtyUnit'), p.unit))) add('plunit', 'หน่วยใน PackingList_Form ต่างจาก NETBAY — จับคู่ด้วย INVOICE + PO + PRODUCT CODE + ITEM ครบและ QTY ตรงทั้ง 3 แหล่ง จึงเติม G.W. (แจ้งเพื่อทราบ)', `แถว ${xr} (NETBAY ${str(g('qtyUnit'))} · PL ${ps.map(p => p.unit).join('/')})`);   // หน่วยใน PL ใช้ประกอบเท่านั้น (ไม่ใช่คีย์)
+      const reuse = ps.find(p => usedPL.has(X.f.inv + '|' + p.row)); if(reuse){ add('pldup', 'PackingList_Form แถวเดียวถูกใช้ซ้ำกับหลายรายการ — ไม่เติม G.W.', `แถว ${xr} = แถว ${usedPL.get(X.f.inv + '|' + reuse.row)} (PL แถว ${reuse.row})`); return; }
+      ps.forEach(p => usedPL.set(X.f.inv + '|' + p.row, xr));
+      if(byItem){ S.plByItem = (S.plByItem || 0) + 1; add('pldesc', 'DESCRIPTION ใน PackingList_Form ต่างจาก ComInv_Form — ใช้ PO + ITEM ที่มีคู่เดียว (QTY ตรง)', 'แถว ' + xr); }
+      gwVal.set(i, { gw:r6(ps.reduce((a, p) => a + p.gw, 0)), pl:ps.map(p => p.row) });
+    });
+    // ── 2) AO / AP ──
+    data.forEach((row, i) => { const g = k => (C[k] >= 0 ? cv(row[C[k]]) : null); if(!digits(g('inv')) && !digits(g('po')) && !digits(g('code'))) return;
+      if(C.gwUnit >= 0 && str(g('gwUnit')) !== 'KGM'){ setCell(row, C.gwUnit, 'KGM'); S.unitFilled++; }
+      const v = gwVal.get(i); if(!v || C.gw < 0) return; const cur = g('gw');
+      if(blank(cur)){ setCell(row, C.gw, v.gw); S.gwFilled++; } else if(!numEq(cur, v.gw)){ setCell(row, C.gw, v.gw); S.gwFixed++; }
+      EV[i].gw = { file:EV[i].cipl.file, sheet:'PackingList_Form', rows:v.pl, col:'I', value:v.gw }; });
+
+    // ── 3) AD–AJ จาก FORM PDF: เฉพาะแถวที่ผ่านทุกเงื่อนไข · Privilege 000 + No use Form E = ล้างข้อมูล FORM E เก่า ──
+    const FM = opt.formRes && opt.formRes.length ? formMatch(nb, opt.formRes, rowInfo) : null;
+    S.formRows = 0; S.formFilled = 0; S.formFixed = 0; S.formMatch = FM;
+    if(FM){ const put = (row, k, v) => { if(C[k] < 0) return 0; const cur = cv(row[C[k]]); if(str(cur) === str(v)) return 0; const was = blank(cur); setCell(row, C[k], v); return was ? 1 : 2; };
+      for(const [i, a] of FM.assign){ const row = data[i]; let f = 0, x = 0; const t = n => { if(n === 1) f++; else if(n === 2) x++; };
+        t(put(row, 'carton', a.crit)); t(put(row, 'permitNo', a.p[0].no)); t(put(row, 'permitDate', a.p[0].date)); t(put(row, 'permitAuth', a.p[0].auth));
+        if(a.p[1]){ t(put(row, 'permitNo2', a.p[1].no)); t(put(row, 'permitDate2', a.p[1].date)); t(put(row, 'permitAuth2', a.p[1].auth)); }
+        S.formRows++; S.formFilled += f; S.formFixed += x; if(x) add('formfix', 'แก้ค่า Origin Criteria / Permit เดิมให้ตรงกับ FORM', 'แถว ' + (i + 2));
+        EV[i].form = { ...FM.evid.get(i), values:{ AD:a.crit, AE:a.p[0].no, AF:a.p[0].date, AG:a.p[0].auth, ...(a.p[1] ? { AH:a.p[1].no, AI:a.p[1].date, AJ:a.p[1].auth } : {}) } }; }
+      for(const q of FM.issues) add(q.k, q.text, q.where); }
+    // Privilege Code 000 + CIPL "No use Form E": AD–AG ต้องว่าง — ล้างเฉพาะข้อมูล FORM E (AE ว่าง หรือ AE เป็น Reference No. ของ FORM ที่ Upload) · ใบอนุญาตประเภทอื่นไม่ลบ
+    const refs = FM ? FM.refs : new Set(), PK = ['carton', 'permitNo', 'permitDate', 'permitAuth'];
+    data.forEach((row, i) => { const ri = rowInfo.get(i); if(!ri || !ri.noFormE || C.priv < 0 || z3(cv(row[C.priv])) !== '000') return;
+      const has = PK.filter(k => C[k] >= 0 && !blank(cv(row[C[k]]))); if(!has.length) return;
+      const ae = C.permitNo >= 0 ? an(cv(row[C.permitNo])) : '';
+      if(ae && !refs.has(ae)){ add('otherpermit', 'Privilege 000 / No use Form E แต่ AE มีใบอนุญาตที่ไม่ใช่ FORM ที่ Upload — ไม่ลบ ต้องตรวจสอบ', `แถว ${i + 2} (${str(cv(row[C.permitNo]))})`); return; }
+      for(const k of has) clearCell(row, i, C[k]); S.formCleared++; EV[i].cleared = has.map(k => colName(C[k]));
+      add('formclear', 'ล้างข้อมูล FORM E เก่าในรายการที่ไม่ใช้สิทธิ (Privilege 000 + No use Form E)', 'แถว ' + (i + 2)); });
+
+    // ── 4) AA — Tariff Sequence จาก StatMaster (Excel Lookup: X+Y+Z = A+B+C → D · Normalize 0 = 000) · ไม่พบ / ขัดแย้ง = UNVERIFIED แม้มีค่าเดิม ──
+    data.forEach((row, i) => { const g = k => (C[k] >= 0 ? cv(row[C[k]]) : null), xr = i + 2;
+      if(!stat || C.seq < 0 || (!digits(g('inv')) && !digits(g('po')) && !digits(g('code')))) return;
+      const t = digits(g('tariff')), sc = z3(g('stat')), pv = z3(g('priv')), cur = g('seq');
+      if(!t || !sc || !pv){ add('seqkey', 'TARIFF CODE / Stat Code / Privilege Code ใน NETBAY ไม่ครบ — หา Tariff Sequence ไม่ได้', 'แถว ' + xr); return; }
+      const k = t + '|' + sc + '|' + pv, hit = stat.seq.get(k);
+      if(!hit){ add('seqmiss', 'ไม่พบ Tariff Sequence ใน StatMaster — ไม่เดา (UNVERIFIED)', `แถว ${xr}: ${t} / ${sc} / ${pv}`); return; }
+      if(hit.size > 1){ add('seqconf', 'StatMaster ให้ Tariff Sequence หลายค่าขัดแย้งกัน — ไม่เลือกเอง (UNVERIFIED)', `แถว ${xr}: ${t} / ${sc} / ${pv}`); return; }
+      const v = [...hit][0], val = stat.numeric && /^\d+$/.test(v) ? Number(v) : v;
+      if(blank(cur)){ setCell(row, C.seq, val); S.seqFilled++; } else if(digits(cur) !== v){ setCell(row, C.seq, val); S.seqFixed++; }
+      EV[i].aa = { file:stat.name, sheet:'Sheet1', rows:(stat.at && stat.at.get(k)) || [], key:k, value:v }; });
+
+    const invs = new Set(data.map(r => digits(cv(r[C.inv]))).filter(Boolean));
+    for(const f of cipls) if(!invs.has(f.inv)) add('ciplunused', 'ไฟล์ CIPL ที่ไม่มี Invoice ใน NETBAY — ไม่ได้ใช้', f.inv);
+    if(!cipls.length) add('nociplfile', 'ยังไม่ได้ Upload CIPL — ไม่ได้เติม G.W.');
+    if(!stat) add('nostat', 'ยังไม่ได้ Upload StatMaster — ไม่ได้เติม Tariff Sequence');
+    if(!opt.formRes) add('noformfile', 'ยังไม่ได้ Upload FORM PDF — Origin Criteria / Permit (AD–AJ) คงค่าเดิม');
+    for(const e of (opt.formErr || [])) add('formai', 'AI อ่าน FORM / Opus ตรวจซ้ำไม่สำเร็จ — ไม่นำมาใช้', e);
+    const noForm = r => C.priv >= 0 && z3(cv(r[C.priv])) === '000';   // Privilege 000 = ไม่ใช้สิทธิ FORM → AD–AG ว่างได้
+    for(const [k, label] of [['seq', 'Tariff Sequence'], ['gw', 'G.W.'], ['permitNo', 'Permit Number'], ['permitDate', 'Permit Issue Date'], ['permitAuth', 'PermitIssueAuthority1'], ['carton', 'Origin Criteria (CARTON)']]){ if(C[k] < 0) continue;
+      const n = data.filter(r => !blank(cv(r[C.inv])) && blank(cv(r[C[k]])) && !(['permitNo', 'permitDate', 'permitAuth', 'carton'].includes(k) && noForm(r))).length; if(n) iss.set('blank:' + k, { k:'blank:' + k, text:`${label} ยังว่าง`, n, where:[] }); }
+    S.issues = [...iss.values()];
+    // ห้ามแจ้ง SUCCESS เมื่อข้อมูลยังผิด / ไม่ครบ / ตรวจสอบไม่ได้: ทุกข้อสังเกตที่ไม่ใช่ข้อมูลประกอบ = UNVERIFIED
+    const INFO = new Set(['ciplunused', 'ctnskip', 'formfix', 'nopriv', 'nopriv0', 'formclear', 'pldesc', 'plunit', 'multi', 'formother']);
+    S.blocking = S.issues.filter(x => !INFO.has(x.k)); S.complete = S.blocking.length === 0;
+    S.evidence = EV.filter(e => Object.keys(e).length > 2); S.rowInfo = rowInfo;
+    return S;
+  }
+
+  // ── 5) EXPORT: Sheet เดียวชื่อ CSV · หัวข้อ/ลำดับคอลัมน์/ลำดับแถวเดิม · เป็น Value ทั้งหมด ──
+  function buildWorkbook(XLSX, nb){
+    const ws = {}; let maxC = 0;
+    nb.rows.forEach((row, r) => row.forEach((c, i) => { if(!c || c.v === undefined || c.v === null) return; const o = { t:c.t === 'n' || c.t === 'b' ? c.t : 's', v:c.t === 'n' || c.t === 'b' ? c.v : String(c.v) }; if(c.z && c.t === 'n') o.z = c.z; ws[XLSX.utils.encode_cell({ r, c:i })] = o; if(i > maxC) maxC = i; }));
+    ws['!ref'] = XLSX.utils.encode_range({ s:{ r:0, c:0 }, e:{ r:Math.max(0, nb.rows.length - 1), c:Math.max(maxC, nb.nCols - 1) } });
+    if(nb.cols) ws['!cols'] = nb.cols;
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'CSV');
+    return XLSX.write(wb, { bookType:'xlsx', type:'array', compression:true });
+  }
+
+  // ── 5b) EXPORT แบบรักษาไฟล์ NETBAY เดิมทุกอย่าง (.xlsx / .xlsm): แก้เฉพาะเซลล์สีฟ้าที่เปลี่ยนค่าใน XML ของ Sheet CSV ──
+  //     หัวข้อ สีฟ้า รูปแบบ ความกว้าง Table / Query / Style / Sheet อื่น (ถ้ามี) คงเดิมทุกไบต์ · ไม่เพิ่ม Sheet · ไม่เพิ่ม TOTAL · เป็น Value
+  const xesc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const xun = t => String(t).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\d+);/g, (m, d) => String.fromCharCode(+d)).replace(/&amp;/g, '&');
+  const colIdx = a => { let n = 0; for(const ch of a) n = n * 26 + (ch.charCodeAt(0) - 64); return n - 1; };
+  function changedCells(nb){ const out = [], allow = new Set(EDITABLE.map(k => nb.col[k]).filter(c => c >= 0));
+    nb.rows.forEach((row, r) => row.forEach((c, i) => { const o = nb.orig[r] && nb.orig[r][i]; const a = c && c.v != null ? String(c.v) : '', b = o && o.v != null ? String(o.v) : '';
+      if(a === b && (!c || !o || c.t === o.t)) return; if(!allow.has(i)) throw new Error('ห้ามเขียนคอลัมน์ ' + colName(i)); if(a === '' && !(nb.cleared && nb.cleared.has(r + '|' + i))) throw new Error('ห้ามลบค่าเดิม ' + colName(i) + (r + 1)); out.push({ r, c:i, cell:c }); }));
+    return out; }
+  function patchXlsx(ff, bytes, nb){
+    const z = ff.unzipSync(bytes), td = new TextDecoder(), te = new TextEncoder(), rd = p => (z[p] ? td.decode(z[p]) : null);
+    const wbx = rd('xl/workbook.xml'), rel = rd('xl/_rels/workbook.xml.rels'); if(!wbx || !rel) throw new Error('โครงสร้างไฟล์ NETBAY ไม่ถูกต้อง');
+    const sm = [...wbx.matchAll(/<sheet\b[^>]*>/g)].map(m => m[0]).find(t => xun((/\bname="([^"]*)"/.exec(t) || [])[1] || '') === nb.sheet);
+    const rid = sm && (/\br:id="([^"]*)"/.exec(sm) || [])[1]; const rt = rid && [...rel.matchAll(/<Relationship\b[^>]*>/g)].map(m => m[0]).find(t => (/\bId="([^"]*)"/.exec(t) || [])[1] === rid);
+    let tgt = rt && (/\bTarget="([^"]*)"/.exec(rt) || [])[1]; if(!tgt) throw new Error('ไม่พบ Sheet ' + nb.sheet);
+    const sp = tgt.startsWith('/') ? tgt.slice(1) : 'xl/' + tgt.replace(/^\.\//, ''); let x = rd(sp); if(!x) throw new Error('ไม่พบ XML ของ Sheet ' + nb.sheet);
+    // Shared Strings (ใช้ของเดิม · ค่าใหม่ต่อท้าย)
+    let sst = rd('xl/sharedStrings.xml'); const sIdx = new Map(); let sN = 0, add = [], refs = 0;
+    if(sst){ const items = sst.match(/<si>[\s\S]*?<\/si>|<si\/>/g) || []; sN = items.length;
+      items.forEach((it, i) => { const m = /^<si><t(?: xml:space="preserve")?>([\s\S]*?)<\/t><\/si>$/.exec(it); if(m && !sIdx.has(xun(m[1]))) sIdx.set(xun(m[1]), i); }); }
+    const strRef = t => { if(sIdx.has(t)) return sIdx.get(t); const i = sN + add.length; add.push(t); sIdx.set(t, i); return i; };
+    // Style ของเซลล์: เซลล์เดิมมีอยู่แล้ว = คง Style เดิม · เซลล์ใหม่ = Style ของหัวข้อคอลัมน์นั้น (สีฟ้า) → ถ้าหัวข้อไม่มี Style ใช้ Style ที่พบมากที่สุดในคอลัมน์
+    const colStyle = new Map();
+    const styleOf = c => { if(colStyle.has(c)) return colStyle.get(c); const L = colName(c), cnt = new Map(); let head = null;
+      for(const m of x.matchAll(new RegExp('<c r="' + L + '(\\d+)"([^>]*?)(?:/>|>)', 'g'))){ const s2 = (/\bs="(\d+)"/.exec(m[2]) || [])[1] || null; if(m[1] === '1') head = s2; else if(s2 != null) cnt.set(s2, (cnt.get(s2) || 0) + 1); }
+      const best = [...cnt.entries()].sort((a, b) => b[1] - a[1])[0]; const v = head != null ? head : best ? best[0] : null; colStyle.set(c, v); return v; };
+    for(const ch of changedCells(nb)){
+      const R = ch.r + 1, L = colName(ch.c), ref = L + R, v = ch.cell.v, isN = ch.cell.t === 'n' && typeof v === 'number' && isFinite(v);
+      const rowRe = new RegExp('<row r="' + R + '"(?=[\\s>/])[^>]*?(?:/>|>[\\s\\S]*?</row>)'), rm = rowRe.exec(x); if(!rm) throw new Error('ไม่พบแถว ' + R + ' ใน XML');
+      let row = rm[0]; if(/\/>$/.test(row) && !/<\/row>$/.test(row)) row = row.replace(/\/>$/, '></row>');
+      const cRe = new RegExp('<c r="' + ref + '"(?=[\\s>/])([^>]*?)(?:/>|>[\\s\\S]*?</c>)'), cm = cRe.exec(row);
+      const st = cm ? ((/\bs="(\d+)"/.exec(cm[1]) || [])[1] || null) : styleOf(ch.c), sa = st != null ? ` s="${st}"` : '';
+      let nx; if(String(v == null ? '' : v) === '') nx = `<c r="${ref}"${sa}/>`;   // ล้างค่า (เฉพาะที่อนุญาต) — คง Style เดิม
+      else if(isN) nx = `<c r="${ref}"${sa}><v>${String(v)}</v></c>`;
+      else if(sst){ nx = `<c r="${ref}"${sa} t="s"><v>${strRef(String(v))}</v></c>`; refs++; }
+      else nx = `<c r="${ref}"${sa} t="inlineStr"><is><t xml:space="preserve">${xesc(v)}</t></is></c>`;
+      if(cm) row = row.replace(cm[0], () => nx);
+      else { const want = ch.c; let pos = row.lastIndexOf('</row>');
+        for(const m of row.matchAll(/<c r="([A-Z]+)\d+"/g)) if(colIdx(m[1]) > want){ pos = m.index; break; }
+        row = row.slice(0, pos) + nx + row.slice(pos); }
+      x = x.replace(rm[0], () => row);
+    }
+    z[sp] = te.encode(x);
+    if(sst && (add.length || refs)){ sst = sst.replace(/<\/sst>\s*$/, add.map(t => `<si><t xml:space="preserve">${xesc(t)}</t></si>`).join('') + '</sst>');
+      sst = sst.replace(/(<sst\b[^>]*?\buniqueCount=")(\d+)"/, (m, a, n) => a + (Number(n) + add.length) + '"').replace(/(<sst\b[^>]*?\bcount=")(\d+)"/, (m, a, n) => a + (Number(n) + refs) + '"');
+      z['xl/sharedStrings.xml'] = te.encode(sst); }
+    return ff.zipSync(z, { level:6 });
+  }
+  return { VER, CIPL_SHEETS, EDITABLE, patchXlsx, changedCells, formMatch, mergeParts, dmy, readNetbay, readCipl, readStat, process, buildWorkbook, z3, poKey, digits, num, colName };
+})();
+if(typeof module !== 'undefined') module.exports = DECA_CORE;
+</script>
+<script id="deca-ui">
+/* ===== REPORT ALL — Project Decathlon (local015) · UI =====
+   Upload 4 ช่อง + ปุ่ม EXPORT EXCEL ปุ่มเดียว · ไม่มี RESET / Preview / หน้ารายงาน / READ DATA / ตัวเลือก Model · ไม่ EXPORT อัตโนมัติ
+   กด EXPORT → อ่าน Excel โดยตรง · AI อ่านเฉพาะ FORM PDF (Edge Function nj-invoice-ai-decathlon · ส่งทั้งไฟล์เพื่อรักษาความต่อเนื่องข้ามหน้า · Cache 3 วัน)
+     → Sonnet 5.5 อ่านทุกไฟล์ → จับคู่ → Opus 5.5 ตรวจซ้ำเฉพาะไฟล์ที่มีรายการเสี่ยง → เติมเฉพาะคอลัมน์สีฟ้า → ดาวน์โหลดทันที
+   ไม่มี API Key ในหน้าเว็บ · ใช้สิทธิ์ AI จากการ Login REPORT ALL (Token ที่ Server ออกให้) · Spinner หยุดทุกกรณี (finally) */
+(() => {
+  const C = DECA_CORE, $ = id => document.getElementById(id);
+  const FN_NAME = 'nj-invoice-ai-decathlon', TOK_KEY = 'report_decathlon_ai_token_v1';
+  const MAX_BYTES = 8 * 1024 * 1024, MAX_PAGES = 100, CONCURRENCY = 4;
+  const pollMax = () => Number(window.__DECA_POLL_MAX_MS) > 0 ? Number(window.__DECA_POLL_MAX_MS) : 9 * 60000;   // หมดเวลารอผล AI (ค่ามาตรฐาน 9 นาที)
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m]));
+  const say = (m, t) => { try{ toast(m, t || 'info'); } catch(e){} };
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const D = window.decaState = { files:{ netbay:[], cipl:[], form:[], stat:[] }, seq:0, busy:false, last:null, prog:'', sent:[] };
+  const BOX = [
+    { k:'netbay', cls:'dc-b', ic:'▦', nm:'NETBAY CSV', accept:'.xlsx,.xlsm,.xls,.csv', re:/\.(xlsx|xlsm|xls|csv)$/i, multi:false },
+    { k:'cipl', cls:'dc-g', ic:'❐', nm:'CIPL EXCEL / ZIP', accept:'.xlsx,.xlsm,.xls,.zip', re:/\.(xlsx|xlsm|xls|zip)$/i, multi:true },
+    { k:'form', cls:'dc-o', ic:'▤', nm:'FORM PDF / ZIP', accept:'.pdf,.zip,application/pdf', re:/\.(pdf|zip)$/i, multi:true },
+    { k:'stat', cls:'dc-p', ic:'⛁', nm:'StatMaster', accept:'.xlsx,.xlsm,.xls', re:/\.(xlsx|xlsm|xls)$/i, multi:false },
+  ];
+  const onView = () => !!$('dcView');
+  const XL = /\.(xlsx|xlsm|xls)$/i, PDF = /\.pdf$/i, junk = n => /__MACOSX\//.test(n) || /^(~\$|\._)/.test(n.split('/').pop());
+  async function sha256(u8){ const d = await crypto.subtle.digest('SHA-256', u8); return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join(''); }
+  async function pageCount(u8){ const doc = await pdfjsLib.getDocument({ data:u8.slice(0) }).promise; const n = doc.numPages; try{ doc.destroy(); } catch(e){} return n; }
+  const isPdf = u8 => u8 && u8.length > 4 && u8[0] === 0x25 && u8[1] === 0x50 && u8[2] === 0x44 && u8[3] === 0x46;
+  // ZIP → ไฟล์ภายในทุกโฟลเดอร์ย่อย (รวม ZIP ซ้อน 1 ชั้น)
+  function unzipAll(buf, want, from, depth){ const out = []; const z = fflate.unzipSync(buf);
+    for(const n of Object.keys(z)){ if(junk(n) || n.endsWith('/')) continue; const base = n.split('/').pop();
+      if(want.test(base)) out.push({ name:base, path:n, from, buf:z[n] });
+      else if(/\.zip$/i.test(base) && (depth || 0) < 2){ try{ out.push(...unzipAll(z[n], want, from, (depth || 0) + 1)); } catch(e){} } }
+    return out; }
+
+  window.decaAdd = async function(k, list){
+    const b = BOX.find(x => x.k === k); if(!b) return;
+    if(D.busy){ say('กำลังประมวลผล — เพิ่มไฟล์หลังจากเสร็จ', 'err'); return; }
+    let bad = 0, dup = 0;
+    for(const f of [...(list || [])]){
+      if(!f || !b.re.test(f.name)){ bad++; continue; }
+      let buf; try{ buf = new Uint8Array(await f.arrayBuffer()); } catch(e){ bad++; continue; }
+      const recs = [];
+      if(/\.zip$/i.test(f.name)){
+        const want = k === 'form' ? PDF : XL;
+        try{ recs.push(...unzipAll(buf, want, f.name)); if(!recs.length) recs.push({ name:f.name, buf:null, error:k === 'form' ? 'ZIP ไม่มีไฟล์ PDF' : 'ZIP ไม่มีไฟล์ Excel' }); }
+        catch(e){ recs.push({ name:f.name, buf:null, error:'เปิด ZIP ไม่ได้' }); }
+      } else recs.push({ name:f.name, buf });
+      for(const r of recs){
+        if(!b.multi) D.files[k] = [];                                   // NETBAY / StatMaster: ใช้ไฟล์ที่ Upload ล่าสุด
+        const rec = { id:++D.seq, name:r.name, from:r.from || '', path:r.path || '', buf:r.buf, error:r.error || '', sha:'', pages:null };
+        if(k === 'form' && rec.buf){
+          if(!isPdf(rec.buf)){ rec.buf = null; rec.error = 'เนื้อไฟล์ไม่ใช่ PDF'; }
+          else { rec.sha = await sha256(rec.buf);                       // ไฟล์ซ้ำตรวจจากเนื้อไฟล์จริง (SHA-256) — ชื่อต่างแต่เนื้อเดียวกัน = ซ้ำ ไม่อ่านซ้ำ
+            if(D.files.form.some(x => x.sha === rec.sha)){ dup++; continue; } }
+        } else if(r.buf && b.multi && D.files[k].some(x => x.name === r.name && x.buf && x.buf.length === r.buf.length)){ dup++; continue; }
+        D.files[k].push(rec);
+        if(k === 'form' && rec.buf){ try{ rec.pages = await pageCount(rec.buf); if(rec.pages > MAX_PAGES) rec.error = `เกิน ${MAX_PAGES} หน้า`; } catch(e){ rec.error = 'เปิด PDF ไม่ได้'; } }
+      }
+    }
+    if(bad) say(`${b.nm}: ข้ามไฟล์ที่ไม่รองรับ ${bad} ไฟล์`, 'err'); if(dup) say(`${b.nm}: ข้ามไฟล์ซ้ำ ${dup} ไฟล์`, 'info');
+    render();
+  };
+  window.decaDel = function(k, id, ev){ if(ev){ ev.preventDefault(); ev.stopPropagation(); } if(D.busy) return; D.files[k] = D.files[k].filter(x => x.id !== id); render(); };
+
+  /* ── สิทธิ์ AI: Token จากการ Login REPORT ALL (njai_auth.js) · ไม่มีรหัสผ่าน AI เพิ่ม ── */
+  const curUser = () => { try{ const u = getCurrentUser(); return u && u.username ? String(u.username) : ''; } catch(e){ return ''; } };
+  function token(){ try{ const t = JSON.parse(sessionStorage.getItem(TOK_KEY) || 'null');
+    if(t && t.token && Date.parse(t.exp) > Date.now() + 60000 && String(t.user || '').toLowerCase() === curUser().toLowerCase()) return t.token; } catch(e){} return null; }
+  const dropToken = () => { try{ sessionStorage.removeItem(TOK_KEY); } catch(e){} };
+  async function api(body, timeoutMs){
+    const tok = token(); if(!tok) return { status:401, j:{ success:false, error:'unauthorized', msg:'ยังไม่ได้รับสิทธิ์ AI — กรุณาเข้าสู่ระบบ REPORT ALL ใหม่' } };
+    const ac = new AbortController(), tm = setTimeout(() => ac.abort(), timeoutMs || 45000); let res, j = null;
+    try{ res = await fetch(CONFIG.SUPABASE_URL + '/functions/v1/' + FN_NAME, { method:'POST', signal:ac.signal, headers:{ 'Content-Type':'application/json', apikey:CONFIG.SUPABASE_KEY, Authorization:'Bearer ' + CONFIG.SUPABASE_KEY }, body:JSON.stringify({ token:tok, ...body }) }); }
+    catch(e){ return { status:0, j:{ success:false, error:'network', msg:e && e.name === 'AbortError' ? 'ติดต่อระบบ AI ไม่ได้ (Timeout)' : `ติดต่อ Edge Function ${FN_NAME} ไม่ได้` } }; }
+    finally{ clearTimeout(tm); }
+    try{ j = await res.json(); } catch(e){}
+    if(!res.ok || !j) j = { success:false, error:(j && j.error) || 'http_' + res.status, msg:(j && j.msg) || (res.status === 404 ? `ไม่พบ Edge Function ${FN_NAME} (ยังไม่ได้ Deploy)` : `ระบบ AI ตอบผิดพลาด (${res.status})`) };
+    if(res.status === 401) dropToken();
+    return { status:res.status, j };
+  }
+  function b64(u8){ let s = ''; for(let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
+  async function readOnce(model, name, bytes, sha, nPages){
+    D.sent.push({ sha, model, name }); if(D.sent.length > 500) D.sent.shift();
+    let { status, j } = await api({ action:'read', doc:'form', model, name, mime:'application/pdf', pdf:b64(bytes), idempotency_key:sha, n_pages:nPages }, 120000);
+    const t0 = Date.now();
+    while(j && j.success && j.pending){
+      if(Date.now() - t0 > pollMax()) return { ok:false, msg:'AI ใช้เวลานานเกินกำหนด (TIMEOUT)' };
+      await sleep(Math.max(1500, Number(j.poll_after_ms) || 2500));
+      const r = await api({ action:'job_status', doc:'form', model, job_id:j.job_id }, 30000); if(r.status === 0) continue; status = r.status; j = r.j;
+    }
+    if(j && j.success && j.result){ const cls = j.usage && Number.isInteger(j.usage.pages_classified) ? j.usage.pages_classified : null;
+      if(j.result.complete === true && (cls == null || cls === nPages)) return { ok:true, result:j.result, cached:j.cached === true };
+      return { ok:false, msg:'ผลอ่านไม่ครบทุกหน้า' }; }
+    return { ok:false, msg:(j && j.msg) || 'อ่าน PDF ไม่สำเร็จ', status };
+  }
+  // ไฟล์ ≤ 8 MB ส่งทั้งไฟล์ (ความต่อเนื่องข้ามหน้าครบ) · ใหญ่กว่านั้นแบ่งช่วงหน้าต่อเนื่องด้วย pdf-lib แล้วรวมผลตาม Reference No.
+  async function partsOf(f){
+    if(f.buf.length <= MAX_BYTES) return [{ bytes:f.buf, sha:f.sha, nPages:f.pages }];
+    if(!window.PDFLib) throw new Error('ไฟล์ใหญ่เกิน 8 MB และโหลดตัวแบ่งหน้า PDF ไม่ได้');
+    const src = await PDFLib.PDFDocument.load(f.buf, { ignoreEncryption:true, updateMetadata:false }), out = [];
+    const cut = async (a, b) => { const d = await PDFLib.PDFDocument.create({ updateMetadata:false }); const ps = await d.copyPages(src, Array.from({ length:b - a + 1 }, (_, i) => a + i)); ps.forEach(p => d.addPage(p)); return new Uint8Array(await d.save()); };
+    let a = 0;
+    while(a < f.pages){ let b = f.pages - 1, bytes = await cut(a, b);
+      while(bytes.length > MAX_BYTES && b > a){ b = a + Math.max(0, Math.floor((b - a) / 2)); bytes = await cut(a, b); }
+      if(bytes.length > MAX_BYTES) throw new Error(`หน้า ${a + 1} ใหญ่เกิน 8 MB`);
+      out.push({ bytes, sha:await sha256(bytes), nPages:b - a + 1 }); a = b + 1; }
+    return out;
+  }
+  async function readFile(f, model){
+    const parts = await partsOf(f), res = [];
+    for(const p of parts){ let r = await readOnce(model, f.name, p.bytes, p.sha, p.nPages);
+      if(!r.ok && r.status !== 401 && r.status !== 402 && r.status !== 503) r = await readOnce(model, f.name, p.bytes, p.sha, p.nPages);   // ลองซ้ำ 1 ครั้ง
+      if(!r.ok) return r; res.push({ result:r.result, nPages:p.nPages }); }
+    return { ok:true, result:res.length === 1 ? res[0].result : C.mergeParts(res) };
+  }
+  async function pool(tasks, n){ let i = 0; const run = async () => { while(i < tasks.length){ const t = tasks[i++]; await t(); } }; await Promise.all(Array.from({ length:Math.min(n, tasks.length) }, run)); }
+  const setProg = t => { D.prog = t; const el = $('dcProg'); if(el) el.textContent = t; };
+
+  // หลักฐานย้อนหลัง (ไม่แสดงบนหน้าจอ): เก็บ 10 ครั้งล่าสุดใน Browser นี้ · เรียกดู/ดาวน์โหลดด้วย decaEvidence() ที่ Console
+  const EV_KEY = 'deca_evidence_v1';
+  function saveEvidence(e){ try{ const a = JSON.parse(localStorage.getItem(EV_KEY) || '[]'); a.unshift(e); while(a.length > 10) a.pop(); localStorage.setItem(EV_KEY, JSON.stringify(a)); } catch(x){ try{ localStorage.setItem(EV_KEY, JSON.stringify([e])); } catch(y){} } D.evidence = e; }
+  window.decaEvidence = function(i){ let a = []; try{ a = JSON.parse(localStorage.getItem(EV_KEY) || '[]'); } catch(e){} const e = a[i || 0]; if(!e) return null;
+    const url = URL.createObjectURL(new Blob([JSON.stringify(e, null, 1)], { type:'application/json' })), l = document.createElement('a'); l.href = url; l.download = 'DECATHLON_EVIDENCE_' + e.at.replace(/[:.]/g, '-') + '.json'; document.body.appendChild(l); l.click(); setTimeout(() => { URL.revokeObjectURL(url); l.remove(); }, 1500); return e; };
+  function download(bytes, name){ const url = URL.createObjectURL(new Blob([bytes], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500); }
+  const outName = (n, ok) => String(n || 'NETBAY').replace(/\.(xlsx|xlsm|xls|csv)$/i, '').replace(/[\\/:*?"<>|]+/g, '_') + (ok ? '_EXPORT' : '_EXPORT_UNVERIFIED') + (/\.xlsm$/i.test(n) ? '.xlsm' : '.xlsx');
+
+  // กด EXPORT EXCEL → อ่าน Excel โดยตรง · AI อ่าน FORM เบื้องหลัง · ตรวจซ้ำรายการเสี่ยง → เติมเฉพาะคอลัมน์สีฟ้า → ดาวน์โหลดทันที
+  window.decaExport = async function(){
+    if(D.busy) return;
+    const nbF = D.files.netbay.find(f => f.buf);
+    if(!nbF){ say('กรุณา Upload NETBAY CSV ก่อน', 'err'); return; }
+    D.busy = true; setProg('กำลังอ่านไฟล์ Excel...'); render(); await sleep(30);
+    try{
+      const X = window.XLSX, errs = [];
+      let nb; try{ nb = C.readNetbay(X, nbF.buf, nbF.name); } catch(e){ say('NETBAY CSV: ' + ((e && e.message) || e), 'err'); return; }
+      const cipls = []; for(const f of D.files.cipl){ if(!f.buf){ errs.push(`${f.name}: ${f.error}`); continue; } try{ cipls.push(C.readCipl(X, f.buf, f.name)); f.error = ''; } catch(e){ f.error = (e && e.message) || 'อ่านไม่ได้'; errs.push(`${f.name}: ${f.error}`); } }
+      let stat = null; const sf = D.files.stat.find(f => f.buf);
+      if(sf){ try{ stat = C.readStat(X, sf.buf, sf.name); sf.error = ''; } catch(e){ sf.error = (e && e.message) || 'อ่านไม่ได้'; errs.push(`${sf.name}: ${sf.error}`); } }
+      // FORM PDF — AI อ่าน (Sonnet 5.5) ทุกไฟล์
+      let formRes = D.files.form.length ? [] : null; const formErr = [];
+      for(const f of D.files.form) if(!f.buf || f.error) formErr.push(`${f.name}: ${f.error || 'อ่านไฟล์ไม่ได้'}`);
+      const fs = D.files.form.filter(f => f.buf && !f.error && f.pages);
+      if(fs.length){
+        if(!token()){ formErr.push('ยังไม่ได้รับสิทธิ์ AI — กรุณาเข้าสู่ระบบ REPORT ALL ใหม่'); render(); }
+        else {
+          let done = 0; setProg(`AI อ่าน FORM 0/${fs.length} ไฟล์`);
+          const got = new Map();
+          await pool(fs.map(f => async () => { let r; try{ r = await readFile(f, 'sonnet'); } catch(e){ r = { ok:false, msg:(e && e.message) || 'อ่าน PDF ไม่สำเร็จ' }; }
+            if(r.ok){ got.set(f.id, r.result); f.error = ''; } else formErr.push(`${f.name}: ${r.msg}`); done++; setProg(`AI อ่าน FORM ${done}/${fs.length} ไฟล์`); }), CONCURRENCY);
+          formRes = fs.filter(f => got.has(f.id)).map(f => ({ fid:f.id, name:f.name, result:got.get(f.id) }));
+          // Opus 5.5 ตรวจซ้ำเฉพาะไฟล์ที่มีรายการเสี่ยง (จับคู่ไม่ได้ / หลายตัวเลือก / ยอดไม่ตรง / ข้อมูลใบรับรองไม่ครบ)
+          const FM = C.process(C.readNetbay(X, nbF.buf, nbF.name), cipls, stat, { formRes }).formMatch, risky = fs.filter(f => FM && FM.risk.has(f.id));   // ตรวจบนสำเนา NETBAY ใหม่ — ไม่ใช้ผลเก่าข้ามชุด
+          if(risky.length){ let k = 0; setProg(`Opus ตรวจซ้ำ 0/${risky.length} ไฟล์`);
+            await pool(risky.map(f => async () => { let r; try{ r = await readFile(f, 'opus'); } catch(e){ r = { ok:false, msg:(e && e.message) || 'ตรวจซ้ำไม่สำเร็จ' }; }
+              const ent = formRes.find(x => x.fid === f.id);
+              if(r.ok && ent){ const same = new Set(); for(const c of (r.result.certificates || [])){ const o = (ent.result.certificates || []).find(x => String(x.reference_no) === String(c.reference_no)); if(o && o.certification_date && o.certification_date === c.certification_date) same.add(String(c.reference_no).toUpperCase().replace(/[^A-Z0-9]/g, '')); }
+                ent.result = r.result; ent.opus = true; ent.confirmed = same; }
+              else if(!r.ok) formErr.push(`${f.name}: Opus ตรวจซ้ำไม่สำเร็จ (${r.msg}) — รายการเสี่ยงไม่ถูกเติม`);
+              k++; setProg(`Opus ตรวจซ้ำ ${k}/${risky.length} ไฟล์`); }), CONCURRENCY); }
+        }
+      }
+      setProg('กำลังจับคู่และตรวจความถูกต้อง...'); await sleep(10);
+      const S = C.process(nb, cipls, stat, { formRes, formErr });
+      const notes = errs.map(t => ({ k:'file', text:'อ่านไฟล์ไม่ได้ — ไม่นำมาใช้', n:1, where:[t] })).concat(S.issues);
+      const ok = S.complete && !errs.length, name = outName(nbF.name, ok);
+      // .xlsx / .xlsm: แก้เฉพาะเซลล์สีฟ้าในไฟล์ NETBAY เดิม (หัวข้อสีฟ้า / Style / Table / ความกว้างคงเดิม) · .csv / .xls: สร้าง Sheet CSV แบบ Value
+      const bytes = /\.(xlsx|xlsm)$/i.test(nbF.name) ? C.patchXlsx(fflate, nbF.buf, nb) : C.buildWorkbook(X, nb);
+      D.last = { summary:S, notes, name, rows:S.rows, complete:ok };
+      saveEvidence({ at:new Date().toISOString(), user:curUser(), netbay:nbF.name, output:name, complete:ok,
+        files:{ cipl:D.files.cipl.map(f => f.name), stat:D.files.stat.map(f => f.name), form:D.files.form.map(f => ({ name:f.name, from:f.from, sha:f.sha, pages:f.pages })) },
+        ai:(formRes || []).map(f => ({ file:f.name, model:f.opus ? 'sonnet+opus' : 'sonnet' })), errors:formErr, issues:notes.map(x => ({ k:x.k, text:x.text, n:x.n, where:x.where })), rows:S.evidence });
+      download(bytes, name);                                           // ดาวน์โหลดทันที — ไม่มี Preview / หน้ารายงาน
+      const done = [S.seqFilled + S.seqFixed ? `Tariff Sequence ${S.seqFilled + S.seqFixed}` : '', S.gwFilled + S.gwFixed ? `G.W. ${S.gwFilled + S.gwFixed}` : '', S.unitFilled ? `KGM ${S.unitFilled}` : '', S.formRows ? `Permit ${S.formRows} แถว` : ''].filter(Boolean).join(' · ');
+      if(ok) say(`EXPORT EXCEL สำเร็จ ${S.rows} รายการ${done ? ' · ' + done : ''}`, 'ok');
+      else { const block = notes.filter(x => x.k === 'file' || (S.blocking || []).includes(x));
+        say(`EXPORT แล้วแต่ข้อมูลยังไม่ครบ/ยังตรวจสอบไม่ได้ — ไฟล์ _UNVERIFIED ยังไม่พร้อมนำไปยื่น (${S.rows} รายการ${done ? ' · ' + done : ''})`, 'err');
+        say('ต้องตรวจ: ' + block.slice(0, 3).map(x => x.text.split(' — ')[0] + (x.n > 1 ? ` (${x.n})` : '') + (x.where && x.where[0] ? ` [${x.where[0]}]` : '')).join(' · ') + (block.length > 3 ? ' …' : ''), 'err'); }
+    }catch(e){ say('EXPORT ไม่สำเร็จ: ' + ((e && e.message) || e), 'err'); }
+    finally{ D.busy = false; D.prog = ''; if(onView()) render(); }   // Spinner หยุดทุกกรณี
+  };
+
+  function render(){
+    for(const b of BOX){ const el = $('dcList_' + b.k), ct = $('dcCnt_' + b.k), hint = $('dcHint_' + b.k); if(!el) continue; const fs = D.files[b.k];
+      el.innerHTML = fs.map(f => `<div class="dc-f ${f.error ? 'err' : ''}" title="${esc(f.name + (f.from ? ' (จาก ' + f.from + ')' : '') + (f.pages ? ' · ' + f.pages + ' หน้า' : '') + (f.error ? ' — ' + f.error : ''))}"><span>${esc(f.name)}</span><button onclick="decaDel('${b.k}',${f.id},event)" title="ลบ">✕</button></div>`).join('');
+      ct.textContent = fs.length ? `${fs.length} ไฟล์` + (b.k === 'form' && fs.some(f => f.pages) ? ` · ${fs.reduce((a, f) => a + (f.pages || 0), 0)} หน้า` : '') : ''; hint.style.display = fs.length ? 'none' : ''; }
+    const btn = $('dcExport'); if(btn){ btn.disabled = D.busy; btn.innerHTML = D.busy ? '<span class="dc-spin"></span> กำลังประมวลผล...' : '<span>⤓</span> EXPORT EXCEL'; }
+    const pg = $('dcProg'); if(pg){ pg.textContent = D.busy ? D.prog : ''; pg.style.display = D.busy && D.prog ? '' : 'none'; }
+  }
+  window.decaRenderView = function(){
+    $('pageTitle').textContent = 'Project Decathlon';
+    $('pageSub').textContent = 'ยึด NETBAY CSV 100% · เติมเฉพาะ Tariff Sequence (StatMaster) · G.W. (CIPL PackingList_Form) · KGM · Origin Criteria / Permit (FORM PDF) แล้ว EXPORT ตามรูปแบบ NETBAY';
+    $('pageActions').innerHTML = '';
+    $('content').innerHTML = `<div class="dc-view" id="dcView"><div class="dc-card">
+      <h3 class="dc-title"><span>📁</span> Project Decathlon</h3>
+      <div class="dc-row">${BOX.map(b => `<label class="dc-drop ${b.cls}" id="dcDrop_${b.k}">
+        <input type="file" accept="${b.accept}" ${b.multi ? 'multiple' : ''} onchange="decaAdd('${b.k}',this.files);this.value=''">
+        <span class="ic">${b.ic}</span><span class="nm">${b.nm}</span><span class="hint" id="dcHint_${b.k}">ลากไฟล์มาวาง</span><span class="cnt" id="dcCnt_${b.k}"></span>
+        <div class="dc-files" id="dcList_${b.k}"></div></label>`).join('')}</div>
+      <div class="dc-actions"><button class="dc-export" id="dcExport" onclick="decaExport()"><span>⤓</span> EXPORT EXCEL</button><span class="dc-prog" id="dcProg" style="display:none"></span></div>
+    </div></div>`;
+    for(const b of BOX){ const el = $('dcDrop_' + b.k);
+      ['dragenter', 'dragover'].forEach(t => el.addEventListener(t, e => { e.preventDefault(); el.classList.add('over'); }));
+      ['dragleave', 'drop'].forEach(t => el.addEventListener(t, e => { e.preventDefault(); el.classList.remove('over'); }));
+      el.addEventListener('drop', e => { if(e.dataTransfer && e.dataTransfer.files) decaAdd(b.k, e.dataTransfer.files); }); }
+    render();
+  };
 })();
 </script>
 </body>
