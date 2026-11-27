@@ -8465,8 +8465,14 @@ function cvtReset(){
 .gr-tablewrap .gr-stbtn{cursor:pointer}
 .gr-msglist{margin:0;padding-left:18px;font-size:13px;line-height:1.75;color:#e6edf3}
 .gr-msglist li{margin:3px 0}
+
+/* local011 — แสดงผลอย่างเดียว: ซ่อนหน้าต่างขั้นตอน AI เมื่อประมวลผลจบ · ซ่อนแถบ ERROR สีแดง · ซ่อนกล่องสรุปปัญหา
+   (รายละเอียดดูได้จากการคลิกสถานะของแต่ละรายการ และยังอยู่ครบในรายงานค่าผิดของ EXPORT) */
+#grStatus .gr-status.done{display:none}
+#grSummary .gr-banner.err{display:none}
+#grSummary .nj-issuebox{display:none}
 </style>
-<div id="njDeployVer">Deploy github local010</div>
+<div id="njDeployVer">Deploy github local011</div>
 <script id="grohe-core">
 /* ═══════════════════════════════════════════════════════════════════════════
  * REPORT ALL — GROHE (local001) · CORE (ตรรกะล้วน ไม่แตะ DOM / เครือข่าย)
@@ -9089,7 +9095,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = GROHE_CORE;
       setState(failed ? 'ERROR' : 'READY', failed ? 'อ่านเอกสารไม่ครบ — ดูรายละเอียดแล้วกด REFRESH เพื่ออ่านเฉพาะช่วงที่มีปัญหา' : `ประมวลผลเสร็จ · ผลตรวจ: ${s.state} (PASS ${s.rowP} · WARNING ${s.rowW} · ERROR ${s.rowE} ITEM)`);
       if(!auto || failed) say(failed ? 'อ่านเอกสารไม่ครบ' : 'ประมวลผลเสร็จ — ผลตรวจ ' + s.state, failed || s.state === 'ERROR' ? 'err' : 'ok');
     }catch(e){ setState('ERROR', (e && e.message) || 'เกิดข้อผิดพลาด'); }
-    finally{ G.running = false; if(onView()){ renderActions(); renderFiles(); } }
+    finally{ G.running = false; if(onView()){ renderActions(); renderFiles(); renderStatus(); } }
   };
   // REFRESH: อ่านใหม่เฉพาะช่วงหน้าที่ล้มเหลว (ช่วงที่สำเร็จแล้วไม่ถูกส่งซ้ำ) แล้วตรวจสอบใหม่ทั้งหมด
   window.groheRefresh = async function(){
@@ -9111,7 +9117,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = GROHE_CORE;
       setState('VALIDATING', 'กำลังตรวจสอบใหม่'); await sleep(30); rebuild();
       const s = G.model.summary; setState('READY', `ตรวจซ้ำเสร็จ · ผลตรวจ: ${s.state} (PASS ${s.rowP} · WARNING ${s.rowW} · ERROR ${s.rowE} ITEM)`); }
     catch(e){ setState('ERROR', (e && e.message) || 'ตรวจซ้ำไม่สำเร็จ'); }
-    finally{ G.running = false; renderActions(); }
+    finally{ G.running = false; renderActions(); renderStatus(); }
   };
 
   /* ── แสดงหน้าต้นฉบับ (ภาพจาก pdf.js — ใช้ดูเทียบเท่านั้น) ── */
@@ -9251,7 +9257,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = GROHE_CORE;
     const pct = G.prog.total ? Math.min(100, Math.round(G.prog.done / G.prog.total * 100)) : (G.state === 'READY' ? 100 : 0);
     const cls = G.state === 'ERROR' ? 'err' : G.state === 'READY' ? 'ok' : 'run';
     const unit = G.state === 'AI CHECKING' ? 'หน้าที่ตรวจซ้ำแล้ว' : 'หน้าที่อ่านแล้ว';
-    el.innerHTML = `<div class="gr-status ${cls}"><div class="gr-steps">${STATES.map(s => `<span class="${s === G.state ? 'on' : ''}">${s}</span>`).join('')}</div>
+    el.innerHTML = `<div class="gr-status ${cls}${G.running ? '' : ' done'}"><div class="gr-steps">${STATES.map(s => `<span class="${s === G.state ? 'on' : ''}">${s}</span>`).join('')}</div>
       <div class="gr-bar"><i style="width:${pct}%"></i></div>
       <div class="gr-stmsg">${G.running ? '<span class="spin"></span> ' : ''}${esc(G.stateMsg)} · ${unit} <b>${G.prog.done}/${G.prog.total}</b> (${pct}%)</div></div>`;
   }
@@ -9275,7 +9281,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = GROHE_CORE;
       ${card('TOTAL GROSS WEIGHT', fmtN(s.gw, 3), sub(`ยืนยันแล้ว ${s.gwN}/${s.items} ITEM` + (inv1 && inv1.gross_weight != null ? ' · Invoice: ' + fmtN(inv1.gross_weight, 3) : '')), s.gwN < s.items ? 'warn' : '')}
       ${card('TOTAL PACKAGE', fmtN(s.pkg), sub(`ยืนยันแล้ว ${s.pkgN}/${s.items} ITEM` + (inv1 && inv1.packages.length ? ' · Invoice: ' + inv1.packages.reduce((a, p) => a + (p.count || 0), 0) : '')), s.pkgN < s.items ? 'warn' : '')}
       ${card('จำนวน ERROR', fmtN(s.errors), sub(`WARNING ${s.warnings}`), s.errors ? 'err' : '')}
-    </div>` + (top.length ? `<div class="msgbox err"><b>ERROR ที่ต้องตรวจสอบ (${s.errors})</b><ul>${top.map(x => `<li>${esc([x.inv && 'Invoice ' + x.inv, x.pos && 'ITEM ' + x.pos, x.topic].filter(Boolean).join(' · '))}: ${esc(x.note || x.b || x.a)}${x.diff ? ' (ผลต่าง ' + esc(x.diff) + ')' : ''}</li>`).join('')}${s.errors > top.length ? `<li>… อีก ${s.errors - top.length} รายการ — ดูใน EXPORT › รายงานค่าผิด</li>` : ''}</ul></div>` : '');
+    </div>` + (top.length ? `<div class="nj-issuebox msgbox err"><b>ERROR ที่ต้องตรวจสอบ (${s.errors})</b><ul>${top.map(x => `<li>${esc([x.inv && 'Invoice ' + x.inv, x.pos && 'ITEM ' + x.pos, x.topic].filter(Boolean).join(' · '))}: ${esc(x.note || x.b || x.a)}${x.diff ? ' (ผลต่าง ' + esc(x.diff) + ')' : ''}</li>`).join('')}${s.errors > top.length ? `<li>… อีก ${s.errors - top.length} รายการ — ดูใน EXPORT › รายงานค่าผิด</li>` : ''}</ul></div>` : '');
   }
   function filtered(){
     const M = G.model; if(!M) return []; const f = G.f, has = (v, q) => !q || String(v || '').toUpperCase().includes(q.trim().toUpperCase());
@@ -9410,6 +9416,12 @@ if(typeof module !== 'undefined' && module.exports) module.exports = GROHE_CORE;
 .el-tablewrap .el-stbtn{cursor:pointer}
 .el-msglist{margin:0;padding-left:18px;font-size:13px;line-height:1.75;color:#e6edf3}
 .el-msglist li{margin:3px 0}
+
+/* local011 — แสดงผลอย่างเดียว: ซ่อนหน้าต่างขั้นตอน AI เมื่อประมวลผลจบ · ซ่อนแถบ ERROR สีแดง · ซ่อนกล่องสรุปปัญหา
+   (รายละเอียดดูได้จากการคลิกสถานะของแต่ละรายการ และยังอยู่ครบในรายงานค่าผิดของ EXPORT) */
+#elStatus .el-status.done{display:none}
+#elSummary .el-banner.err{display:none}
+#elSummary .nj-issuebox{display:none}
 </style>
 <script id="elec-core">
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -10041,7 +10053,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = ELEC_CORE;
       else { setState(failed ? 'ERROR' : s.state === 'PASS' ? 'READY' : s.state, failed ? 'อ่านเอกสารไม่ครบ — ดูรายละเอียดแล้วกด AI AUTO READ เพื่ออ่านเฉพาะช่วงที่มีปัญหา' : `ประมวลผลเสร็จ · ผลตรวจ: ${s.state} (PASS ${s.rowP} · WARNING ${s.rowW} · ERROR ${s.rowE} ITEM)`);
         if(!auto || failed || s.state !== 'PASS') say(failed ? 'อ่านเอกสารไม่ครบ' : 'ประมวลผลเสร็จ — ผลตรวจ ' + s.state, failed || s.state === 'ERROR' ? 'err' : s.state === 'WARNING' ? 'info' : 'ok'); }
     }catch(e){ setState('ERROR', (e && e.message) || 'เกิดข้อผิดพลาด'); }
-    finally{ E.running = false; E.cancel = false; if(onView()){ renderActions(); renderFiles(); } }
+    finally{ E.running = false; E.cancel = false; if(onView()){ renderActions(); renderFiles(); renderStatus(); } }
   };
 
   /* ── ยืนยันค่าที่ขัดแย้ง (ผู้ใช้เลือกเอง — ระบบห้ามเลือกให้) ── */
@@ -10208,7 +10220,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = ELEC_CORE;
     const cls = E.state === 'ERROR' ? 'err' : E.state === 'WARNING' ? 'warn' : E.state === 'READY' ? 'ok' : 'run';
     const on = s => s === E.state || (s === 'READY / WARNING / ERROR' && ['READY', 'WARNING', 'ERROR'].includes(E.state));
     const unit = E.state === 'OPUS RE-CHECK' ? 'หน้าที่ตรวจซ้ำแล้ว' : 'หน้าที่อ่านแล้ว';
-    el.innerHTML = `<div class="el-status ${cls}"><div class="el-steps">${STATES.map(s => `<span class="${on(s) ? 'on' : ''}">${s}</span>`).join('')}</div>
+    el.innerHTML = `<div class="el-status ${cls}${E.running ? '' : ' done'}"><div class="el-steps">${STATES.map(s => `<span class="${on(s) ? 'on' : ''}">${s}</span>`).join('')}</div>
       <div class="el-bar"><i style="width:${pct}%"></i></div>
       <div class="el-stmsg">${E.running ? '<span class="spin"></span> ' : ''}${esc(E.stateMsg)} · ${unit} <b>${E.prog.done}/${E.prog.total}</b> (${pct}%)</div></div>`;
   }
@@ -10232,7 +10244,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = ELEC_CORE;
       ${card('TOTAL GROSS WEIGHT', fmtN(s.gw, 3), sub(`ยืนยันแล้ว ${s.gwN}/${s.items} ITEM`), s.gwN < s.items ? 'warn' : '')}
       ${card('TOTAL PACKAGES', fmtN(s.pkg), sub(`ยืนยันแล้ว ${s.pkgN}/${s.items} ITEM`), s.pkgN < s.items ? 'warn' : '')}
       ${card('PASS / WARNING / ERROR', `${s.rowP} / ${s.rowW} / ${s.rowE}`, sub(`หัวข้อผิดรวม ${s.errors} · ยืนยันแล้ว ${s.confirmed} · เตือน ${s.warnings}`), s.errors ? 'err' : s.warnings ? 'warn' : '')}
-    </div>` + (top.length ? `<div class="msgbox err"><b>ERROR ที่ต้องแก้ไขหรือยืนยัน (${s.errors})</b><ul>${top.map(x => `<li>${esc([x.inv && 'Invoice ' + x.inv, x.dn && 'PL ' + x.dn, x.item && 'ITEM ' + x.item, x.topic].filter(Boolean).join(' · '))}: ${esc(x.note || '')}${x.a ? ` · <u>INVOICE PDF</u> ${esc(x.a)}` : ''}${x.b ? ` · <u>PACKING LIST</u> ${esc(x.b)}` : ''}${x.diff ? ' · ผลต่าง ' + esc(x.diff) : ''} ${x.conflict ? `<button class="el-mini" onclick="elecConfirm('${esc(x.id)}')">ยืนยันค่า</button>` : `<button class="el-mini" onclick="elecConfirm('${esc(x.id)}')">ยืนยันว่าตรวจแล้ว</button>`}</li>`).join('')}${s.errors > top.length ? `<li>… อีก ${s.errors - top.length} รายการ — ดูใน EXPORT › รายงานค่าผิด</li>` : ''}</ul></div>` : '')
+    </div>` + (top.length ? `<div class="nj-issuebox msgbox err"><b>ERROR ที่ต้องแก้ไขหรือยืนยัน (${s.errors})</b><ul>${top.map(x => `<li>${esc([x.inv && 'Invoice ' + x.inv, x.dn && 'PL ' + x.dn, x.item && 'ITEM ' + x.item, x.topic].filter(Boolean).join(' · '))}: ${esc(x.note || '')}${x.a ? ` · <u>INVOICE PDF</u> ${esc(x.a)}` : ''}${x.b ? ` · <u>PACKING LIST</u> ${esc(x.b)}` : ''}${x.diff ? ' · ผลต่าง ' + esc(x.diff) : ''} ${x.conflict ? `<button class="el-mini" onclick="elecConfirm('${esc(x.id)}')">ยืนยันค่า</button>` : `<button class="el-mini" onclick="elecConfirm('${esc(x.id)}')">ยืนยันว่าตรวจแล้ว</button>`}</li>`).join('')}${s.errors > top.length ? `<li>… อีก ${s.errors - top.length} รายการ — ดูใน EXPORT › รายงานค่าผิด</li>` : ''}</ul></div>` : '')
       + (s.confirmed ? `<div class="msgbox warn"><b>ค่าที่ผู้ใช้ยืนยันแล้ว (${s.confirmed})</b><ul>${M.issues.filter(x => x.confirmed).map(x => `<li>${esc([x.inv && 'Invoice ' + x.inv, x.item && 'ITEM ' + x.item, x.topic].filter(Boolean).join(' · '))}: เลือก "${esc(x.confirmed.pick)}" โดย ${esc(x.confirmed.user)} ${esc(x.confirmed.at)} <button class="el-mini" onclick="elecUnconfirm('${esc(x.id)}')">ยกเลิกการยืนยัน</button></li>`).join('')}</ul></div>` : '');
   }
   function filtered(){
@@ -10373,6 +10385,12 @@ if(typeof module !== 'undefined' && module.exports) module.exports = ELEC_CORE;
 .bw-tablewrap .bw-stbtn{cursor:pointer}
 .bw-msglist{margin:0;padding-left:18px;font-size:13px;line-height:1.75;color:#e6edf3}
 .bw-msglist li{margin:3px 0}
+
+/* local011 — แสดงผลอย่างเดียว: ซ่อนหน้าต่างขั้นตอน AI เมื่อประมวลผลจบ · ซ่อนแถบ ERROR สีแดง · ซ่อนกล่องสรุปปัญหา
+   (รายละเอียดดูได้จากการคลิกสถานะของแต่ละรายการ และยังอยู่ครบในรายงานค่าผิดของ EXPORT) */
+#bwStatus .bw-status.done{display:none}
+#bwSummary .bw-banner.err{display:none}
+#bwSummary .nj-issuebox{display:none}
 </style>
 <script id="borg-core">
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -10984,7 +11002,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = BORG_CORE;
       else { setState(failed ? 'ERROR' : s.state === 'PASS' ? 'READY' : s.state, failed ? 'อ่านเอกสารไม่ครบ — ดูรายละเอียดแล้วกด AI AUTO READ เพื่ออ่านเฉพาะช่วงที่มีปัญหา' : `ประมวลผลเสร็จ · ผลตรวจ: ${s.state} (PASS ${s.rowP} · WARNING ${s.rowW} · ERROR ${s.rowE} ITEM)`);
         if(!auto || failed || s.state !== 'PASS') say(failed ? 'อ่านเอกสารไม่ครบ' : 'ประมวลผลเสร็จ — ผลตรวจ ' + s.state, failed || s.state === 'ERROR' ? 'err' : s.state === 'WARNING' ? 'info' : 'ok'); }
     }catch(e){ setState('ERROR', (e && e.message) || 'เกิดข้อผิดพลาด'); }
-    finally{ E.running = false; E.cancel = false; if(onView()){ renderActions(); renderFiles(); } }
+    finally{ E.running = false; E.cancel = false; if(onView()){ renderActions(); renderFiles(); renderStatus(); } }
   };
 
   /* ── ดูหน้าต้นฉบับ ── */
@@ -11131,7 +11149,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = BORG_CORE;
     const cls = E.state === 'ERROR' ? 'err' : E.state === 'WARNING' ? 'warn' : E.state === 'READY' ? 'ok' : 'run';
     const on = s => s === E.state || (s === 'READY / WARNING / ERROR' && ['READY', 'WARNING', 'ERROR'].includes(E.state));
     const unit = E.state === 'OPUS RE-CHECK' ? 'หน้าที่ตรวจซ้ำแล้ว' : 'หน้าที่อ่านแล้ว';
-    el.innerHTML = `<div class="bw-status ${cls}"><div class="bw-steps">${STATES.map(s => `<span class="${on(s) ? 'on' : ''}">${s}</span>`).join('')}</div>
+    el.innerHTML = `<div class="bw-status ${cls}${E.running ? '' : ' done'}"><div class="bw-steps">${STATES.map(s => `<span class="${on(s) ? 'on' : ''}">${s}</span>`).join('')}</div>
       <div class="bw-bar"><i style="width:${pct}%"></i></div>
       <div class="bw-stmsg">${E.running ? '<span class="spin"></span> ' : ''}${esc(E.stateMsg)} · ${unit} <b>${E.prog.done}/${E.prog.total}</b> (${pct}%)</div></div>`;
   }
@@ -11157,7 +11175,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = BORG_CORE;
       ${card('TOTAL NW', fmtN(s.nw, 3), sub(`ยืนยันแล้ว ${s.nwN}/${s.items} รายการ`), s.nwN < s.items ? 'warn' : '')}
       ${card('TOTAL GW', fmtN(s.gw, 3), sub(`ยืนยันแล้ว ${s.gwN}/${s.items} รายการ`), s.gwN < s.items ? 'warn' : '')}
       ${card('TOTAL PACKAGE / CBM', `${fmtN(s.pkg)} / ${fmtN(s.cbm, 3)}`, sub(`ยอดระดับ Invoice ${s.pkgN}/${s.invoices} · ไม่บวกซ้ำรายรายการ`), s.pkgN < s.invoices ? 'warn' : '')}
-    </div>` + (top.length ? `<div class="msgbox err"><b>ERROR ที่ต้องแก้ไข (${s.errors})</b><ul>${top.map(x => `<li>${esc([x.inv && 'Invoice ' + x.inv, x.item && 'Part ' + x.item, x.topic].filter(Boolean).join(' · '))}: ${esc(x.note || '')}${x.a ? ` · <u>INVOICE</u> ${esc(x.a)}` : ''}${x.b ? ` · <u>PACKING LIST</u> ${esc(x.b)}` : ''}${x.diff ? ' · ผลต่าง ' + esc(x.diff) : ''}</li>`).join('')}${s.errors > top.length ? `<li>… อีก ${s.errors - top.length} รายการ — ดูใน EXPORT › รายงานค่าผิด</li>` : ''}</ul></div>` : '')
+    </div>` + (top.length ? `<div class="nj-issuebox msgbox err"><b>ERROR ที่ต้องแก้ไข (${s.errors})</b><ul>${top.map(x => `<li>${esc([x.inv && 'Invoice ' + x.inv, x.item && 'Part ' + x.item, x.topic].filter(Boolean).join(' · '))}: ${esc(x.note || '')}${x.a ? ` · <u>INVOICE</u> ${esc(x.a)}` : ''}${x.b ? ` · <u>PACKING LIST</u> ${esc(x.b)}` : ''}${x.diff ? ' · ผลต่าง ' + esc(x.diff) : ''}</li>`).join('')}${s.errors > top.length ? `<li>… อีก ${s.errors - top.length} รายการ — ดูใน EXPORT › รายงานค่าผิด</li>` : ''}</ul></div>` : '')
       + `<div class="bw-invtab"><table><thead><tr><th>INVOICE NO.</th><th>DATE</th><th>PACKING LIST</th><th>ORDER NO.</th><th>COO</th><th>TRADE TERM</th><th class="r">ITEMS</th><th class="r">QTY</th><th class="r">AMOUNT</th><th class="r">NW</th><th class="r">GW</th><th class="r">PACKAGE</th><th class="r">CBM</th></tr></thead><tbody>${M.invoices.map(iv => { const its = M.rows.filter(r => r.inv === iv.no);
         const n = f => its.every(r => r[f] != null) ? its.reduce((a, r) => a + r[f], 0) : null;
         return `<tr><td>${esc(iv.no)}</td><td>${esc(C.dateTh(iv.hdr.date) || iv.hdr.date_text || '')}</td><td>${esc(iv.pl_no || '—')}</td><td>${esc(iv.hdr.order_no || '')}</td><td>${esc(iv.coo || '')}</td><td>${esc(iv.hdr.trade_term || '')}</td><td class="r">${its.length}</td><td class="r">${fmtN(n('qty'))}</td><td class="r">${fmtN(n('amount'), 2)} ${esc(iv.hdr.currency || '')}</td><td class="r">${fmtN(n('nw'), 3)}</td><td class="r">${fmtN(n('gw'), 3)}</td><td class="r">${fmtN(iv.pkg)} ${esc(iv.pkg_type || '')}</td><td class="r">${fmtN(iv.cbm, 3)}</td></tr>`; }).join('')}</tbody></table></div>`;
@@ -11309,6 +11327,12 @@ if(typeof module !== 'undefined' && module.exports) module.exports = BORG_CORE;
 .st-tablewrap .st-stbtn{cursor:pointer}
 .st-msglist{margin:0;padding-left:18px;font-size:13px;line-height:1.75;color:#e6edf3}
 .st-msglist li{margin:3px 0}
+
+/* local011 — แสดงผลอย่างเดียว: ซ่อนหน้าต่างขั้นตอน AI เมื่อประมวลผลจบ · ซ่อนแถบ ERROR สีแดง · ซ่อนกล่องสรุปปัญหา
+   (รายละเอียดดูได้จากการคลิกสถานะของแต่ละรายการ และยังอยู่ครบในรายงานค่าผิดของ EXPORT) */
+#stStatus .st-status.done{display:none}
+#stSummary .st-banner.err{display:none}
+#stSummary .nj-issuebox{display:none}
 </style>
 <script id="stae-core">
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -11929,7 +11953,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = STAE_CORE;
       else { setState(failed ? 'ERROR' : s.state === 'PASS' ? 'READY' : s.state, failed ? 'อ่านเอกสารไม่ครบ — ดูรายละเอียดแล้วกด AI AUTO READ เพื่ออ่านเฉพาะช่วงที่มีปัญหา' : `ประมวลผลเสร็จ · ผลตรวจ: ${s.state} (PASS ${s.rowP} · WARNING ${s.rowW} · ERROR ${s.rowE} ITEM)`);
         if(!auto || failed || s.state !== 'PASS') say(failed ? 'อ่านเอกสารไม่ครบ' : 'ประมวลผลเสร็จ — ผลตรวจ ' + s.state, failed || s.state === 'ERROR' ? 'err' : s.state === 'WARNING' ? 'info' : 'ok'); }
     }catch(e){ setState('ERROR', (e && e.message) || 'เกิดข้อผิดพลาด'); }
-    finally{ E.running = false; E.cancel = false; if(onView()){ renderActions(); renderFiles(); } }
+    finally{ E.running = false; E.cancel = false; if(onView()){ renderActions(); renderFiles(); renderStatus(); } }
   };
 
   /* ── ดูหน้าต้นฉบับ ── */
@@ -12090,7 +12114,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = STAE_CORE;
     const cls = E.state === 'ERROR' ? 'err' : E.state === 'WARNING' ? 'warn' : E.state === 'READY' ? 'ok' : 'run';
     const on = s => s === E.state || (s === 'READY / WARNING / ERROR' && ['READY', 'WARNING', 'ERROR'].includes(E.state));
     const unit = E.state === 'OPUS RE-CHECK' ? 'หน้าที่ตรวจซ้ำแล้ว' : 'หน้าที่อ่านแล้ว';
-    el.innerHTML = `<div class="st-status ${cls}"><div class="st-steps">${STATES.map(s => `<span class="${on(s) ? 'on' : ''}">${s}</span>`).join('')}</div>
+    el.innerHTML = `<div class="st-status ${cls}${E.running ? '' : ' done'}"><div class="st-steps">${STATES.map(s => `<span class="${on(s) ? 'on' : ''}">${s}</span>`).join('')}</div>
       <div class="st-bar"><i style="width:${pct}%"></i></div>
       <div class="st-stmsg">${E.running ? '<span class="spin"></span> ' : ''}${esc(E.stateMsg)} · ${unit} <b>${E.prog.done}/${E.prog.total}</b> (${pct}%)</div></div>`;
   }
@@ -12117,7 +12141,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = STAE_CORE;
       ${card('🟢 TOTAL G.W.', fmtN(s.gw, 2) + ' KGS', sub(`ยืนยันแล้ว ${s.gwN}/${s.items} · CBM ${fmtN(s.cbm, 3)}`), s.gwN < s.items ? 'warn' : '')}
       ${card('🟢 TOTAL AMOUNT', amt, sub('แยกตาม CURRENCY'))}
       ${card('🟠 WARNING / 🔴 ERROR', `${s.warnings} / ${s.errors}`, sub(`รับทราบแล้ว ${s.acked} รายการ`), s.errors ? 'err' : s.warnings ? 'warn' : '')}
-    </div>` + (open.length ? `<div class="msgbox ${M.issues.some(x => !x.ack && x.sev === 'E') ? 'err' : 'warn'}"><b>รายการที่ต้องแก้ไขหรือรับทราบ (${s.errors + s.warnings})</b><ul>${open.map(x => `<li><b>${x.sev === 'E' ? '🔴' : '🟠'}</b> ${esc([x.inv && 'INV ' + x.inv, x.item, x.field || x.topic].filter(Boolean).join(' · '))}: ${esc(x.note || '')}${x.a ? ` · <u>INVOICE</u> ${esc(x.a)}` : ''}${x.b ? ` · <u>PACKING LIST</u> ${esc(x.b)}` : ''}${x.diff ? ' · ผลต่าง ' + esc(x.diff) : ''} <button class="st-mini" onclick="staeAck('${esc(x.id)}')">รับทราบ</button></li>`).join('')}${s.errors + s.warnings > open.length ? `<li>… อีก ${s.errors + s.warnings - open.length} รายการ — ดูใน EXPORT › รายงาน ERROR / WARNING</li>` : ''}</ul></div>` : '')
+    </div>` + (open.length ? `<div class="nj-issuebox msgbox ${M.issues.some(x => !x.ack && x.sev === 'E') ? 'err' : 'warn'}"><b>รายการที่ต้องแก้ไขหรือรับทราบ (${s.errors + s.warnings})</b><ul>${open.map(x => `<li><b>${x.sev === 'E' ? '🔴' : '🟠'}</b> ${esc([x.inv && 'INV ' + x.inv, x.item, x.field || x.topic].filter(Boolean).join(' · '))}: ${esc(x.note || '')}${x.a ? ` · <u>INVOICE</u> ${esc(x.a)}` : ''}${x.b ? ` · <u>PACKING LIST</u> ${esc(x.b)}` : ''}${x.diff ? ' · ผลต่าง ' + esc(x.diff) : ''} <button class="st-mini" onclick="staeAck('${esc(x.id)}')">รับทราบ</button></li>`).join('')}${s.errors + s.warnings > open.length ? `<li>… อีก ${s.errors + s.warnings - open.length} รายการ — ดูใน EXPORT › รายงาน ERROR / WARNING</li>` : ''}</ul></div>` : '')
       + (s.acked ? `<div class="msgbox warn"><b>รับทราบแล้ว (${s.acked})</b><ul>${M.issues.filter(x => x.ack).slice(0, 8).map(x => `<li>${esc([x.inv && 'INV ' + x.inv, x.item, x.field || x.topic].filter(Boolean).join(' · '))} — ${esc(x.ack.user)} ${esc(x.ack.at)}${x.ack.reason ? ' · ' + esc(x.ack.reason) : ''} <button class="st-mini" onclick="staeUnack('${esc(x.id)}')">ยกเลิก</button></li>`).join('')}</ul></div>` : '')
       + `<div class="st-invtab"><table><thead><tr><th>INVOICE NO.</th><th>DATE</th><th>SELLER</th><th>BUYER</th><th>S/C NO.</th><th>INCOTERM</th><th class="r">ITEMS</th><th>TOTAL QTY (UNIT)</th><th class="r">QTY ตามเอกสาร</th><th class="r">CTNS</th><th class="r">N.W.</th><th class="r">G.W.</th><th class="r">CBM</th><th class="r">AMOUNT</th></tr></thead><tbody>${M.invoices.map(iv => { const its = M.rows.filter(r => r.inv === iv.no);
         const n = f => its.every(r => r[f] != null) ? its.reduce((a, r) => a + r[f], 0) : null, q = C.byUnit(its, 'qty');
