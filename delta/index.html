@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <!-- Build Metadata (local316): เลข Version ของ Build นี้ — กำหนดที่บรรทัดนี้ที่เดียว ใช้ทั้งเว็บไซต์ (ป้ายมุมขวาบนอ่านจากที่นี่) -->
-<meta name="nj-build" content="local334">
+<meta name="nj-build" content="local335">
 <title>Mapping Export Hi-Tech HTML</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -5282,6 +5282,17 @@ async function _doExportSHELLRun(){
   const byShipTo = new Map();
   // local333: EMPTY CARTON ต่อท้าย Sheet ที่มี Invoice น้ำมันใบสุดท้าย (ลำดับ Export สูงสุด) · ไม่มี Invoice น้ำมัน = ไฟล์/Sheet เดียวสำหรับ EMPTY CARTON
   const _extra = _ai.extra || [];
+  // local335: แถว EMPTY CARTON ตามไฟล์ EXPORT ที่ถูกต้อง — ข้อมูลจาก PDF เท่านั้น (ไม่ใช้ SU / Delivery quantity ของน้ำมัน)
+  const _cartonRow = (n, x) => [
+    n, x.invoice, x.date,                                    // A item · B Invoice · C Date
+    x.name,                                                  // D Description — ชื่อสินค้าใน PDF (ไม่รวมคำ Empty carton)
+    x.qty, 'CT',                                             // E Package = NO OF UNITS · F หน่วยนับหีบห่อ = CT
+    x.nw, x.gw,                                              // G WEIGHT NET · H WEIGHT GROSS
+    x.gw,                                                    // I Qty. ใบขน = WEIGHT GROSS (KG) ของรายการ
+    x.amount, x.currency,                                    // J AMOUNT USD · K Currency
+    null, null,                                              // L Brand · M Shipping Mark — ไม่มีข้อมูลรองรับ
+    x.kind,                                                  // N Note = Empty carton (ตามที่พิมพ์ใน PDF)
+    null, null, null ];                                      // O Purchase Country · P,Q HS CODE — ไม่มีข้อมูลรองรับ
   let _lastOil = null; _ai.rows.forEach(r => { if(!_lastOil || _ai.order.get(r) > _ai.order.get(_lastOil)) _lastOil = r; });
   _ai.rows.forEach(r => {
     if(!byShipTo.has(r.shipTo)) byShipTo.set(r.shipTo, new Map());
@@ -5358,17 +5369,7 @@ async function _doExportSHELLRun(){
       });
       const _kinds = aoa.slice(1).map(() => 'oil');
       if(_extra.length && _lastOil && _lastOil.shipTo === shipTo && _lastOil.plant === plant){
-        _extra.forEach(x => { aoa.push([
-          aoa.length,                                            // A item — ต่อเนื่องจาก Invoice น้ำมัน
-          x.invoice, x.date, x.desc,                             // B Invoice · C Date · D Description (คงคำว่า Empty carton) — PDF
-          x.qty,                                                 // E Package — NO OF UNITS (PDF)
-          null,                                                  // F หน่วยนับหีบห่อ — ไม่มีพิมพ์ในต้นฉบับ
-          x.nw, x.gw,                                            // G WEIGHT NET · H WEIGHT GROSS (PDF รายรายการ)
-          null,                                                  // I Qty. ใบขน — ไม่นำจำนวนกล่องเปล่าไปเป็นปริมาตร
-          x.amount, x.currency,                                  // J AMOUNT USD · K Currency (PDF)
-          null, null,                                            // L Brand · M Shipping Mark — ไม่มีข้อมูลรองรับ
-          x.code,                                                // N Note — PRODUCT CODE (PDF)
-          null, null, null ]); _kinds.push('carton'); });       // O Purchase Country · P,Q HS CODE — ไม่มีข้อมูลรองรับ
+        _extra.forEach(x => { aoa.push(_cartonRow(aoa.length, x)); _kinds.push('carton'); });   // A item ต่อเนื่องจาก Invoice น้ำมัน
         rowCount += _extra.length;
       }
       const ws = XLSX.utils.aoa_to_sheet(aoa, {cellDates:true});
@@ -5384,7 +5385,7 @@ async function _doExportSHELLRun(){
         if(ws[addr]) ws[addr].s = { alignment: { wrapText: true, vertical: 'top' } };
       }
       const sheetName = _shellSheetName(`Mapping THE SHELL Plant ${plantShort}`);
-      sheetsOut.push({ file:_shellSanitize(shipTo) + '.xlsx', sheet:sheetName, headers:HEADERS, rows:aoa.slice(1), kinds:_kinds });   // local312: แถวข้อมูลจริง (ไม่รวมแถวหัวตาราง)
+      sheetsOut.push({ file:_shellSanitize(shipTo) + '.xlsx', sheet:sheetName, headers:HEADERS, rows:aoa.slice(1), kinds:_kinds, mixCols:[8], kUnit:{ 8:{ carton:'KG' } } });   // local312: แถวข้อมูลจริง (ไม่รวมแถวหัวตาราง)
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
       sheetCount++;
       rowCount += items.length;
@@ -5397,12 +5398,12 @@ async function _doExportSHELLRun(){
   }
 
   if(_extra.length && !_lastOil){   // local333: ส่งออกได้เฉพาะ EMPTY CARTON (ไม่มี Invoice น้ำมันที่ผ่าน) → 1 ไฟล์ 1 Sheet
-    const aoa = [HEADERS]; _extra.forEach(x => aoa.push([aoa.length, x.invoice, x.date, x.desc, x.qty, null, x.nw, x.gw, null, x.amount, x.currency, null, null, x.code, null, null, null]));
+    const aoa = [HEADERS]; _extra.forEach(x => aoa.push(_cartonRow(aoa.length, x)));
     const ws = XLSX.utils.aoa_to_sheet(aoa, {cellDates:true});
     ws['!cols'] = [{wch:5},{wch:12},{wch:11},{wch:34},{wch:10},{wch:12},{wch:13},{wch:12},{wch:11},{wch:9},{wch:9},{wch:12},{wch:36},{wch:36},{wch:14},{wch:10},{wch:10}];
     const wb = XLSX.utils.book_new(), sheetName = _shellSheetName('Mapping THE SHELL EMPTY CARTON'), fname = _shellSanitize('EMPTY CARTON') + '.xlsx';
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    sheetsOut.push({ file:fname, sheet:sheetName, headers:HEADERS, rows:aoa.slice(1), kinds:aoa.slice(1).map(() => 'carton') });
+    sheetsOut.push({ file:fname, sheet:sheetName, headers:HEADERS, rows:aoa.slice(1), kinds:aoa.slice(1).map(() => 'carton'), mixCols:[8], kUnit:{ 8:{ carton:'KG' } } });
     zip.file(fname, XLSX.write(wb, {type:'array', bookType:'xlsx', cellDates:true}));
     fileCount++; sheetCount++; rowCount += _extra.length;
   }
@@ -9993,7 +9994,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       else if(Math.abs(diff) >= 0.01) info.push(`ผลต่าง ${fmt(diff)} จากความละเอียดราคาที่พิมพ์ (${it.price}) — อยู่ในเกณฑ์`);
     }
     if(it.price_ccy && m.currency && U(it.price_ccy) !== U(m.currency)) errs.push(`สกุลเงินราคา (${it.price_ccy}) ไม่ตรงกับ Invoice (${m.currency})`);
-    i.ex = null; i.qtyVal = null; i.qtyUnit = '';            // ไม่มี Excel · ไม่นำจำนวนกล่องเปล่าไปเป็นปริมาตร (Qty. ใบขน ว่าง)
+    i.ex = null; i.qtyVal = num(it.gw); i.qtyUnit = U(m.iv.weight_uom || 'KG');   // local335: Qty. ใบขน = WEIGHT GROSS ของรายการ (ตามไฟล์ EXPORT ที่ถูกต้อง)            // ไม่มี Excel · ไม่นำจำนวนกล่องเปล่าไปเป็นปริมาตร (Qty. ใบขน ว่าง)
     i.errs = errs; i.info = info; i.state = errs.length ? 'bad' : 'ok';
   }
   function checkCartonInvoice(m){
@@ -10176,7 +10177,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     const extra = [];
     ev.carton.forEach(m => { const [y, mo, d] = m.date.split('-').map(Number);
       const invCell = /^[1-9]\d{0,14}$/.test(m.invoiceNo) ? Number(m.invoiceNo) : m.invoiceNo;
-      m.items.forEach(i => extra.push({ invoice:invCell, date:new Date(y, mo - 1, d), desc:i.desc, qty:num(i.it.qty1), nw:num(i.it.nw), gw:num(i.it.gw), amount:i.amount, currency:m.currency, code:String(i.it.product_code || '') })); });
+      m.items.forEach(i => { const mm = String(i.desc || '').match(/^(empty\s+carton)\s*(.*)$/i); extra.push({ name:mm ? mm[2] : i.desc, kind:mm ? mm[1] : '', invoice:invCell, date:new Date(y, mo - 1, d), desc:i.desc, qty:num(i.it.qty1), nw:num(i.it.nw), gw:num(i.it.gw), amount:i.amount, currency:m.currency, code:String(i.it.product_code || '') }); }); });
     const nInv = ev.pass.length + ev.carton.length;
     const partial = ev.skipped.length > 0 || rows.length !== allRows.length, warn = !partial && ev.warned.length > 0;
     const msg = partial ? `EXPORT สำเร็จบางส่วน — ส่งออก ${nInv} Invoice / ข้าม ${nSkip} Invoice${nFile ? ` · อ่านไม่สำเร็จ ${nFile} ไฟล์` : ''}`
@@ -10222,7 +10223,8 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       const unitK = (c, k) => { if(c + 1 >= nCol) return ''; const v = []; sheets.forEach(s => rowsK(s, k).forEach(r => { const x = r[c + 1]; if(x != null && x !== '') v.push(x); }));
         if(!v.length || !v.every(x => typeof x === 'string' && x.length <= 12)) return ''; const u = [...new Set(v.map(x => x.trim()))]; return u.length === 1 ? u[0] : ''; };
       const hasK = (c, k) => sheets.some(s => rowsK(s, k).some(r => typeof r[c] === 'number'));
-      meta.forEach(x => { const ks = kinds.filter(k => hasK(x.c, k)); x.mix = ks.length > 1 && unitK(x.c, 'oil') !== unitK(x.c, 'carton'); x.unitK = { oil:unitK(x.c, 'oil'), carton:unitK(x.c, 'carton') }; if(x.mix) x.unit = ''; });
+      meta.forEach(x => { const ks = kinds.filter(k => hasK(x.c, k)); x.mix = ks.length > 1 && (unitK(x.c, 'oil') !== unitK(x.c, 'carton') || sheets.some(s => (s.mixCols || []).includes(x.c)));   // local335: คอลัมน์ที่ความหมายต่างกันตามประเภท (Qty. ใบขน) ไม่รวมข้ามประเภท
+        x.unitK = { oil:unitK(x.c, 'oil'), carton:unitK(x.c, 'carton') }; sheets.forEach(s => { const o = (s.kUnit || {})[x.c]; if(o) Object.assign(x.unitK, o); }); if(x.mix) x.unit = ''; });
       per = []; sheets.forEach(s => kinds.forEach(k => { const rs = rowsK(s, k); if(rs.length) per.push({ file:s.file, sheet:`${s.sheet} · ${kLab[k]}`, n:rs.length, v:meta.map(x => hasK(x.c, k) ? sumOf(rs, x.c, x.d) : null), k }); }));
       grand.v = grand.v.map((v, k) => meta[k].mix ? null : v);
     }
@@ -10354,7 +10356,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
           <td class="sai-num">${esc(i.it.qty1 || '')} ${esc(i.it.uom1 || '')}${i.it.qty2 ? `<div>${esc(i.it.qty2)} ${esc(i.it.uom2 || '')}</div>` : ''}<div class="sai-msg">${esc(i.it.price || '')} ${esc(i.it.price_ccy || '')}${i.it.price_uom ? ` / ${esc(i.it.price_per || 1)} ${esc(i.it.price_uom)}` : ''}</div></td>
           <td><input class="sai-in sai-num sai-w8" data-item="${esc(i.key)}" data-f="amount" value="${i.amount == null ? '' : esc(i.amount)}" ${lock}>${i.calc ? `<div class="sai-msg">คำนวณ ${fmt(i.calc.exp)}</div>` : ''}</td>
           <td><select class="sai-in" data-item="${esc(i.key)}" data-f="excelKey" ${lock}>${xo}</select>${i.ex ? `<div class="sai-msg">แถว ${esc(i.ex.row.srcRow)} · ${esc(i.how)}</div>` : ''}</td>
-          <td class="sai-num" data-qty="${i.qtyVal == null ? '' : i.qtyVal}">${i.qtyVal != null ? `${fmt(i.qtyVal, decs(i.qtyVal))}${i.qtyUnit ? ' ' + esc(i.qtyUnit) : ''}<div class="sai-msg">INV.xlsx แถว ${esc(i.ex.row.srcRow)} · Delivery quantity</div>` : (m.carton ? '' : '<span class="sai-e">ไม่พบ Delivery quantity</span>')}</td>
+          <td class="sai-num" data-qty="${i.qtyVal == null ? '' : i.qtyVal}">${i.qtyVal != null ? `${fmt(i.qtyVal, decs(i.qtyVal))}${i.qtyUnit ? ' ' + esc(i.qtyUnit) : ''}<div class="sai-msg">${i.ex ? `INV.xlsx แถว ${esc(i.ex.row.srcRow)} · Delivery quantity` : 'PDF · WEIGHT GROSS'}</div>` : (m.carton ? '' : '<span class="sai-e">ไม่พบ Delivery quantity</span>')}</td>
           <td><span class="sai-pill sai-${i.state === 'ok' ? 'ok' : 'bad'}">${i.state === 'ok' ? 'ผ่าน' : 'ไม่ผ่าน'}</span></td></tr>
           ${msgs ? `<tr class="sai-${i.state}r sai-msgr"><td></td><td colspan="9">${msgs}</td></tr>` : ''}`;
       });
