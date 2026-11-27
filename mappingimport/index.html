@@ -1563,38 +1563,39 @@ body.legacy-active .content-area { display: none !important; }
       <label class="doa-drop" id="sp-pdf-drop">
         <div class="dico">📄</div>
         <div class="dlabel">PDF Invoice</div>
-        <div class="dhint">Schaeffler Tax Invoice — เลือกได้หลายไฟล์ · AI อ่านทันที · รับ ZIP</div>
+        <div class="dhint">Schaeffler Tax Invoice — เลือกได้หลายไฟล์ · AI อ่านทันที · รับ ZIP / RAR</div>
         <div class="doa-file-list" id="sp-pdf-list"></div>
-        <input type="file" id="sp-pdf-input" accept=".pdf,.zip" multiple/>
+        <input type="file" id="sp-pdf-input" accept=".pdf,.zip,.rar" multiple/>
       </label>
       <label class="doa-drop" id="sp-inv-drop">
         <div class="dico">📊</div>
         <div class="dlabel">INVOICE CLC (.xls / .xlsx / .xlsm)</div>
         <div class="dhint">1 ไฟล์ — Sheet ที่มี Billing Document, Material, Billing qty</div>
         <div class="doa-file-list" id="sp-inv-list"></div>
-        <input type="file" id="sp-inv-input" accept=".xls,.xlsx,.xlsm,.zip" multiple/>
+        <input type="file" id="sp-inv-input" accept=".xls,.xlsx,.xlsm,.zip,.rar" multiple/>
       </label>
       <label class="doa-drop" id="sp-rm-drop">
         <div class="dico">📋</div>
         <div class="dlabel">RM (.xls / .xlsx / .xlsm)</div>
         <div class="dhint">Outbound Delivery + Part No. → ใบขนอ้างอิง</div>
         <div class="doa-file-list" id="sp-rm-list"></div>
-        <input type="file" id="sp-rm-input" accept=".xls,.xlsx,.xlsm,.zip" multiple/>
+        <input type="file" id="sp-rm-input" accept=".xls,.xlsx,.xlsm,.zip,.rar" multiple/>
       </label>
       <label class="doa-drop" id="sp-dwak-drop">
         <div class="dico">📙</div>
         <div class="dlabel">DWAK (.xlsx) — Optional</div>
         <div class="dhint">MASTER สำหรับตรวจสอบเท่านั้น · ไม่บังคับ · ไม่เปลี่ยนข้อมูล Mapping</div>
         <div class="doa-file-list" id="sp-dwak-list"></div>
-        <input type="file" id="sp-dwak-input" accept=".xls,.xlsx,.xlsm,.zip" multiple/>
+        <input type="file" id="sp-dwak-input" accept=".xls,.xlsx,.xlsm,.zip,.rar" multiple/>
       </label>
     </div>
     <div id="sp-ai-line" class="sp-ai-line" style="display:none"></div>
     <div id="sp-unk-panel" class="sp-unk-panel" style="display:none"></div>
+    <div id="sp-grp-panel" class="sp-grp-panel" style="display:none"></div>
     <div class="doa-row-actions">
       <button class="btn btn-primary" id="sp-btn-analyze" onclick="spAnalyze()" disabled style="display:none">Analyze</button>
-      <button class="btn btn-success" id="sp-btn-download" onclick="spDownload()" disabled>⬇ Export Excel</button>
-      <button class="btn btn-primary" id="sp-btn-check" onclick="spExportCheck()" disabled title="ต้อง Upload DWAK ก่อน">🔍 EXPORT ตรวจสอบ</button>
+      <button class="btn btn-success" id="sp-btn-download" onclick="spDownloadMain()" disabled>⬇ Export Excel</button>
+      <button class="btn btn-primary" id="sp-btn-check" onclick="spExportCheckMain()" disabled title="ต้อง Upload DWAK ก่อน">🔍 EXPORT ตรวจสอบ</button>
       <button class="btn btn-ghost" onclick="spReset()">ล้าง</button>
       <div style="flex:1"></div>
       <div class="doa-status" id="sp-status">รอไฟล์ — ต้องมี PDF + INVOICE CLC + RM</div>
@@ -15486,16 +15487,21 @@ function spSetStatus(msg, isErr){
 function spCheckReady(){
   /* [486] เดิมตรวจเพียง "มีไฟล์แนบครบ" → เปลี่ยนเป็น: ทุกไฟล์ที่จำเป็น "อ่านสำเร็จ" + Mapping ผ่าน Validation แล้ว (spState.result)
      ระหว่างอ่าน / อ่านไม่ครบ / Validation Fatal = ปิด EXPORT · INVOICE + RM ยังบังคับตามเดิม (RM = MASTER ของ output) */
-  const P = spState.pdf || [];
+  const P = spInvPdfs();   /* [489] ไม่นับเอกสารประกอบที่ AI ยืนยันว่าไม่ใช่ Tax Invoice */
   const readOk = P.length > 0 && P.every(spFileOk) && spFileOk(spState.inv) && spFileOk(spState.rm);
-  const busy = spRd.running || spRd.mapping || spRd.intake > 0;
-  const ready = readOk && !busy && Array.isArray(spState.result) && spState.result.length > 0;
+  const busy = spRd.running || spRd.mapping || spRd.intake > 0 || !!spRd.scope;
+  const G = spRd.groups;
+  const ready = spMulti()
+    ? (readOk && !busy && G.length > 0 && G.every(g => g.ok))                       /* [489] หลายชุดเอกสาร: ทุกชุดต้องผ่าน Mapping */
+    : (readOk && !busy && Array.isArray(spState.result) && spState.result.length > 0);
   const a=document.getElementById('sp-btn-analyze'); if(a) a.disabled=!(readOk && !busy);
   const dl=document.getElementById('sp-btn-download'); if(dl && dl.dataset.busy!=='1') dl.disabled=!ready;
   /* ★ ปุ่ม EXPORT ตรวจสอบ เปิดเมื่อ Mapping ผ่านแล้ว + DWAK อ่านสำเร็จ */
   const ck=document.getElementById('sp-btn-check');
-  if(ck && ck.dataset.busy!=='1'){ ck.disabled = !(ready && spFileOk(spState.dwak));
+  if(ck && ck.dataset.busy!=='1'){ ck.disabled = !((spMulti() ? (readOk && !busy && !!spActiveGroup() && spActiveGroup().ok) : ready) && spFileOk(spState.dwak));
           ck.title = spState.dwak ? 'ตรวจ Mapping ที่สร้างแล้วกับ DWAK (MASTER)' : 'กรุณา Upload DWAK'; }
+  if(dl && dl.dataset.busy!=='1') dl.title = spMulti() ? 'สร้างไฟล์แยกตามชุดเอกสาร (1 ZIP ต่อ Container) — ทุกชุดต้องผ่าน Mapping' : '';
+  spRenderGroups();
 }
 const SP_SLOT = { 'sp-inv-list':'inv', 'sp-rm-list':'rm', 'sp-dwak-list':'dwak' };
 const SP_SLOT_LIST = { inv:'sp-inv-list', rm:'sp-rm-list', dwak:'sp-dwak-list' };
@@ -15720,7 +15726,7 @@ async function spReadInvoice(file){
       }
     }
   }
-  return rows;
+  return spScopeClc(rows);   /* [489] ไม่มีชุดเอกสาร = คืนทุกแถวตามเดิม */
 }
 
 /* ── อ่านค่า Incoterms จากไฟล์ INVOICE CLC (หัวข้อ "Incoterms" เป๊ะ · ค่าใต้/ขวา/merge) ──
@@ -15833,7 +15839,7 @@ async function spReadRm(file){
       refent: col.refent>=0 ? String(r[col.refent]||'').trim() : ''
     });
   }
-  return rows;
+  return spScopeRm(rows);   /* [489] ไม่มีชุดเอกสาร = คืนทุกแถวตามเดิม */
 }
 
 /* ── Match key normalize: "52745911" / "0052745911" → "52745911" (strip leading zeros) ── */
@@ -16061,7 +16067,7 @@ const SP_AI_MAXMS = 9 * 60 * 1000, SP_AI_MAXBYTES = 8 * 1024 * 1024;
    ไฟล์ที่ไม่เกินเกณฑ์อ่านทั้งไฟล์ในคำขอเดียวตามเดิม (Cache เดิมยังใช้ได้) */
 const SP_SPLIT = { bytes: 7 * 1024 * 1024, pages: 30, partPages: 12, partBytes: 6 * 1024 * 1024 };
 const SP_AI_CHECKS = { function:'Edge Function', session:'Session / สิทธิ์ผู้ใช้', api_key:'ANTHROPIC_API_KEY', jobs:'ตาราง nj_ai_jobs', cost_guard:'ระบบ COST GUARD', budget:'วงเงินคงเหลือ' };
-const spRd = { seq:0, running:false, mapping:false, intake:0, tried:false, probe:null, probing:null, unk:[], clcSheet:'', rmSheet:'' };
+const spRd = { seq:0, running:false, mapping:false, intake:0, tried:false, groups:[], active:'', scope:null, pkl:[], junk:0, singleScope:false, clcNoPdf:null, probe:null, probing:null, unk:[], clcSheet:'', rmSheet:'' };
 function spEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function spMeta(f){ if(!f) return null; if(!f._sp) f._sp = { st:'wait', msg:'', pages:0, n:0, sec:0, list:null, ai:null, cached:false, by:'', warn:[], sheet:'' }; return f._sp; }
 function spFileOk(f){ return !!(f && f._sp && f._sp.st === 'ok'); }
@@ -16308,6 +16314,190 @@ function spAiMerge(parts, N){
            read_by: anyOpus ? 'claude-opus-5-5' : 'claude-sonnet-5-5', recheck:{ done:false, model: reasons.length ? 'claude-opus-5-5' : null, reasons, note },
            warnings: warn, parts: parts.length, merged:true };
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   [489] FZ AKO 2 — ชุดเอกสาร (Container) · เอกสารประกอบ · ปุ่ม EXPORT หลัก
+   • ชุดเดียว (PDF ทั้งหมดอยู่ชุดเดียว / แนบตรง) = พฤติกรรมเดิมทุกประการ
+   • หลายชุด = Mapping / Export แยกทีละชุด ด้วยฟังก์ชันเดิม (spComputeMapping · spDownload · spExportCheck)
+     ข้อมูลที่ส่งเข้า Mapping ถูกจำกัดเฉพาะของชุดนั้น: PDF ของชุด · แถว CLC ที่ Billing Document อยู่ในชุด · แถว RM ที่ DN อยู่ในชุด
+     ยอด Total GW / Total Pallet ท้าย CLC เป็นยอดของทั้งไฟล์ → ไม่ใส่ลงไฟล์ของชุดย่อย (เว้นว่างตามกฎเดิม "ไม่มีค่า = เว้นว่าง ห้ามเดา")
+   ══════════════════════════════════════════════════════════════════════════ */
+const spNormDn = v => { let t = String(v == null ? '' : v).trim(); if(/\.0$/.test(t)) t = t.slice(0, -2); t = t.replace(/^0+/, ''); return t; };
+function spInvPdfs(){ return (spState.pdf || []).filter(f => spMeta(f).st !== 'doc'); }
+function spIsNotInvoice(msg){
+  const t = String(msg || '');
+  return /ไม่พบ Invoice ใน PDF/.test(t) && !/· Opus:|อ่านได้ \d+\/\d+ หน้า|ไม่ได้รายงานจำนวนหน้า|AI รายงาน \d+ หน้า/.test(t);
+}
+function spMulti(){ return Array.isArray(spRd.groups) && (spRd.groups.length >= 2 || (spRd.singleScope && spRd.groups.length === 1)); }
+function spActiveGroup(){ return (spRd.groups || []).find(g => g.key === spRd.active) || null; }
+function spGroupsBuild(){
+  const map = new Map();
+  for(const f of (spState.pdf || [])){
+    const m = spMeta(f);
+    if(m.st !== 'ok' || !Array.isArray(m.list) || !m.list.length) continue;
+    const k = f._spGrp || '';
+    if(!map.has(k)) map.set(k, { key:k, label: spGrpLabel(k), files:[], invs:new Set(), dlvs:new Set(), issues:[], warns:[], ok:false, err:'', rows:0, excl:[], gwCleared:false, gwAll:null, palAll:null, xc:null });
+    const g = map.get(k); g.files.push(f);
+    for(const it of m.list){ g.invs.add(String(it.invoice == null ? '' : it.invoice).trim()); if(it.deliveryNo) g.dlvs.add(spNormDn(it.deliveryNo)); }
+  }
+  return [...map.values()];
+}
+function spGroupCheck(g, G){
+  g.issues = []; g.warns = [];
+  for(const inv of g.invs){
+    const o = G.filter(h => h !== g && h.invs.has(inv));
+    if(o.length) g.issues.push('Invoice ' + inv + ' อยู่ในชุดเอกสารอื่นด้วย (' + o.map(h => h.label).join(', ') + ') — ห้ามนำข้อมูลต่าง Container มาปะปนกัน');
+  }
+  const pk = spRd.pkl.filter(p => p.grp === g.key);
+  if(pk.length){
+    const pkDn = new Set(); pk.forEach(p => p.dns.forEach(d => pkDn.add(spNormDn(d))));
+    for(const d of pkDn) if(!g.dlvs.has(d)){
+      const o = G.find(h => h !== g && h.dlvs.has(d));
+      g.issues.push(o ? 'Packing List ของชุดนี้มี DN ' + d + ' แต่ Tax Invoice ของ DN นี้อยู่ในชุด ' + o.label + ' — เอกสารต่าง Container ปะปนกัน'
+                      : 'Packing List ของชุดนี้มี DN ' + d + ' แต่ไม่มี Tax Invoice ของ DN นี้ในชุด — เอกสารไม่ครบ');
+    }
+    for(const d of g.dlvs) if(!pkDn.has(d)) g.warns.push('DN ' + d + ' ของ Tax Invoice ในชุดนี้ ไม่มีใน Packing List ของชุดเดียวกัน');
+  }
+}
+async function spWithScope(g, fn){
+  const prev = spRd.scope;
+  spRd.scope = g ? { files: new Set(g.files), invs: g.invs, pdfDlvs: g.dlvs, dlvs: null, excl: new Set(), gwCleared:false, gwAll:null, palAll:null } : null;
+  const sc = spRd.scope;
+  try{ return await fn(); }
+  finally{
+    if(g && sc){ g.excl = [...sc.excl].filter(Boolean).sort(); g.gwCleared = sc.gwCleared; g.gwAll = sc.gwAll; g.palAll = sc.palAll; }
+    spRd.scope = prev;
+    spCheckReady();
+  }
+}
+/* เรียกจากท้าย spReadInvoice — ไม่มีชุดเอกสาร = คืนค่าเดิมทุกแถว */
+function spScopeClc(rows){
+  const sc = spRd.scope; if(!sc) return rows;
+  const keep = [];
+  for(const r of rows){ const b = String(r.billing == null ? '' : r.billing).trim(); if(sc.invs.has(b)) keep.push(r); else sc.excl.add(b); }
+  if(keep.length !== rows.length){
+    sc.gwAll = SP_CLC_SUMMARY.gw; sc.palAll = SP_CLC_SUMMARY.pallet;
+    SP_CLC_SUMMARY.gw = null; SP_CLC_SUMMARY.pallet = null; sc.gwCleared = true;   /* ยอดท้าย CLC เป็นของทั้งไฟล์ ไม่ใช่ของชุดนี้ */
+  }
+  sc.dlvs = new Set(sc.pdfDlvs);
+  for(const r of keep) if(r.refdoc) sc.dlvs.add(spNormDn(r.refdoc));
+  return keep;
+}
+/* เรียกจากท้าย spReadRm — ไม่มีชุดเอกสาร = คืนค่าเดิมทุกแถว (Allocation เดิมไม่ข้าม Delivery อยู่แล้ว) */
+function spScopeRm(rows){
+  const sc = spRd.scope; if(!sc) return rows;
+  const D = sc.dlvs || sc.pdfDlvs;
+  return rows.filter(r => D.has(spNormDn(r.outbound)));
+}
+function spPklOf(key){ return spRd.pkl.filter(p => p.grp === key); }
+function spPklTxt(p){ return (p.packNo ? 'Packing ' + p.packNo : p.file.name) + ' · DN ' + p.dns.join(', ') + (p.pallets != null ? ' · ' + p.pallets + ' Pallet' : '') + (p.gw != null ? ' · GW ' + p.gw.toLocaleString('en-US', { maximumFractionDigits:3 }) + ' KG' : ''); }
+function spGroupStatus(){
+  const G = spRd.groups || []; if(!spMulti()) return;
+  const all = new Set(); G.forEach(g => g.invs.forEach(v => all.add(v)));
+  const noPdf = new Set(); G.forEach(g => g.excl.forEach(v => { if(!all.has(v)) noPdf.add(v); }));
+  const okN = G.filter(g => g.ok).length;
+  spSetStatus((okN === G.length ? '✓ Mapping ผ่านครบ ' : '✕ Mapping ผ่าน ' + okN + '/') + G.length + ' ชุดเอกสาร (แยกตาม Container — ห้ามปะปนกัน) · EXPORT EXCEL ได้ 1 ZIP ต่อชุด'
+    + G.map(g => '\n' + (g.ok ? '✓ ' : '✕ ') + g.label + ' — Invoice ' + [...g.invs].join(', ') + (g.ok ? ' · ' + g.rows + ' rows' : ' — ' + String(g.err).split('\n').slice(0, 3).join(' / '))).join('')
+    + (noPdf.size ? '\nℹ INVOICE CLC มี Invoice ที่ไม่มี PDF ในชุดใดเลย (ไม่นำมาใช้): ' + [...noPdf].sort().join(', ') : ''), okN !== G.length);
+}
+/* ชุดเดียว: Mapping ไม่ผ่าน และ CLC มี Invoice ที่ไม่มี PDF ทั้งฉบับ → เสนอทางเลือกให้ผู้ใช้ "ยืนยัน" จำกัดเฉพาะ Invoice ที่มี PDF (ไม่ทำเอง) */
+async function spFindClcNoPdf(){
+  spRd.clcNoPdf = null;
+  try{
+    const have = new Set(); spInvPdfs().forEach(f => (spMeta(f).list || []).forEach(it => have.add(String(it.invoice).trim())));
+    if(!have.size || !spState.inv) return;
+    const rows = await spReadInvoice(spState.inv);
+    const miss = [...new Set(rows.map(r => String(r.billing == null ? '' : r.billing).trim()).filter(b => b && !have.has(b)))].sort();
+    if(miss.length) spRd.clcNoPdf = { miss, have:[...have].sort() };
+  }catch(_){ spRd.clcNoPdf = null; }
+  spRenderGroups();
+}
+function spUseScopeOnly(){
+  if(!spRd.clcNoPdf) return;
+  spInvalidate(); spRd.singleScope = true;
+  spAfterRead();
+}
+function spGroupPick(i){
+  const g = (spRd.groups || [])[i]; if(!g || spRd.mapping || spRd.scope) return;
+  spRd.active = g.key;
+  spWithScope(g, () => spAnalyze()).then(spGroupStatus);
+}
+async function spGroupExport(i, what){
+  const g = (spRd.groups || [])[i]; if(!g || !g.ok || spRd.mapping || spRd.scope) return;
+  spRd.active = g.key;
+  await spWithScope(g, () => what === 'check' ? spExportCheck() : spDownload());
+}
+async function spDownloadMain(){
+  if(!spMulti()) return spDownload();                      /* ชุดเดียว = เดิมทุกประการ */
+  const G = (spRd.groups || []).filter(g => g.ok), done = [];
+  for(const g of G){
+    await spWithScope(g, () => spDownload());
+    const el = document.getElementById('sp-status');
+    done.push((/\berr\b/.test(el.className) ? '✕ ' : '✓ ') + g.label + ' — ' + el.textContent.replace(/\s+/g, ' ').slice(0, 220));
+  }
+  spSetStatus('EXPORT EXCEL แยกตามชุดเอกสาร ' + G.length + ' ชุด:\n' + done.join('\n'), done.some(t => t[0] === '✕'));
+}
+async function spExportCheckMain(){
+  if(!spMulti()) return spExportCheck();
+  const g = spActiveGroup(); if(!g || !g.ok) return;
+  await spWithScope(g, () => spExportCheck());
+}
+window.spDownloadMain = spDownloadMain; window.spExportCheckMain = spExportCheckMain;
+function spRemovePkl(i){ spRd.pkl.splice(i, 1); spInvalidate(); spAfterRead(); }
+function spRenderGroups(){
+  const el = document.getElementById('sp-grp-panel'); if(!el) return;
+  const P = spState.pdf || [], keys = [];
+  P.forEach(f => { const k = f._spGrp || ''; if(keys.indexOf(k) < 0) keys.push(k); });
+  spRd.pkl.forEach(p => { if(keys.indexOf(p.grp) < 0) keys.push(p.grp); });
+  const multi = spMulti(), docs = P.filter(f => spMeta(f).st === 'doc');
+  const show = multi || docs.length || spRd.pkl.length || keys.some(Boolean) || spRd.clcNoPdf || spRd.junk;
+  if(!show){ el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = '';
+  const busy = spRd.running || spRd.mapping || spRd.intake > 0 || !!spRd.scope;
+  const dwakOk = spFileOk(spState.dwak);
+  const G = spRd.groups || [];
+  let h = '';
+  if(spRd.junk) h += '<div class="sp-grp-note">ℹ ข้ามไฟล์ระบบในไฟล์บีบอัด ' + spRd.junk + ' ไฟล์ (__MACOSX / Thumbs.db / ไฟล์ล็อก ~$) — ไม่ใช่เอกสาร</div>';
+  if(spRd.clcNoPdf && !multi){
+    const c = spRd.clcNoPdf;
+    h += '<div class="sp-grp-note">ℹ INVOICE CLC มี Invoice ที่ไม่มี PDF ในชุดนี้ ' + c.miss.length + ' Invoice: ' + spEsc(c.miss.join(', '))
+      + '\nถ้า Invoice เหล่านี้เป็นของ Shipment / Container อื่น สามารถจำกัด Mapping เฉพาะ Invoice ที่มี PDF (' + spEsc(c.have.join(', ')) + ') — แถว RM ใช้เฉพาะ DN ของ Invoice เหล่านี้ · Gross W. / Package เว้นว่าง (ยอดท้าย CLC เป็นของทั้งไฟล์)'
+      + '<button type="button" onclick="spUseScopeOnly()"' + (busy ? ' disabled' : '') + '>Mapping เฉพาะ Invoice ที่มี PDF</button></div>';
+  }
+  keys.forEach(k => {
+    const g = G.find(x => x.key === k), gi = G.indexOf(g);
+    const files = P.filter(f => (f._spGrp || '') === k), inv = files.filter(f => spMeta(f).st !== 'doc'), dc = files.filter(f => spMeta(f).st === 'doc');
+    const pk = spPklOf(k);
+    const cls = multi && g ? (g.ok ? 'ok' : (g.err ? 'bad' : '')) : '';
+    h += '<div class="sp-grp ' + cls + (multi && g && g.key === spRd.active ? ' active' : '') + '" data-grp="' + spEsc(k) + '">'
+      + '<div class="sp-grp-h">📦 ' + spEsc(spGrpLabel(k)) + (multi ? '' : (k ? ' <span class="sp-grp-sub">(ชุดเอกสาร)</span>' : '')) + '</div>'
+      + (inv.length ? '<div class="sp-grp-sub">Tax Invoice ' + inv.length + ' ไฟล์: ' + inv.map(f => { const m = spMeta(f); return spEsc(f.name) + (m.st === 'ok' ? ' (' + m.pages + ' หน้า / ' + m.n + ' รายการ)' : m.st === 'err' ? ' (อ่านไม่สำเร็จ)' : ' (กำลังอ่าน)'); }).join(' · ') + '</div>' : '')
+      + (pk.length ? '<div class="sp-grp-sub">Packing List ' + pk.length + ' ไฟล์ (เอกสารประกอบ · ใช้ตรวจความครบ): ' + pk.map(p => spEsc(spPklTxt(p)) + ' <button type="button" class="drm" style="border:none;background:none;color:#b91c1c;cursor:pointer" onclick="spRemovePkl(' + spRd.pkl.indexOf(p) + ')">×</button>').join(' · ')
+          + (pk.length > 1 ? ' — รวม ' + pk.reduce((a, p) => a + (p.pallets || 0), 0) + ' Pallet · GW ' + pk.reduce((a, p) => a + (p.gw || 0), 0).toLocaleString('en-US', { maximumFractionDigits:3 }) + ' KG' : '') + '</div>' : '')
+      + (dc.length ? '<div class="sp-grp-sub">เอกสารประกอบ (AI ยืนยันไม่ใช่ Tax Invoice): ' + dc.map(f => spEsc(f.name)).join(' · ') + '</div>' : '');
+    if(multi && g){
+      h += '<div class="sp-grp-st">' + (g.ok ? '✓ Mapping ผ่าน — ' + g.rows + ' rows' : g.err ? '✕ ' + spEsc(g.err) : 'รอ Mapping') + '</div>';
+      const w = g.warns.slice();
+      if(g.excl.length){ const all = new Set(); G.forEach(x => x.invs.forEach(v => all.add(v)));
+        const own = g.excl.filter(v => !all.has(v)), oth = g.excl.filter(v => all.has(v));
+        if(oth.length) w.push('แถว INVOICE CLC ของ Invoice ในชุดอื่น (' + oth.join(', ') + ') ไม่นำมาใช้กับชุดนี้');
+        if(own.length) w.push('INVOICE CLC มี Invoice ที่ไม่มี PDF ในชุดใดเลย (' + own.join(', ') + ') — ไม่นำมาใช้'); }
+      if(g.gwCleared){ const pt = pk.length ? ' · Packing List ของชุดนี้: ' + pk.reduce((a, p) => a + (p.pallets || 0), 0) + ' Pallet · GW ' + pk.reduce((a, p) => a + (p.gw || 0), 0).toLocaleString('en-US', { maximumFractionDigits:3 }) + ' KG (ใช้อ้างอิง — ไม่ได้เขียนลง Excel)' : '';
+        w.push('Gross W. / Package ในไฟล์ Excel ของชุดนี้เว้นว่าง: ยอดท้าย CLC (' + (g.gwAll != null ? 'GW ' + g.gwAll.toLocaleString('en-US', { maximumFractionDigits:3 }) + ' KG' : 'GW -') + (g.palAll != null ? ' · ' + g.palAll + ' Pallet' : '') + ') เป็นยอดของทั้งไฟล์ CLC ไม่ใช่ของชุดนี้' + pt); }
+      if(w.length) h += '<div class="sp-grp-w">⚠ ' + spEsc(w.join('\n⚠ ')) + '</div>';
+      h += '<div class="sp-grp-btns"><button type="button" onclick="spGroupPick(' + gi + ')"' + (busy ? ' disabled' : '') + '>ดูตัวอย่าง</button>'
+        + '<button type="button" onclick="spGroupExport(' + gi + ')"' + (busy || !g.ok ? ' disabled' : '') + '>⬇ Export Excel ชุดนี้</button>'
+        + '<button type="button" onclick="spGroupExport(' + gi + ',\'check\')"' + (busy || !g.ok || !dwakOk ? ' disabled' : '') + ' title="' + (dwakOk ? 'ตรวจกับ DWAK' : 'กรุณา Upload DWAK') + '">🔍 EXPORT ตรวจสอบ ชุดนี้</button></div>';
+    } else if(!multi && pk.length){
+      const pkDn = new Set(); pk.forEach(p => p.dns.forEach(d => pkDn.add(spNormDn(d))));
+      const invDn = new Set(); inv.forEach(f => (spMeta(f).list || []).forEach(it => it.deliveryNo && invDn.add(spNormDn(it.deliveryNo))));
+      const w = []; if(inv.length && inv.every(f => spMeta(f).st === 'ok')){ pkDn.forEach(d => { if(!invDn.has(d)) w.push('Packing List มี DN ' + d + ' แต่ไม่มี Tax Invoice ของ DN นี้'); }); }
+      if(w.length) h += '<div class="sp-grp-w">⚠ ' + spEsc(w.join('\n⚠ ')) + '</div>';
+    }
+    h += '</div>';
+  });
+  el.innerHTML = h;
+}
 /* จำนวนตามที่พิมพ์ → number : "600" / "1,200" ใช้กฎเดิม (spNum) · รูปแบบอื่นใช้กฎตัวคั่นของ spNumPdf */
 function spAiQty(t){
   const v = String(t == null ? '' : t).trim().replace(/\s/g, '');
@@ -16423,6 +16613,9 @@ async function spAiRun(){
         m.st = 'err'; m.list = null; m.ai = null; m.retry = false; m.risk = false;
         m.aiDown = !!(e && e.spNet);
         m.msg = (e && e.message) ? e.message : String(e);
+        /* [489] AI อ่านครบทุกหน้าและ Opus ตรวจซ้ำแล้ว "ไม่พบ Tax Invoice" = เอกสารประกอบ (เช่น Booking Confirmation · Information on Export)
+           → ไม่ใช้ใน Mapping และไม่บล็อก EXPORT · ถ้า Opus ตรวจซ้ำไม่สำเร็จ / อ่านไม่ครบทุกหน้า = ยังเป็น "อ่านไม่สำเร็จ" ตามเดิม */
+        if(!m.aiDown && spIsNotInvoice(m.msg)){ m.st = 'doc'; }
         try{ console.warn('[FZ AKO 2] AI อ่านไม่สำเร็จ', f.name, m.msg); }catch(_){}
       }
       spRenderPdfList();
@@ -16432,6 +16625,7 @@ async function spAiRun(){
 }
 /* อ่านไฟล์ Excel ของช่อง inv / rm / dwak ทันทีที่แนบ (อ่านเซลล์โดยตรง) */
 async function spReadSlot(key){
+  while(spRd.scope) await new Promise(r => setTimeout(r, 120));   /* [489] */
   const f = spState[key]; if(!f) return;
   const m = spMeta(f);
   m.st = 'run'; m.msg = ''; m.n = 0;
@@ -16448,7 +16642,7 @@ async function spReadSlot(key){
 function spRetrySlot(key){ if(spState[key]){ if(key !== 'dwak') spInvalidate(); spReadSlot(key); } }
 function spRetryPdf(i){
   const f = (spState.pdf || [])[i]; if(!f) return;
-  const m = spMeta(f); if(m.st !== 'err') return;
+  const m = spMeta(f); if(m.st !== 'err' && m.st !== 'doc') return;
   /* [487] Retry = อ่าน PDF ไฟล์นี้ใหม่จริง: ตรวจ AI ใหม่ → ส่ง PDF ใหม่ · ไม่ต้อง Upload ใหม่ · CLC / RM ที่อ่านสำเร็จแล้วคงเดิม */
   m.st = 'wait'; m.msg = ''; m.retry = true; m.aiDown = false; m.sec = 0;
   spRenderPdfList(); spAiRun();
@@ -16464,7 +16658,8 @@ function spStText(f, kind){
   if(m.st === 'run')  return kind === 'pdf' ? 'กำลังอ่านด้วย AI' + (m.pages ? ' · ทั้งไฟล์ ' + m.pages + ' หน้า' : '') + sec : 'กำลังอ่าน Excel…';
   if(m.st === 'opus') return 'กำลังตรวจสอบด้วย Opus' + (m.pages ? ' · ทั้งไฟล์ ' + m.pages + ' หน้า' : '') + sec;
   if(m.st === 'err')  return 'อ่านไม่สำเร็จ — ' + (m.msg || 'ไม่ทราบสาเหตุ');
-  const P = spState.pdf || [];
+  if(m.st === 'doc')  return 'เอกสารประกอบ — AI อ่านครบ ' + (m.pages || '?') + ' หน้า (Sonnet + Opus ตรวจซ้ำ) ไม่พบ Tax Invoice · ไม่ใช้ใน Mapping · ถ้าไฟล์นี้เป็น Tax Invoice ให้กด ↻ อ่านใหม่';
+  const P = spInvPdfs();
   const waitMap = kind !== 'dwak' && !(P.length > 0 && P.every(spFileOk) && spFileOk(spState.inv) && spFileOk(spState.rm));
   return (kind === 'pdf'
       ? ((m.opusFail || m.risk) ? 'อ่านแล้ว (มี WARNING) — ' : 'อ่านสำเร็จ — ') + m.pages + ' หน้า / ' + m.n + ' รายการ' + (m.nParts ? ' · อ่าน ' + m.nParts + ' ชุดหน้า' : '') + (/opus/i.test(m.by) ? ' · ตรวจซ้ำด้วย Opus แล้ว' : '') + (m.cached ? ' · ใช้ผลเดิมจาก Cache' : '')
@@ -16475,12 +16670,14 @@ function spStText(f, kind){
 /* ไฟล์เปลี่ยน / ถูกลบ → ล้างผล Mapping ที่เกี่ยวข้องทันที (กันข้อมูลเก่าปะปน) */
 function spInvalidate(){
   spRd.seq++; spRd.tried = false;
+  spRd.groups = []; spRd.clcNoPdf = null; spRd.singleScope = false;   /* [489] ผลตามชุดเอกสารเดิมใช้ไม่ได้แล้ว */
   spState.result = null; spState.crossCheck = null; spState.pdfItems = null;
   const xp = document.getElementById('sp-xc-panel'); if(xp){ xp.style.display = 'none'; xp.innerHTML = ''; }
   const pp = document.getElementById('sp-preview-panel'); if(pp) pp.style.display = 'none';
   const rc = document.getElementById('sp-rm-check'); if(rc) rc.textContent = '';
 }
 function spRenderAll(){
+  spRenderGroups();
   spRenderPdfList();
   for(const k in SP_SLOT_LIST) spRenderFile(spState[k], SP_SLOT_LIST[k]);
   spRenderUnk();
@@ -16489,8 +16686,8 @@ function spRenderAll(){
 function spAfterRead(){
   spRenderAll(); spCheckReady();
   if(spRd.mapping) return;
-  const P = spState.pdf || [], need = P.concat([spState.inv, spState.rm]).filter(Boolean);
-  const busy = spRd.running || spRd.intake > 0 || need.some(f => ['wait','run','opus'].indexOf(spMeta(f).st) >= 0);
+  const P = spInvPdfs(), need = (spState.pdf || []).concat([spState.inv, spState.rm]).filter(Boolean);
+  const busy = spRd.running || spRd.intake > 0 || !!spRd.scope || need.some(f => ['wait','run','opus'].indexOf(spMeta(f).st) >= 0);
   if(busy){ spSetStatus('กำลังอ่านไฟล์… ปุ่ม EXPORT จะเปิดเมื่ออ่านครบทุกไฟล์และ Mapping ผ่านการตรวจสอบ'); return; }
   const bad = need.filter(f => spMeta(f).st === 'err');
   if(bad.length){ spSetStatus('อ่านไม่สำเร็จ ' + bad.length + ' ไฟล์ — กด ↻ Retry ที่ไฟล์นั้น หรือลบแล้วแนบใหม่ (EXPORT ปิดอยู่)\n' + bad.map(f => '• ' + f.name + ' — ' + (spMeta(f).msg || 'ไม่ทราบสาเหตุ')).join('\n'), true); return; }
@@ -16502,7 +16699,30 @@ async function spAutoMap(){
   if(spRd.mapping) return;
   const seq = spRd.seq;
   spRd.mapping = true; spRd.tried = true; spCheckReady();
-  try{ await spAnalyze(); }
+  try{
+    /* [489] PDF Tax Invoice มาจาก "ชุดเอกสาร" มากกว่า 1 ชุด (เช่น ZIP แยกตาม Container) → Mapping แยกทีละชุด
+       ใช้ spComputeMapping เดิมทุกบรรทัด · จำกัดเฉพาะข้อมูลของชุดนั้น (PDF · แถว CLC ของ Invoice ในชุด · แถว RM ของ DN ในชุด)
+       ชุดเดียว = พฤติกรรมเดิมทุกประการ */
+    const G = spGroupsBuild(); spRd.groups = G;
+    if(spMulti()){
+      G.forEach(g => spGroupCheck(g, G));
+      for(const g of G){
+        if(seq !== spRd.seq) break;
+        if(g.issues.length){ g.ok = false; g.err = g.issues.join('\n'); continue; }
+        try{ const c = await spWithScope(g, () => spComputeMapping()); g.ok = true; g.rows = c.result.length; g.err = ''; }
+        catch(e){ g.ok = false; g.err = (e && e.message) ? e.message : String(e); }
+        g.xc = spState.crossCheck ? { fatal: spState.crossCheck.fatalCount, counts: spState.crossCheck.counts } : null;
+      }
+      if(seq === spRd.seq){
+        const a = spActiveGroup() || G.find(g => g.ok) || G[0]; spRd.active = a.key;
+        await spWithScope(a, () => spAnalyze());     /* แสดงตัวอย่าง / ผลตรวจของชุดที่เลือก ด้วยตัวแสดงผลเดิม */
+        spGroupStatus();
+      }
+    } else {
+      await spAnalyze();
+      if(!spState.result && seq === spRd.seq) await spFindClcNoPdf();
+    }
+  }
   finally{
     spRd.mapping = false;
     const stale = seq !== spRd.seq;                         // ไฟล์เปลี่ยนระหว่างประมวลผล → ทิ้งผลชุดเก่า
@@ -16513,24 +16733,88 @@ async function spAutoMap(){
 }
 /* ── รับไฟล์: หลายไฟล์ / ZIP (มีโฟลเดอร์ย่อย) — จำแนกจากเนื้อหาจริง · จำแนกไม่ได้ = แจ้งชื่อไฟล์ให้ผู้ใช้เลือก (ไม่ข้ามเงียบ) ── */
 const SP_ZIP_JUNK = /(^|\/)(__MACOSX\/|\._|\.DS_Store$|Thumbs\.db$|desktop\.ini$|~\$)/i;   // ไฟล์ระบบ / ไฟล์ล็อกของ Office — ไม่ใช่เอกสาร
-async function spUnzip(file, depth){
-  const out = [];
-  let z;
-  try{ if(typeof JSZip === 'undefined') throw new Error('no JSZip'); z = await JSZip.loadAsync(await file.arrayBuffer()); }
-  catch(_){ spRd.unk.push({ file, why:'เปิดไฟล์ ZIP ไม่ได้ (ไฟล์เสียหายหรือมีรหัสผ่าน)', fixed:true }); return out; }
-  const names = Object.keys(z.files).filter(n => !z.files[n].dir && !SP_ZIP_JUNK.test(n)).sort();
-  for(const n of names){
-    const base = n.split('/').pop();
-    const ext = (base.match(/\.([A-Za-z0-9]+)$/) || [,''])[1].toLowerCase();
-    const type = ext === 'pdf' ? 'application/pdf' : '';
-    let f;
-    try{ f = new File([await z.files[n].async('arraybuffer')], base, { type }); }
-    catch(_){ spRd.unk.push({ file:{ name:base }, why:'แตกไฟล์ออกจาก ZIP ไม่ได้ (' + file.name + ')', fixed:true }); continue; }
-    if(ext === 'zip' && (depth || 0) < 2) out.push.apply(out, await spUnzip(f, (depth || 0) + 1));
-    else out.push(f);
+/* [489] แตก ZIP / RAR / RAR5 ซ้อนกันได้หลายชั้น จนถึงไฟล์เอกสารจริง
+   ทุกไฟล์ได้ _spPath = เส้นทางต้นฉบับ และ _spGrp = "ชุดเอกสาร" (โฟลเดอร์ / ไฟล์บีบอัดชั้นในสุดที่ไฟล์อยู่)
+   ไฟล์ระบบ (__MACOSX / Thumbs.db / ~$…) ไม่ใช่เอกสาร — ข้ามและแจ้งจำนวน · ไฟล์อื่นทุกไฟล์ต้องถูกใช้หรือแจ้งเตือน */
+const SP_ARC = /\.(zip|rar)$/i, SP_ARC_MAX = 4;
+const SP_UNRAR_SRC = 'vendor/nj-unrar-2.0.2.js';
+let _spUnrarP = null;
+function spLoadUnrar(){
+  if(window.NJUnrar) return Promise.resolve(window.NJUnrar);
+  if(_spUnrarP) return _spUnrarP;
+  _spUnrarP = new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = SP_UNRAR_SRC + '?v=' + encodeURIComponent(typeof DEPLOY_VERSION !== 'undefined' ? DEPLOY_VERSION : '');
+    sc.async = true;
+    sc.onload  = () => window.NJUnrar ? res(window.NJUnrar) : rej(new Error('โหลดตัวแตกไฟล์ RAR ไม่สำเร็จ'));
+    sc.onerror = () => rej(new Error('ไม่พบตัวแตกไฟล์ RAR (' + SP_UNRAR_SRC + ') — ตรวจว่าอัปโหลดโฟลเดอร์ vendor จาก Deploy ZIP ครบ'));
+    document.head.appendChild(sc);
+  });
+  _spUnrarP.catch(() => { _spUnrarP = null; });
+  return _spUnrarP;
+}
+const spSegName = n => String(n || '').replace(SP_ARC, '').trim();
+function spGrpLabel(k){ return k ? String(k).split(' › ').pop() : 'ไฟล์ที่แนบโดยตรง'; }
+async function spUnpack(file, chain, depth){
+  const out = [], isRar = /\.rar$/i.test(file.name), kind = isRar ? 'RAR' : 'ZIP';
+  let entries = [];
+  try{
+    if(isRar){
+      const U = await spLoadUnrar();
+      const x = await U.extract(await file.arrayBuffer());
+      entries = x.entries.map(e => ({ path: String(e.name).replace(/\\/g, '/'), get: async () => e.data, enc: e.encrypted }));
+    } else {
+      if(typeof JSZip === 'undefined') throw new Error('ตัวแตกไฟล์ ZIP ยังไม่พร้อม');
+      const z = await JSZip.loadAsync(await file.arrayBuffer());
+      entries = Object.keys(z.files).filter(n => !z.files[n].dir).map(n => ({ path: n, get: () => z.files[n].async('arraybuffer') }));
+    }
+  }catch(e){
+    spRd.unk.push({ file, why: 'เปิดไฟล์ ' + kind + ' ไม่ได้ — ' + ((e && e.message) || 'ไฟล์เสียหายหรือมีรหัสผ่าน'), fixed:true });
+    return out;
   }
-  if(!names.length) spRd.unk.push({ file, why:'ZIP ไม่มีไฟล์เอกสารอยู่ภายใน', fixed:true });
+  entries.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+  let docs = 0;
+  for(const en of entries){
+    if(SP_ZIP_JUNK.test(en.path)){ spRd.junk++; continue; }
+    const seg = en.path.split('/').filter(Boolean), base = seg.pop();
+    if(!base) continue;
+    docs++;
+    const ch = chain.concat([spSegName(file.name)], seg);
+    const ext = (base.match(/\.([A-Za-z0-9]+)$/) || [,''])[1].toLowerCase();
+    let f;
+    try{ f = new File([await en.get()], base, { type: ext === 'pdf' ? 'application/pdf' : '' }); }
+    catch(_){ spRd.unk.push({ file:{ name: ch.concat([base]).join(' › ') }, why: 'แตกไฟล์ออกจาก ' + kind + ' ไม่ได้', fixed:true }); continue; }
+    f._spPath = ch.concat([base]).join(' › ');
+    f._spGrp  = ch.join(' › ');
+    if(SP_ARC.test(base)){
+      if(depth + 1 >= SP_ARC_MAX){ spRd.unk.push({ file:{ name: f._spPath }, why: 'ไฟล์บีบอัดซ้อนเกิน ' + SP_ARC_MAX + ' ชั้น — กรุณาแตกไฟล์ชั้นในก่อน', fixed:true }); continue; }
+      out.push.apply(out, await spUnpack(f, ch, depth + 1));
+    } else out.push(f);
+  }
+  if(!docs) spRd.unk.push({ file:{ name: chain.concat([file.name]).join(' › ') }, why: entries.length ? kind + ' มีแต่ไฟล์ระบบ ไม่มีไฟล์เอกสารอยู่ภายใน' : 'เปิดไฟล์ ' + kind + ' ไม่ได้ หรือไม่พบไฟล์อยู่ภายใน (ไฟล์อาจเสียหาย / ไม่สมบูรณ์ / ว่างเปล่า)', fixed:true });
   return out;
+}
+/* Packing List (Excel เอกสารประกอบ) — อ่านเซลล์โดยตรง: Packing No. · DN · Pallets · Total Pkgs · Total Weight (KG) · Total Volume (M3)
+   ใช้ตรวจความครบของชุดเอกสารเท่านั้น — ไม่นำไปเขียนลง Mapping */
+async function spReadPkl(file){
+  let wb; try{ wb = await spWb(file); }catch(_){ return null; }
+  for(const nm of wb.SheetNames){
+    const a = spPeek(wb, nm, 2000);
+    if(!a.slice(0, 3).some(r => (r || []).some(c => spHdr(c) === 'packing list'))) continue;
+    let hdr = -1, cDn = -1;
+    for(let i = 0; i < Math.min(25, a.length); i++){
+      const c = (a[i] || []).map(spHdr), k = c.indexOf('dn');
+      if(k >= 0 && c.some(x => x.indexOf('article') === 0)){ hdr = i; cDn = k; break; }
+    }
+    if(hdr < 0) continue;
+    const kv = lab => { for(const r of a.slice(0, hdr)){ const c = r || []; for(let j = 0; j < c.length; j++) if(spHdr(c[j]) === lab){ for(let k = j + 1; k < c.length; k++){ const v = c[k]; if(v != null && String(v).trim() !== '') return String(v).trim(); } } } return null; };
+    const num = v => { const n = parseFloat(String(v == null ? '' : v).replace(/,/g, '')); return isFinite(n) ? n : null; };
+    const dns = [];
+    for(let i = hdr + 1; i < a.length; i++){ const v = (a[i] || [])[cDn]; const t = String(v == null ? '' : v).trim(); if(t && dns.indexOf(t) < 0) dns.push(t); }
+    if(!dns.length) continue;
+    return { sheet: nm, packNo: kv('packing no:') || '', dns, pallets: num(kv('pallets')), pkgs: num(kv('total pkgs')), gw: num(kv('total weight (kg)')), vol: num(kv('total volume (m3)')) };
+  }
+  return null;
 }
 function spPutPdf(f){
   if(spState.pdf.some(x => x.name === f.name && x.size === f.size)) return false;   // ไฟล์เดิม — ไม่อ่านซ้ำ
@@ -16545,17 +16829,25 @@ function spPutSlot(key, f){
 async function spIntake(files, hint){
   files = Array.from(files || []);
   if(!files.length) return;
+  while(spRd.scope) await new Promise(r => setTimeout(r, 120));   /* [489] รองาน Mapping/Export ของชุดเอกสารที่กำลังทำอยู่ให้เสร็จก่อน */
   spRd.intake++; spCheckReady();
   try{
-  const direct = files.length === 1 && !/\.zip$/i.test(files[0].name);   // โยนไฟล์เดียวลงช่อง = ใช้ช่องนั้นตามเดิม
+  const direct = files.length === 1 && !SP_ARC.test(files[0].name);   // โยนไฟล์เดียวลงช่อง = ใช้ช่องนั้นตามเดิม
   const flat = [];
-  for(const f of files){ if(/\.zip$/i.test(f.name)) flat.push.apply(flat, await spUnzip(f, 0)); else flat.push(f); }
+  for(const f of files){
+    if(SP_ARC.test(f.name)) flat.push.apply(flat, await spUnpack(f, [], 0));
+    else { if(f._spGrp == null){ f._spGrp = ''; f._spPath = f.name; } flat.push(f); }
+  }
   let addPdf = false; const taken = {};
   for(const f of flat){
     if(/\.pdf$/i.test(f.name)){ if(spPutPdf(f)) addPdf = true; continue; }
     if(/\.(xls|xlsx|xlsm)$/i.test(f.name)){
       const k = (direct && hint && hint !== 'pdf') ? hint : await spClassify(f);
-      if(!k){ spRd.unk.push({ file:f, why:'จำแนกประเภทจากหัวตารางไม่ได้' }); continue; }
+      if(!k){
+        const pk = await spReadPkl(f);   /* [489] Packing List = เอกสารประกอบของชุดเอกสาร (ไม่ใช่ CLC / RM / DWAK) */
+        if(pk){ if(!spRd.pkl.some(p => p.file.name === f.name && p.file.size === f.size && p.grp === (f._spGrp || ''))){ spRd.pkl.push(Object.assign({ file:f, grp: f._spGrp || '', path: f._spPath || f.name }, pk)); spInvalidate(); } continue; }
+        spRd.unk.push({ file:f, why:'จำแนกประเภทจากหัวตารางไม่ได้' }); continue;
+      }
       if(taken[k]){ spRd.unk.push({ file:f, why:'พบไฟล์ประเภท ' + ({ inv:'INVOICE CLC', rm:'RM', dwak:'DWAK' })[k] + ' มากกว่า 1 ไฟล์ในชุดเดียวกัน' }); continue; }
       taken[k] = true; spPutSlot(k, f);
       continue;
@@ -16570,7 +16862,7 @@ function spRenderUnk(){
   const el = document.getElementById('sp-unk-panel'); if(!el) return;
   const U = spRd.unk;
   if(!U.length){ el.style.display = 'none'; el.innerHTML = ''; return; }
-  el.style.display = '';
+  el.style.display = '';   /* [489] แสดงเส้นทางต้นฉบับในไฟล์บีบอัดด้วย (title) */
   el.innerHTML = '<div>⚠ มีไฟล์ที่ระบบยังไม่ได้นำไปใช้ ' + U.length + ' ไฟล์ — กรุณาเลือกประเภท หรือยืนยันว่าไม่ใช้ไฟล์นั้น</div>'
     + U.map((u, i) => '<div class="sp-unk-row" data-unk="' + i + '"><span class="dfn">' + spEsc(u.file.name) + '</span><span>— ' + spEsc(u.why) + '</span>'
       + (u.fixed ? '' : '<select onchange="spUnkSet(' + i + ', this.value)"><option value="">เลือกประเภทไฟล์…</option><option value="inv">INVOICE CLC</option><option value="rm">RM</option><option value="dwak">DWAK</option></select>')
@@ -16586,6 +16878,9 @@ function spUnkSet(i, k){
 /* [486] spReadPdfs — เดิมอ่านข้อความ PDF ด้วย pdf.js + Regex · ปัจจุบัน "รวมผลที่ AI อ่านไว้แล้วของแต่ละไฟล์" เท่านั้น
    ไม่เรียก AI ที่นี่ (spComputeMapping / spDownload / spExportCheck จึงไม่เสียค่า API ซ้ำ) · Validation ส่วนท้ายคงเดิมทุกบรรทัด */
 async function spReadPdfs(files){
+  /* [489] เอกสารประกอบ (AI ยืนยันไม่ใช่ Tax Invoice) ไม่ใช้ใน Mapping · มีชุดเอกสาร = ใช้เฉพาะ PDF ของชุดนั้น */
+  files = (files || []).filter(f => !(f && f._sp && f._sp.st === 'doc'));
+  if(spRd.scope && spRd.scope.files) files = files.filter(f => spRd.scope.files.has(f));
   const all = [];
   /* §6 — Page # ต้องเป็น cumulative ทั้ง batch (ห้าม reset เป็น 1 เมื่อเปลี่ยนไฟล์/Invoice)
      globalPage = localPdfPage + จำนวนหน้ารวมของ PDF ก่อนหน้าในลำดับเดียวกัน */
@@ -16633,11 +16928,12 @@ function spRenderPdfList(){
   if(!box) return;
   const fs = spState.pdf || [];
   box.innerHTML = fs.length
-    ? fs.map((f,i)=>{ const m = spMeta(f), cls = m.st === 'ok' ? ((m.opusFail || m.risk) ? 'warn' : 'ok') : m.st === 'err' ? 'err' : 'run';
-        return '<div class="doa-file-entry '+cls+'" data-st="'+m.st+'"><span class="dfn">'+spEsc(f.name)+'</span>'
+    ? fs.map((f,i)=>{ const m = spMeta(f), cls = m.st === 'ok' ? ((m.opusFail || m.risk) ? 'warn' : 'ok') : m.st === 'err' ? 'err' : m.st === 'doc' ? 'doc' : 'run';
+        return '<div class="doa-file-entry '+cls+'" data-st="'+m.st+'" data-grp="'+spEsc(f._spGrp || '')+'" title="'+spEsc(f._spPath || f.name)+'"><span class="dfn">'+spEsc(f.name)+'</span>'
         +(m.st === 'err' ? '<button class="sp-retry" onclick="event.preventDefault();event.stopPropagation();spRetryPdf('+i+')">↻ Retry</button>' : '')
+        +(m.st === 'doc' ? '<button class="sp-retry" onclick="event.preventDefault();event.stopPropagation();spRetryPdf('+i+')">↻ อ่านใหม่</button>' : '')
         +'<button class="drm" onclick="event.preventDefault();event.stopPropagation();spRemovePdf('+i+')">×</button>'
-        +'<span class="sp-fst">'+spEsc(spStText(f,'pdf'))+'</span></div>'; }).join('')
+        +'<span class="sp-fst">'+spEsc((f._spGrp ? '📦 ' + spGrpLabel(f._spGrp) + ' · ' : '') + spStText(f,'pdf'))+'</span></div>'; }).join('')
     : '';
 }
 /* [486] แนบ PDF → AI เริ่มอ่านทันที (ไฟล์ที่อ่านสำเร็จแล้วไม่อ่านซ้ำ) · รับ ZIP / หลายไฟล์ผ่าน spIntake */
@@ -18559,7 +18855,8 @@ function spReset(){
   spState.rm = null;
   spState.result = null;
   spState.pdf=[]; spState.pdfItems=null; spState.crossCheck=null;
-  spRd.seq++; spRd.tried=false; spRd.unk=[]; spRenderUnk();   /* [486] ล้างสถานะการอ่าน (งาน AI ที่ค้างอยู่ของไฟล์ที่ถูกล้างจะไม่ถูกนำผลมาใช้) */
+  spRd.seq++; spRd.tried=false; spRd.unk=[]; spRenderUnk();
+  spRd.groups=[]; spRd.active=''; spRd.pkl=[]; spRd.junk=0; spRd.singleScope=false; spRd.clcNoPdf=null; spRenderGroups();   /* [489] */   /* [486] ล้างสถานะการอ่าน (งาน AI ที่ค้างอยู่ของไฟล์ที่ถูกล้างจะไม่ถูกนำผลมาใช้) */
   { const xp=document.getElementById('sp-xc-panel'); if(xp){ xp.style.display='none'; xp.innerHTML=''; } }
   { const pi=document.getElementById('sp-pdf-input'); if(pi) pi.value=''; }
   spRenderPdfList();
@@ -28470,7 +28767,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local488';
+const DEPLOY_VERSION = 'local489';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
@@ -32580,6 +32877,25 @@ table.doa-tbl tbody td{color:#475569}
 #sp-view .doa-file-entry.ok .sp-fst{color:#166534}
 #sp-view .doa-file-entry.warn{border-left:3px solid #f59e0b;background:rgba(245,158,11,.08)}
 #sp-view .doa-file-entry.warn .sp-fst{color:#92400e}
+/* [489] เอกสารประกอบ (AI ยืนยันว่าไม่ใช่ Tax Invoice) · ชุดเอกสารตาม Container */
+#sp-view .doa-file-entry.doc{border-left:3px solid #64748b;background:rgba(100,116,139,.07)}
+#sp-view .doa-file-entry.doc .sp-fst{color:#475569}
+#sp-view .sp-grp-panel{margin:10px 0 0;display:flex;flex-direction:column;gap:8px}
+#sp-view .sp-grp{border:1px solid rgba(148,163,184,.5);border-radius:10px;padding:8px 10px;font-size:11.5px;line-height:1.5;background:#fff}
+#sp-view .sp-grp.ok{border-color:rgba(22,163,74,.5)}
+#sp-view .sp-grp.bad{border-color:rgba(220,38,38,.5);background:rgba(220,38,38,.03)}
+#sp-view .sp-grp.active{box-shadow:0 0 0 2px rgba(37,99,235,.35)}
+#sp-view .sp-grp-h{font-weight:700;font-size:12px}
+#sp-view .sp-grp-st{white-space:pre-wrap;word-break:break-word;margin-top:3px}
+#sp-view .sp-grp.ok .sp-grp-st{color:#166534}
+#sp-view .sp-grp.bad .sp-grp-st{color:#b91c1c}
+#sp-view .sp-grp-w{color:#92400e;white-space:pre-wrap;word-break:break-word}
+#sp-view .sp-grp-sub{color:var(--text2);word-break:break-word}
+#sp-view .sp-grp-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+#sp-view .sp-grp-btns button{font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid rgba(37,99,235,.45);background:#fff;color:#1d4ed8;cursor:pointer}
+#sp-view .sp-grp-btns button[disabled]{opacity:.45;cursor:not-allowed}
+#sp-view .sp-grp-note{font-size:11.5px;padding:6px 10px;border-radius:8px;border:1px dashed rgba(148,163,184,.7);color:var(--text2);white-space:pre-wrap}
+#sp-view .sp-grp-note button{margin-left:6px;font-size:11px;padding:2px 8px;border-radius:5px;border:1px solid #1d4ed8;background:#fff;color:#1d4ed8;cursor:pointer}
 #sp-view .sp-retry{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:5px;border:1px solid rgba(220,38,38,.5);background:#fff;color:#b91c1c;cursor:pointer}
 #sp-view .sp-ai-line{margin:10px 0 0;padding:6px 10px;border-radius:8px;font-size:11.5px;border:1px solid rgba(148,163,184,.4);background:rgba(148,163,184,.10);color:var(--text2)}
 #sp-view .sp-ai-line[data-state="ok"]{border-color:rgba(22,163,74,.45);background:rgba(22,163,74,.08);color:#166534}
