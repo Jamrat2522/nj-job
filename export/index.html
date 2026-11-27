@@ -641,7 +641,7 @@ body.legacy-active .content-area { display: none !important; }
 <!-- ═══ DEPLOY VERSION (ศูนย์กลาง · จุดเดียวทั้งไฟล์) — ทุก Release แก้เฉพาะค่า NJL_DEPLOY_VERSION บรรทัดเดียว ═══ -->
 <div id="njl-deploy-version" style="position:fixed;top:3px;right:6px;z-index:10050;pointer-events:none;font:700 10px/1.2 'Courier New',monospace;color:#3fb950;background:rgba(13,17,23,.78);border:1px solid rgba(63,185,80,.55);border-radius:4px;padding:2px 6px;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis"></div>
 <script>
-var NJL_DEPLOY_VERSION = 'local141';
+var NJL_DEPLOY_VERSION = 'local142';
 (function(){
   var CUR = NJL_DEPLOY_VERSION, el = document.getElementById('njl-deploy-version');
   function show(txt, warn){
@@ -1599,9 +1599,9 @@ var NJL_DEPLOY_VERSION = 'local141';
       <div>
         <div class="page-title">Electrolux P DOM</div>
         <div class="page-sub">อัพโหลด 4 ไฟล์ → กด MAPPING → VALIDATION → Export (ตั้งชื่อไฟล์ด้วยเลข INVOICE แรก)</div>
-            <div style="margin-top:6px;font-size:11px;font-family:'Courier New',monospace"><span style="background:rgba(6,182,212,.18);color:#22d3ee;border:1px solid rgba(6,182,212,.45);border-radius:5px;padding:2px 8px;font-weight:700" id="epdom-build">BUILD local141</span><span style="color:var(--text3);margin-left:8px">DUI Master <b id="epdom-v-dui">-</b> คู่ · FIX MASTER <b id="epdom-v-fix">-</b> รายการ · สรรพสามิต <b id="epdom-v-ex">-</b> rule</span></div>
+            <div style="margin-top:6px;font-size:11px;font-family:'Courier New',monospace"><span style="background:rgba(6,182,212,.18);color:#22d3ee;border:1px solid rgba(6,182,212,.45);border-radius:5px;padding:2px 8px;font-weight:700" id="epdom-build">BUILD local142</span><span style="color:var(--text3);margin-left:8px">DUI Master <b id="epdom-v-dui">-</b> คู่ · FIX MASTER <b id="epdom-v-fix">-</b> รายการ · สรรพสามิต <b id="epdom-v-ex">-</b> rule</span></div>
       </div>
-      <div id="epdom-version" style="position:absolute;top:0;right:4px;font-size:11px;font-family:'Courier New',monospace;font-weight:700;background:rgba(236,72,153,.15);color:#f472b6;border:1px solid rgba(236,72,153,.45);border-radius:5px;padding:3px 10px;white-space:nowrap">Deploy github local141</div>
+      <div id="epdom-version" style="position:absolute;top:0;right:4px;font-size:11px;font-family:'Courier New',monospace;font-weight:700;background:rgba(236,72,153,.15);color:#f472b6;border:1px solid rgba(236,72,153,.45);border-radius:5px;padding:3px 10px;white-space:nowrap">Deploy github local142</div>
     </div>
 
     <div id="epdom-err" style="display:none;border-radius:8px;padding:11px 14px;font-size:13px;margin-bottom:14px;line-height:1.6"></div>
@@ -17904,17 +17904,17 @@ function _epdomValRows(R, verifyBad){
       ct: plan.length ? (ctFound.length===plan.length ? T.part : NA) : DASH,
       pl: plan.length ? (plFound.length===plan.length ? T.part : NA) : DASH,
       ms: (x.ms && x.ms.cand>0) ? T.part : NA,
-      ok: !!T.part && plan.length>0 && ctFound.length===plan.length && plFound.length===plan.length && !!(x.ms && x.ms.cand>0),
+      ok: true,   /* local142: ฟ้องเฉพาะเมื่อมีผลตรวจชี้มาที่หัวข้อนี้ (ไม่ฟ้องซ้ำจากเหตุเดียวกับหัวข้ออื่น) */
       notes:{inv:nInv, ct:nCt, pl:nPl} });
     put('SAP', { inv:T.sap||BL,
       pl: plan.length ? (plFound.length===plan.length ? T.sap : NA) : DASH,
       ms: hasLinks ? (thsFound ? T.sap : NA) : DASH,
-      ok: !!T.sap && plan.length>0 && plFound.length===plan.length && (!hasLinks || thsFound),
+      ok: true,
       notes:{inv:nInv, pl:nPl, ms:nThs} });
     put('DN', { ct: plan.length ? (uq(ctFound.map(function(p){return p.dn;})).join(', ')||NA) : DASH,
       pl: plan.length ? (uq(plFound.map(function(p){return p.dn;})).join(', ')||NA) : DASH,
       ms: hasLinks ? (thsFound ? (uq(ths.dns||[]).join(', ')||BL) : NA) : DASH,
-      ok: plan.length>0 && ctFound.length===plan.length && plFound.length===plan.length,
+      ok: true,
       notes:{ct:nCt, pl:nPl, ms:nThs} });
     (function(){
       const plC=uq([].concat.apply([], plan.map(function(p){ return p.plCoo||[]; })));
@@ -17927,17 +17927,20 @@ function _epdomValRows(R, verifyBad){
       const vCt=anyCt ? num(qCt) : (plan.length?NA:DASH), vPl=anyPl ? num(qPl) : (plan.length?NA:DASH);
       const vMs=hasLinks ? (thsFound ? num(T.qtyInv) : NA) : DASH;
       put('QTY', { inv:(T.qtyInv==null?BL:num(T.qtyInv)), ct:vCt, pl:vPl, ms:vMs,
-        ok: T.qtyInv>0 && eqN(qCt, T.qtyInv) && anyCt && eqN(qPl, T.qtyInv) && anyPl && (!hasLinks || thsFound),
+        ok: true,
         notes:{inv:nInv, ct:nCt, pl:nPl, ms:nThs} });
     })();
     put('UP',  { inv:(x.up==null?BL:num(x.up)),  ok:x.up!=null,  notes:{inv:nInv} });
     put('AMT', { inv:(x.amt==null?BL:num(x.amt,2)), ok:x.amt!=null, notes:{inv:nInv} });
     (function(){
       const e=P.map(function(p){return p.entry;}), l=P.map(function(p){return p.ctLine;});
-      put('ENTRY', { ct: uq(e).join(', ') || (plan.length?NA:DASH), ok: P.length>0 && e.every(function(v){return v!=='' && v!=null;}), notes:{ct:nCt} });
-      put('LNO',   { ct: uq(l).join(', ') || (plan.length?NA:DASH), ok: P.length>0 && l.every(function(v){return v!=='' && v!=null;}), notes:{ct:nCt} });
-      let w=0, all=P.length>0; P.forEach(function(p){ if(p.nw==='' || p.nw==null) all=false; else w+=Number(p.nw); });
-      put('NW', { pl: all ? num(Math.round(w*1e6)/1e6, 3) : (plan.length?NA:DASH), ok:all, notes:{pl:nPl} });
+      /* local142: ผิดเมื่อ MAPPING ไม่ได้ค่าจริง (ไม่พบใน CT/PL หรือค่าในไฟล์ว่าง) · กรณียอดไม่พอ/ไม่ทราบ DN ฟ้องที่หัวข้อ QTY / DN แล้ว ไม่ฟ้องซ้ำ */
+      const withCt=P.filter(function(p){ return (p.ctRows||[]).length>0; });
+      const noCt=plan.length>0 && withCt.length===0;
+      put('ENTRY', { ct: uq(e).join(', ') || (plan.length?NA:DASH), ok: !noCt && withCt.every(function(p){return p.entry!=='' && p.entry!=null;}), notes:{ct:nCt} });
+      put('LNO',   { ct: uq(l).join(', ') || (plan.length?NA:DASH), ok: !noCt && withCt.every(function(p){return p.ctLine!=='' && p.ctLine!=null;}), notes:{ct:nCt} });
+      let w=0, all=P.length>0, anyNw=false; P.forEach(function(p){ if(p.nw==='' || p.nw==null) all=false; else { w+=Number(p.nw); anyNw=true; } });
+      put('NW', { pl: all ? num(Math.round(w*1e6)/1e6, 3) : (plan.length?NA:DASH), ok: !(plan.length>0 && !anyNw), notes:{pl:nPl} });
     })();
     if(ti===0) put('GW', { pl:(R.recon.gw==null ? NA : num(R.recon.gw)), ok:R.recon.gw!=null });
     put('TH', { ms:x.th||NA, ok:!!x.th, notes:{ms:nRec} });
@@ -17945,7 +17948,7 @@ function _epdomValRows(R, verifyBad){
     (function(){
       const f=(x.fix===true);
       [['DUTY',x.duty],['PRIV',x.priv],['STAT',x.st],['SEQ',x.seq]].forEach(function(a){
-        put(a[0], { ms: f ? ((a[1]===''||a[1]==null)?DASH:String(a[1])) : (x.fix===false?NA:DASH), ok:f });
+        put(a[0], { ms: f ? ((a[1]===''||a[1]==null)?DASH:String(a[1])) : (x.fix===false?NA:DASH), ok:(x.fix!==false) });   /* HS ว่าง → ฟ้องที่ Hscode แล้ว ไม่ฟ้องซ้ำ */
       });
     })();
     put('INVNO', { inv:T.invoice||BL, ok:!!T.invoice, notes:{inv:nInv} });
@@ -17975,8 +17978,10 @@ function _epdomValRows(R, verifyBad){
     });
   });
   if(docGW.length && !R.trace.length) docGW.forEach(function(x){ out.push({invoice:'', item:DASH, head:HD.GW, inv:DASH, ct:DASH, pl:String(x.reason||''), ms:DASH, ok:false}); });
-  out.forEach(function(r,i){ r.no=i+1; r.status=r.ok?'ถูก':'ผิด'; });
-  return out;
+  /* local142: ฟ้องเฉพาะ ITEM + หัวข้อ MAPPING ที่ผิดจริงเท่านั้น — ข้อมูลที่ถูกต้องไม่นำมาแสดง */
+  const badOnly=out.filter(function(r){ return !r.ok; });
+  badOnly.forEach(function(r,i){ r.no=i+1; r.status='ผิด'; });
+  return badOnly;
 }
 
 function _epdomValAoa(rows){
@@ -17990,33 +17995,32 @@ function _epdomRenderGate(R, fname, verifyBad){
   const E=_epdomEsc;
   const list=_epdomIssueList(R, verifyBad);
   const rows=_epdomValRows(R, verifyBad);
-  const bad=rows.filter(function(r){ return !r.ok; }).length;
+  const bad=rows.length;
   window._epdomGate={R:R, fname:fname, list:list, rows:rows, bad:bad, verifyBad:verifyBad||null};
   const LINE='1px solid #333';
   const th='border:'+LINE+';padding:8px 10px;background:#fff;color:#000;font-weight:700;font-size:13px;text-align:center;position:sticky;top:0;z-index:1';
   const td='border:'+LINE+';padding:6px 10px;background:#fff;color:#000;font-weight:400;font-size:13px;vertical-align:middle;white-space:pre-line;line-height:1.4';
-  const pill=function(ok){ return '<span style="display:inline-block;min-width:52px;padding:4px 12px;border-radius:6px;font-weight:700;color:#fff;background:'+(ok?'#16a34a':'#dc2626')+'">'+(ok?'ถูก':'ผิด')+'</span>'; };
+  const pill='<span style="display:inline-block;min-width:52px;padding:4px 12px;border-radius:6px;font-weight:700;color:#fff;background:#dc2626">ผิด</span>';
   const MAXR=20000;
-  let h='<div style="background:#fff;border:'+LINE+';border-radius:8px;padding:0;margin-bottom:14px;overflow:hidden">';
-  h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:#0f2748;color:#fff;padding:10px 14px">'+
-     '<div style="font-size:15px;font-weight:700">Electrolux P DOM <span style="font-weight:400">– Validation (MAPPING)</span></div>'+
-     '<div style="font-size:12px;border:1px solid #fff;border-radius:6px;padding:3px 10px;white-space:nowrap">Deploy github '+E(typeof NJL_DEPLOY_VERSION==='string'?NJL_DEPLOY_VERSION:'')+'</div></div>';
-  h+='<div id="epdom-gate-list" style="max-height:70vh;overflow:auto;background:#fff"><table id="epdom-val-table" style="width:100%;border-collapse:collapse;background:#fff">'+
-     '<thead><tr>'+EPDOM_VAL_HEAD.map(function(t){ return '<th style="'+th+'">'+E(t)+'</th>'; }).join('')+'</tr></thead><tbody>';
-  rows.slice(0, MAXR).forEach(function(r){
-    h+='<tr><td style="'+td+';text-align:center">'+r.no+'</td>'+
-       '<td style="'+td+';text-align:center">'+E(r.invoice)+'</td>'+
-       '<td style="'+td+';text-align:center">'+E(r.item)+'</td>'+
-       '<td style="'+td+'">'+E(r.head)+'</td>'+
-       '<td style="'+td+';text-align:center">'+E(r.inv)+'</td>'+
-       '<td style="'+td+';text-align:center">'+E(r.ct)+'</td>'+
-       '<td style="'+td+';text-align:center">'+E(r.pl)+'</td>'+
-       '<td style="'+td+';text-align:center">'+E(r.ms)+'</td>'+
-       '<td style="'+td+';text-align:center;white-space:nowrap">'+pill(r.ok)+'</td></tr>';
-  });
-  h+='</tbody></table></div>';
-  if(rows.length>MAXR) h+='<div style="font-size:12px;color:#000;background:#fff;padding:6px 12px">แสดง '+MAXR+' จาก '+rows.length+' แถว — ดูครบทุกแถวใน Sheet AUDIT ของไฟล์ EXPORT EXCEL</div>';
   const btn='display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:230px;padding:11px 22px;border-radius:8px;border:1.5px solid #000;background:#fff;color:#000;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer';
+  let h='<div style="background:#fff;border:'+LINE+';border-radius:8px;padding:0;margin-bottom:14px;overflow:hidden">';
+  if(rows.length){   /* ถูกต้องทั้งหมด → ไม่แสดงตารางฟ้อง (เหลือเฉพาะปุ่ม EXPORT EXCEL) */
+    h+='<div id="epdom-gate-list" style="max-height:70vh;overflow:auto;background:#fff"><table id="epdom-val-table" style="width:100%;border-collapse:collapse;background:#fff">'+
+       '<thead><tr>'+EPDOM_VAL_HEAD.map(function(t){ return '<th style="'+th+'">'+E(t)+'</th>'; }).join('')+'</tr></thead><tbody>';
+    rows.slice(0, MAXR).forEach(function(r){
+      h+='<tr><td style="'+td+';text-align:center">'+r.no+'</td>'+
+         '<td style="'+td+';text-align:center">'+E(r.invoice)+'</td>'+
+         '<td style="'+td+';text-align:center">'+E(r.item)+'</td>'+
+         '<td style="'+td+'">'+E(r.head)+'</td>'+
+         '<td style="'+td+';text-align:center">'+E(r.inv)+'</td>'+
+         '<td style="'+td+';text-align:center">'+E(r.ct)+'</td>'+
+         '<td style="'+td+';text-align:center">'+E(r.pl)+'</td>'+
+         '<td style="'+td+';text-align:center">'+E(r.ms)+'</td>'+
+         '<td style="'+td+';text-align:center;white-space:nowrap">'+pill+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+    if(rows.length>MAXR) h+='<div style="font-size:12px;color:#000;background:#fff;padding:6px 12px">แสดง '+MAXR+' จาก '+rows.length+' แถว — ดูครบทุกแถวใน Sheet AUDIT ของไฟล์ EXPORT EXCEL</div>';
+  }
   h+='<div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;background:#fff;padding:14px">'+
      '<button id="epdom-export-btn" onclick="epdomExportExcel()" style="'+btn+'">📥 EXPORT EXCEL</button></div>';
   h+='</div>';
