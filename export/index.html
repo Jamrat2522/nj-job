@@ -16626,6 +16626,9 @@ function _pdParseMaster(wb){
       rec.thErr=_pdErrAt(aoa,r,cTh); rec.hsErr=_pdErrAt(aoa,r,cHs); rec.cooErr=_pdErrAt(aoa,r,cCo);
       rec.hs2Err=(cHs2>=0 && cHs2!==cHs) ? _pdErrAt(aoa,r,cHs2) : '';
       if(rec.thErr) rec.th=''; if(rec.hsErr) rec.hs=''; if(rec.cooErr) rec.coo=''; if(rec.hs2Err) rec.hs2='';
+      /* local145: Hscode = คอลัมน์ Confirmed HS Code เท่านั้น · ไม่ใช้ HS-Code เป็นแหล่งข้อมูลหรือข้อมูลสำรอง · ไม่เทียบ HS-Code กับ Confirmed */
+      rec.hs=(cHs2>=0) ? _pdS(row[cHs2]) : ''; rec.hsErr=(cHs2>=0) ? _pdErrAt(aoa,r,cHs2) : '';
+      if(rec.hsErr) rec.hs=''; rec.hs2=''; rec.hs2Err='';
       if(linkable && rec.inv && rec.sap){
         const kL=rec.inv+'\u0001'+pt+'\u0001'+rec.sap;
         if(!links.has(kL)) links.set(kL,[]);
@@ -17273,7 +17276,7 @@ function _pdBuild(inv, ct, pl, master, fix){
         issue('ERROR','TH_DESC',r,'TH description','MASTER แถวที่ match (แถว '+mm.rec.srcRow+') ไม่มี TH Description', {sheet:mm.rec.sheet, row:mm.rec.srcRow}); }
       if(hs) stat.hs++; else{
         miss.push('HS CODE');
-        issue('ERROR','HS_CODE',r,'HS CODE','MASTER แถวที่ match (แถว '+mm.rec.srcRow+') ไม่มีค่า HS code', {sheet:mm.rec.sheet, row:mm.rec.srcRow});
+        issue('ERROR','HS_CODE',r,'HS CODE','MASTER แถวที่ match (แถว '+mm.rec.srcRow+') ไม่มีค่า Confirmed HS Code', {sheet:mm.rec.sheet, row:mm.rec.srcRow});
       }
     } else {
       miss.push('MASTER');
