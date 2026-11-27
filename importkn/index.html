@@ -754,10 +754,12 @@ async function doLogin(username, password){
     id:u.id, username:u.username, full_name:u.full_name||u.username,
     department:u.department||'', role:u.role||'user', is_active:u.is_active
   });
+  try{ await njAiMintTokens(uname, pass); }catch(e){ console.warn('[AI auth]', (e&&e.message)||e); }
   return CUR;
 }
 function doLogout(){
   setCurrentUser(null);
+  try{ njAiClearTokens(); }catch(e){}
   location.reload();
 }
 
@@ -8336,6 +8338,62 @@ function cvtReset(){
 }
 
 </script>
+<script id="njai-auth">
+/* ──────────────────────────────────────────────────────────────────────────────
+   NJ AI AUTH (local006) — ออกสิทธิ์ใช้งาน AI ให้ทั้ง 4 โหมดจากการ Login REPORT ALL ครั้งเดียว
+   ตอน Login สำเร็จ: ส่ง username + password ไปตรวจที่ Edge Function (action "login")
+     → Function ตรวจกับตาราง public.users (app_code = report_all · is_active) ด้วย service_role ที่ฝั่ง Server
+     → คืน Token ลงลายเซ็น HMAC-SHA256 อายุ 12 ชม. เก็บไว้ใน sessionStorage (แท็บนี้เท่านั้น)
+   ทุกคำขอ AI หลังจากนี้ส่ง Token ไปให้ Server ตรวจลายเซ็น + วันหมดอายุ + อ่านสถานะผู้ใช้จาก DB ซ้ำทุกครั้ง
+   ไม่เก็บรหัสผ่านไว้ที่ใด · ไม่ใช้ Username / Role จาก LocalStorage เป็นหลักฐานยืนยันตัวตน
+   ไม่ลดความปลอดภัยของ Backend: Authentication ฝั่ง Edge Function เดิมทำงานครบทุกขั้นเหมือนเดิม
+────────────────────────────────────────────────────────────────────────────── */
+(function(){
+  var FNS = [
+    { key:'report_grohe_ai_token_v1',     fn:'nj-report-ai-grohe',        th:'GROHE' },
+    { key:'report_elec_ai_token_v1',      fn:'nj-invoice-ai-elec',        th:'ELEC' },
+    { key:'report_borgwaner_ai_token_v1', fn:'nj-invoice-ai-borgwaner',   th:'BORGWANER' },
+    { key:'report_staedtler_ai_token_v1', fn:'nj-invoice-ai-staedtler',   th:'STAEDTLER' }
+  ];
+  window.NJ_AI_FNS = FNS;
+
+  // ล้างสิทธิ์ AI ทุกโหมด (เรียกตอน Logout — ไม่ให้ Token ค้างไว้ให้ผู้ใช้คนถัดไป)
+  window.njAiClearTokens = function(){
+    for (var i = 0; i < FNS.length; i++) { try { sessionStorage.removeItem(FNS[i].key); sessionStorage.removeItem(FNS[i].key + '_e'); } catch(e){} }
+  };
+
+  // ขอ Token ของทุกโหมดพร้อมกัน — เรียกครั้งเดียวตอน Login สำเร็จ
+  // คืนจำนวนโหมดที่ได้สิทธิ์ · ไม่ throw (Login ต้องไม่ล้มเพราะโหมด AI)
+  window.njAiMintTokens = async function(username, password){
+    var un = String(username || '').trim().toLowerCase(), pw = String(password || '');
+    window.njAiClearTokens();
+    if (!un || !pw || typeof CONFIG === 'undefined') return 0;
+    var base = String(CONFIG.SUPABASE_URL || '').replace(/\/+$/, '') + '/functions/v1/', done = 0;
+    await Promise.all(FNS.map(async function(f){
+      var ac = new AbortController(), tm = setTimeout(function(){ ac.abort(); }, 12000);
+      try {
+        var res = await fetch(base + f.fn, { method:'POST', signal:ac.signal,
+          headers:{ 'Content-Type':'application/json', apikey:CONFIG.SUPABASE_KEY, Authorization:'Bearer ' + CONFIG.SUPABASE_KEY },
+          body: JSON.stringify({ action:'login', username:un, password:pw }) });
+        var j = null; try { j = await res.json(); } catch(e){}
+        if (res.ok && j && j.success && j.token && j.expires_at) {
+          try { sessionStorage.setItem(f.key, JSON.stringify({ token:j.token, exp:j.expires_at, user:un })); done++; } catch(e){}
+        } else {
+          var m = res.status === 404 ? 'ไม่พบ Edge Function ' + f.fn + ' (404) — Function ยังไม่ได้ Deploy'
+                : (j && j.msg) ? j.msg + ' (' + res.status + ')'
+                : 'ขอสิทธิ์ใช้งาน AI ไม่สำเร็จ (' + res.status + ')';
+          try { sessionStorage.setItem(f.key + '_e', JSON.stringify({ msg:m })); } catch(e){}
+        }
+      } catch(e){
+        var n = (e && e.name === 'AbortError') ? 'หมดเวลารอ (Timeout)' : 'เครือข่ายขัดข้อง / ถูกปฏิเสธการเชื่อมต่อ (CORS) หรือ Function ยังไม่ได้ Deploy';
+        try { sessionStorage.setItem(f.key + '_e', JSON.stringify({ msg:'ติดต่อ Edge Function ' + f.fn + ' ไม่ได้ — ' + n })); } catch(e2){}
+      }
+      finally { clearTimeout(tm); }
+    }));
+    return done;
+  };
+})();
+</script>
 <style id="grohe-style">
 /* ===== REPORT ALL — GROHE (local001) · ใช้เฉพาะโหมด GROHE (คลาส gr-*) + ป้าย Deploy ===== */
 #njDeployVer{position:fixed;top:4px;right:12px;z-index:9000;font:600 10.5px/1.2 'Inter','Prompt',sans-serif;color:#3fb950;letter-spacing:.2px;pointer-events:none;user-select:none;opacity:.95}
@@ -8397,8 +8455,18 @@ function cvtReset(){
 .gr-pgnote{font-size:12px;color:#8b949e;margin-bottom:8px}
 .gr-canvas{overflow:auto;max-height:62vh;border:1px solid #30363d;border-radius:8px;background:#fff;text-align:center}
 .gr-canvas canvas{max-width:100%;height:auto}
+
+/* local007: ตาราง PREVIEW — 1 ITEM = 1 แถว · แถวกระชับ · ซ่อนข้อความ ERROR/WARNING ใต้รายการ (ดูใน Popup) · ซ่อนป้าย AI Model */
+.gr-tablewrap td{padding:3px 8px;line-height:1.3}
+.gr-tablewrap thead th{padding:5px 8px}
+.gr-tablewrap tr td{border-bottom:1px solid #30363d}
+.gr-tablewrap tr.gr-msg{display:none}
+.gr-tablewrap .gr-opus{display:none}
+.gr-tablewrap .gr-stbtn{cursor:pointer}
+.gr-msglist{margin:0;padding-left:18px;font-size:13px;line-height:1.75;color:#e6edf3}
+.gr-msglist li{margin:3px 0}
 </style>
-<div id="njDeployVer">Deploy github local005</div>
+<div id="njDeployVer">Deploy github local010</div>
 <script id="grohe-core">
 /* ═══════════════════════════════════════════════════════════════════════════
  * REPORT ALL — GROHE (local001) · CORE (ตรรกะล้วน ไม่แตะ DOM / เครือข่าย)
@@ -8827,10 +8895,11 @@ if(typeof module !== 'undefined' && module.exports) module.exports = GROHE_CORE;
   const onView = () => (typeof VIEW !== 'undefined' && VIEW === 'grohe') && !!$('grView');
   const fmtN = (v, d) => v == null ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits:d || 0, maximumFractionDigits:d || 0 });
   const fmtBytes = n => n >= 1048576 ? (n / 1048576).toFixed(2) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
-  try{ const t = JSON.parse(sessionStorage.getItem(TOK_KEY) || 'null'); if(t && t.token && Date.parse(t.exp) > Date.now() + 60000){ G.token = t.token; G.tokenUser = t.user || ''; } } catch(e){}
+  function loadTok(){ try{ const t = JSON.parse(sessionStorage.getItem(TOK_KEY) || 'null'); if(t && t.token && Date.parse(t.exp) > Date.now() + 60000){ G.token = t.token; G.tokenUser = t.user || ''; return true; } } catch(e){} return false; }
+  loadTok();
   const curUser = () => { try{ const u = getCurrentUser(); return u && u.username ? String(u.username) : ''; } catch(e){ return ''; } };
   // Token ผูกกับผู้ใช้ที่ Login อยู่ — เปลี่ยนผู้ใช้ = ต้องยืนยันใหม่
-  function tokenOk(){ if(G.token && G.tokenUser.toLowerCase() !== curUser().toLowerCase()) dropToken(); return !!G.token; }
+  function tokenOk(){ if(!G.token) loadTok(); if(G.token && G.tokenUser.toLowerCase() !== curUser().toLowerCase()) dropToken(); return !!G.token; }
   function dropToken(){ G.token = null; G.tokenUser = ''; G.probe = null; try{ sessionStorage.removeItem(TOK_KEY); } catch(e){} }
 
   /* ── API ─────────────────────────────────────────────── */
@@ -8838,7 +8907,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = GROHE_CORE;
     const srv = j && typeof j.error === 'string' && j.msg ? j.msg : '';
     if(kind === 'timeout') return 'ติดต่อระบบ AI ไม่ได้ — หมดเวลารอ (Timeout) กรุณาลองใหม่';
     if(kind === 'network') return `ติดต่อ Edge Function ${FN_NAME} ไม่ได้ — เครือข่ายขัดข้อง / ถูกปฏิเสธการเชื่อมต่อ (CORS) หรือ Function ยังไม่ได้ Deploy`;
-    if(status === 401) return (srv || 'กรุณายืนยันรหัสผ่านเพื่อใช้งาน AI อีกครั้ง') + ' (401)';
+    if(status === 401) return (srv || 'สิทธิ์ AI หมดอายุ — กรุณาเข้าสู่ระบบ REPORT ALL ใหม่') + ' (401)';
     if(status === 403) return (srv || 'ไม่มีสิทธิ์ใช้งาน') + ' (403)';
     if(status === 404 && !srv) return `ไม่พบ Edge Function ${FN_NAME} (404) — Function ยังไม่ได้ Deploy`;
     if(status === 429) return 'มีการจำกัดจำนวนคำขอ (429) — รอสักครู่แล้วลองใหม่';
@@ -8847,7 +8916,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = GROHE_CORE;
   }
   async function api(body, timeoutMs, noToken){
     let res, j = null;
-    if(!noToken && !tokenOk()) return { status:401, j:{ success:false, error:'unauthorized', msg:'กรุณายืนยันรหัสผ่านเพื่อใช้งาน AI' } };
+    if(!noToken && !tokenOk()) return { status:401, j:{ success:false, error:'unauthorized', msg:'ยังไม่ได้รับสิทธิ์ AI จากการเข้าสู่ระบบ' } };
     const ac = new AbortController(), tm = setTimeout(() => ac.abort(), timeoutMs || 45000);
     try{ res = await fetch(FN_URL, { method:'POST', signal:ac.signal, headers:{ 'Content-Type':'application/json', apikey:CONFIG.SUPABASE_KEY, Authorization:'Bearer ' + CONFIG.SUPABASE_KEY }, body:JSON.stringify(noToken ? body : { token:G.token, ...body }) }); }
     catch(e){ const kind = e && e.name === 'AbortError' ? 'timeout' : 'network'; return { status:0, j:{ success:false, error:kind, msg:explain(0, null, kind) } }; }
@@ -8857,16 +8926,11 @@ if(typeof module !== 'undefined' && module.exports) module.exports = GROHE_CORE;
     if(res.status === 401 && !noToken){ dropToken(); if(onView()) renderAuth(); }
     return { status:res.status, j };
   }
-  window.groheLogin = async function(){
-    if(G.authBusy) return; const el = $('grPass'), pw = el ? el.value : ''; const un = curUser();
-    if(!un){ G.authMsg = 'ไม่พบผู้ใช้ที่เข้าสู่ระบบ'; renderAuth(); return; }
-    if(!pw){ G.authMsg = 'กรอกรหัสผ่าน'; renderAuth(); return; }
-    G.authBusy = true; G.authMsg = ''; renderAuth();
-    const { j } = await api({ action:'login', username:un, password:pw }, 30000, true);
-    G.authBusy = false;
-    if(j && j.success && j.token){ G.token = j.token; G.tokenUser = un; try{ sessionStorage.setItem(TOK_KEY, JSON.stringify({ token:j.token, exp:j.expires_at, user:un })); } catch(e){}
-      G.authMsg = ''; renderAuth(); await groheProbe(true); maybeAuto(); }
-    else { G.authMsg = (j && j.msg) || 'ยืนยันไม่สำเร็จ'; renderAuth(); }
+  window.groheAuthRetry = function(){
+    G.authMsg = '';
+    if(loadTok() && tokenOk()){ renderAuth(); groheProbe(true); maybeAuto(); return; }
+    G.authMsg = 'ยังไม่ได้รับสิทธิ์ AI จากการเข้าสู่ระบบ — กรุณาออกจากระบบแล้วเข้าสู่ระบบ REPORT ALL ใหม่';
+    renderAuth();
   };
   // PROBE — ตรวจการเชื่อมต่อจาก Server จริง (ไม่เรียก AI · ไม่มีค่าใช้จ่าย)
   window.groheProbe = async function(silent){
@@ -8988,7 +9052,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = GROHE_CORE;
   window.groheAnalyze = async function(auto){
     if(G.running) return;
     if(!okFiles('invoice').length){ say('อัปโหลด COMMERCIAL INVOICE PDF ก่อน', 'err'); return; }
-    if(!tokenOk()){ renderAuth(); say('ยืนยันรหัสผ่านเพื่อใช้งาน AI ก่อน', 'err'); const p = $('grPass'); if(p) p.focus(); return; }
+    if(!tokenOk()){ renderAuth(); say('ยังไม่ได้รับสิทธิ์ AI — กดเชื่อมต่อ AI ใหม่ หรือเข้าสู่ระบบใหม่', 'err'); return; }
     G.running = true; G.autoKey = fileSig(); renderActions();
     try{
       setState('UPLOADING', 'กำลังเตรียมไฟล์และแบ่งช่วงหน้า');
@@ -9039,7 +9103,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = GROHE_CORE;
   // ตรวจซ้ำเฉพาะ ITEM ที่มีปัญหา (Opus อ่านหน้า Invoice ของ ITEM + หน้า Packing List ของ Delivery Note นั้น)
   window.groheRecheckItem = async function(key){
     if(G.running || !G.model) return; const r = G.model.rows.find(x => x.key === key); if(!r) return;
-    if(!tokenOk()){ renderAuth(); say('ยืนยันรหัสผ่านเพื่อใช้งาน AI ก่อน', 'err'); return; }
+    if(!tokenOk()){ renderAuth(); say('ยังไม่ได้รับสิทธิ์ AI — กดเชื่อมต่อ AI ใหม่ หรือเข้าสู่ระบบใหม่', 'err'); return; }
     const pages = [...r.src.slice(0, 1), ...(r.plPages || [])].map(p => ({ doc:p.doc, file:p.file, abs:p.abs, k:p.doc + '#' + p.file + '#' + p.abs })).filter(p => !G.rechecked.has(p.k));
     if(!pages.length){ say('หน้าของ ITEM นี้ตรวจซ้ำด้วย Opus แล้ว', 'info'); return; }
     G.running = true; renderActions();
@@ -9138,10 +9202,10 @@ if(typeof module !== 'undefined' && module.exports) module.exports = GROHE_CORE;
   function renderAuth(){
     const el = $('grAuth'); if(!el) return;
     if(!tokenOk()){
-      el.innerHTML = `<div class="gr-auth"><div class="gr-auth-t">🔐 ยืนยันรหัสผ่านเพื่อใช้งาน AI <span>ผู้ใช้ <b>${esc(curUser() || '-')}</b> · ระบบตรวจสิทธิ์ที่ Server ก่อนเรียก AI ทุกครั้ง (ยืนยัน 1 ครั้งต่อการเปิดหน้า)</span></div>
-        <input id="grPass" type="password" autocomplete="current-password" placeholder="รหัสผ่าน REPORT ALL" onkeydown="if(event.key==='Enter')groheLogin()" ${G.authBusy ? 'disabled' : ''}>
-        <button class="abtn primary" onclick="groheLogin()" ${G.authBusy ? 'disabled' : ''}>${G.authBusy ? 'กำลังตรวจสอบ...' : 'ยืนยัน'}</button>
-        ${G.authMsg ? `<span class="gr-auth-e">${esc(G.authMsg)}</span>` : ''}</div>`;
+      var ae = ''; try{ var x = JSON.parse(sessionStorage.getItem(TOK_KEY + '_e') || 'null'); if(x && x.msg) ae = x.msg; } catch(e){}
+      el.innerHTML = `<div class="gr-auth"><div class="gr-auth-t">🔗 เชื่อมต่อ AI อัตโนมัติจากการเข้าสู่ระบบ REPORT ALL <span>ผู้ใช้ <b>${esc(curUser() || '-')}</b> · ระบบตรวจสิทธิ์ผู้ใช้ที่ Server ทุกครั้งก่อนเรียก AI (ไม่ต้องกรอกรหัสผ่านซ้ำ)</span></div>
+        <button class="abtn primary" onclick="groheAuthRetry()">เชื่อมต่อ AI ใหม่</button>
+        <span class="gr-auth-e">${esc(G.authMsg || ae || 'สิทธิ์ AI หมดอายุหรือยังไม่ได้ออกให้ — กดเชื่อมต่อ AI ใหม่ หรือเข้าสู่ระบบ REPORT ALL อีกครั้ง')}</span></div>`;
       return;
     }
     const p = G.probe, chip = (ok, t) => `<span class="gr-chip ${ok === true ? 'ok' : ok === false ? 'bad' : 'na'}">${ok === true ? '✓' : ok === false ? '✕' : '…'} ${esc(t)}</span>`;
@@ -9235,6 +9299,15 @@ if(typeof module !== 'undefined' && module.exports) module.exports = GROHE_CORE;
       </tr></thead><tbody id="grBody"></tbody></table></div>`;
     renderRows();
   }
+  window.groheShowMsg = function(key){
+    const M = G.model; if(!M) return; const r = M.rows.find(x => x.key === key);
+    if(!r || r.status === 'PASS' || !r.msgs.length) return;
+    const who = [r.inv, r.item || r.part_no || r.product_code || r.article_no].filter(Boolean).map(esc).join(' · ');
+    document.getElementById('modalRoot').innerHTML = `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="width:min(760px,94vw)">
+      <div class="mh"><h3>${r.status === 'ERROR' ? '🔴 ERROR' : '🟡 WARNING'}${who ? ' — ' + who : ''}</h3><button class="btn btn-ghost" onclick="closeModal()">✕</button></div>
+      <div class="mb"><ul class="gr-msglist">${r.msgs.map(m => `<li>${esc(m)}</li>`).join('')}</ul></div>
+      <div class="mf"><button class="btn btn-ghost" onclick="closeModal()">ปิด</button></div></div></div>`;
+  };
   function renderRows(){
     const tb = $('grBody'); if(!tb) return; const rows = filtered();
     const chip = r => `<span class="gr-st ${r.status}" title="${esc(r.msgs.join('\n'))}">${r.status === 'PASS' ? '🟢' : r.status === 'WARNING' ? '🟡' : '🔴'} ${r.status}</span>`;
@@ -9244,9 +9317,9 @@ if(typeof module !== 'undefined' && module.exports) module.exports = GROHE_CORE;
       <td>${i + 1}</td><td>${esc(r.inv)}</td><td>${esc(C.dateTh(r.date) || r.date_text || '')}</td><td>${esc(r.pos)}</td><td>${esc(r.dn)}</td><td class="gr-code">${esc(r.article)}</td><td>${esc(r.desc)}</td>
       <td class="r">${r.qty == null ? '<span class="gr-na">—</span>' : fmtN(r.qty, Number.isInteger(r.qty) ? 0 : 3)}</td><td class="r">${r.price == null ? '<span class="gr-na">—</span>' : esc(r.raw.price)}</td><td class="r">${r.amount == null ? '<span class="gr-na">—</span>' : fmtN(r.amount, 2)}</td>
       <td>${esc(r.currency || '')}</td><td>${esc(r.coo)}</td><td>${esc(r.hs)}</td><td class="r">${v3(r.nw)}</td><td class="r">${v3(r.gw)}</td><td class="r">${r.pkg == null ? '<span class="gr-na">—</span>' : r.pkg}</td>
-      <td>${chip(r)}${r.opus ? `<span class="gr-opus" title="Opus อ่านซ้ำ: ${r.opus === 'confirmed' ? 'ตรงกับ Sonnet' : 'ต่างจาก Sonnet (ใช้ค่า Opus)'}">Opus</span>` : ''}</td>
+      <td>${r.status === 'PASS' ? `<span class="gr-st PASS">🟢 PASS</span>` : `<button class="gr-st ${r.status} gr-stbtn" onclick="groheShowMsg('${esc(r.key)}')" title="กดเพื่อดูรายละเอียดปัญหา">${r.status === 'WARNING' ? '🟡' : '🔴'} ${r.status}</button>`}</td>
       <td><button class="gr-mini" title="ตรวจสอบหน้าต้นฉบับ" onclick="groheViewPages('${esc(r.key)}')">📄 หน้า ${r.src[0].abs}</button>${r.status !== 'PASS' ? `<button class="gr-mini" title="ตรวจซ้ำ ITEM นี้ด้วย Opus" onclick="groheRecheckItem('${esc(r.key)}')" ${G.running ? 'disabled' : ''}>🔁 ตรวจซ้ำ</button>` : ''}</td>
-    </tr>` + (r.status !== 'PASS' && r.msgs.length ? `<tr class="gr-msg gr-${r.status}"><td></td><td colspan="18">${r.msgs.map(esc).join('<br>')}</td></tr>` : '')).join('') || '<tr><td colspan="19" style="text-align:center;color:#8b949e;padding:18px">ไม่พบรายการตามเงื่อนไข</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="19" style="text-align:center;color:#8b949e;padding:18px">ไม่พบรายการตามเงื่อนไข</td></tr>';
     const n = $('grShowN'); if(n) n.textContent = rows.length; const s = $('grSelN'); if(s) s.textContent = G.sel.size;
     const all = $('grAll'); if(all) all.checked = rows.length > 0 && rows.every(r => G.sel.has(r.key));
   }
@@ -9327,6 +9400,16 @@ if(typeof module !== 'undefined' && module.exports) module.exports = GROHE_CORE;
 .el-opt b{min-width:190px;color:#58a6ff}
 .el-opt span{color:#e6edf3;font-variant-numeric:tabular-nums}
 .el-cfm-warn{margin-top:12px;font-size:12px;color:#8b949e}
+
+/* local007: ตาราง PREVIEW — 1 ITEM = 1 แถว · แถวกระชับ · ซ่อนข้อความ ERROR/WARNING ใต้รายการ (ดูใน Popup) · ซ่อนป้าย AI Model */
+.el-tablewrap td{padding:3px 8px;line-height:1.3}
+.el-tablewrap thead th{padding:5px 8px}
+.el-tablewrap tr td{border-bottom:1px solid #30363d}
+.el-tablewrap tr.el-msg{display:none}
+.el-tablewrap .el-opus{display:none}
+.el-tablewrap .el-stbtn{cursor:pointer}
+.el-msglist{margin:0;padding-left:18px;font-size:13px;line-height:1.75;color:#e6edf3}
+.el-msglist li{margin:3px 0}
 </style>
 <script id="elec-core">
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -9714,9 +9797,10 @@ if(typeof module !== 'undefined' && module.exports) module.exports = ELEC_CORE;
   const fmtN = (v, d) => v == null ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits:d || 0, maximumFractionDigits:d || 0 });
   const fmtBytes = n => n >= 1048576 ? (n / 1048576).toFixed(2) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
   const nowTh = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`; };
-  try{ const t = JSON.parse(sessionStorage.getItem(TOK_KEY) || 'null'); if(t && t.token && Date.parse(t.exp) > Date.now() + 60000){ E.token = t.token; E.tokenUser = t.user || ''; } } catch(e){}
+  function loadTok(){ try{ const t = JSON.parse(sessionStorage.getItem(TOK_KEY) || 'null'); if(t && t.token && Date.parse(t.exp) > Date.now() + 60000){ E.token = t.token; E.tokenUser = t.user || ''; return true; } } catch(e){} return false; }
+  loadTok();
   const curUser = () => { try{ const u = getCurrentUser(); return u && u.username ? String(u.username) : ''; } catch(e){ return ''; } };
-  function tokenOk(){ if(E.token && E.tokenUser.toLowerCase() !== curUser().toLowerCase()) dropToken(); return !!E.token; }
+  function tokenOk(){ if(!E.token) loadTok(); if(E.token && E.tokenUser.toLowerCase() !== curUser().toLowerCase()) dropToken(); return !!E.token; }
   function dropToken(){ E.token = null; E.tokenUser = ''; E.probe = null; try{ sessionStorage.removeItem(TOK_KEY); } catch(e){} }
 
   /* ── API ─────────────────────────────────────────────── */
@@ -9725,7 +9809,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = ELEC_CORE;
     if(kind === 'timeout') return 'ติดต่อระบบ AI ไม่ได้ — หมดเวลารอ (Timeout) กรุณาลองใหม่';
     if(kind === 'abort') return 'ยกเลิกแล้ว';
     if(kind === 'network') return `ติดต่อ Edge Function ${FN_NAME} ไม่ได้ — เครือข่ายขัดข้อง / ถูกปฏิเสธการเชื่อมต่อ (CORS) หรือ Function ยังไม่ได้ Deploy`;
-    if(status === 401) return (srv || 'กรุณายืนยันรหัสผ่านเพื่อใช้งาน AI อีกครั้ง') + ' (401)';
+    if(status === 401) return (srv || 'สิทธิ์ AI หมดอายุ — กรุณาเข้าสู่ระบบ REPORT ALL ใหม่') + ' (401)';
     if(status === 403) return (srv || 'ไม่มีสิทธิ์ใช้งาน') + ' (403)';
     if(status === 404 && !srv) return `ไม่พบ Edge Function ${FN_NAME} (404) — Function ยังไม่ได้ Deploy`;
     if(status === 429) return 'มีการจำกัดจำนวนคำขอ (429) — รอสักครู่แล้วลองใหม่';
@@ -9734,7 +9818,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = ELEC_CORE;
   }
   async function api(body, timeoutMs, noToken){
     let res, j = null;
-    if(!noToken && !tokenOk()) return { status:401, j:{ success:false, error:'unauthorized', msg:'กรุณายืนยันรหัสผ่านเพื่อใช้งาน AI' } };
+    if(!noToken && !tokenOk()) return { status:401, j:{ success:false, error:'unauthorized', msg:'ยังไม่ได้รับสิทธิ์ AI จากการเข้าสู่ระบบ' } };
     const ac = new AbortController(), tm = setTimeout(() => ac.abort(), timeoutMs || 45000);
     try{ res = await fetch(FN_URL, { method:'POST', signal:ac.signal, headers:{ 'Content-Type':'application/json', apikey:CONFIG.SUPABASE_KEY, Authorization:'Bearer ' + CONFIG.SUPABASE_KEY }, body:JSON.stringify(noToken ? body : { token:E.token, ...body }) }); }
     catch(e){ const kind = e && e.name === 'AbortError' ? 'timeout' : 'network'; return { status:0, j:{ success:false, error:kind, msg:explain(0, null, kind) } }; }
@@ -9744,16 +9828,11 @@ if(typeof module !== 'undefined' && module.exports) module.exports = ELEC_CORE;
     if(res.status === 401 && !noToken){ dropToken(); if(onView()) renderAuth(); }
     return { status:res.status, j };
   }
-  window.elecLogin = async function(){
-    if(E.authBusy) return; const el = $('elPass'), pw = el ? el.value : ''; const un = curUser();
-    if(!un){ E.authMsg = 'ไม่พบผู้ใช้ที่เข้าสู่ระบบ'; renderAuth(); return; }
-    if(!pw){ E.authMsg = 'กรอกรหัสผ่าน'; renderAuth(); return; }
-    E.authBusy = true; E.authMsg = ''; renderAuth();
-    const { j } = await api({ action:'login', username:un, password:pw }, 30000, true);
-    E.authBusy = false;
-    if(j && j.success && j.token){ E.token = j.token; E.tokenUser = un; try{ sessionStorage.setItem(TOK_KEY, JSON.stringify({ token:j.token, exp:j.expires_at, user:un })); } catch(e){}
-      E.authMsg = ''; renderAuth(); await elecProbe(true); maybeAuto(); }
-    else { E.authMsg = (j && j.msg) || 'ยืนยันไม่สำเร็จ'; renderAuth(); }
+  window.elecAuthRetry = function(){
+    E.authMsg = '';
+    if(loadTok() && tokenOk()){ renderAuth(); elecProbe(true); maybeAuto(); return; }
+    E.authMsg = 'ยังไม่ได้รับสิทธิ์ AI จากการเข้าสู่ระบบ — กรุณาออกจากระบบแล้วเข้าสู่ระบบ REPORT ALL ใหม่';
+    renderAuth();
   };
   window.elecProbe = async function(silent){
     if(E.probeBusy) return; if(!tokenOk()){ renderAuth(); return; }
@@ -9765,6 +9844,16 @@ if(typeof module !== 'undefined' && module.exports) module.exports = ELEC_CORE;
     if(onView()) renderAuth();
   };
   window.elecToggleProbe = function(){ E.showProbe = !E.showProbe; renderAuth(); };
+  // ตรวจ Prompt + Tool Schema ของ INVOICE และ PACKING LIST กับ Anthropic API จริงด้วย count_tokens (ไม่คิดค่า Token) — SUPER_ADMIN
+  window.elecDiag = async function(){
+    if(E.diagBusy || !tokenOk()) return;
+    E.diagBusy = true; E.showProbe = true; renderAuth();
+    const { j } = await api({ action:'diag' }, 90000);
+    E.diagBusy = false;
+    if(j && j.success){ E.diag = j; say(j.ready ? 'Prompt และ Schema ผ่านการตรวจกับ API จริงทั้ง 2 เอกสาร' : 'พบ Error จริงจาก API — ดูรายละเอียดด้านล่าง', j.ready ? 'ok' : 'err'); }
+    else { E.diag = null; say((j && j.msg) || 'ตรวจกับ API จริงไม่สำเร็จ', 'err'); }
+    renderAuth();
+  };
 
   /* ── ไฟล์ PDF · นับหน้า · ตัดช่วงหน้า (ไบต์คงที่ → SHA เดิม → ใช้ Cache กลางได้ ไม่เรียก AI ซ้ำ) ── */
   async function sha256(buf){ const d = await crypto.subtle.digest('SHA-256', buf); return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join(''); }
@@ -9780,6 +9869,13 @@ if(typeof module !== 'undefined' && module.exports) module.exports = ELEC_CORE;
   }
   async function prepareParts(file){
     if(file.parts) return;
+    // ไฟล์เล็กและจำนวนหน้าไม่เกิน CHUNK_PAGES → ส่ง PDF ต้นฉบับทั้งไฟล์ ไม่ผ่าน pdf-lib (ตัดความเสี่ยงไฟล์ที่สร้างใหม่ถูก API ปฏิเสธ)
+    if(file.pages <= CHUNK_PAGES && file.buf && file.buf.byteLength && file.buf.byteLength <= MAX_BYTES){
+      const absAll = []; for(let a = 1; a <= file.pages; a++) absAll.push(a);
+      const raw = new Uint8Array(file.buf.slice(0));
+      file.parts = [{ abs:absAll, bytes:raw, sha:await sha256(raw), status:'wait', result:null, msg:'', cached:false, orig:true }];
+      return;
+    }
     const parts = [], queue = [];
     for(let from = 1; from <= file.pages; from += CHUNK_PAGES){ const abs = []; for(let a = from; a <= Math.min(file.pages, from + CHUNK_PAGES - 1); a++) abs.push(a); queue.push(abs); }
     while(queue.length){ const abs = queue.shift(); const bytes = await cutPages(file, abs);
@@ -9837,7 +9933,19 @@ if(typeof module !== 'undefined' && module.exports) module.exports = ELEC_CORE;
       status = r.status; j = r.j;
     }
     if(j && j.success && j.result) return { ok:true, result:j.result, cached:j.cached === true };
-    return { ok:false, msg:(j && j.msg) || 'อ่าน PDF ไม่สำเร็จ', code:j && j.error, status };
+    return { ok:false, msg:(j && j.msg) || 'อ่าน PDF ไม่สำเร็จ', code:j && j.error, status, apiStatus:(j && j.api_status) || null, api:(j && j.api) || null };
+  }
+  // ล้มเหลวจากปัญหาไฟล์หรือรูปแบบคำขอ (ไม่ใช่เครือข่าย/วงเงิน/สิทธิ์) → ลองแบ่งอ่านทีละหน้าได้
+  /* local008 (ELEC เท่านั้น): 1) ไฟล์เล็ก/หน้าไม่เกิน 4 → ส่ง PDF ต้นฉบับ ไม่สร้างใหม่ผ่าน pdf-lib
+     2) API ปฏิเสธคำขอ (400/413/422) หรือผลไม่ครบ → แบ่งอ่านทีละหน้าอัตโนมัติ 1 รอบ แล้วรวมผลให้ครบ (ผลที่สำเร็จแล้วไม่อ่านซ้ำ)
+     3) แสดง Error จริงจาก API (Status / Type / Message ที่กรองแล้ว / Request ID) เฉพาะ SUPER_ADMIN + ปุ่มตรวจ Prompt/Schema กับ API จริง (count_tokens ไม่คิดเงิน)
+     ไม่แก้ Prompt / Schema / Mapping / Excel / elec_core.js และไม่แตะโหมดอื่น */
+  const FILE_ERRS = ['truncated', 'no_result', 'incomplete'];                      // ผลอ่านไม่ครบ/ถูกตัด → แบ่งอ่านทีละหน้าช่วยได้
+  const FILE_STATUS = [400, 413, 422];                                             // API ปฏิเสธคำขอ/ไฟล์ → แบ่งอ่านทีละหน้า (429/500/529 = ชั่วคราว ไม่แบ่ง)
+  function isFileErr(r){ return !!r && (FILE_STATUS.indexOf(Number(r.apiStatus)) >= 0 || FILE_ERRS.indexOf(String((r && r.code) || '')) >= 0); }
+  function errText(r){   // รายละเอียดจาก API จริง: Status / Error Type / ข้อความที่กรองแล้ว / Request ID (Server ส่งมาเฉพาะ SUPER_ADMIN)
+    const a = r && r.api;
+    return String((r && r.msg) || 'อ่าน PDF ไม่สำเร็จ') + (a ? ` · API ${a.status}${a.type ? ' ' + a.type : ''}${a.msg ? ': ' + a.msg : ''}${a.request_id ? ' · Request ID ' + a.request_id : ''}` : '');
   }
   async function pool(tasks, n){ let i = 0; const run = async () => { while(i < tasks.length){ const t = tasks[i++]; await t(); } }; await Promise.all(Array.from({ length:Math.min(n, tasks.length) }, run)); }
   function setState(s, msg){ E.state = s; E.stateMsg = msg || ''; if(onView()) renderStatus(); }
@@ -9874,7 +9982,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = ELEC_CORE;
   window.elecRead = async function(auto){
     if(E.running) return;
     if(!okFiles('invoice').length){ say('อัปโหลด COMMERCIAL INVOICE PDF ก่อน', 'err'); return; }
-    if(!tokenOk()){ renderAuth(); say('ยืนยันรหัสผ่านเพื่อใช้งาน AI ก่อน', 'err'); const p = $('elPass'); if(p) p.focus(); return; }
+    if(!tokenOk()){ renderAuth(); say('ยังไม่ได้รับสิทธิ์ AI — กดเชื่อมต่อ AI ใหม่ หรือเข้าสู่ระบบใหม่', 'err'); return; }
     E.running = true; E.cancel = false; E.autoKey = fileSig(); renderActions();
     try{
       setState('UPLOADING', 'กำลังเตรียมไฟล์และแบ่งช่วงหน้า');
@@ -9883,13 +9991,35 @@ if(typeof module !== 'undefined' && module.exports) module.exports = ELEC_CORE;
       const todo = live.flatMap(f => f.parts.filter(p => p.status !== 'ok').map(p => ({ f, p })));
       E.prog = { done:live.reduce((a, f) => a + f.parts.filter(p => p.status === 'ok').reduce((s, p) => s + p.abs.length, 0), 0), total:live.reduce((a, f) => a + f.pages, 0) };
       setState('SONNET READING', `Sonnet 5.5 กำลังอ่านต้นฉบับ (${todo.length} ช่วงหน้า)`);
-      await pool(todo.map(({ f, p }) => async () => {
+      const readInto = async (f, p) => {
         if(E.cancel){ return; }
         p.status = 'run'; p.msg = ''; renderFiles();
         const r = await readPart(f.doc, 'sonnet', f.name, p.bytes, p.sha, p.abs.length, f.id, p.abs);
-        if(r.ok){ p.status = 'ok'; p.result = r.result; p.cached = r.cached; E.prog.done += p.abs.length; } else { p.status = 'err'; p.msg = r.msg; }
+        if(r.ok){ p.status = 'ok'; p.result = r.result; p.cached = r.cached; p.api = null; p.fileErr = false; E.prog.done += p.abs.length; }
+        else { p.status = 'err'; p.msg = errText(r); p.api = r.api || null; p.fileErr = isFileErr(r); }
         renderFiles(); renderStatus();
-      }), CONCURRENCY);
+      };
+      await pool(todo.map(({ f, p }) => () => readInto(f, p)), CONCURRENCY);
+      // ช่วงที่อ่านไม่สำเร็จเพราะปัญหาไฟล์/คำขอ → แบ่งอ่านทีละหน้าอัตโนมัติ 1 รอบ แล้วรวมผลให้ครบทุกหน้า
+      if(!E.cancel){
+        const bad = [];
+        for(const f of live) for(const p of f.parts) if(p.status === 'err' && p.fileErr && p.abs.length > 1 && !p.split1) bad.push({ f, p });
+        if(bad.length){
+          setState('SONNET READING', `แบ่งอ่านทีละหน้าอัตโนมัติ (${bad.length} ช่วงที่อ่านไม่สำเร็จ)`);
+          const retry = [];
+          for(const { f, p } of bad){
+            p.split1 = true; const subs = [];
+            for(const a of p.abs){
+              try{ const b = await cutPages(f, [a]); subs.push({ abs:[a], bytes:b, sha:await sha256(b), status:'wait', result:null, msg:'', cached:false, split:true }); }
+              catch(e){ subs.push({ abs:[a], bytes:null, sha:'', status:'err', result:null, msg:(e && e.message) || 'ตัดหน้าไม่สำเร็จ', cached:false, split:true }); }
+            }
+            const ix = f.parts.indexOf(p); if(ix >= 0) f.parts.splice(ix, 1, ...subs);
+            for(const sp of subs) if(sp.status === 'wait') retry.push({ f, p:sp });
+          }
+          renderFiles();
+          if(retry.length) await pool(retry.map(({ f, p }) => () => readInto(f, p)), CONCURRENCY);
+        }
+      }
       setState('VALIDATING', 'กำลังรวมผล ตัดสำเนาซ้ำ และจับคู่เอกสาร'); await sleep(30);
       rebuild();
       for(let round = 0; round < OPUS_ROUNDS && E.model && !E.cancel; round++){
@@ -10026,10 +10156,10 @@ if(typeof module !== 'undefined' && module.exports) module.exports = ELEC_CORE;
   function renderAuth(){
     const el = $('elAuth'); if(!el) return;
     if(!tokenOk()){
-      el.innerHTML = `<div class="el-auth"><div class="el-auth-t">🔐 ยืนยันรหัสผ่านเพื่อใช้งาน AI <span>ผู้ใช้ <b>${esc(curUser() || '-')}</b> · ระบบตรวจสิทธิ์ที่ Server ก่อนเรียก AI ทุกครั้ง (ยืนยัน 1 ครั้งต่อการเปิดหน้า)</span></div>
-        <input id="elPass" type="password" autocomplete="current-password" placeholder="รหัสผ่าน REPORT ALL" onkeydown="if(event.key==='Enter')elecLogin()" ${E.authBusy ? 'disabled' : ''}>
-        <button class="abtn primary" onclick="elecLogin()" ${E.authBusy ? 'disabled' : ''}>${E.authBusy ? 'กำลังตรวจสอบ...' : 'ยืนยัน'}</button>
-        ${E.authMsg ? `<span class="el-auth-e">${esc(E.authMsg)}</span>` : ''}</div>`;
+      var ae = ''; try{ var x = JSON.parse(sessionStorage.getItem(TOK_KEY + '_e') || 'null'); if(x && x.msg) ae = x.msg; } catch(e){}
+      el.innerHTML = `<div class="el-auth"><div class="el-auth-t">🔗 เชื่อมต่อ AI อัตโนมัติจากการเข้าสู่ระบบ REPORT ALL <span>ผู้ใช้ <b>${esc(curUser() || '-')}</b> · ระบบตรวจสิทธิ์ผู้ใช้ที่ Server ทุกครั้งก่อนเรียก AI (ไม่ต้องกรอกรหัสผ่านซ้ำ)</span></div>
+        <button class="abtn primary" onclick="elecAuthRetry()">เชื่อมต่อ AI ใหม่</button>
+        <span class="el-auth-e">${esc(E.authMsg || ae || 'สิทธิ์ AI หมดอายุหรือยังไม่ได้ออกให้ — กดเชื่อมต่อ AI ใหม่ หรือเข้าสู่ระบบ REPORT ALL อีกครั้ง')}</span></div>`;
       return;
     }
     const p = E.probe, chip = (ok, t) => `<span class="el-chip ${ok === true ? 'ok' : ok === false ? 'bad' : 'na'}">${ok === true ? '✓' : ok === false ? '✕' : '…'} ${esc(t)}</span>`;
@@ -10037,7 +10167,9 @@ if(typeof module !== 'undefined' && module.exports) module.exports = ELEC_CORE;
     let body = '';
     if(p && E.showProbe) body = `<div class="el-probe">${chip(true, 'Edge Function ' + FN_NAME)}${chip(p.api_key === true, 'ANTHROPIC_API_KEY')}${chip(p.models && p.models.sonnet && p.models.sonnet.ok === true, 'Sonnet · ' + ((p.models && p.models.sonnet && p.models.sonnet.id) || ''))}${chip(p.models && p.models.opus && p.models.opus.ok === true, 'Opus · ' + ((p.models && p.models.opus && p.models.opus.id) || ''))}${chip(p.auth === true, 'Authentication · ' + (p.username || ''))}${chip(p.jobs === true, 'AI JOB (nj_ai_jobs)')}${chip(p.cache === true, 'Cache ' + (p.cache_hours || 72) + ' ชม.')}${chip(p.cost_guard && p.cost_guard.ok === true && p.cost_guard.blocked !== true, 'COST GUARD ' + ((p.cost_guard && p.cost_guard.ver) || '') + (p.cost_guard && p.cost_guard.blocked === true ? ' · ถึงวงเงิน' : ''))}
       ${p.budget ? `<span class="el-chip ${p.budget.warn ? 'bad' : 'ok'}">งบ AI ${esc(p.budget.month)} · ใช้ ${fmtN(p.budget.total_usd, 2)} / ${fmtN(p.budget.stop_usd, 2)} USD · คงเหลือ ${fmtN(p.budget.left_usd, 2)} USD</span>` : ''}</div>`;
-    el.innerHTML = `<div class="el-authok">${head}<span class="el-chip na">AI: AUTO · Sonnet 5.5 อ่าน → Opus 5.5 ตรวจซ้ำเฉพาะจุด</span><button class="el-link" onclick="elecToggleProbe()">${E.showProbe ? 'ซ่อนรายละเอียด' : 'รายละเอียดการเชื่อมต่อ'}</button><button class="el-link" onclick="elecProbe(false)" ${E.probeBusy ? 'disabled' : ''}>ตรวจใหม่</button></div>${body}`;
+    if(E.diag && E.showProbe) body += `<div class="el-probe">${['invoice', 'packing'].map(k => { const d = E.diag[k] || {}; const nm = k === 'invoice' ? 'INVOICE' : 'PACKING LIST';
+      return chip(d.ok === true, d.ok === true ? `${nm} · Prompt/Schema ผ่าน API จริง (${fmtN(d.input_tokens, 0)} tokens)` : `${nm} · API ${d.status || 0}${d.type ? ' ' + d.type : ''}${d.msg ? ': ' + d.msg : ''}${d.request_id ? ' · Request ID ' + d.request_id : ''}`); }).join('')}</div>`;
+    el.innerHTML = `<div class="el-authok">${head}<span class="el-chip na">AI: AUTO · Sonnet 5.5 อ่าน → Opus 5.5 ตรวจซ้ำเฉพาะจุด</span><button class="el-link" onclick="elecToggleProbe()">${E.showProbe ? 'ซ่อนรายละเอียด' : 'รายละเอียดการเชื่อมต่อ'}</button><button class="el-link" onclick="elecProbe(false)" ${E.probeBusy ? 'disabled' : ''}>ตรวจใหม่</button>${p && p.is_super ? `<button class="el-link" onclick="elecDiag()" ${E.diagBusy ? 'disabled' : ''}>${E.diagBusy ? 'กำลังตรวจกับ API จริง...' : 'ตรวจ Prompt/Schema กับ API จริง'}</button>` : ''}</div>${body}`;
   }
   function renderFiles(){
     for(const doc of ['invoice', 'packing']){ const el = $(doc === 'invoice' ? 'elInvList' : 'elPlList'); if(!el) continue;
@@ -10122,6 +10254,15 @@ if(typeof module !== 'undefined' && module.exports) module.exports = ELEC_CORE;
       </tr></thead><tbody id="elBody"></tbody></table></div>`;
     renderRows();
   }
+  window.elecShowMsg = function(key){
+    const M = E.model; if(!M) return; const r = M.rows.find(x => x.key === key);
+    if(!r || r.status === 'PASS' || !r.msgs.length) return;
+    const who = [r.inv, r.item || r.part_no || r.product_code || r.article_no].filter(Boolean).map(esc).join(' · ');
+    document.getElementById('modalRoot').innerHTML = `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="width:min(760px,94vw)">
+      <div class="mh"><h3>${r.status === 'ERROR' ? '🔴 ERROR' : '🟡 WARNING'}${who ? ' — ' + who : ''}</h3><button class="btn btn-ghost" onclick="closeModal()">✕</button></div>
+      <div class="mb"><ul class="el-msglist">${r.msgs.map(m => `<li>${esc(m)}</li>`).join('')}</ul></div>
+      <div class="mf"><button class="btn btn-ghost" onclick="closeModal()">ปิด</button></div></div></div>`;
+  };
   function renderRows(){
     const tb = $('elBody'); if(!tb) return; const rows = filtered();
     const v3 = v => v == null ? '<span class="el-na">—</span>' : fmtN(v, 3);
@@ -10131,9 +10272,9 @@ if(typeof module !== 'undefined' && module.exports) module.exports = ELEC_CORE;
       <td class="r">${r.unit_price == null ? '<span class="el-na">—</span>' : fmtN(r.unit_price, 2)}</td><td class="r">${r.net_price == null ? '<span class="el-na">—</span>' : fmtN(r.net_price, 2)}</td>
       <td>${esc(r.currency || '')}</td><td>${esc(r.coo_code || r.coo_text || '')}</td><td class="r">${v3(r.nw)}</td><td class="r">${v3(r.gw)}</td><td class="r">${r.pkg == null ? '<span class="el-na">—</span>' : r.pkg}</td>
       <td>${esc(r.commodity_code)}</td><td>${esc(r.shipment)}</td>
-      <td><span class="el-st ${r.status}" title="${esc(r.msgs.join('\n'))}">${r.status === 'PASS' ? '🟢' : r.status === 'WARNING' ? '🟠' : '🔴'} ${r.status}</span>${r.opus ? `<span class="el-opus" title="Opus อ่านซ้ำ: ${r.opus === 'confirmed' ? 'ตรงกับ Sonnet' : 'ต่างจาก Sonnet (ใช้ค่า Opus)'}">Opus</span>` : ''}</td>
+      <td>${r.status === 'PASS' ? `<span class="el-st PASS">🟢 PASS</span>` : `<button class="el-st ${r.status} el-stbtn" onclick="elecShowMsg('${esc(r.key)}')" title="กดเพื่อดูรายละเอียดปัญหา">${r.status === 'WARNING' ? '🟡' : '🔴'} ${r.status}</button>`}</td>
       <td><button class="el-mini" title="ดูหน้าต้นฉบับ" onclick="elecViewPages('${esc(r.key)}')">📄 หน้า ${r.src[0].abs}</button></td>
-    </tr>` + (r.msgs.length ? `<tr class="el-msg el-${r.status}"><td></td><td colspan="17">${r.msgs.map(esc).join('<br>')}</td></tr>` : '')).join('') || '<tr><td colspan="18" style="text-align:center;color:#8b949e;padding:18px">ไม่พบรายการตามเงื่อนไข</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="18" style="text-align:center;color:#8b949e;padding:18px">ไม่พบรายการตามเงื่อนไข</td></tr>';
     const n = $('elShowN'); if(n) n.textContent = rows.length;
   }
 })();
@@ -10222,6 +10363,16 @@ if(typeof module !== 'undefined' && module.exports) module.exports = ELEC_CORE;
 .bw-tablewrap .bw-stbtn{cursor:pointer;background:transparent}
 .bw-tablewrap tr.bw-msg td{display:none}
 .bw-tablewrap tr.bw-msg.open td{display:table-cell}
+
+/* local007: ตาราง PREVIEW — 1 ITEM = 1 แถว · แถวกระชับ · ซ่อนข้อความ ERROR/WARNING ใต้รายการ (ดูใน Popup) · ซ่อนป้าย AI Model */
+.bw-tablewrap td{padding:3px 8px;line-height:1.3}
+.bw-tablewrap thead th{padding:5px 8px}
+.bw-tablewrap tr td{border-bottom:1px solid #30363d}
+.bw-tablewrap tr.bw-msg{display:none}
+.bw-tablewrap .bw-opus{display:none}
+.bw-tablewrap .bw-stbtn{cursor:pointer}
+.bw-msglist{margin:0;padding-left:18px;font-size:13px;line-height:1.75;color:#e6edf3}
+.bw-msglist li{margin:3px 0}
 </style>
 <script id="borg-core">
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -10265,7 +10416,7 @@ const BORG_CORE = (function(){
     for(const p of parts){ const r = p.result; if(!r) continue;
       const pages = new Map();
       for(const pg of (r.pages || [])){ const abs = p.abs[pg.pg - 1]; if(abs == null) continue;
-        pages.set(pg.pg, { file:p.file, fileName:p.fileName, abs, kind:pg.kind, id:str(pg[cfg.idKey]), page_x:Number.isInteger(pg.page_x) ? pg.page_x : null, page_y:Number.isInteger(pg.page_y) ? pg.page_y : null, items:[], model:p.model || 'sonnet' }); }
+        pages.set(pg.pg, { file:p.file, fileName:p.fileName, abs, kind:pg.kind, id:str(pg[cfg.idKey]), page_x:Number.isInteger(pg.page_x) ? pg.page_x : null, page_y:Number.isInteger(pg.page_y) ? pg.page_y : null, filePages:Number.isInteger(p.filePages) ? p.filePages : null, items:[], model:p.model || 'sonnet' }); }
       for(const g of (r[cfg.listKey] || [])){ const gid = str(g[cfg.idKey]);
         headers.push({ id:gid, model:p.model || 'sonnet', g });
         (g.items || []).forEach((row, i) => { const pr = pages.get(row.pg); if(pr){ if(!pr.id) pr.id = gid; pr.items.push({ ...row, _i:i }); } }); }
@@ -10330,8 +10481,10 @@ const BORG_CORE = (function(){
       const H = headers.filter(h => h.id === d.no);
       const o = { no:d.no, pages:pgs, files:uniq(d.reads.map(p => p.fileName)), page_y:d.page_y, pagesSeen:[...d.pages.keys()].sort((a, b) => a - b), copies:Math.max(0, ...[...d.pages.values()].map(a => a.length)), items:[], hdr:{} };
       for(const k of cfg.hdr) o.hdr[k] = pick(H.map(h => ({ v:h.g[k], model:h.model })), mk(cfg.hdrN[k.replace(/_text$/, '')] || k));
-      if(!o.page_y) push({ ...DN, topic:'จำนวนหน้าที่อ่าน', [cfg.side]:'ไม่พบเลขหน้า', note:`${cfg.idName} ${d.no}: ยืนยันไม่ได้ว่าอ่านครบทุกหน้า`, pages:pgs, recheck:true });
-      else { const miss = []; for(let x = 1; x <= o.page_y; x++) if(!d.pages.has(x)) miss.push(x);
+      // จำนวนหน้า: หลักฐานคือ "หน้าจริงของไฟล์ PDF" ที่ AI จำแนกสำเร็จ (ตรวจที่ pageAudit) — เลขหน้าที่พิมพ์บนเอกสาร [page x of y]
+      // เป็นข้อมูลเสริม ใช้ตรวจเพิ่มเฉพาะเมื่อเอกสารพิมพ์ไว้จริง · เอกสารที่ไม่พิมพ์เลขหน้า (เช่นเอกสารสแกน) ต้องไม่ถูกฟ้อง ERROR
+      o.pagesRead = pgs.length;
+      if(o.page_y){ const miss = []; for(let x = 1; x <= o.page_y; x++) if(!d.pages.has(x)) miss.push(x);
         if(miss.length) push({ ...DN, topic:'จำนวนหน้าที่อ่าน', [cfg.side]:`พบ ${o.page_y - miss.length}/${o.page_y} หน้า`, note:`${cfg.idName} ${d.no}: ไม่พบหน้า ${miss.join(', ')}`, pages:pgs }); }
       // ตัดสำเนาซ้ำ: Part No. + Order No. เดียวกัน = รายการเดียว · ข้อมูลต่างกัน = ERROR (ห้ามรวมรายการซ้ำเองเมื่อยังตรวจความสัมพันธ์ไม่ได้)
       const groups = new Map(); let anon = 0;
@@ -10454,10 +10607,27 @@ const BORG_CORE = (function(){
   }
 
   /* ── ประกอบทั้งหมด ── */
+  // ── หลักฐานว่า AI อ่านครบทุกหน้าจริง: นับจำนวนหน้าจากโครงสร้าง PDF จริง (filePages ชุดเดียวกับที่ Progress ใช้) เทียบหน้าที่ AI จำแนกสำเร็จ
+  //    ไม่ใช้เลขหน้าที่พิมพ์บนเอกสาร · ไม่กำหนดจำนวนหน้าที่อ่านสำเร็จเอง (นับจากผลที่ AI ส่งกลับเท่านั้น)
+  function pageAudit(parts, cfg, issues){
+    const byFile = new Map();
+    for(const p of parts){ if(!p.result) continue;
+      const f = byFile.get(p.file) || { name:p.fileName, total:null, seen:new Set() };
+      if(f.total == null && Number.isInteger(p.filePages)) f.total = p.filePages;
+      for(const pg of (p.result.pages || [])){ if(!Number.isInteger(pg.pg)) continue; const abs = p.abs[pg.pg - 1]; if(abs != null) f.seen.add(abs); }
+      byFile.set(p.file, f); }
+    let read = 0, total = 0;
+    for(const f of byFile.values()){ read += f.seen.size; total += (f.total == null ? f.seen.size : f.total);
+      if(f.total != null && f.seen.size < f.total) issues.push({ sev:'E', inv:'', item:'', topic:'จำนวนหน้าที่อ่าน',
+        a:cfg.k === 'inv' ? `${f.name}: AI จำแนกได้ ${f.seen.size}/${f.total} หน้า` : '', b:cfg.k === 'inv' ? '' : `${f.name}: AI จำแนกได้ ${f.seen.size}/${f.total} หน้า`, diff:'',
+        note:`${cfg.th}: ยังอ่านไม่ครบทุกหน้าของไฟล์ PDF — กด AI AUTO READ เพื่ออ่านส่วนที่เหลือ`, pages:[] }); }
+    return { read, total, files:byFile.size };
+  }
   function build(invParts, plParts, extraIssues){
     const hasPl = plParts.some(p => p.result);
     const A = mergeDoc(invParts, INV_CFG), B = mergeDoc(plParts, PL_CFG);
     const issues = [...(extraIssues || []), ...A.issues, ...B.issues];
+    const pgA = pageAudit(invParts, INV_CFG, issues), pgB = pageAudit(plParts, PL_CFG, issues);
     for(const d of A.docs) selfCheck(d, INV_CFG, issues);
     for(const d of B.docs) selfCheck(d, PL_CFG, issues);
     matchAll(A.docs, B.docs, hasPl, issues);
@@ -10493,7 +10663,9 @@ const BORG_CORE = (function(){
       pkg, cbm, pkgN:A.docs.filter(iv => iv.pkg != null).length, cbmN:A.docs.filter(iv => iv.cbm != null).length,
       errors:nE, warnings:nW, rowE:rows.filter(r => r.status === 'ERROR').length, rowW:rows.filter(r => r.status === 'WARNING').length, rowP:rows.filter(r => r.status === 'PASS').length,
       state:!rows.length ? 'EMPTY' : nE ? 'ERROR' : nW ? 'WARNING' : 'PASS', hasPl };
+    summary.pages = { invoice:pgA, packing:pgB, read:pgA.read + pgB.read, total:pgA.total + pgB.total };
     summary.canExportFull = !!rows.length && nE === 0;
+    summary.canExportData = !!rows.length;        // EXPORT ข้อมูลที่อ่านได้ + รายงานค่าผิด ทำได้เสมอ (ระบุสถานะกำกับ)
     summary.passRows = rows.filter(r => r.status === 'PASS').length;
     return { invoices:A.docs, pls:B.docs, rows, issues, summary };
   }
@@ -10616,9 +10788,10 @@ if(typeof module !== 'undefined' && module.exports) module.exports = BORG_CORE;
   const fmtN = (v, d) => v == null ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits:d || 0, maximumFractionDigits:d || 0 });
   const fmtBytes = n => n >= 1048576 ? (n / 1048576).toFixed(2) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
   const nowTh = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`; };
-  try{ const t = JSON.parse(sessionStorage.getItem(TOK_KEY) || 'null'); if(t && t.token && Date.parse(t.exp) > Date.now() + 60000){ E.token = t.token; E.tokenUser = t.user || ''; } } catch(e){}
+  function loadTok(){ try{ const t = JSON.parse(sessionStorage.getItem(TOK_KEY) || 'null'); if(t && t.token && Date.parse(t.exp) > Date.now() + 60000){ E.token = t.token; E.tokenUser = t.user || ''; return true; } } catch(e){} return false; }
+  loadTok();
   const curUser = () => { try{ const u = getCurrentUser(); return u && u.username ? String(u.username) : ''; } catch(e){ return ''; } };
-  function tokenOk(){ if(E.token && E.tokenUser.toLowerCase() !== curUser().toLowerCase()) dropToken(); return !!E.token; }
+  function tokenOk(){ if(!E.token) loadTok(); if(E.token && E.tokenUser.toLowerCase() !== curUser().toLowerCase()) dropToken(); return !!E.token; }
   function dropToken(){ E.token = null; E.tokenUser = ''; E.probe = null; try{ sessionStorage.removeItem(TOK_KEY); } catch(e){} }
 
   /* ── API ─────────────────────────────────────────────── */
@@ -10627,7 +10800,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = BORG_CORE;
     if(kind === 'timeout') return 'ติดต่อระบบ AI ไม่ได้ — หมดเวลารอ (Timeout) กรุณาลองใหม่';
     if(kind === 'abort') return 'ยกเลิกแล้ว';
     if(kind === 'network') return `ติดต่อ Edge Function ${FN_NAME} ไม่ได้ — เครือข่ายขัดข้อง / ถูกปฏิเสธการเชื่อมต่อ (CORS) หรือ Function ยังไม่ได้ Deploy`;
-    if(status === 401) return (srv || 'กรุณายืนยันรหัสผ่านเพื่อใช้งาน AI อีกครั้ง') + ' (401)';
+    if(status === 401) return (srv || 'สิทธิ์ AI หมดอายุ — กรุณาเข้าสู่ระบบ REPORT ALL ใหม่') + ' (401)';
     if(status === 403) return (srv || 'ไม่มีสิทธิ์ใช้งาน') + ' (403)';
     if(status === 404 && !srv) return `ไม่พบ Edge Function ${FN_NAME} (404) — Function ยังไม่ได้ Deploy`;
     if(status === 429) return 'มีการจำกัดจำนวนคำขอ (429) — รอสักครู่แล้วลองใหม่';
@@ -10636,7 +10809,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = BORG_CORE;
   }
   async function api(body, timeoutMs, noToken){
     let res, j = null;
-    if(!noToken && !tokenOk()) return { status:401, j:{ success:false, error:'unauthorized', msg:'กรุณายืนยันรหัสผ่านเพื่อใช้งาน AI' } };
+    if(!noToken && !tokenOk()) return { status:401, j:{ success:false, error:'unauthorized', msg:'ยังไม่ได้รับสิทธิ์ AI จากการเข้าสู่ระบบ' } };
     const ac = new AbortController(), tm = setTimeout(() => ac.abort(), timeoutMs || 45000);
     try{ res = await fetch(FN_URL, { method:'POST', signal:ac.signal, headers:{ 'Content-Type':'application/json', apikey:CONFIG.SUPABASE_KEY, Authorization:'Bearer ' + CONFIG.SUPABASE_KEY }, body:JSON.stringify(noToken ? body : { token:E.token, ...body }) }); }
     catch(e){ const kind = e && e.name === 'AbortError' ? 'timeout' : 'network'; return { status:0, j:{ success:false, error:kind, msg:explain(0, null, kind) } }; }
@@ -10646,16 +10819,11 @@ if(typeof module !== 'undefined' && module.exports) module.exports = BORG_CORE;
     if(res.status === 401 && !noToken){ dropToken(); if(onView()) renderAuth(); }
     return { status:res.status, j };
   }
-  window.borgLogin = async function(){
-    if(E.authBusy) return; const el = $('bwPass'), pw = el ? el.value : ''; const un = curUser();
-    if(!un){ E.authMsg = 'ไม่พบผู้ใช้ที่เข้าสู่ระบบ'; renderAuth(); return; }
-    if(!pw){ E.authMsg = 'กรอกรหัสผ่าน'; renderAuth(); return; }
-    E.authBusy = true; E.authMsg = ''; renderAuth();
-    const { j } = await api({ action:'login', username:un, password:pw }, 30000, true);
-    E.authBusy = false;
-    if(j && j.success && j.token){ E.token = j.token; E.tokenUser = un; try{ sessionStorage.setItem(TOK_KEY, JSON.stringify({ token:j.token, exp:j.expires_at, user:un })); } catch(e){}
-      E.authMsg = ''; renderAuth(); await borgProbe(true); maybeAuto(); }
-    else { E.authMsg = (j && j.msg) || 'ยืนยันไม่สำเร็จ'; renderAuth(); }
+  window.borgAuthRetry = function(){
+    E.authMsg = '';
+    if(loadTok() && tokenOk()){ renderAuth(); borgProbe(true); maybeAuto(); return; }
+    E.authMsg = 'ยังไม่ได้รับสิทธิ์ AI จากการเข้าสู่ระบบ — กรุณาออกจากระบบแล้วเข้าสู่ระบบ REPORT ALL ใหม่';
+    renderAuth();
   };
   window.borgProbe = async function(silent){
     if(E.probeBusy) return; if(!tokenOk()){ renderAuth(); return; }
@@ -10743,7 +10911,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = BORG_CORE;
   }
   async function pool(tasks, n){ let i = 0; const run = async () => { while(i < tasks.length){ const t = tasks[i++]; await t(); } }; await Promise.all(Array.from({ length:Math.min(n, tasks.length) }, run)); }
   function setState(s, msg){ E.state = s; E.stateMsg = msg || ''; if(onView()) renderStatus(); }
-  const partsOf = doc => okFiles(doc).flatMap(f => (f.parts || []).filter(p => p.status === 'ok').map(p => ({ doc, file:f.id, fileName:f.name, model:'sonnet', abs:p.abs, result:p.result })));
+  const partsOf = doc => okFiles(doc).flatMap(f => (f.parts || []).filter(p => p.status === 'ok').map(p => ({ doc, file:f.id, fileName:f.name, model:'sonnet', abs:p.abs, result:p.result, filePages:f.pages })));
   function rebuild(){
     const inv = partsOf('invoice'), pl = partsOf('packing');
     if(!inv.length && !pl.length){ E.model = null; if(onView()){ renderSummary(); renderTable(); renderActions(); } return; }
@@ -10776,7 +10944,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = BORG_CORE;
   window.borgRead = async function(auto){
     if(E.running) return;
     if(!okFiles('invoice').length){ say('อัปโหลด COMMERCIAL INVOICE PDF ก่อน', 'err'); return; }
-    if(!tokenOk()){ renderAuth(); say('ยืนยันรหัสผ่านเพื่อใช้งาน AI ก่อน', 'err'); const p = $('bwPass'); if(p) p.focus(); return; }
+    if(!tokenOk()){ renderAuth(); say('ยังไม่ได้รับสิทธิ์ AI — กดเชื่อมต่อ AI ใหม่ หรือเข้าสู่ระบบใหม่', 'err'); return; }
     E.running = true; E.cancel = false; E.autoKey = fileSig(); renderActions();
     try{
       setState('UPLOADING', 'กำลังเตรียมไฟล์และแบ่งช่วงหน้า');
@@ -10789,7 +10957,10 @@ if(typeof module !== 'undefined' && module.exports) module.exports = BORG_CORE;
         if(E.cancel){ return; }
         p.status = 'run'; p.msg = ''; renderFiles();
         const r = await readPart(f.doc, 'sonnet', f.name, p.bytes, p.sha, p.abs.length, f.id, p.abs);
-        if(r.ok){ p.status = 'ok'; p.result = r.result; p.cached = r.cached; E.prog.done += p.abs.length; } else { p.status = 'err'; p.msg = r.msg; }
+        const nPg = r.ok ? new Set((((r.result || {}).pages) || []).map(x => x.pg).filter(x => Number.isInteger(x))).size : 0;   // หลักฐานจริงจากผลที่ AI ส่งกลับ
+        if(r.ok && nPg === p.abs.length){ p.status = 'ok'; p.result = r.result; p.cached = r.cached; p.pagesRead = nPg; E.prog.done += p.abs.length; }
+        else if(r.ok){ p.status = 'err'; p.pagesRead = nPg; p.msg = `AI จำแนกหน้าได้ ${nPg}/${p.abs.length} หน้า — ยังไม่ครบ กด AI AUTO READ เพื่ออ่านช่วงนี้ใหม่`; }
+        else { p.status = 'err'; p.pagesRead = 0; p.msg = r.msg; }
         renderFiles(); renderStatus();
       }), CONCURRENCY);
       setState('VALIDATING', 'กำลังรวมผล ตัดสำเนาซ้ำ และจับคู่เอกสาร'); await sleep(30);
@@ -10854,7 +11025,8 @@ if(typeof module !== 'undefined' && module.exports) module.exports = BORG_CORE;
     if(E.running){ say('กำลังประมวลผล — รอให้เสร็จก่อน', 'err'); return; }
     if(E.exporting){ say('กำลังสร้างไฟล์ — รอสักครู่', 'info'); return; }
     const scope = ($('bwScope') || {}).value || 'full';
-    if(scope === 'full' && !M.summary.canExportFull){ say(`ระงับ EXPORT ฉบับสมบูรณ์ — พบข้อผิดพลาดสำคัญ ${M.summary.errors} รายการ`, 'err'); return; }
+    if(scope === 'full' && !M.summary.canExportFull){ E.scope = 'data'; renderActions();
+      say(`ยังมี ERROR ${M.summary.errors} รายการ — เปลี่ยนเป็น "ข้อมูลที่อ่านได้ทั้งหมด (ระบุสถานะ)" ให้แล้ว กด EXPORT EXCEL อีกครั้ง`, 'info'); return; }
     const pass = M.rows.filter(r => r.status === 'PASS');
     if(scope === 'pass' && !pass.length){ say('ไม่มีรายการที่ตรวจผ่าน', 'err'); return; }
     E.exporting = true; renderActions();
@@ -10863,8 +11035,9 @@ if(typeof module !== 'undefined' && module.exports) module.exports = BORG_CORE;
       if(scope === 'report'){ download(makeFile([], [], M.issues, false, ''), safeName(name(M.invoices.map(i => i.no))) + '_ERROR_REPORT.xlsx'); say('EXPORT รายงานค่าผิดแล้ว', 'ok'); return; }
       const rows = scope === 'pass' ? pass : M.rows;
       const invs = M.invoices.filter(iv => rows.some(r => r.inv === iv.no));
-      const note = scope === 'pass' ? `EXPORT เฉพาะรายการที่ตรวจผ่าน ${rows.length}/${M.rows.length} รายการ` : '';
-      download(makeFile(rows, invs, C.issuesFor(M.issues, rows), true, note), safeName(name(invs.map(i => i.no))) + (scope === 'pass' ? '_PASS' : '') + '.xlsx');
+      const note = scope === 'pass' ? `EXPORT เฉพาะรายการที่ตรวจผ่าน ${rows.length}/${M.rows.length} รายการ`
+        : scope === 'data' ? `EXPORT ข้อมูลที่อ่านได้ทั้งหมด ${rows.length} รายการ — สถานะ ${M.summary.state} · PASS ${M.summary.rowP} · WARNING ${M.summary.rowW} · ERROR ${M.summary.rowE} (ดูชีต "รายงานค่าผิด")` : '';
+      download(makeFile(rows, invs, C.issuesFor(M.issues, rows), true, note), safeName(name(invs.map(i => i.no))) + (scope === 'pass' ? '_PASS' : scope === 'data' ? '_' + M.summary.state : '') + '.xlsx');
       say(`EXPORT EXCEL แล้ว ${rows.length} รายการ · ${invs.length} Invoice`, 'ok');
     }catch(e){ say('EXPORT ไม่สำเร็จ: ' + ((e && e.message) || e), 'err'); }
     finally{ E.exporting = false; renderActions(); }
@@ -10907,10 +11080,10 @@ if(typeof module !== 'undefined' && module.exports) module.exports = BORG_CORE;
   function renderAuth(){
     const el = $('bwAuth'); if(!el) return;
     if(!tokenOk()){
-      el.innerHTML = `<div class="bw-auth"><div class="bw-auth-t">🔐 ยืนยันรหัสผ่านเพื่อใช้งาน AI <span>ผู้ใช้ <b>${esc(curUser() || '-')}</b> · ระบบตรวจสิทธิ์ที่ Server ก่อนเรียก AI ทุกครั้ง (ยืนยัน 1 ครั้งต่อการเปิดหน้า)</span></div>
-        <input id="bwPass" type="password" autocomplete="current-password" placeholder="รหัสผ่าน REPORT ALL" onkeydown="if(event.key==='Enter')borgLogin()" ${E.authBusy ? 'disabled' : ''}>
-        <button class="abtn primary" onclick="borgLogin()" ${E.authBusy ? 'disabled' : ''}>${E.authBusy ? 'กำลังตรวจสอบ...' : 'ยืนยัน'}</button>
-        ${E.authMsg ? `<span class="bw-auth-e">${esc(E.authMsg)}</span>` : ''}</div>`;
+      var ae = ''; try{ var x = JSON.parse(sessionStorage.getItem(TOK_KEY + '_e') || 'null'); if(x && x.msg) ae = x.msg; } catch(e){}
+      el.innerHTML = `<div class="bw-auth"><div class="bw-auth-t">🔗 เชื่อมต่อ AI อัตโนมัติจากการเข้าสู่ระบบ REPORT ALL <span>ผู้ใช้ <b>${esc(curUser() || '-')}</b> · ระบบตรวจสิทธิ์ผู้ใช้ที่ Server ทุกครั้งก่อนเรียก AI (ไม่ต้องกรอกรหัสผ่านซ้ำ)</span></div>
+        <button class="abtn primary" onclick="borgAuthRetry()">เชื่อมต่อ AI ใหม่</button>
+        <span class="bw-auth-e">${esc(E.authMsg || ae || 'สิทธิ์ AI หมดอายุหรือยังไม่ได้ออกให้ — กดเชื่อมต่อ AI ใหม่ หรือเข้าสู่ระบบ REPORT ALL อีกครั้ง')}</span></div>`;
       return;
     }
     const p = E.probe, chip = (ok, t) => `<span class="bw-chip ${ok === true ? 'ok' : ok === false ? 'bad' : 'na'}">${ok === true ? '✓' : ok === false ? '✕' : '…'} ${esc(t)}</span>`;
@@ -10939,16 +11112,17 @@ if(typeof module !== 'undefined' && module.exports) module.exports = BORG_CORE;
     const el = $('bwActions'); if(!el) return;
     const M = E.model, has = !!(M && M.rows.length), busy = E.running, inv = okFiles('invoice').length > 0;
     const lock = has && !M.summary.canExportFull;
-    const expDis = !has || busy || E.exporting || (lock && E.scope === 'full');
+    const expDis = !has || busy || E.exporting;   // ห้ามล็อกปุ่ม EXPORT ทั้งหมด — ระงับเฉพาะ "ฉบับสมบูรณ์" เมื่อยังมี ERROR
     el.innerHTML = `<button class="abtn primary" onclick="borgRead(false)" ${busy || !inv ? 'disabled' : ''}>🤖 AI AUTO READ</button>
       ${busy ? `<button class="abtn" onclick="borgCancel()" ${E.cancel ? 'disabled' : ''}>⛔ CANCEL</button>` : ''}
       <select id="bwScope" class="bw-scope" onchange="borgScope(this.value)" ${has ? '' : 'disabled'}>
         <option value="full" ${E.scope === 'full' ? 'selected' : ''}>ฉบับสมบูรณ์ (ทุก Invoice)</option>
+        <option value="data" ${E.scope === 'data' ? 'selected' : ''}>ข้อมูลที่อ่านได้ทั้งหมด (ระบุสถานะ)${has ? ` (${M.summary.items})` : ''}</option>
         <option value="pass" ${E.scope === 'pass' ? 'selected' : ''}>เฉพาะรายการที่ตรวจผ่าน${has ? ` (${M.summary.passRows})` : ''}</option>
         <option value="report" ${E.scope === 'report' ? 'selected' : ''}>รายงานค่าผิด</option></select>
       <button class="abtn export" onclick="borgExport()" ${expDis ? 'disabled' : ''}>📥 EXPORT EXCEL</button>
       <button class="abtn" onclick="borgReset()" ${busy ? 'disabled' : ''}>🔄 RESET</button>
-      ${lock ? `<span class="bw-lock">🔒 ระงับ EXPORT ฉบับสมบูรณ์ — พบข้อผิดพลาดสำคัญ ${M.summary.errors} รายการ (EXPORT เฉพาะรายการที่ผ่าน / รายงานค่าผิดได้)</span>` : ''}`;
+      ${lock ? `<span class="bw-lock">🔒 ระงับเฉพาะ EXPORT ฉบับสมบูรณ์ — พบ ERROR ${M.summary.errors} รายการ · ยัง EXPORT ข้อมูลที่อ่านได้ทั้งหมด / เฉพาะรายการที่ผ่าน / รายงานค่าผิด ได้ตามปกติ</span>` : ''}`;
   }
   function renderStatus(){
     const el = $('bwStatus'); if(!el) return;
@@ -10972,7 +11146,9 @@ if(typeof module !== 'undefined' && module.exports) module.exports = BORG_CORE;
       : s.state === 'WARNING' ? `<div class="bw-banner warn">🟡 WARNING — มีข้อมูลที่ต้องตรวจสอบเพิ่มเติม ${s.warnings} รายการ</div>`
       : `<div class="bw-banner err">🔴 ERROR — ข้อมูลผิดหรือจับคู่ไม่ได้ ${s.errors} รายการ · ระงับ EXPORT ฉบับสมบูรณ์</div>`;
     const top = M.issues.filter(x => x.sev === 'E').slice(0, 6);
+    const pg = s.pages || { read:0, total:0, invoice:{ read:0, total:0 }, packing:{ read:0, total:0 } };
     el.innerHTML = banner + `<div class="stats bw-stats">
+      ${card('หน้าที่ AI อ่านสำเร็จ', `${fmtN(pg.read)}/${fmtN(pg.total)}`, sub(`INVOICE ${pg.invoice.read}/${pg.invoice.total} · PACKING LIST ${pg.packing.read}/${pg.packing.total} หน้า (นับจากไฟล์ PDF จริง)`), pg.total && pg.read >= pg.total ? '' : 'bad')}
       ${card('จำนวน INVOICE', fmtN(s.invoices), sub(M.invoices.map(i => esc(i.no)).slice(0, 3).join(', ') + (M.invoices.length > 3 ? ' …' : '')))}
       ${card('จำนวน PACKING LIST', fmtN(s.pls), sub(s.hasPl ? 'จับคู่ด้วย Invoice No. + Part No. + Order No.' : 'ยังไม่ได้อัปโหลด'), s.hasPl ? '' : 'warn')}
       ${card('จำนวนรายการสินค้า', fmtN(s.items), sub(`🟢 ${s.rowP} · 🟡 ${s.rowW} · 🔴 ${s.rowE}`))}
@@ -11005,7 +11181,15 @@ if(typeof module !== 'undefined' && module.exports) module.exports = BORG_CORE;
       </tr></thead><tbody id="bwBody"></tbody></table></div>`;
     renderRows();
   }
-  window.borgToggleMsg = function(key){ const r = document.getElementById('m_' + key); if(r) r.classList.toggle('open'); };
+  window.borgShowMsg = function(key){
+    const M = E.model; if(!M) return; const r = M.rows.find(x => x.key === key);
+    if(!r || r.status === 'PASS' || !r.msgs.length) return;
+    const who = [r.inv, r.item || r.part_no || r.product_code || r.article_no].filter(Boolean).map(esc).join(' · ');
+    document.getElementById('modalRoot').innerHTML = `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="width:min(760px,94vw)">
+      <div class="mh"><h3>${r.status === 'ERROR' ? '🔴 ERROR' : '🟡 WARNING'}${who ? ' — ' + who : ''}</h3><button class="btn btn-ghost" onclick="closeModal()">✕</button></div>
+      <div class="mb"><ul class="bw-msglist">${r.msgs.map(m => `<li>${esc(m)}</li>`).join('')}</ul></div>
+      <div class="mf"><button class="btn btn-ghost" onclick="closeModal()">ปิด</button></div></div></div>`;
+  };
   function renderRows(){
     const tb = $('bwBody'); if(!tb) return; const rows = filtered();
     const v3 = v => v == null ? '<span class="bw-na">—</span>' : fmtN(v, 3);
@@ -11014,9 +11198,9 @@ if(typeof module !== 'undefined' && module.exports) module.exports = BORG_CORE;
       <td class="r">${r.qty == null ? '<span class="bw-na">—</span>' : fmtN(r.qty, Number.isInteger(r.qty) ? 0 : 3)} ${esc(r.unit || '')}</td>
       <td class="r">${r.unit_price == null ? '<span class="bw-na">—</span>' : fmtN(r.unit_price, 2)}</td><td class="r">${r.amount == null ? '<span class="bw-na">—</span>' : fmtN(r.amount, 2)} ${esc(r.currency || '')}</td>
       <td class="r">${v3(r.nw)}</td><td class="r">${v3(r.gw)}</td>
-      <td>${r.status === 'PASS' ? `<span class="bw-st PASS">🟢 PASS</span>` : `<button class="bw-st ${r.status} bw-stbtn" onclick="borgToggleMsg('${esc(r.key)}')" title="กดเพื่อดูสาเหตุ">${r.status === 'WARNING' ? '🟡' : '🔴'} ${r.status}</button>`}${r.opus ? `<span class="bw-opus" title="Opus อ่านซ้ำ: ${r.opus === 'confirmed' ? 'ตรงกับ Sonnet' : 'ต่างจาก Sonnet (ใช้ค่า Opus)'}">Opus</span>` : ''}</td>
+      <td>${r.status === 'PASS' ? `<span class="bw-st PASS">🟢 PASS</span>` : `<button class="bw-st ${r.status} bw-stbtn" onclick="borgShowMsg('${esc(r.key)}')" title="กดเพื่อดูรายละเอียดปัญหา">${r.status === 'WARNING' ? '🟡' : '🔴'} ${r.status}</button>`}</td>
       <td><button class="bw-mini" title="ดูหน้าต้นฉบับ" onclick="borgViewPages('${esc(r.key)}')">📄 หน้า ${r.src[0].abs}</button></td>
-    </tr>` + (r.msgs.length ? `<tr class="bw-msg bw-${r.status}" id="m_${esc(r.key)}"><td></td><td colspan="12">${r.msgs.map(esc).join('<br>')}</td></tr>` : '')).join('') || '<tr><td colspan="13" style="text-align:center;color:#8b949e;padding:18px">ไม่พบรายการตามเงื่อนไข</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="13" style="text-align:center;color:#8b949e;padding:18px">ไม่พบรายการตามเงื่อนไข</td></tr>';
     const n = $('bwShowN'); if(n) n.textContent = rows.length;
   }
 })();
@@ -11115,6 +11299,16 @@ if(typeof module !== 'undefined' && module.exports) module.exports = BORG_CORE;
 .st-cfm-pick{margin:14px 0 8px;font-size:13px;font-weight:700;color:#e6edf3}
 .st-cfm-warn{margin-top:12px;font-size:12px;color:#8b949e}
 .st-tablewrap table{min-width:1900px}
+
+/* local007: ตาราง PREVIEW — 1 ITEM = 1 แถว · แถวกระชับ · ซ่อนข้อความ ERROR/WARNING ใต้รายการ (ดูใน Popup) · ซ่อนป้าย AI Model */
+.st-tablewrap td{padding:3px 8px;line-height:1.3}
+.st-tablewrap thead th{padding:5px 8px}
+.st-tablewrap tr td{border-bottom:1px solid #30363d}
+.st-tablewrap tr.st-msg{display:none}
+.st-tablewrap .st-opus{display:none}
+.st-tablewrap .st-stbtn{cursor:pointer}
+.st-msglist{margin:0;padding-left:18px;font-size:13px;line-height:1.75;color:#e6edf3}
+.st-msglist li{margin:3px 0}
 </style>
 <script id="stae-core">
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -11151,7 +11345,7 @@ const STAE_CORE = (function(){
     for(const p of parts){ const r = p.result; if(!r) continue;
       const pages = new Map();
       for(const pg of (r.pages || [])){ const abs = p.abs[pg.pg - 1]; if(abs == null) continue;
-        pages.set(pg.pg, { file:p.file, fileName:p.fileName, abs, kind:pg.kind, id:str(pg.invoice_no), page_x:Number.isInteger(pg.page_x) ? pg.page_x : null, page_y:Number.isInteger(pg.page_y) ? pg.page_y : null, items:[], model:p.model || 'sonnet' }); }
+        pages.set(pg.pg, { file:p.file, fileName:p.fileName, abs, kind:pg.kind, id:str(pg.invoice_no), page_x:Number.isInteger(pg.page_x) ? pg.page_x : null, page_y:Number.isInteger(pg.page_y) ? pg.page_y : null, filePages:Number.isInteger(p.filePages) ? p.filePages : null, items:[], model:p.model || 'sonnet' }); }
       for(const g of (r[cfg.listKey] || [])){ const gid = str(g.invoice_no);
         headers.push({ id:gid, model:p.model || 'sonnet', g });
         (g.items || []).forEach((row, i) => { const pr = pages.get(row.pg); if(pr){ if(!pr.id) pr.id = gid; pr.items.push({ ...row, _i:i }); } }); }
@@ -11216,8 +11410,9 @@ const STAE_CORE = (function(){
       const H = headers.filter(h => h.id === d.no);
       const o = { no:d.no, pages:pgs, files:uniq(d.reads.map(p => p.fileName)), page_y:d.page_y, pagesSeen:[...d.pages.keys()].sort((a, b) => a - b), copies:Math.max(0, ...[...d.pages.values()].map(a => a.length)), items:[], hdr:{} };
       for(const k of cfg.hdr) o.hdr[k] = pick(H.map(h => ({ v:h.g[k], model:h.model })), mk(cfg.hdrN[k.replace(/_text$/, '')] || k));
-      if(!o.page_y) push({ ...DN, topic:'จำนวนหน้าที่อ่าน', field:'PAGE', [cfg.side]:'ไม่พบเลขหน้า', note:`${cfg.th} ${d.no}: ยืนยันไม่ได้ว่าอ่านครบทุกหน้า`, pages:pgs, recheck:true });
-      else { const miss = []; for(let x = 1; x <= o.page_y; x++) if(!d.pages.has(x)) miss.push(x);
+      // page_x / page_y = เลขหน้าที่ "พิมพ์บนเอกสาร" เท่านั้น · เป็น null ได้ · ความครบถ้วนจริงตรวจจากโครงสร้าง PDF ที่ pageAudit()
+      o.pagesRead = pgs.length;
+      if(o.page_y){ const miss = []; for(let x = 1; x <= o.page_y; x++) if(!d.pages.has(x)) miss.push(x);
         if(miss.length) push({ ...DN, topic:'จำนวนหน้าที่อ่าน', field:'PAGE', [cfg.side]:`พบ ${o.page_y - miss.length}/${o.page_y} หน้า`, note:`${cfg.th} ${d.no}: ไม่พบหน้า ${miss.join(', ')}`, pages:pgs }); }
       // รหัสสินค้าซ้ำ: แยกด้วย CUST PO# + CUST ITEM# + UNIT · ข้อมูลต่างกัน = ERROR
       const groups = new Map(); let anon = 0;
@@ -11334,10 +11529,34 @@ const STAE_CORE = (function(){
   }
 
   /* ── ประกอบทั้งหมด ── */
+  // หลักฐานว่าอ่านครบทุกหน้าจริง: จำนวนหน้าจากโครงสร้าง PDF (filePages — ชุดเดียวกับ Progress) · หน้าที่ AI จำแนกได้ · n_pages / pages_classified / complete จาก Backend
+  // ไม่ใช้เลขหน้าที่พิมพ์บนเอกสาร และไม่กำหนดเลขหน้าปลอมเพื่อให้ผ่าน
+  function pageAudit(parts, cfg, issues){
+    const byFile = new Map();
+    for(const p of parts){ if(!p.result) continue;
+      const f = byFile.get(p.file) || { name:p.fileName, total:null, seen:new Set() };
+      if(f.total == null && Number.isInteger(p.filePages)) f.total = p.filePages;
+      const pgs = (p.result.pages || []).filter(x => Number.isInteger(x.pg));
+      for(const pg of pgs){ const abs = p.abs[pg.pg - 1]; if(abs != null) f.seen.add(abs); }
+      byFile.set(p.file, f);
+      const cls = Number.isInteger(p.pagesClassified) ? p.pagesClassified : new Set(pgs.map(x => x.pg)).size;
+      const np = Number.isInteger(p.nPages) ? p.nPages : p.abs.length;
+      if(cls !== np || p.result.complete !== true) issues.push({ sev:'E', inv:'', item:'', topic:'จำนวนหน้าที่อ่าน', field:'PAGE',
+        a:cfg.k === 'inv' ? `${p.fileName} หน้า ${p.abs.join(', ')}: จำแนกได้ ${cls}/${np} หน้า${p.result.complete === true ? '' : ' · AI ไม่ยืนยันว่าอ่านครบ'}` : '',
+        b:cfg.k === 'inv' ? '' : `${p.fileName} หน้า ${p.abs.join(', ')}: จำแนกได้ ${cls}/${np} หน้า${p.result.complete === true ? '' : ' · AI ไม่ยืนยันว่าอ่านครบ'}`, diff:'',
+        note:`${cfg.th}: ช่วงหน้านี้ยังอ่านไม่ครบ — กด AI AUTO READ เพื่ออ่านซ้ำเฉพาะช่วงนี้`, pages:[{ doc:cfg.k, file:p.file, abs:p.abs[0] }] }); }
+    let read = 0, total = 0;
+    for(const f of byFile.values()){ read += f.seen.size; total += (f.total == null ? f.seen.size : f.total);
+      if(f.total != null && f.seen.size < f.total) issues.push({ sev:'E', inv:'', item:'', topic:'จำนวนหน้าที่อ่าน', field:'PAGE',
+        a:cfg.k === 'inv' ? `${f.name}: AI อ่านได้ ${f.seen.size}/${f.total} หน้า` : '', b:cfg.k === 'inv' ? '' : `${f.name}: AI อ่านได้ ${f.seen.size}/${f.total} หน้า`, diff:'',
+        note:`${cfg.th}: ยังอ่านไม่ครบทุกหน้าของไฟล์ PDF — กด AI AUTO READ เพื่ออ่านส่วนที่เหลือ`, pages:[] }); }
+    return { read, total, files:byFile.size };
+  }
   function build(invParts, plParts, extraIssues, acks){
     const hasPl = plParts.some(p => p.result);
     const A = mergeDoc(invParts, INV_CFG), B = mergeDoc(plParts, PL_CFG);
     const issues = [...(extraIssues || []), ...A.issues, ...B.issues];
+    const pgA = pageAudit(invParts, INV_CFG, issues), pgB = pageAudit(plParts, PL_CFG, issues);
     for(const d of A.docs) selfCheck(d, INV_CFG, issues);
     for(const d of B.docs) selfCheck(d, PL_CFG, issues);
     matchAll(A.docs, B.docs, hasPl, issues);
@@ -11348,9 +11567,9 @@ const STAE_CORE = (function(){
     for(const iv of A.docs.slice().sort((a, b) => noCmp(a.no, b.no))){
       const p = plByNo.get(iv.no); iv.pl_no = p ? p.no : ''; iv.plDoc = p || null;
       iv.pkg = p ? (num(p.hdr.total_ctns) != null ? num(p.hdr.total_ctns) : p.calc.ctns) : null;
-      const docIss = issues.filter(x => !x.key && (x.inv === iv.no) && !x.ack);
+      const docIss = issues.filter(x => !x.key && (x.inv === iv.no));   // การรับทราบไม่ลบปัญหา — สถานะยังเป็น ERROR / WARNING ตามจริง
       for(const it of iv.items){
-        const mine = issues.filter(x => x.key === it.key && !x.ack);
+        const mine = issues.filter(x => x.key === it.key);
         const all = mine.concat(docIss);
         it.status = all.some(x => x.sev === 'E') ? 'ERROR' : all.length ? 'WARNING' : 'PASS';
         it.msgs = issues.filter(x => x.key === it.key).concat(issues.filter(x => !x.key && x.inv === iv.no)).map(x =>
@@ -11360,7 +11579,8 @@ const STAE_CORE = (function(){
         rows.push({ ...it, inv:iv.no, date:iv.hdr.date, date_text:iv.hdr.date_text, seller:str(iv.hdr.seller), buyer:str(iv.hdr.buyer), sc_no:str(iv.hdr.sc_no), incoterm:str(iv.hdr.incoterm), invDoc:iv });
       }
     }
-    const openE = issues.filter(x => x.sev === 'E' && !x.ack).length, openW = issues.filter(x => x.sev === 'W' && !x.ack).length, acked = issues.filter(x => x.ack).length;
+    // นับตามจริงทั้งหมด (รวมที่รับทราบแล้ว) — การรับทราบเป็นเพียงบันทึกว่าผู้ใช้เห็นปัญหาแล้ว ไม่ใช่การแก้ไขสำเร็จ
+    const openE = issues.filter(x => x.sev === 'E').length, openW = issues.filter(x => x.sev === 'W').length, acked = issues.filter(x => x.ack).length;
     const cur = {}; for(const r of rows){ const c = U(r.currency) || '?'; if(r.amount != null) cur[c] = r2((cur[c] || 0) + r.amount); }
     const qty = byUnit(rows, 'qty');
     const sumIf = f => r3(rows.reduce((a, r) => a + (r[f] == null ? 0 : r[f]), 0));
@@ -11369,7 +11589,10 @@ const STAE_CORE = (function(){
       ctnsN:rows.filter(r => r.ctns != null).length, gwN:rows.filter(r => r.gw != null).length, nwN:rows.filter(r => r.nw != null).length,
       errors:openE, warnings:openW, acked, rowE:rows.filter(r => r.status === 'ERROR').length, rowW:rows.filter(r => r.status === 'WARNING').length, rowP:rows.filter(r => r.status === 'PASS').length,
       state:!rows.length ? 'EMPTY' : openE ? 'ERROR' : openW ? 'WARNING' : 'PASS', hasPl };
-    summary.canExportFull = !!rows.length && openE === 0 && openW === 0;   // ข้อ 12: ยังมี ERROR หรือ WARNING ที่ยังไม่ได้แก้ไข = ห้าม EXPORT ฉบับสมบูรณ์
+    summary.pages = { invoice:pgA, packing:pgB, read:pgA.read + pgB.read, total:pgA.total + pgB.total };
+    summary.verified = !!rows.length && openE === 0 && openW === 0;        // ไม่มี ERROR และ WARNING เลย = ผลตรวจสมบูรณ์
+    summary.canExportFull = summary.verified;
+    summary.canExport = !!rows.length;                                      // EXPORT ได้เสมอเมื่อมีข้อมูล — ถ้ายังไม่สมบูรณ์ ไฟล์จะเป็น _UNVERIFIED
     summary.passRows = summary.rowP;
     return { invoices:A.docs, pls:B.docs, rows, issues, summary };
   }
@@ -11485,9 +11708,10 @@ if(typeof module !== 'undefined' && module.exports) module.exports = STAE_CORE;
   const fmtN = (v, d) => v == null ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits:d || 0, maximumFractionDigits:d || 0 });
   const fmtBytes = n => n >= 1048576 ? (n / 1048576).toFixed(2) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
   const nowTh = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`; };
-  try{ const t = JSON.parse(sessionStorage.getItem(TOK_KEY) || 'null'); if(t && t.token && Date.parse(t.exp) > Date.now() + 60000){ E.token = t.token; E.tokenUser = t.user || ''; } } catch(e){}
+  function loadTok(){ try{ const t = JSON.parse(sessionStorage.getItem(TOK_KEY) || 'null'); if(t && t.token && Date.parse(t.exp) > Date.now() + 60000){ E.token = t.token; E.tokenUser = t.user || ''; return true; } } catch(e){} return false; }
+  loadTok();
   const curUser = () => { try{ const u = getCurrentUser(); return u && u.username ? String(u.username) : ''; } catch(e){ return ''; } };
-  function tokenOk(){ if(E.token && E.tokenUser.toLowerCase() !== curUser().toLowerCase()) dropToken(); return !!E.token; }
+  function tokenOk(){ if(!E.token) loadTok(); if(E.token && E.tokenUser.toLowerCase() !== curUser().toLowerCase()) dropToken(); return !!E.token; }
   function dropToken(){ E.token = null; E.tokenUser = ''; E.probe = null; try{ sessionStorage.removeItem(TOK_KEY); } catch(e){} }
 
   /* ── API ─────────────────────────────────────────────── */
@@ -11496,7 +11720,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = STAE_CORE;
     if(kind === 'timeout') return 'ติดต่อระบบ AI ไม่ได้ — หมดเวลารอ (Timeout) กรุณาลองใหม่';
     if(kind === 'abort') return 'ยกเลิกแล้ว';
     if(kind === 'network') return `ติดต่อ Edge Function ${FN_NAME} ไม่ได้ — เครือข่ายขัดข้อง / ถูกปฏิเสธการเชื่อมต่อ (CORS) หรือ Function ยังไม่ได้ Deploy`;
-    if(status === 401) return (srv || 'กรุณายืนยันรหัสผ่านเพื่อใช้งาน AI อีกครั้ง') + ' (401)';
+    if(status === 401) return (srv || 'สิทธิ์ AI หมดอายุ — กรุณาเข้าสู่ระบบ REPORT ALL ใหม่') + ' (401)';
     if(status === 403) return (srv || 'ไม่มีสิทธิ์ใช้งาน') + ' (403)';
     if(status === 404 && !srv) return `ไม่พบ Edge Function ${FN_NAME} (404) — Function ยังไม่ได้ Deploy`;
     if(status === 429) return 'มีการจำกัดจำนวนคำขอ (429) — รอสักครู่แล้วลองใหม่';
@@ -11505,7 +11729,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = STAE_CORE;
   }
   async function api(body, timeoutMs, noToken){
     let res, j = null;
-    if(!noToken && !tokenOk()) return { status:401, j:{ success:false, error:'unauthorized', msg:'กรุณายืนยันรหัสผ่านเพื่อใช้งาน AI' } };
+    if(!noToken && !tokenOk()) return { status:401, j:{ success:false, error:'unauthorized', msg:'ยังไม่ได้รับสิทธิ์ AI จากการเข้าสู่ระบบ' } };
     const ac = new AbortController(), tm = setTimeout(() => ac.abort(), timeoutMs || 45000);
     try{ res = await fetch(FN_URL, { method:'POST', signal:ac.signal, headers:{ 'Content-Type':'application/json', apikey:CONFIG.SUPABASE_KEY, Authorization:'Bearer ' + CONFIG.SUPABASE_KEY }, body:JSON.stringify(noToken ? body : { token:E.token, ...body }) }); }
     catch(e){ const kind = e && e.name === 'AbortError' ? 'timeout' : 'network'; return { status:0, j:{ success:false, error:kind, msg:explain(0, null, kind) } }; }
@@ -11515,16 +11739,11 @@ if(typeof module !== 'undefined' && module.exports) module.exports = STAE_CORE;
     if(res.status === 401 && !noToken){ dropToken(); if(onView()) renderAuth(); }
     return { status:res.status, j };
   }
-  window.staeLogin = async function(){
-    if(E.authBusy) return; const el = $('stPass'), pw = el ? el.value : ''; const un = curUser();
-    if(!un){ E.authMsg = 'ไม่พบผู้ใช้ที่เข้าสู่ระบบ'; renderAuth(); return; }
-    if(!pw){ E.authMsg = 'กรอกรหัสผ่าน'; renderAuth(); return; }
-    E.authBusy = true; E.authMsg = ''; renderAuth();
-    const { j } = await api({ action:'login', username:un, password:pw }, 30000, true);
-    E.authBusy = false;
-    if(j && j.success && j.token){ E.token = j.token; E.tokenUser = un; try{ sessionStorage.setItem(TOK_KEY, JSON.stringify({ token:j.token, exp:j.expires_at, user:un })); } catch(e){}
-      E.authMsg = ''; renderAuth(); await staeProbe(true); maybeAuto(); }
-    else { E.authMsg = (j && j.msg) || 'ยืนยันไม่สำเร็จ'; renderAuth(); }
+  window.staeAuthRetry = function(){
+    E.authMsg = '';
+    if(loadTok() && tokenOk()){ renderAuth(); staeProbe(true); maybeAuto(); return; }
+    E.authMsg = 'ยังไม่ได้รับสิทธิ์ AI จากการเข้าสู่ระบบ — กรุณาออกจากระบบแล้วเข้าสู่ระบบ REPORT ALL ใหม่';
+    renderAuth();
   };
   window.staeProbe = async function(silent){
     if(E.probeBusy) return; if(!tokenOk()){ renderAuth(); return; }
@@ -11560,17 +11779,28 @@ if(typeof module !== 'undefined' && module.exports) module.exports = STAE_CORE;
   }
   window.staeAdd = async function(doc, list){
     if(E.running){ say('กำลังประมวลผล — เพิ่มไฟล์หลังจากเสร็จ', 'err'); return; }
-    const arr = [...(list || [])]; let dup = 0, bad = 0;
+    const arr = [...(list || [])]; let dup = 0, bad = 0; const dupNames = [];
     for(const f of arr){
       if(!f || !/\.pdf$/i.test(f.name)){ bad++; continue; }
-      if(E.files[doc].some(x => x.name === f.name && x.size === f.size)){ dup++; continue; }
-      const rec = { id:++E.seq, doc, name:f.name, size:f.size, buf:null, pages:null, parts:null, src:null, error:'' };
+      let buf, sha;
+      try{
+        buf = await f.arrayBuffer();
+        const h = new Uint8Array(buf.slice(0, 4));
+        if(!(h[0] === 0x25 && h[1] === 0x50 && h[2] === 0x44 && h[3] === 0x46)) throw new Error('เนื้อไฟล์ไม่ใช่ PDF');
+        sha = await sha256(buf);   // ตรวจซ้ำจากเนื้อไฟล์จริง (SHA-256) ไม่ใช่ชื่อไฟล์/ขนาด — ชื่อไฟล์ต่างกันแต่เนื้อหาเดียวกันถือว่าซ้ำ
+      }catch(e){
+        const rec0 = { id:++E.seq, doc, name:f.name, size:f.size, sha:'', buf:null, pages:null, parts:null, src:null, error:(e && e.message) || 'เปิดไฟล์ไม่ได้' };
+        E.files[doc].push(rec0); renderFiles(); continue;
+      }
+      const same = E.files[doc].find(x => x.sha && x.sha === sha);
+      if(same){ dup++; dupNames.push(`${f.name} = ${same.name}`); continue; }
+      const rec = { id:++E.seq, doc, name:f.name, size:f.size, sha, buf, pages:null, parts:null, src:null, error:'' };
       E.files[doc].push(rec); renderFiles();
-      try{ rec.buf = await f.arrayBuffer(); const h = new Uint8Array(rec.buf.slice(0, 4)); if(!(h[0] === 0x25 && h[1] === 0x50 && h[2] === 0x44 && h[3] === 0x46)) throw new Error('เนื้อไฟล์ไม่ใช่ PDF'); rec.pages = await pageCount(rec.buf); }
-      catch(e){ rec.error = (e && e.message) || 'เปิดไฟล์ไม่ได้'; }
+      try{ rec.pages = await pageCount(rec.buf); } catch(e){ rec.error = (e && e.message) || 'เปิดไฟล์ไม่ได้'; }
       renderFiles();
     }
-    if(dup) say(`ข้ามไฟล์ซ้ำ ${dup} ไฟล์`, 'info'); if(bad) say(`รับเฉพาะไฟล์ .pdf (ข้าม ${bad} ไฟล์)`, 'err');
+    if(dup) say(`ข้ามไฟล์ซ้ำ ${dup} ไฟล์ (เนื้อหาเหมือนกันทุกไบต์: ${dupNames.join(' · ')})`, 'info');
+    if(bad) say(`รับเฉพาะไฟล์ .pdf (ข้าม ${bad} ไฟล์)`, 'err');
     rebuild(); maybeAuto();
   };
   window.staeDel = function(doc, id){
@@ -11585,7 +11815,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = STAE_CORE;
     staeRenderView(); say('ล้างข้อมูล STAEDTLER แล้ว', 'info');
   };
   const okFiles = doc => E.files[doc].filter(f => f.pages && !f.error);
-  const fileSig = () => ['invoice', 'packing'].map(d => okFiles(d).map(f => f.name + ':' + f.size).join('|')).join('||');
+  const fileSig = () => ['invoice', 'packing'].map(d => okFiles(d).map(f => f.sha || (f.name + ':' + f.size)).join('|')).join('||');
   function maybeAuto(){
     if(E.running || !okFiles('invoice').length || !okFiles('packing').length) return;
     if(E.files.invoice.concat(E.files.packing).some(f => !f.pages && !f.error)) return;
@@ -11607,12 +11837,13 @@ if(typeof module !== 'undefined' && module.exports) module.exports = STAE_CORE;
       if(r.status === 0) continue;             // เครือข่ายสะดุดระหว่าง Polling → ถามสถานะใหม่ (ไม่ส่ง PDF ซ้ำ)
       status = r.status; j = r.j;
     }
-    if(j && j.success && j.result) return { ok:true, result:j.result, cached:j.cached === true };
+    if(j && j.success && j.result) return { ok:true, result:j.result, cached:j.cached === true, usage:j.usage || null };
     return { ok:false, msg:(j && j.msg) || 'อ่าน PDF ไม่สำเร็จ', code:j && j.error, status };
   }
   async function pool(tasks, n){ let i = 0; const run = async () => { while(i < tasks.length){ const t = tasks[i++]; await t(); } }; await Promise.all(Array.from({ length:Math.min(n, tasks.length) }, run)); }
   function setState(s, msg){ E.state = s; E.stateMsg = msg || ''; if(onView()) renderStatus(); }
-  const partsOf = doc => okFiles(doc).flatMap(f => (f.parts || []).filter(p => p.status === 'ok').map(p => ({ doc, file:f.id, fileName:f.name, model:'sonnet', abs:p.abs, result:p.result })));
+  const partsOf = doc => okFiles(doc).flatMap(f => (f.parts || []).filter(p => p.status === 'ok').map(p => ({ doc, file:f.id, fileName:f.name, model:'sonnet', abs:p.abs, result:p.result,
+    filePages:f.pages, nPages:Number.isInteger(p.nPages) ? p.nPages : p.abs.length, pagesClassified:Number.isInteger(p.pagesClassified) ? p.pagesClassified : null })));
   function rebuild(){
     const inv = partsOf('invoice'), pl = partsOf('packing');
     if(!inv.length && !pl.length){ E.model = null; if(onView()){ renderSummary(); renderTable(); renderActions(); } return; }
@@ -11632,12 +11863,24 @@ if(typeof module !== 'undefined' && module.exports) module.exports = STAE_CORE;
     await pool(jobs.map(ts => async () => {
       if(E.cancel) return;
       const f = fileOf(ts[0].file), doc = ts[0].doc === 'inv' ? 'invoice' : 'packing', abs = ts.map(t => t.abs);
-      ts.forEach(t => E.rechecked.add(t.k));
+      const clearOpusErr = () => { E.extra = E.extra.filter(x => !(x.topic === 'Opus ตรวจซ้ำไม่สำเร็จ' && x.fileId === (f ? f.id : 0) && (x.pages || []).every(q => abs.includes(q.abs)))); };
+      clearOpusErr();
       let r;
       try{ if(!f) throw new Error('ไม่พบไฟล์ต้นฉบับ'); const bytes = await cutPages(f, abs); r = await readPart(doc, 'opus', f.name, bytes, await sha256(bytes), abs.length, f.id, abs); }
       catch(e){ r = { ok:false, msg:(e && e.message) || 'เตรียมหน้าไม่สำเร็จ' }; }
-      if(r.ok) E.opus.push({ doc, file:f.id, fileName:f.name, model:'opus', abs, result:r.result });
-      else E.extra.push({ fileId:f ? f.id : 0, sev:'E', inv:'', item:'', topic:'Opus ตรวจซ้ำไม่สำเร็จ', a:doc === 'invoice' ? `${f ? f.name : ''} หน้า ${abs.join(', ')}` : '', b:doc === 'packing' ? `${f ? f.name : ''} หน้า ${abs.join(', ')}` : '', diff:'', note:r.msg + ' — รายการที่เกี่ยวข้องยังไม่ถือว่าผ่าน', pages:ts.map(t => ({ doc:t.doc, file:t.file, abs:t.abs })) });
+      if(r.ok){
+        // สำเร็จจริงเท่านั้นจึงบันทึกว่าตรวจซ้ำแล้ว — ถ้า Opus ERROR / Timeout ต้อง Retry หน้านั้นได้อีก
+        const cls = (r.usage && Number.isInteger(r.usage.pages_classified)) ? r.usage.pages_classified : new Set((r.result.pages || []).map(x => x.pg).filter(x => Number.isInteger(x))).size;
+        if(cls === abs.length && r.result.complete === true){
+          ts.forEach(t => E.rechecked.add(t.k));
+          E.opus.push({ doc, file:f.id, fileName:f.name, model:'opus', abs, result:r.result, filePages:f.pages, nPages:abs.length, pagesClassified:cls });
+          // ล้าง ERROR "Opus ตรวจซ้ำไม่สำเร็จ" เดิมเฉพาะหน้าที่เพิ่งอ่านสำเร็จ
+          E.extra = E.extra.filter(x => !(x.topic === 'Opus ตรวจซ้ำไม่สำเร็จ' && x.fileId === f.id && (x.pages || []).every(q => abs.includes(q.abs))));
+        }
+        else E.extra.push({ fileId:f.id, sev:'E', inv:'', item:'', topic:'Opus ตรวจซ้ำไม่สำเร็จ', a:doc === 'invoice' ? `${f.name} หน้า ${abs.join(', ')}` : '', b:doc === 'packing' ? `${f.name} หน้า ${abs.join(', ')}` : '', diff:'',
+          note:`Opus จำแนกหน้าได้ ${cls}/${abs.length} หน้า — ยังไม่ถือว่าตรวจซ้ำสำเร็จ กด AI AUTO READ เพื่อตรวจซ้ำอีกครั้ง`, pages:ts.map(t => ({ doc:t.doc, file:t.file, abs:t.abs })) });
+      }
+      else E.extra.push({ fileId:f ? f.id : 0, sev:'E', inv:'', item:'', topic:'Opus ตรวจซ้ำไม่สำเร็จ', a:doc === 'invoice' ? `${f ? f.name : ''} หน้า ${abs.join(', ')}` : '', b:doc === 'packing' ? `${f ? f.name : ''} หน้า ${abs.join(', ')}` : '', diff:'', note:r.msg + ' — รายการที่เกี่ยวข้องยังไม่ถือว่าผ่าน · กด AI AUTO READ เพื่อตรวจซ้ำเฉพาะหน้านี้อีกครั้ง', pages:ts.map(t => ({ doc:t.doc, file:t.file, abs:t.abs })) });
       done += ts.length; E.prog.done = done; renderStatus();
     }), CONCURRENCY);
   }
@@ -11645,7 +11888,7 @@ if(typeof module !== 'undefined' && module.exports) module.exports = STAE_CORE;
   window.staeRead = async function(auto){
     if(E.running) return;
     if(!okFiles('invoice').length){ say('อัปโหลด COMMERCIAL INVOICE PDF ก่อน', 'err'); return; }
-    if(!tokenOk()){ renderAuth(); say('ยืนยันรหัสผ่านเพื่อใช้งาน AI ก่อน', 'err'); const p = $('stPass'); if(p) p.focus(); return; }
+    if(!tokenOk()){ renderAuth(); say('ยังไม่ได้รับสิทธิ์ AI — กดเชื่อมต่อ AI ใหม่ หรือเข้าสู่ระบบใหม่', 'err'); return; }
     E.running = true; E.cancel = false; E.autoKey = fileSig(); renderActions();
     try{
       setState('UPLOADING', 'กำลังเตรียมไฟล์และแบ่งช่วงหน้า');
@@ -11659,7 +11902,9 @@ if(typeof module !== 'undefined' && module.exports) module.exports = STAE_CORE;
         if(E.cancel){ return; }
         p.status = 'run'; p.msg = ''; renderFiles();
         const r = await readPart(f.doc, 'sonnet', f.name, p.bytes, p.sha, p.abs.length, f.id, p.abs);
-        if(r.ok){ p.status = 'ok'; p.result = r.result; p.cached = r.cached; E.prog.done += p.abs.length; } else { p.status = 'err'; p.msg = r.msg; }
+        if(r.ok){ p.status = 'ok'; p.result = r.result; p.cached = r.cached; p.nPages = (r.usage && Number.isInteger(r.usage.n_pages)) ? r.usage.n_pages : p.abs.length;
+          p.pagesClassified = (r.usage && Number.isInteger(r.usage.pages_classified)) ? r.usage.pages_classified : new Set((r.result.pages || []).map(x => x.pg).filter(x => Number.isInteger(x))).size;
+          E.prog.done += p.abs.length; } else { p.status = 'err'; p.msg = r.msg; }
         if(f.doc === 'packing' && E.state === 'AI READING INVOICE') setState('AI READING PACKING LIST', E.stateMsg);
         renderFiles(); renderStatus();
       }), CONCURRENCY);
@@ -11724,18 +11969,15 @@ if(typeof module !== 'undefined' && module.exports) module.exports = STAE_CORE;
     const M = E.model; if(!M || !M.rows.length){ say('ยังไม่มีข้อมูลให้ EXPORT', 'err'); return; }
     if(E.running){ say('กำลังประมวลผล — รอให้เสร็จก่อน', 'err'); return; }
     if(E.exporting){ say('กำลังสร้างไฟล์ — รอสักครู่', 'info'); return; }
-    const scope = ($('stScope') || {}).value || 'full';
-    if(scope === 'full' && !M.summary.canExportFull){ say(`ยัง EXPORT ฉบับสมบูรณ์ไม่ได้ — มี ERROR ${M.summary.errors} · WARNING ${M.summary.warnings} ที่ยังไม่ได้แก้ไขหรือรับทราบ`, 'err'); return; }
-    const pass = M.rows.filter(r => r.status === 'PASS');
-    if(scope === 'pass' && !pass.length){ say('ไม่มีรายการที่ตรวจผ่าน', 'err'); return; }
     E.exporting = true; renderActions();
     const name = invs => invs.length === 1 ? invs[0] : invs.slice(0, 4).join('_') + (invs.length > 4 ? `_+${invs.length - 4}` : '');
+    const S = M.summary, ok = S.verified === true;   // ยังมี ERROR หรือ WARNING = ไฟล์ _UNVERIFIED (ห้ามแสดงว่าเป็นฉบับสมบูรณ์)
     try{
-      if(scope === 'report'){ download(makeFile([], [], M.issues, false, ''), safeName(name(M.invoices.map(i => i.no))) + '_ERROR_REPORT.xlsx'); say('EXPORT รายงาน ERROR / WARNING แล้ว', 'ok'); return; }
-      const rows = scope === 'pass' ? pass : M.rows;
-      const invs = M.invoices.filter(iv => rows.some(r => r.inv === iv.no));
-      download(makeFile(rows, invs, C.issuesFor(M.issues, rows), true, ''), safeName(name(invs.map(i => i.no))) + (scope === 'pass' ? '_PASS' : '') + '.xlsx');
-      say(`EXPORT EXCEL แล้ว ${rows.length} รายการ · ${invs.length} INVOICE (3 Sheets)`, 'ok');
+      const rows = M.rows, invs = M.invoices.filter(iv => rows.some(r => r.inv === iv.no));
+      const note = ok ? '' : `ผลตรวจยังไม่สมบูรณ์ — ERROR ${S.errors} · WARNING ${S.warnings} รายการ (รับทราบแล้ว ${S.acked}) · ดูรายละเอียดใน Sheet "รายงาน ERROR / WARNING" — ไฟล์นี้ไม่ใช่ฉบับสมบูรณ์`;
+      download(makeFile(rows, invs, C.issuesFor(M.issues, rows), true, note), safeName(name(invs.map(i => i.no))) + (ok ? '' : '_UNVERIFIED') + '.xlsx');
+      say(ok ? `EXPORT EXCEL แล้ว ${rows.length} รายการ · ${invs.length} INVOICE (3 Sheets)`
+             : `EXPORT แล้ว (_UNVERIFIED) ${rows.length} รายการ — ยังมี ERROR ${S.errors} · WARNING ${S.warnings}`, ok ? 'ok' : 'info');
     }catch(e){ say('EXPORT ไม่สำเร็จ: ' + ((e && e.message) || e), 'err'); }
     finally{ E.exporting = false; renderActions(); }
   };
@@ -11802,10 +12044,10 @@ if(typeof module !== 'undefined' && module.exports) module.exports = STAE_CORE;
   function renderAuth(){
     const el = $('stAuth'); if(!el) return;
     if(!tokenOk()){
-      el.innerHTML = `<div class="st-auth"><div class="st-auth-t">🔐 ยืนยันรหัสผ่านเพื่อใช้งาน AI <span>ผู้ใช้ <b>${esc(curUser() || '-')}</b> · ระบบตรวจสิทธิ์ที่ Server ก่อนเรียก AI ทุกครั้ง (ยืนยัน 1 ครั้งต่อการเปิดหน้า)</span></div>
-        <input id="stPass" type="password" autocomplete="current-password" placeholder="รหัสผ่าน REPORT ALL" onkeydown="if(event.key==='Enter')staeLogin()" ${E.authBusy ? 'disabled' : ''}>
-        <button class="abtn primary" onclick="staeLogin()" ${E.authBusy ? 'disabled' : ''}>${E.authBusy ? 'กำลังตรวจสอบ...' : 'ยืนยัน'}</button>
-        ${E.authMsg ? `<span class="st-auth-e">${esc(E.authMsg)}</span>` : ''}</div>`;
+      var ae = ''; try{ var x = JSON.parse(sessionStorage.getItem(TOK_KEY + '_e') || 'null'); if(x && x.msg) ae = x.msg; } catch(e){}
+      el.innerHTML = `<div class="st-auth"><div class="st-auth-t">🔗 เชื่อมต่อ AI อัตโนมัติจากการเข้าสู่ระบบ REPORT ALL <span>ผู้ใช้ <b>${esc(curUser() || '-')}</b> · ระบบตรวจสิทธิ์ผู้ใช้ที่ Server ทุกครั้งก่อนเรียก AI (ไม่ต้องกรอกรหัสผ่านซ้ำ)</span></div>
+        <button class="abtn primary" onclick="staeAuthRetry()">เชื่อมต่อ AI ใหม่</button>
+        <span class="st-auth-e">${esc(E.authMsg || ae || 'สิทธิ์ AI หมดอายุหรือยังไม่ได้ออกให้ — กดเชื่อมต่อ AI ใหม่ หรือเข้าสู่ระบบ REPORT ALL อีกครั้ง')}</span></div>`;
       return;
     }
     const p = E.probe, chip = (ok, t) => `<span class="st-chip ${ok === true ? 'ok' : ok === false ? 'bad' : 'na'}">${ok === true ? '✓' : ok === false ? '✕' : '…'} ${esc(t)}</span>`;
@@ -11833,17 +12075,13 @@ if(typeof module !== 'undefined' && module.exports) module.exports = STAE_CORE;
   function renderActions(){
     const el = $('stActions'); if(!el) return;
     const M = E.model, has = !!(M && M.rows.length), busy = E.running, inv = okFiles('invoice').length > 0;
-    const lock = has && !M.summary.canExportFull;
-    const expDis = !has || busy || E.exporting || (lock && E.scope === 'full');
+    const unv = has && M.summary.verified !== true;
+    const expDis = !has || busy || E.exporting;   // ปุ่มเดียว · EXPORT ได้ทันทีเมื่อมีข้อมูล แม้มี WARNING / ERROR
     el.innerHTML = `<button class="abtn primary" onclick="staeRead(false)" ${busy || !inv ? 'disabled' : ''}>🤖 AI AUTO READ</button>
       ${busy ? `<button class="abtn" onclick="staeCancel()" ${E.cancel ? 'disabled' : ''}>⛔ CANCEL</button>` : ''}
-      <select id="stScope" class="st-scope" onchange="staeScope(this.value)" ${has ? '' : 'disabled'}>
-        <option value="full" ${E.scope === 'full' ? 'selected' : ''}>ฉบับสมบูรณ์ (3 Sheets)</option>
-        <option value="pass" ${E.scope === 'pass' ? 'selected' : ''}>เฉพาะรายการที่ตรวจผ่าน${has ? ` (${M.summary.passRows})` : ''}</option>
-        <option value="report" ${E.scope === 'report' ? 'selected' : ''}>รายงาน ERROR / WARNING</option></select>
       <button class="abtn export" onclick="staeExport()" ${expDis ? 'disabled' : ''}>📥 EXPORT EXCEL</button>
       <button class="abtn" onclick="staeReset()" ${busy ? 'disabled' : ''}>🔄 RESET</button>
-      ${lock ? `<span class="st-lock">🔒 EXPORT ฉบับสมบูรณ์ถูกล็อก — ค้าง ERROR ${M.summary.errors} · WARNING ${M.summary.warnings} <button class="st-mini" onclick="staeAckAll()">รับทราบทั้งหมด</button></span>` : ''}`;
+      ${unv ? `<span class="st-lock">⚠️ ผลตรวจยังไม่สมบูรณ์ — ERROR ${M.summary.errors} · WARNING ${M.summary.warnings} · ไฟล์ที่ได้จะเป็น _UNVERIFIED (3 Sheets ครบ) <button class="st-mini" onclick="staeAckAll()">รับทราบทั้งหมด (บันทึกว่าเห็นปัญหาแล้ว ไม่เปลี่ยนสถานะ)</button></span>` : ''}`;
   }
   function renderStatus(){
     const el = $('stStatus'); if(!el) return;
@@ -11864,11 +12102,13 @@ if(typeof module !== 'undefined' && module.exports) module.exports = STAE_CORE;
     const sub = t => `<div class="s">${t}</div>`;
     const card = (k, v, extra, cls) => `<div class="stat ${cls || ''}"><div class="k">${k}</div><div class="v">${v}</div>${extra || ''}</div>`;
     const banner = s.state === 'PASS' ? `<div class="st-banner ok">🟢 PASS — ข้อมูลถูกต้องครบถ้วนทุกรายการ</div>`
-      : s.state === 'WARNING' ? `<div class="st-banner warn">🟠 WARNING — ต้องตรวจสอบเพิ่มเติม ${s.warnings} รายการ · EXPORT ฉบับสมบูรณ์ถูกล็อกจนกว่าจะแก้ไขหรือรับทราบ</div>`
-      : `<div class="st-banner err">🔴 ERROR — ข้อมูลผิดหรือจับคู่ไม่ได้ ${s.errors} รายการ · EXPORT ฉบับสมบูรณ์ถูกล็อก</div>`;
+      : s.state === 'WARNING' ? `<div class="st-banner warn">🟠 WARNING — ต้องตรวจสอบเพิ่มเติม ${s.warnings} รายการ · EXPORT ได้ทันที (ไฟล์ _UNVERIFIED — ไม่ใช่ฉบับสมบูรณ์)</div>`
+      : `<div class="st-banner err">🔴 ERROR — ข้อมูลผิดหรือจับคู่ไม่ได้ ${s.errors} รายการ · EXPORT ได้ทันที (ไฟล์ _UNVERIFIED — ไม่ใช่ฉบับสมบูรณ์)</div>`;
     const qty = Object.keys(s.qty).sort().map(u => `${fmtN(s.qty[u])} ${esc(u)}`).join('<br>') || '—';
     const open = M.issues.filter(x => !x.ack).slice(0, 8);
+    const pg = s.pages || { read:0, total:0, invoice:{ read:0, total:0 }, packing:{ read:0, total:0 } };
     el.innerHTML = banner + `<div class="stats st-stats">
+      ${card('🔵 หน้าที่ AI อ่านสำเร็จ', `${fmtN(pg.read)}/${fmtN(pg.total)}`, sub(`INVOICE ${pg.invoice.read}/${pg.invoice.total} · PACKING LIST ${pg.packing.read}/${pg.packing.total} หน้า (นับจากไฟล์ PDF จริง)`), pg.total && pg.read >= pg.total ? '' : 'bad')}
       ${card('🔵 จำนวน INVOICE', fmtN(s.invoices), sub(M.invoices.map(i => esc(i.no)).slice(0, 3).join(', ') + (M.invoices.length > 3 ? ' …' : '') + ` · PL ${s.pls}`))}
       ${card('🔵 จำนวนรายการสินค้า', fmtN(s.items), sub(`🟢 ${s.rowP} · 🟠 ${s.rowW} · 🔴 ${s.rowE}`))}
       ${card('🟣 TOTAL QUANTITY (แยกตาม UNIT)', qty)}
@@ -11902,7 +12142,15 @@ if(typeof module !== 'undefined' && module.exports) module.exports = STAE_CORE;
       </tr></thead><tbody id="stBody"></tbody></table></div>`;
     renderRows();
   }
-  window.staeToggleMsg = function(key){ const r = document.getElementById('m_' + key); if(r) r.classList.toggle('open'); };
+  window.staeShowMsg = function(key){
+    const M = E.model; if(!M) return; const r = M.rows.find(x => x.key === key);
+    if(!r || r.status === 'PASS' || !r.msgs.length) return;
+    const who = [r.inv, r.item || r.part_no || r.product_code || r.article_no].filter(Boolean).map(esc).join(' · ');
+    document.getElementById('modalRoot').innerHTML = `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="width:min(760px,94vw)">
+      <div class="mh"><h3>${r.status === 'ERROR' ? '🔴 ERROR' : '🟡 WARNING'}${who ? ' — ' + who : ''}</h3><button class="btn btn-ghost" onclick="closeModal()">✕</button></div>
+      <div class="mb"><ul class="st-msglist">${r.msgs.map(m => `<li>${esc(m)}</li>`).join('')}</ul></div>
+      <div class="mf"><button class="btn btn-ghost" onclick="closeModal()">ปิด</button></div></div></div>`;
+  };
   function renderRows(){
     const tb = $('stBody'); if(!tb) return; const rows = filtered();
     const na = '<span class="st-na">—</span>';
@@ -11911,9 +12159,9 @@ if(typeof module !== 'undefined' && module.exports) module.exports = STAE_CORE;
       <td class="r">${r.qty == null ? na : fmtN(r.qty, Number.isInteger(r.qty) ? 0 : 3)}</td><td>${esc(r.unit)}</td><td>${esc(r.currency)}</td>
       <td class="r">${r.unit_price == null ? na : esc(r.raw.unit_price_text || String(r.unit_price))}</td><td class="r">${r.amount == null ? na : fmtN(r.amount, 2)}</td>
       <td class="r">${r.ctns == null ? na : fmtN(r.ctns)}</td><td class="r">${r.gw == null ? na : fmtN(r.gw, 2)}</td><td class="r">${r.nw == null ? na : fmtN(r.nw, 2)}</td><td class="r">${r.cbm == null ? na : fmtN(r.cbm, 3)}</td>
-      <td>${r.status === 'PASS' ? `<span class="st-st PASS">🟢 PASS</span>` : `<button class="st-st ${r.status} st-stbtn" onclick="staeToggleMsg('${esc(r.key)}')" title="กดเพื่อดูสาเหตุ">${r.status === 'WARNING' ? '🟠' : '🔴'} ${r.status}</button>`}${r.opus ? `<span class="st-opus" title="Opus อ่านซ้ำ: ${r.opus === 'confirmed' ? 'ตรงกับ Sonnet' : 'ต่างจาก Sonnet (ใช้ค่า Opus)'}">Opus</span>` : ''}</td>
+      <td>${r.status === 'PASS' ? `<span class="st-st PASS">🟢 PASS</span>` : `<button class="st-st ${r.status} st-stbtn" onclick="staeShowMsg('${esc(r.key)}')" title="กดเพื่อดูรายละเอียดปัญหา">${r.status === 'WARNING' ? '🟡' : '🔴'} ${r.status}</button>`}</td>
       <td><button class="st-mini" title="ดูหน้าต้นฉบับ" onclick="staeViewPages('${esc(r.key)}')">📄 หน้า ${r.src[0].abs}</button></td>
-    </tr>` + (r.msgs.length ? `<tr class="st-msg st-${r.status}" id="m_${esc(r.key)}"><td></td><td colspan="16">${r.msgs.map(esc).join('<br>')}</td></tr>` : '')).join('') || '<tr><td colspan="17" style="text-align:center;color:#8b949e;padding:18px">ไม่พบรายการตามเงื่อนไข</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="17" style="text-align:center;color:#8b949e;padding:18px">ไม่พบรายการตามเงื่อนไข</td></tr>';
     const n = $('stShowN'); if(n) n.textContent = rows.length;
   }
 })();
