@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <!-- Build Metadata (local316): เลข Version ของ Build นี้ — กำหนดที่บรรทัดนี้ที่เดียว ใช้ทั้งเว็บไซต์ (ป้ายมุมขวาบนอ่านจากที่นี่) -->
-<meta name="nj-build" content="local331">
+<meta name="nj-build" content="local332">
 <title>Mapping Export Hi-Tech HTML</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -9552,6 +9552,10 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
  * local312: ก่อนดาวน์โหลด — เรียง Invoice น้อย→มาก · คำนวณ TOTAL ทุกคอลัมน์ปริมาณจากข้อมูลที่เขียนลง Excel จริง แล้วแสดงตารางสรุปเหนือปุ่ม EXPORT EXCEL
  * local310: Qty. ใบขน = INV.xlsx → Total Vol.(L) (คอลัมน์ O) ของแถว Excel ที่จับคู่และตรวจแล้ว โดยอัตโนมัติ 100% — หน่วย L · ไม่มีการเลือกที่มา
  *   ไม่ใช้ Quantity / น้ำหนัก / จำนวนหีบห่อจาก PDF · ไม่คำนวณ ไม่แปลงหน่วย · ช่องว่าง = แจ้งเฉพาะรายการนั้น (ไม่ใส่ 0) · ไม่อ่านค่าที่มาที่เคยเลือกไว้ในเครื่อง (ค่าเก่าใน Browser ไม่มีผล)
+ * local332: AI AUTO — Sonnet 5.5 อ่าน PDF หลักเหมือนเดิม → ตรวจยอด/จับคู่ → Opus 5.5 ตรวจซ้ำเฉพาะ Invoice ที่ผิด/ไม่ครบ/เสี่ยง (action "recheck")
+ *   เงื่อนไข: ไม่พบเลข Invoice · รายการไม่ครบ · Amount ≠ Qty × Price ตามหน่วยราคา · TOTAL ไม่ตรง · NW/GW ไม่ตรง · อ่านไม่ครบทุกหน้า (Sonnet แจ้ง incomplete = อ่านซ้ำทั้งไฟล์)
+ *   ไม่เรียก Opus: Invoice ที่ผ่านแล้ว · Invoice ที่ไม่มีข้อมูล Excel รองรับ (เช่น Empty Carton) · จุดที่ตรวจซ้ำแล้ว (1 ครั้งต่อจุด) · Server ที่ยังไม่รองรับ (probe ไม่มี recheck)
+ *   ผล Opus ผ่านการตรวจชุดเดิมทุกข้อ — ยังไม่ผ่าน / ตรวจซ้ำไม่สำเร็จ = ERROR ไม่ส่งออก Invoice นั้น (ไม่แจ้ง PASS) · ไม่มีตัวเลือก Model บนหน้าจอ
  * ═══════════════════════════════════════════════════════════════════════════ */
 (function(){
   'use strict';
@@ -9566,7 +9570,8 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     files:[], orphans:{},                  // orphans: ผลงานที่ส่งไว้ก่อน Refresh (key = sha)
     inv:{},                                // แก้ไข/จับคู่ระดับ Invoice: key → {invoiceNo, date, excelGroup}
     item:{},                               // แก้ไข/จับคู่ระดับรายการ: key → {desc, amount, excelKey}
-    exporting:false, phase:'', report:null, pend:null, problemsOnly:true, lastOk:false
+    exporting:false, phase:'', report:null, pend:null, problemsOnly:true, lastOk:false,
+    rcDone:{}, opusStat:null                // local332: ผลตรวจซ้ำ Opus ต่อจุด (key = sha#ลำดับ Invoice | sha#all) — 1 ครั้งต่อจุด · เก็บในหน่วยความจำ
   };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const num = v => { if(v == null || v === '') return null; const n = parseFloat(String(v).replace(/,/g,'')); return isFinite(n) ? n : null; };
@@ -9603,7 +9608,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       if(status === 200 && j && j.success){
         if(j.api_key === false){ S.sessState = 'fail'; S.sessMsg = 'Server ยังไม่ได้ตั้งค่า ANTHROPIC_API_KEY — AI อ่าน PDF ไม่ได้ (ตรวจพบจาก probe · HTTP 200)'; }
         else if(j.jobs === false){ S.sessState = 'fail'; S.sessMsg = 'Edge Function เข้าถึงตารางงาน AI (nj_ai_jobs) ไม่ได้ — ส่งงานอ่าน PDF ไม่ได้ (ตรวจพบจาก probe · HTTP 200)'; }
-        else { S.sessState = 'ok'; S.sessMsg = ''; S.showDetail = false; S.probe = { api_key:j.api_key === true, jobs:j.jobs === true ? true : null }; resumeOrphans(); } }
+        else { S.sessState = 'ok'; S.sessMsg = ''; S.showDetail = false; S.probe = { api_key:j.api_key === true, jobs:j.jobs === true ? true : null, recheck:j.recheck === true }; resumeOrphans(); } }
       else { S.sessState = status === 401 ? 'expired' : status === 403 ? 'denied' : 'fail'; S.sessMsg = (j && j.msg) || 'ไม่สามารถเชื่อมต่อระบบ AI ได้'; }
       S.authPromise = null; render(); })();
     return S.authPromise;
@@ -9733,7 +9738,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   /* ── อ่านด้วย AI (Cache ก่อนเสมอ ที่ Server) ───────────────── */
   function b64Of(file){ return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = () => rej(new Error('อ่านไฟล์ไม่ได้')); r.readAsDataURL(file); }); }
   function applyResult(f, j){
-    f.result = j.result; f.cached = !!j.cached; f.usage = j.usage || null; f.jobId = j.job_id || f.jobId;
+    f.result = j.result; f.cached = !!j.cached; f.usage = j.usage || null; f.jobId = j.job_id || f.jobId; f.errCode = null;
     f.status = ST.OK; f.msg = j.cached ? 'พบไฟล์ซ้ำ ใช้ข้อมูลเดิมจาก Cache' : 'อ่านข้อมูลสำเร็จ';
   }
   async function pollJob(f, jobId, wait){
@@ -9743,7 +9748,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       const { j } = await api({ action:'job_status', job_id:jobId });            // Polling อ่านสถานะอย่างเดียว
       if(j && j.pending){ wait = j.poll_after_ms; continue; }
       if(j && j.success){ applyResult(f, j); jobForget(f.sha); return; }
-      f.status = ST.FAIL; f.msg = (j && j.msg) || 'อ่าน PDF ไม่สำเร็จ'; if(j && j.error !== 'network') jobForget(f.sha); return;
+      f.status = ST.FAIL; f.msg = (j && j.msg) || 'อ่าน PDF ไม่สำเร็จ'; f.errCode = (j && j.error) || ''; if(j && j.error !== 'network') jobForget(f.sha); return;
     }
     f.status = ST.FAIL; f.msg = 'รอผลนานเกินกำหนด — กด EXPORT EXCEL อีกครั้ง';
   }
@@ -9754,7 +9759,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     const { status, j } = await api({ name:f.name, mime:'application/pdf', pdf:b64, idempotency_key:f.sha }, 120000);
     if(status === 200 && j && j.success){ applyResult(f, j); return; }
     if(status === 202 && j && j.job_id){ f.jobId = j.job_id; jobRemember(f.sha, j.job_id, f.name); render(); await pollJob(f, j.job_id, j.poll_after_ms); return; }
-    f.status = ST.FAIL; f.msg = (j && j.msg) || 'ไม่สามารถเชื่อมต่อระบบ AI ได้';
+    f.status = ST.FAIL; f.msg = (j && j.msg) || 'ไม่สามารถเชื่อมต่อระบบ AI ได้'; f.errCode = (j && j.error) || '';
   }
   async function resumeOrphans(){
     const o = jobsGet(); const shas = Object.keys(o); if(!shas.length) return;
@@ -9765,6 +9770,94 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     }
     render();
   }
+
+  /* ── local332: Opus 5.5 ตรวจซ้ำอัตโนมัติ (เฉพาะจุดที่ผิด / ไม่ครบ / เสี่ยง · 1 ครั้งต่อจุด) ── */
+  const rcKey = m => `${m.f.sha}#${m.ii}`;
+  const opusInv = (f, ii) => { const d = S.rcDone[`${f.sha}#${ii}`]; return d && d.state === 'ok' && d.iv ? d : null; };
+  // รหัสปัญหาของ Invoice (คำนวณจากผลตรวจชุดเดิม) — ว่าง = ไม่ต้องตรวจซ้ำ
+  function riskOf(m, built){
+    if(!built.groups.size || !(m.group || !m.invoiceNo)) return { codes:[], items:[] };   // ไม่มี Excel รองรับ (เช่น Empty Carton) = ไม่เรียก Opus
+    const codes = new Set(), items = new Set(), ie = (i, re) => i.errs.some(e => re.test(e));
+    if(!m.invoiceNo) codes.add('invoice_no');
+    if(!m.items.length) codes.add('items');
+    m.items.forEach(i => {
+      if([i.desc, i.amount, i.it.qty1, i.it.uom1].some(v => v == null || v === '')){ codes.add('items'); items.add(i.seq); }
+      if(ie(i, /^(Amount ไม่ตรง Qty × Price|ตรวจ Amount ไม่ได้|ไม่สามารถอ่าน Price)/)){ codes.add('amount'); items.add(i.seq); }
+      if(ie(i, /^Net Weight ไม่ตรง Excel/)){ codes.add('weight'); items.add(i.seq); } });
+    if(m.group && m.excelRows.some(r => !m.items.some(i => i.ex && i.ex.key === r.key))) codes.add('items');
+    if(m.errs.some(e => /^(ยอดรวมไม่ตรงกับ Invoice|ไม่พบ TOTAL Amount)/.test(e))) codes.add('total');
+    if(m.errs.some(e => /^TOTAL (NW|GW) /.test(e))) codes.add('weight');
+    const N = m.iv.printed_pages_total, seen = new Set((m.iv.printed_pages_seen || []).filter(x => Number.isInteger(x) && x >= 1 && x <= N));
+    if(Number.isInteger(N) && N > 0 && seen.size < N) codes.add('pages');
+    return { codes:[...codes], items:[...items].sort((a, b) => a - b) };
+  }
+  async function pollRaw(jobId, wait){
+    const t0 = Date.now();
+    while(Date.now() - t0 < 9 * 60_000){
+      await sleep(Math.max(1500, wait || 2500));
+      const { j } = await api({ action:'job_status', job_id:jobId });
+      if(j && j.pending){ wait = j.poll_after_ms; continue; }
+      return j || { success:false, error:'network', msg:'ไม่ได้รับผลตรวจซ้ำ' };
+    }
+    return { success:false, error:'timeout', msg:'รอผลตรวจซ้ำนานเกินกำหนด' };
+  }
+  function applyWhole(f, d){ f.result = d.result; f.via = 'opus'; f.status = ST.OK; f.errCode = null; f.msg = 'Sonnet อ่านไม่ครบ → Opus 5.5 อ่านซ้ำทั้งไฟล์สำเร็จ'; }
+  async function opusAuto(){
+    const can = !!(S.probe && S.probe.recheck), jobs = [];
+    // (ก) Sonnet แจ้งอ่านไม่ครบทุกหน้า/ทุกรายการ → Opus อ่านซ้ำทั้งไฟล์
+    S.files.filter(f => !f.result && !f.bad && f.errCode === 'incomplete').forEach(f => {
+      const k = f.sha + '#all', d = S.rcDone[k];
+      if(d && d.state === 'ok') return applyWhole(f, d);
+      if(d && d.state === 'fail'){ f.msg = `ERROR: Sonnet อ่านไม่ครบ · Opus 5.5 ตรวจซ้ำไม่สำเร็จ — ${d.msg}`; return; }
+      if(!can){ f.msg = `${f.msg} · WARNING: ยังไม่ได้ตรวจซ้ำด้วย Opus 5.5 — Server ยังไม่รองรับ`; return; }
+      jobs.push({ f, whole:true, keys:[k] });
+    });
+    // (ข) Invoice ที่ผิด / ไม่ครบ / เสี่ยง → Opus ตรวจซ้ำเฉพาะ Invoice นั้น (รวมเป็น 1 คำขอต่อไฟล์)
+    if(can){
+      const built = build(), byFile = new Map();
+      built.model.forEach(m => {
+        if(m.f.via === 'opus' || S.rcDone[rcKey(m)]) return;
+        const r = riskOf(m, built); if(!r.codes.length) return;
+        if(!byFile.has(m.f)) byFile.set(m.f, { f:m.f, focus:[], keys:[], nos:[] });
+        const g = byFile.get(m.f); g.focus.push({ idx:m.ii, invoice_no:String(m.iv.invoice_no || ''), reasons:r.codes, items:r.items }); g.keys.push(rcKey(m)); g.nos.push(String(m.iv.invoice_no || ''));
+      });
+      byFile.forEach(g => jobs.push(g));
+    }
+    if(!jobs.length) return;
+    jobs.forEach(g => g.keys.forEach(k => { S.rcDone[k] = { state:'run' }; }));     // กันเรียกซ้ำระหว่างทำงาน
+    setPhase('กำลังตรวจซ้ำด้วย Opus...'); render();
+    const queue = [...jobs];
+    const worker = async () => { while(queue.length){ const g = queue.shift(); let j = null;
+      try{
+        const b64 = await b64Of(g.f.file);
+        const body = { action:'recheck', name:g.f.name, mime:'application/pdf', pdf:b64, idempotency_key:g.f.sha, ...(g.whole ? { whole:true } : { focus:g.focus }) };
+        const res = await api(body, 120000); j = res.j;
+        if(res.status === 202 && j && j.job_id) j = await pollRaw(j.job_id, j.poll_after_ms);
+      } catch(e){ j = { success:false, error:'internal', msg:'ส่งตรวจซ้ำไม่สำเร็จ' }; }
+      const retry = j && (j.error === 'network' || j.error === 'timeout');   // ยังไม่ทราบผล = ลองได้ในการกด EXPORT ครั้งถัดไป (Server ใช้งาน/Cache เดิม ไม่คิดเงินซ้ำ)
+      const failAll = msg => g.keys.forEach(k => { if(retry) delete S.rcDone[k]; else S.rcDone[k] = { state:'fail', msg }; });
+      if(!(j && j.success && j.result && Array.isArray(j.result.invoices))){ failAll((j && j.msg) || 'ไม่ทราบสาเหตุ');
+        if(g.whole) g.f.msg = `ERROR: Sonnet อ่านไม่ครบ · Opus 5.5 ตรวจซ้ำไม่สำเร็จ — ${(j && j.msg) || 'ไม่ทราบสาเหตุ'}`; }
+      else if(g.whole){ S.rcDone[g.keys[0]] = { state:'ok', result:j.result, usage:j.usage || null }; applyWhole(g.f, S.rcDone[g.keys[0]]); }
+      else { const got = j.result.invoices;
+        g.focus.forEach((q, n) => { const k = g.keys[n];
+          const iv = (q.invoice_no && got.find(x => U(x.invoice_no) === U(q.invoice_no))) || (g.focus.length === 1 && got.length === 1 ? got[0] : null);
+          S.rcDone[k] = iv ? { state:'ok', iv, usage:j.usage || null } : { state:'fail', msg:'Opus ไม่ได้ส่งข้อมูล Invoice นี้กลับมา' }; }); }
+      render(); } };
+    await Promise.all([worker(), worker()]);
+  }
+  // สรุปผลตรวจซ้ำ (จากผลตรวจหลังใช้ค่า Opus แล้ว)
+  function opusSummary(built, ev){
+    const st = { n:0, ok:0, still:0, fail:0, nosrv:0, cost:0 }, bad = new Set(ev.skipped.filter(x => x.t === 'inv').map(x => x.m));
+    built.model.forEach(m => { const d = S.rcDone[rcKey(m)];
+      if(d && d.state === 'ok'){ st.n++; if(bad.has(m)) st.still++; else st.ok++; }
+      else if(d && d.state === 'fail'){ st.n++; st.fail++; }
+      else if(!d && bad.has(m) && !(S.probe && S.probe.recheck) && riskOf(m, built).codes.length) st.nosrv++; });
+    S.files.forEach(f => { const d = S.rcDone[f.sha + '#all']; if(d && (d.state === 'ok' || d.state === 'fail')){ st.n++; if(d.state === 'fail') st.fail++; else if(built.model.some(m => m.f === f && bad.has(m))) st.still++; else st.ok++; } });
+    const seen = new Set(); Object.values(S.rcDone).forEach(d => { if(d && d.usage && !d.usage.cached && !seen.has(d.usage)){ seen.add(d.usage); st.cost += Number(d.usage.cost_usd_est) || 0; } });
+    return st;
+  }
+  const opusLine = o => !o || !(o.n || o.nosrv) ? '' : `<div class="sai-msg" id="sai-opus">AI AUTO: Opus 5.5 ตรวจซ้ำ ${o.n} จุด — ผ่าน ${o.ok} · ยังไม่ผ่าน ${o.still} · ตรวจซ้ำไม่สำเร็จ ${o.fail}${o.nosrv ? ` · ยังไม่ได้ตรวจซ้ำ ${o.nosrv} (Server ยังไม่รองรับ)` : ''}</div>`;
 
   /* ── Model: รวมผลทุกไฟล์ → Invoice (น้อย→มาก) → รายการตามลำดับ PDF ── */
   function excelGroups(){
@@ -9785,7 +9878,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
   function build(){
     const invs = [];
     S.files.forEach(f => { if(!f.result || !Array.isArray(f.result.invoices)) return;
-      f.result.invoices.forEach((iv, ii) => invs.push({ f, iv, key:`${f.sha.slice(0,16)}#${ii}` })); });
+      f.result.invoices.forEach((iv, ii) => { const o = opusInv(f, ii); invs.push({ f, iv:o ? o.iv : iv, key:`${f.sha.slice(0,16)}#${ii}`, ii, via:o ? 'opus' : (f.via || '') }); }); });
     const seen = {}; invs.forEach(x => { const n = String(x.iv.invoice_no || ''); if(n) seen[n] = (seen[n] || 0) + 1; });
     const groups = excelGroups(); const usedGroup = {};
     const model = invs.map(x => {
@@ -9829,7 +9922,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
         else if(excelRows.length === items.length && !taken.has(excelRows[k].key)){ best = excelRows[k]; i.how = 'ลำดับรายการ (ไม่มีข้อมูลอ้างอิงตรง)'; }
         i.ex = best || null; if(best) taken.add(best.key);
       });
-      return { key:x.key, f:x.f, iv:x.iv, invoiceNo, date, currency, group, why, dupInvoice:(seen[String(x.iv.invoice_no||'')] || 0) > 1, items, excelRows };
+      return { key:x.key, f:x.f, iv:x.iv, ii:x.ii, via:x.via, invoiceNo, date, currency, group, why, dupInvoice:(seen[String(x.iv.invoice_no||'')] || 0) > 1, items, excelRows };
     }).sort((a, b) => invCmp(a.invoiceNo, b.invoiceNo));
     Object.keys(usedGroup).forEach(g => { if(usedGroup[g] > 1) model.filter(m => m.group === g).forEach(m => { m.groupClash = true; }); });
     // ตรวจสองทิศทาง: แถว Excel หนึ่งแถวถูกอ้างโดยรายการ PDF ได้ไม่เกิน 1 รายการ (ทุก Invoice)
@@ -9915,7 +10008,12 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       if(!m.group && built.groups.size && !(S.inv[m.key] || {}).excelGroup) why.unshift(`WARNING: ไม่มีข้อมูล Excel รองรับ Invoice นี้ (${m.items.length} รายการ · TOTAL ${m.total != null ? fmt(m.total) : '—'} ${m.currency || ''}) — ไม่นำไปจับคู่และไม่ส่งออก · Invoice อื่นไม่ได้รับผลกระทบ`);
       m.items.forEach(i => i.errs.forEach(e => why.push(`รายการที่ ${i.seq} หน้า ${i.it.pg || '?'}: ${e}`)));
       if(!why.length && m.items.some(i => !i.ex || i.qtyVal == null || i.amount == null)) why.push('ข้อมูลรายการไม่ครบ กรุณาตรวจสอบ');
-      if(why.length) skipped.push({ t:'inv', no:m.invoiceNo || '?', file:m.f.name, why }); else pass.push(m);
+      { const d = S.rcDone[`${m.f.sha}#${m.ii}`];   // local332: สถานะ Opus ตรวจซ้ำ — ไม่ผ่าน / ล้มเหลว = ERROR (ไม่แจ้ง PASS)
+        if(why.length && d && d.state === 'ok') why.unshift('ERROR: ตรวจซ้ำด้วย Opus 5.5 แล้ว ยังไม่ผ่าน — ไม่ส่งออก Invoice นี้');
+        else if(why.length && d && d.state === 'fail') why.unshift(`ERROR: Opus 5.5 ตรวจซ้ำไม่สำเร็จ — ${d.msg}`);
+        else if(why.length && m.f.via === 'opus') why.unshift('ERROR: Opus 5.5 อ่านซ้ำทั้งไฟล์แล้ว ยังไม่ผ่าน — ไม่ส่งออก Invoice นี้');
+        else if(why.length && !d && !(S.probe && S.probe.recheck) && riskOf(m, built).codes.length) why.unshift('WARNING: ยังไม่ได้ตรวจซ้ำด้วย Opus 5.5 — Server (nj-invoice-ai-shell) ยังไม่รองรับ ต้อง Deploy Edge Function รุ่น local332'); }
+      if(why.length) skipped.push({ t:'inv', no:m.invoiceNo || '?', file:m.f.name, why, m }); else pass.push(m);
     });
     S.files.forEach(f => { if(!f.result) skipped.push({ t:'file', file:f.name, why:[f.status === ST.FAIL ? (f.msg || 'อ่านไม่สำเร็จ') : 'ยังไม่ได้อ่านด้วย AI'] }); });
     const used = new Set(built.model.filter(m => m.group).map(m => m.group));
@@ -9961,14 +10059,18 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       await Promise.all([worker(), worker()]);
     }
     if(filesSig() !== sig0 || (slotData.shell && slotData.shell.INVOICE_XLSX) !== xlsxRef) return { ok:false, msg:'ไฟล์เปลี่ยนระหว่างประมวลผล — กด ⬇ EXPORT EXCEL อีกครั้ง (ใช้ผล AI เดิม)' };
+    // 1b) local332: Opus 5.5 ตรวจซ้ำอัตโนมัติ เฉพาะ Invoice ที่ผิด / ไม่ครบ / เสี่ยง (Invoice ที่ผ่าน · ไม่มี Excel รองรับ · ตรวจซ้ำแล้ว = ไม่เรียก)
+    await opusAuto();
+    if(filesSig() !== sig0 || (slotData.shell && slotData.shell.INVOICE_XLSX) !== xlsxRef) return { ok:false, msg:'ไฟล์เปลี่ยนระหว่างประมวลผล — กด ⬇ EXPORT EXCEL อีกครั้ง (ใช้ผล AI เดิม)' };
     // 2) ตรวจยอด  3) จับคู่ MAPPING  — ตัดสินราย Invoice (ไฟล์/Invoice ที่ไม่ผ่านไม่ขวาง Invoice ที่ผ่าน)
     setPhase('กำลังตรวจสอบยอด...'); await sleep(0);
     const built = build();
     setPhase('กำลังจับคู่ MAPPING...'); await sleep(0);
     const ev = evaluate(built, allRows);
+    S.opusStat = opusSummary(built, ev);
     const nSkip = skipInvN(ev.skipped), nFile = skipFileN(ev.skipped);
     if(!ev.pass.length){
-      S.report = { kind:'none', exported:[], skipped:ev.skipped }; S.problemsOnly = true; render();
+      S.report = { kind:'none', exported:[], skipped:ev.skipped, opus:S.opusStat }; S.problemsOnly = true; render();
       return { ok:false, msg:`ไม่ Export — ไม่มี Invoice ที่ผ่านการตรวจ (ไม่ผ่าน ${nSkip} Invoice${nFile ? ` · อ่านไม่สำเร็จ ${nFile} ไฟล์` : ''}) · ดูสาเหตุในสรุปด้านล่าง` };
     }
     // 4) แผนการเขียน Excel: เฉพาะแถว Excel ของ Invoice ที่ผ่าน — แถวอื่นไม่ถูกเขียน (ไม่มีข้อมูลบางส่วน / ค่าจำลอง)
@@ -9987,7 +10089,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     const msg = partial ? `EXPORT สำเร็จบางส่วน — ส่งออก ${ev.pass.length} Invoice / ข้าม ${nSkip} Invoice${nFile ? ` · อ่านไม่สำเร็จ ${nFile} ไฟล์` : ''}`
                         : `EXPORT สำเร็จ — ส่งออก ${ev.pass.length} Invoice ครบทุกรายการ`;
     if(partial) S.problemsOnly = true;
-    S.pend = { kind:partial ? 'partial' : 'full', msg, exported:ev.pass.map(m => m.invoiceNo), skipped:ev.skipped, rows:rows.length, rowsAll:allRows.length };
+    S.pend = { kind:partial ? 'partial' : 'full', msg, exported:ev.pass.map(m => m.invoiceNo), skipped:ev.skipped, rows:rows.length, rowsAll:allRows.length, opus:S.opusStat };
     setPhase('กำลังสร้าง Excel...'); render();
     return { ok:true, map, order, rows, partial, msg, skipped:ev.skipped, exported:S.pend.exported };
   };
@@ -10074,8 +10176,8 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
     const r = S.report; if(!r) return '';
     const lab = x => x.t === 'inv' ? `Invoice ${x.no} (ไฟล์ ${x.file})` : x.t === 'file' ? `ไฟล์ ${x.file}` : x.t === 'excel' ? `Excel Delivery ${x.no}` : `แถว Excel ${x.no} แถว`;
     const sk = r.skipped.slice(0, 40).map(x => `<div>• <b>${esc(lab(x))}</b> — ${esc(x.why.slice(0, 4).join(' · '))}${x.why.length > 4 ? ` (และอีก ${x.why.length - 4} จุด)` : ''}</div>`).join('') + (r.skipped.length > 40 ? `<div>… อีก ${r.skipped.length - 40} รายการ</div>` : '');
-    if(r.kind === 'none') return `<div class="sai-blk" id="sai-report" data-kind="none"><b>ไม่ Export — ไม่มี Invoice ที่ผ่านการตรวจ</b>${sk}<div class="sai-msg">แก้ไขแล้วกด ⬇ EXPORT EXCEL อีกครั้ง — ใช้ผล AI เดิม · อ่านซ้ำเฉพาะไฟล์ที่ล้มเหลว</div></div>`;
-    const ex = `<div class="sai-repl"><b>ส่งออกแล้ว ${r.exported.length} Invoice</b> (${r.rows} จาก ${r.rowsAll} แถว Excel): ${esc(r.exported.join(', '))}</div>`;
+    if(r.kind === 'none') return `<div class="sai-blk" id="sai-report" data-kind="none"><b>ไม่ Export — ไม่มี Invoice ที่ผ่านการตรวจ</b>${opusLine(r.opus)}${sk}<div class="sai-msg">แก้ไขแล้วกด ⬇ EXPORT EXCEL อีกครั้ง — ใช้ผล AI เดิม · อ่านซ้ำเฉพาะไฟล์ที่ล้มเหลว</div></div>`;
+    const ex = `<div class="sai-repl"><b>ส่งออกแล้ว ${r.exported.length} Invoice</b> (${r.rows} จาก ${r.rowsAll} แถว Excel): ${esc(r.exported.join(', '))}</div>` + opusLine(r.opus);
     if(r.kind === 'full') return `<div class="sai-rep sai-repok" id="sai-report" data-kind="full"><b>✓ ${esc(r.msg)}</b>${ex}</div>`;
     return `<div class="sai-rep sai-repwarn" id="sai-report" data-kind="partial"><b>⚠ ${esc(r.msg)}</b>${ex}
       <div class="sai-repl"><b>ไม่ได้ส่งออก ${skipInvN(r.skipped)} Invoice${skipFileN(r.skipped) ? ` · อ่านไม่สำเร็จ ${skipFileN(r.skipped)} ไฟล์` : ''}</b> (ไม่ถูกเขียนลง Excel):</div>${sk}
@@ -10128,7 +10230,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
         <b>Invoice</b> <input class="sai-in sai-w10" data-inv="${esc(m.key)}" data-f="invoiceNo" value="${esc(m.invoiceNo)}" ${lock}>
         <b>Date</b> <input type="date" class="sai-in" data-inv="${esc(m.key)}" data-f="date" value="${esc(m.date)}" ${lock}> <span class="sai-msg">(${esc(m.iv.date_text || '')})</span>
         <b>${esc(m.currency)}</b> TOTAL ${fmt(m.total)} · รวมรายการ ${fmt(m.sum)}
-        · <b>Excel</b> <select class="sai-in" data-inv="${esc(m.key)}" data-f="excelGroup" ${lock}>${gOpts(S.inv[m.key].excelGroup || (m.group || ''))}</select> <span class="sai-msg">${esc(m.why)}</span>
+        · <b>Excel</b> <select class="sai-in" data-inv="${esc(m.key)}" data-f="excelGroup" ${lock}>${gOpts(S.inv[m.key].excelGroup || (m.group || ''))}</select> <span class="sai-msg">${esc(m.why)}</span>${m.via === 'opus' ? ' · <span class="sai-pill sai-ok">ข้อมูลจาก Opus 5.5 (ตรวจซ้ำ)</span>' : ''}
         · <a href="javascript:void(0)" data-act="view" data-id="${m.f.id}">${esc(m.f.name)}</a>
         ${m.cmp.length ? `<div class="sai-msg">${m.cmp.map(c => `${esc(c[0])}: PDF ${fmt(c[1],3)} / Excel ${fmt(c[2],3)}`).join(' · ')}</div>` : ''}
         ${m.errs.map(e => `<div class="sai-e">❌ ${esc(e)}</div>`).join('')}
