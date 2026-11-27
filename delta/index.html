@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <!-- Build Metadata (local316): เลข Version ของ Build นี้ — กำหนดที่บรรทัดนี้ที่เดียว ใช้ทั้งเว็บไซต์ (ป้ายมุมขวาบนอ่านจากที่นี่) -->
-<meta name="nj-build" content="local333">
+<meta name="nj-build" content="local334">
 <title>Mapping Export Hi-Tech HTML</title>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -5151,6 +5151,12 @@ function readShellInvoiceXlsx(file){
           for(let hr = 1; hr <= Math.min(5, maxRow) && !found; hr++) for(let c = 1; c <= maxCol; c++){
             if(/^totalvol\.?\(l\)$/.test(txt(cell(hr, c)).replace(/\s+/g,'').toLowerCase())){ found = c; break; } }
           if(found) volCol = found; }
+        // local334: Delivery quantity / SU — ค้นจากชื่อ Header ในแถวเดียวกัน (5 แถวแรก) · ไม่พบ = ตำแหน่งเดิม K / L
+        let qtyCol = 11, suCol = 12;
+        { const maxCol = Math.min(XLSX.utils.decode_range(ref).e.c + 1, 60), hn = (r, c) => txt(cell(r, c)).replace(/\s+/g,'').toLowerCase();
+          for(let hr = 1; hr <= Math.min(5, maxRow); hr++){ let q = 0, u = 0;
+            for(let c = 1; c <= maxCol; c++){ const h = hn(hr, c); if(!q && h === 'deliveryquantity') q = c; if(!u && h === 'su') u = c; }
+            if(q){ qtyCol = q; if(u) suCol = u; break; } } }
         const rows = [];
         for(let r = 2; r <= maxRow; r++){
           const plant = txt(cell(r, 6));          // F
@@ -5162,8 +5168,8 @@ function readShellInvoiceXlsx(file){
           const shipment = cell(r, 8);            // H
           const material = cell(r, 9);            // I
           const desc     = txt(cell(r, 10));      // J
-          const qty      = toNum(cell(r, 11));    // K
-          const su       = txt(cell(r, 12));      // L SU (CAR / PAIL / ...)
+          const qty      = toNum(cell(r, qtyCol)); // K Delivery quantity — local334: หาคอลัมน์จากชื่อ Header
+          const su       = txt(cell(r, suCol));   // L SU (CAR / PAIL / ...) — local334: หาคอลัมน์จากชื่อ Header
           const nw       = toNum(cell(r, 13));    // M
           const gw       = toNum(cell(r, 14));    // N
           const vol      = toNum(cell(r, volCol)); // Total Vol.(L) — local310: หาคอลัมน์จากชื่อ Header (ปกติ = O)
@@ -5297,9 +5303,11 @@ async function _doExportSHELLRun(){
   // SU → หน่วยนับหีบห่อ mapping
   // SAFE PATCH: Support both DRUM and DRM, case-insensitive with trim
   const SU_TO_UNIT = { CAR: 'CT', PAIL: 'PL', DRUM: 'DR', DRM: 'DR', BOX: 'BX', BOT: 'BT' };
+  // local334: CAR → CT · หน่วยที่มีในตารางเดิม → ตามตาราง · หน่วยอื่น = ค่า SU เดิม · ไม่มีข้อมูล = ว่าง (ไม่กำหนด CT ตายตัว)
   const mapSU = su => {
-    const normalized = String(su || '').trim().toUpperCase();
-    return SU_TO_UNIT[normalized] || 'CT';
+    const raw = String(su == null ? '' : su).trim(), normalized = raw.toUpperCase();
+    if(!raw) return null;
+    return SU_TO_UNIT[normalized] || raw;
   };
 
   // Build brand rules from BRAND_MAP slot (optional)
@@ -10038,10 +10046,10 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
       if(pc && xm){ if(pc !== xm) errs.push(`Product Code ไม่ตรง Material ${at} (PDF ${it.product_code} / Excel ${xr.material})`); }
       else if(normTxt(xr.desc) !== normTxt(i.desc)) errs.push(`ไม่มี Product Code ให้ยืนยัน และ Description ไม่ตรงกับแถว Excel ${xr.srcRow} — ตรวจการจับคู่`);
     }
-    // Qty. ใบขน (local310): INV.xlsx → Total Vol.(L) ของแถว Excel ที่จับคู่กับรายการนี้เท่านั้น — ไม่มีการเลือก · ไม่ใช้ค่าจาก PDF / แถวอื่น / ยอดรวม · ไม่มีค่า = แจ้งเฉพาะรายการนี้
-    const vol = i.ex ? num(i.ex.row.vol) : null;
-    i.qtyVal = vol != null && vol > 0 ? vol : null; i.qtyUnit = 'L';
-    if(i.ex && i.qtyVal == null) errs.push(`ไม่พบ Total Vol.(L) — กรุณาตรวจสอบ Excel แถวที่ ${i.ex.row.srcRow}`);
+    // Qty. ใบขน (local334): INV.xlsx → Delivery quantity ของแถว Excel ที่จับคู่กับรายการนี้เท่านั้น (ไม่ใช้ Total Vol.(L) · ไม่คูณ · ไม่ใช้ NW/GW) — เดิม local310 — ไม่มีการเลือก · ไม่ใช้ค่าจาก PDF / แถวอื่น / ยอดรวม · ไม่มีค่า = แจ้งเฉพาะรายการนี้
+    const dq = i.ex ? num(i.ex.row.qty) : null;
+    i.qtyVal = dq != null && dq > 0 ? dq : null; i.qtyUnit = i.ex ? String(i.ex.row.su == null ? '' : i.ex.row.su).trim() : '';
+    if(i.ex && i.qtyVal == null) errs.push(`ไม่พบ Delivery quantity — กรุณาตรวจสอบ Excel แถวที่ ${i.ex.row.srcRow}`);
     i.errs = errs; i.info = info; i.state = errs.length ? 'bad' : 'ok';
   }
   function checkInvoice(m){
@@ -10346,7 +10354,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
           <td class="sai-num">${esc(i.it.qty1 || '')} ${esc(i.it.uom1 || '')}${i.it.qty2 ? `<div>${esc(i.it.qty2)} ${esc(i.it.uom2 || '')}</div>` : ''}<div class="sai-msg">${esc(i.it.price || '')} ${esc(i.it.price_ccy || '')}${i.it.price_uom ? ` / ${esc(i.it.price_per || 1)} ${esc(i.it.price_uom)}` : ''}</div></td>
           <td><input class="sai-in sai-num sai-w8" data-item="${esc(i.key)}" data-f="amount" value="${i.amount == null ? '' : esc(i.amount)}" ${lock}>${i.calc ? `<div class="sai-msg">คำนวณ ${fmt(i.calc.exp)}</div>` : ''}</td>
           <td><select class="sai-in" data-item="${esc(i.key)}" data-f="excelKey" ${lock}>${xo}</select>${i.ex ? `<div class="sai-msg">แถว ${esc(i.ex.row.srcRow)} · ${esc(i.how)}</div>` : ''}</td>
-          <td class="sai-num" data-qty="${i.qtyVal == null ? '' : i.qtyVal}">${i.qtyVal != null ? `${fmt(i.qtyVal,3)} L<div class="sai-msg">INV.xlsx แถว ${esc(i.ex.row.srcRow)} · Total Vol.(L)</div>` : '<span class="sai-e">ไม่พบ Total Vol.(L)</span>'}</td>
+          <td class="sai-num" data-qty="${i.qtyVal == null ? '' : i.qtyVal}">${i.qtyVal != null ? `${fmt(i.qtyVal, decs(i.qtyVal))}${i.qtyUnit ? ' ' + esc(i.qtyUnit) : ''}<div class="sai-msg">INV.xlsx แถว ${esc(i.ex.row.srcRow)} · Delivery quantity</div>` : (m.carton ? '' : '<span class="sai-e">ไม่พบ Delivery quantity</span>')}</td>
           <td><span class="sai-pill sai-${i.state === 'ok' ? 'ok' : 'bad'}">${i.state === 'ok' ? 'ผ่าน' : 'ไม่ผ่าน'}</span></td></tr>
           ${msgs ? `<tr class="sai-${i.state}r sai-msgr"><td></td><td colspan="9">${msgs}</td></tr>` : ''}`;
       });
@@ -10356,7 +10364,7 @@ try{ delta005InitUploads(); } catch(e){ console.warn('delta005InitUploads:', e);
         <div><span>ผ่าน</span><b class="sai-okc">${s.pass}</b></div><div><span>ผิดพลาด</span><b class="sai-bc">${s.bad}</b></div><div><span>อ่านไม่สำเร็จ (ไฟล์)</span><b class="sai-bc">${s.fail}</b></div>
         <div class="sai-wide"><span>TOTAL Amount</span><b>${amt}</b></div><div class="sai-wide"><span>TOTAL QTY</span><b>${kv(s.qty)}</b></div>
         <div class="sai-wide"><span>TOTAL NW / GW</span><b>${kv(s.nw)} / ${kv(s.gw)}</b></div></div>
-      <div class="sai-actions"><span class="sai-msg" id="sai-qtysrc">Qty. ใบขน: ดึงจาก INV.xlsx → Total Vol.(L) อัตโนมัติ</span>
+      <div class="sai-actions"><span class="sai-msg" id="sai-qtysrc">Qty. ใบขน: ดึงจาก INV.xlsx → Delivery quantity อัตโนมัติ</span>
         ${hasBad ? `<button type="button" class="btn btn-ghost sai-mini" data-act="toggle">${only ? 'แสดงทุกรายการ' : 'แสดงเฉพาะที่มีปัญหา'}</button>` : ''}
         <span class="sai-msg">${hasBad ? (only ? 'แสดงเฉพาะรายการที่ต้องแก้ไข' : 'แสดงทุกรายการ') : 'ข้อมูลผ่านทั้งหมด'}</span></div>
       <div class="sai-scroll sai-prev"><table class="sai-tbl"><thead><tr><th>#</th><th>Invoice</th><th>Date</th><th>Item / Code</th><th>Description</th><th>Quantity / Price</th><th>Amount</th><th>แถว Excel</th><th>Qty. ใบขน</th><th>ผล</th></tr></thead><tbody>${body}</tbody></table></div>`;
