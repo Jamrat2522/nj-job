@@ -1,6 +1,6 @@
 /* Service Worker — static asset เท่านั้น · ไม่ cache ข้อมูลส่วนตัว/Supabase
    Cache Version มาจาก build.js เขียนให้อัตโนมัติ (ค่าเดียวกับ app.js/CSS/index.html ใน build เดียวกัน) */
-const V = 'njhr-v2-4bd8f433';
+const V = 'njhr-v2-b3943890';
 const BUILD = V.replace('njhr-v2-', '');
 /* [RUN-222] Cache Namespace ตามโฟลเดอร์ที่ติดตั้ง — ระบบทดลอง (เช่น /hrtest/) กับ Production (/hr/) ไม่ลบ Cache ข้ามกัน
    Production (/hr/)  : ชื่อ Cache เดิมทุกตัวอักษร 'njhr-v2-<build>' และล้างเฉพาะ 'njhr-v2-*' ของ Build เก่า (พฤติกรรมเดิม)
@@ -27,7 +27,7 @@ const Q = '?v=' + BUILD;
       รายการนี้มีเฉพาะสิ่งที่ต้องใช้ตั้งแต่หน้า Login: index.html · CSS · โลโก้ ·
       Asset Manifest · Runtime Namespace · Runtime Core
       ห้ามใส่ Feature Module หรือ Compatibility Bundle เด็ดขาด */
-const CORE = ["./","./index.html","./asset-manifest.js?v=2fec5aef","./runtime/namespace.js?v=9195db83","./runtime/core.js?v=3af27c33","./styles.css?v=5be6a18e","./mobile.css?v=d0dc7d40","./assets/nj-logistic-logo.png"];
+const CORE = ["./","./index.html","./asset-manifest.js?v=47d934ef","./runtime/namespace.js?v=9195db83","./runtime/core.js?v=5671d974","./styles.css?v=5be6a18e","./mobile.css?v=a6279d15","./assets/nj-logistic-logo.png"];
 
 /* B) Lazy-loaded static — cache ตอนใช้งานจริง ไม่ดึงตั้งแต่ install
       dashboard.js  → cache ตอนเปิด Dashboard ครั้งแรก (ไม่ precache จึงไม่เพิ่ม Initial Download)
@@ -213,8 +213,11 @@ function swSafeUrl(u) {
     if (u.indexOf('#/') === 0) return './' + u;
     const abs = new URL(u, self.registration.scope);
     if (abs.origin !== self.location.origin) return FALLBACK;
-    if (abs.href.indexOf(self.registration.scope) !== 0) return FALLBACK;
     if (!abs.hash || abs.hash.indexOf('#/') !== 0) return FALLBACK;
+    /* [RUN-231] Push จากเซิร์ฟเวอร์ยังชี้โฟลเดอร์แอปเดิม (/njhr/) -> เดิมถูกตีกลับไปหน้าแจ้งเตือนรวมทุกครั้ง
+       จึงใช้เฉพาะ "เส้นทางในแอป" (#/...) จาก URL โดเมนเดียวกัน แล้วเปิดภายใต้ scope ของแอปนี้เสมอ
+       ไม่มีทางออกนอก scope และไม่รับโดเมนอื่น (ยังกัน Open Redirect เท่าเดิม) */
+    if (abs.href.indexOf(self.registration.scope) !== 0) return './' + abs.hash;
     return abs.href;
   } catch (e) { return FALLBACK; }
 }

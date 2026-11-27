@@ -39,6 +39,7 @@
   var anDocxFile = null, anPdfFile = null;
   /* [FIX 2] id ของประกาศที่ Readers Modal เปิดค้างอยู่ — ใช้ให้ Realtime refresh ใน Modal ด้วย */
   var anRdrOpenId = null;
+  var anRdrMsg = { id: null, text: "" };   /* [RUN-231] ผลการส่งเตือนซ้ำล่าสุดของหน้าต่างรายชื่อ */
 
   function anCan() { var u = currentUser(); return !!u && ["SUPER_ADMIN", "HR"].indexOf(u.role) >= 0; }
   function anIsSuper() { var u = currentUser(); return !!u && u.role === "SUPER_ADMIN"; }
@@ -616,6 +617,8 @@
           /* [RUN-185] รับทราบสำเร็จ -> ตัวเลขบนไอคอนแอปและเมนูต้องลดลงทันที
              อ่านจำนวนจริงจากเซิร์ฟเวอร์ใหม่ ไม่ลบเลขเอาเองฝั่งเบราว์เซอร์ */
           try { if (NJHR.notify && NJHR.notify.annRefresh) NJHR.notify.annRefresh(); } catch (e) { }
+          /* [RUN-231] เริ่มจากหน้าต่างประกาศค้างรับทราบ -> แสดงฉบับถัดไป (ถ้ายังมี) */
+          try { if (NJHR.notify && NJHR.notify.popupNext) NJHR.notify.popupNext(); } catch (e) { }
         }, function (er) {
           pw.value = ""; sync();
           if (err) err.textContent = er.message || "บันทึกไม่สำเร็จ";
@@ -821,7 +824,7 @@
   }
   function anRdrStatusText(r) { return anRdrIsRead(r) ? "รับทราบแล้ว" : "ยังไม่รับทราบ"; }
   function anRdrRowsHTML(list) {
-    if (!list.length) return '<tr><td colspan="4" class="ta-c muted">ไม่มีรายชื่อตามตัวกรองนี้</td></tr>';
+    if (!list.length) return '<tr><td colspan="5" class="ta-c muted">ไม่มีรายชื่อตามตัวกรองนี้</td></tr>';
     return list.map(function (r) {
       return "<tr><td>" + esc(r.emp_code || "") + "</td>" +
         "<td>" + esc(r.full_name || "") + "</td>" +
@@ -830,7 +833,9 @@
           ? '<span class="chip chip-ok">✅ รับทราบแล้ว</span>'
           : '<span class="chip chip-warn">❌ ยังไม่รับทราบ</span>' +
             (r.stale_version ? '<small class="an-rdr-note">ค้างเวอร์ชันเก่า</small>' : "")) +
-        "</td></tr>";
+        "</td>" +
+        /* [RUN-231] วันและเวลารับทราบ (เฉพาะผู้ที่รับทราบเวอร์ชันปัจจุบันแล้ว) */
+        '<td class="an-rdr-at">' + (anRdrIsRead(r) && r.read_at ? esc(anTime(r.read_at)) : "—") + "</td></tr>";
     }).join("");
   }
   function anReaders(id, keepOpen) {
@@ -857,10 +862,14 @@
         '<option value="READ">✅ รับทราบแล้ว</option>' +
         '<option value="PEND">❌ ยังไม่รับทราบ</option></select>' +
         '<span class="muted" id="an-rdr-cnt"></span><span class="grow"></span>' +
-        '<button class="btn btn-ghost btn-sm" id="an-rdr-xls">' + icon("download") + " Excel</button>" +
-        '<button class="btn btn-ghost btn-sm" id="an-rdr-csv">' + icon("download") + " CSV</button></div>" +
+        '<button class="btn btn-ghost btn-sm" id="an-rdr-ref" title="โหลดข้อมูลล่าสุด">🔄 Refresh</button>' +
+        '<button class="btn btn-ghost btn-sm" id="an-rdr-xls">📊 Export Excel</button>' +
+        '<button class="btn btn-ghost btn-sm" id="an-rdr-csv">' + icon("download") + " CSV</button>" +
+        '<button class="btn btn-primary btn-sm" id="an-rdr-rem"' + (pend ? "" : " disabled") +
+        ' title="ส่งแจ้งเตือนเฉพาะผู้ที่ยังไม่รับทราบ">🔔 ส่งเตือนซ้ำ (' + pend + ")</button></div>" +
+        '<div class="an-rdr-msg" id="an-rdr-msg" role="status">' + (anRdrMsg.id === id ? esc(anRdrMsg.text) : "") + "</div>" +
         '<div class="table-wrap an-rdr-tbl"><table><thead><tr>' +
-        "<th>รหัสพนักงาน</th><th>ชื่อ-สกุล</th><th>แผนก</th><th>สถานะ</th>" +
+        "<th>รหัสพนักงาน</th><th>ชื่อ-สกุล</th><th>แผนก</th><th>สถานะ</th><th>วันและเวลารับทราบ</th>" +
         '</tr></thead><tbody id="an-rdr-tb">' + anRdrRowsHTML(rows) + "</tbody></table></div></div>", "");
 
       function shown() { return anRdrFilter(rows, cur); }
@@ -876,10 +885,11 @@
       if (fs) fs.onchange = function () { cur = this.value; repaint(); };
 
       /* Export — ใช้ชุดเดียวกับที่เห็นบนหน้าจอ (ผ่านตัวกรอง + เรียงรหัสน้อยไปมาก) */
-      var HEAD = ["รหัสพนักงาน", "ชื่อ-สกุล", "แผนก", "สถานะ"];
+      var HEAD = ["รหัสพนักงาน", "ชื่อ-สกุล", "แผนก", "สถานะ", "วันและเวลารับทราบ"];
       function rdrRows() {
         return shown().map(function (r) {
-          return [r.emp_code || "", r.full_name || "", r.department || "", anRdrStatusText(r)];
+          return [r.emp_code || "", r.full_name || "", r.department || "", anRdrStatusText(r),
+            anRdrIsRead(r) && r.read_at ? anTime(r.read_at) : ""];
         });
       }
       function sufx() { return cur === "READ" ? " (รับทราบแล้ว)" : cur === "PEND" ? " (ยังไม่รับทราบ)" : ""; }
@@ -889,7 +899,7 @@
         withButtonLoading(b2, "กำลังสร้างไฟล์…", function () {
           var data = rdrRows();
           return rptLoadZip().then(function () {
-            return rptBuildXlsx("ผู้รับทราบ", HEAD, data, [16, 32, 26, 20],
+            return rptBuildXlsx("ผู้รับทราบ", HEAD, data, [16, 32, 26, 20, 24],
               ["รายชื่อผู้รับทราบประกาศ" + sufx(),
                "พนักงานทั้งหมด " + total + " · รับทราบแล้ว " + done + " · ยังไม่รับทราบ " + pend + " · " + pct + "%",
                "จำนวนที่ส่งออก " + data.length + " รายชื่อ"]);
@@ -900,6 +910,51 @@
             document.body.appendChild(a2); a2.click(); a2.remove();
             setTimeout(function () { URL.revokeObjectURL(a2.href); }, 800);
           })["catch"](function (er) { toast(er.message || "สร้าง Excel ไม่สำเร็จ", "bad"); });
+        });
+      };
+      /* [RUN-231] 🔄 Refresh — โหลดรายชื่อล่าสุดโดยไม่ปิดหน้าต่าง */
+      var rb = document.getElementById("an-rdr-ref");
+      if (rb) rb.onclick = function () { this.disabled = true; anReaders(id, true); };
+      /* [RUN-231] 🔔 ส่งเตือนซ้ำเฉพาะผู้ยังไม่รับทราบ — กด 2 จังหวะ (กันกดพลาด) · ผลยืนยันจากเซิร์ฟเวอร์เท่านั้น */
+      var mb = document.getElementById("an-rdr-rem");
+      if (mb) mb.onclick = function () {
+        var b3 = this;
+        if (b3.dataset.arm !== "1") {
+          b3.dataset.arm = "1";
+          b3.textContent = "ยืนยันส่งเตือน " + pend + " คน";
+          setTimeout(function () {
+            if (document.body.contains(b3) && b3.dataset.arm === "1" && b3.dataset.busy !== "1") {
+              b3.dataset.arm = ""; b3.textContent = "🔔 ส่งเตือนซ้ำ (" + pend + ")";
+            }
+          }, 6000);
+          return;
+        }
+        b3.dataset.arm = "";
+        withButtonLoading(b3, "กำลังส่ง…", function () {
+          return sbRpcList("njhr_ea_remind", { p_token: sbToken(), p_id: id }).then(function (rs) {
+            var r0 = (rs || [])[0];
+            if (!r0 || r0.sent == null) throw new Error("ไม่ได้รับการยืนยันจากเซิร์ฟเวอร์ — ยังไม่ทราบผลการส่ง กรุณากด Refresh แล้วตรวจสอบ");
+            var sent = Number(r0.sent) || 0, pn = Number(r0.pending) || 0, sk = Number(r0.skipped) || 0;
+            var noAcc = Math.max(0, pend - pn);
+            anRdrMsg = {
+              id: id, text: "ส่งเตือนแล้ว " + sent + " คน" +
+                (sk ? " · ข้าม " + sk + " คน (เพิ่งได้รับแจ้งเตือนภายใน 10 นาที)" : "") +
+                (noAcc ? " · ไม่มีบัญชีผู้ใช้ " + noAcc + " คน (ส่งไม่ได้)" : "")
+            };
+            toast("ส่งเตือนซ้ำ " + sent + " คน", sent ? "success" : "info");
+            anReaders(id, true);
+          })["catch"](function (er) {
+            /* ต่อด้วย catch (ไม่ใช่อาร์กิวเมนต์ที่ 2 ของ then) -> ครอบคลุมกรณีเซิร์ฟเวอร์ตอบ 200 แต่ไม่ยืนยันผลด้วย */
+            var m = String((er && er.message) || "");
+            anRdrMsg = {
+              id: id, text: /PGRST202|404|Could not find the function|permission denied for function/i.test(m + " " + ((er && er.code) || ""))
+                ? "ยังไม่ได้ติดตั้ง RUN-231 บนฐานข้อมูล — ยังไม่มีการส่งเตือน"
+                : "ส่งเตือนไม่สำเร็จ: " + (m || "ไม่ทราบสาเหตุ")
+            };
+            var box = document.getElementById("an-rdr-msg");
+            if (box) { box.textContent = anRdrMsg.text; box.classList.add("bad"); }
+            toast("ส่งเตือนไม่สำเร็จ", "error");
+          });
         });
       };
       var cb = document.getElementById("an-rdr-csv");
