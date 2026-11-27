@@ -641,7 +641,7 @@ body.legacy-active .content-area { display: none !important; }
 <!-- ═══ DEPLOY VERSION (ศูนย์กลาง · จุดเดียวทั้งไฟล์) — ทุก Release แก้เฉพาะค่า NJL_DEPLOY_VERSION บรรทัดเดียว ═══ -->
 <div id="njl-deploy-version" style="position:fixed;top:3px;right:6px;z-index:10050;pointer-events:none;font:700 10px/1.2 'Courier New',monospace;color:#3fb950;background:rgba(13,17,23,.78);border:1px solid rgba(63,185,80,.55);border-radius:4px;padding:2px 6px;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis"></div>
 <script>
-var NJL_DEPLOY_VERSION = 'local146';
+var NJL_DEPLOY_VERSION = 'local147';
 (function(){
   var CUR = NJL_DEPLOY_VERSION, el = document.getElementById('njl-deploy-version');
   function show(txt, warn){
@@ -1599,9 +1599,9 @@ var NJL_DEPLOY_VERSION = 'local146';
       <div>
         <div class="page-title">Electrolux P DOM</div>
         <div class="page-sub">อัพโหลด 4 ไฟล์ → กด MAPPING → VALIDATION → Export (ตั้งชื่อไฟล์ด้วยเลข INVOICE แรก)</div>
-            <div style="margin-top:6px;font-size:11px;font-family:'Courier New',monospace"><span style="background:rgba(6,182,212,.18);color:#22d3ee;border:1px solid rgba(6,182,212,.45);border-radius:5px;padding:2px 8px;font-weight:700" id="epdom-build">BUILD local146</span><span style="color:var(--text3);margin-left:8px">DUI Master <b id="epdom-v-dui">-</b> คู่ · FIX MASTER <b id="epdom-v-fix">-</b> รายการ · สรรพสามิต <b id="epdom-v-ex">-</b> rule</span></div>
+            <div style="margin-top:6px;font-size:11px;font-family:'Courier New',monospace"><span style="background:rgba(6,182,212,.18);color:#22d3ee;border:1px solid rgba(6,182,212,.45);border-radius:5px;padding:2px 8px;font-weight:700" id="epdom-build">BUILD local147</span><span style="color:var(--text3);margin-left:8px">DUI Master <b id="epdom-v-dui">-</b> คู่ · FIX MASTER <b id="epdom-v-fix">-</b> รายการ · สรรพสามิต <b id="epdom-v-ex">-</b> rule</span></div>
       </div>
-      <div id="epdom-version" style="position:absolute;top:0;right:4px;font-size:11px;font-family:'Courier New',monospace;font-weight:700;background:rgba(236,72,153,.15);color:#f472b6;border:1px solid rgba(236,72,153,.45);border-radius:5px;padding:3px 10px;white-space:nowrap">Deploy github local146</div>
+      <div id="epdom-version" style="position:absolute;top:0;right:4px;font-size:11px;font-family:'Courier New',monospace;font-weight:700;background:rgba(236,72,153,.15);color:#f472b6;border:1px solid rgba(236,72,153,.45);border-radius:5px;padding:3px 10px;white-space:nowrap">Deploy github local147</div>
     </div>
 
     <div id="epdom-err" style="display:none;border-radius:8px;padding:11px 14px;font-size:13px;margin-bottom:14px;line-height:1.6"></div>
@@ -16278,6 +16278,12 @@ function _pdAoa(ws){
 /* เลขแถวจริงในไฟล์ของ aoa[i] (1-based) */
 function _pdRow(aoa, i){ return (aoa && aoa._rows && aoa._rows[i]!=null) ? aoa._rows[i] : (i+1); }
 /* stringify a cell that must keep leading zeros / long digits */
+/* local147: Delivery No. — Excel อาจเก็บเป็นตัวเลข (เลข 0 ด้านหน้าหาย เช่น 184450472) หรือข้อความ (0184450472)
+   ใช้ Key เดียวกันทุกไฟล์ (CT / PL / TH Sales) โดยตัดเลข 0 ด้านหน้าเฉพาะค่าที่เป็นตัวเลขล้วน */
+function _pdDnKey(v){
+  const c=_pdCode(v);
+  return /^\d+$/.test(c) ? (c.replace(/^0+(?=\d)/,'')) : c;
+}
 function _pdCode(v){
   if(v==null || v==='') return '';
   if(typeof v==='number'){
@@ -16465,7 +16471,7 @@ function _pdParseCT(wb){
       colNote='J ← "'+H[cJ]+'" (คอลัมน์ '+XLSX.utils.encode_col(cJ)+') · K ← "'+H[cK]+'" (คอลัมน์ '+XLSX.utils.encode_col(cK)+')';
     for(let r=hi+1;r<aoa.length;r++){
       const row=aoa[r]||[];
-      const dn=_pdCode(row[cDN]), it=_pdCode(row[cIt]);
+      const dn=_pdDnKey(row[cDN]), it=_pdCode(row[cIt]);
       if(!dn||!it) continue;                       /* ข้ามแถว TOTAL / SUMMARY (ไม่มี DN หรือ ITEM) */
       /* entry = ค่า J (LINE 2) · line = ค่า K (LINE) — เก็บเป็น TEXT ตามต้นฉบับ */
       out.push({dn:dn, ship:_pdCode(cSh<0?'':row[cSh]), entry:_pdCode(cJ<0?'':row[cJ]),
@@ -16515,7 +16521,7 @@ function _pdParsePL(wb){
       mine.push({sn:sn2, part:pt, desc:_pdS(cDs<0?'':row[cDs]), coo:_pdS(cCo<0?'':row[cCo]),
                 qty:_pdN(cQt<0?null:row[cQt]), plt:_pdS(cPlt<0?'':row[cPlt]),
                 gw:_pdN(cGw<0?null:row[cGw]), nw:_pdN(row[cNw]), tnw:_pdN(cTnw<0?null:row[cTnw]),
-                dn:_pdCode(cDn<0?'':row[cDn]), inv:_pdCode(cInv<0?'':row[cInv]),
+                dn:_pdDnKey(cDn<0?'':row[cDn]), inv:_pdCode(cInv<0?'':row[cInv]),
                 sap:_pdCode(cSap<0?'':row[cSap]), srcRow:_pdRow(aoa,r), sheet:sn});
     }
     /* ---- ตาราง Pallet → ยอดสรุป GW (ทุกแถว "Total Packages" ของ Sheet นี้ · หา Header จริง ห้าม fix เลขแถว) ---- */
@@ -16626,7 +16632,7 @@ function _pdParseMaster(wb){
                  hs:_pdS(cHs<0?'':row[cHs]), coo:_pdS(cCo<0?'':row[cCo]), srcRow:_pdRow(aoa,r), sheet:sn,
                  hs2:(cHs2>=0 && cHs2!==cHs)?_pdS(row[cHs2]):'',
                  inv:linkable?_pdCode(row[cMI]):'', sap:linkable?_pdCode(row[cMS]):'',
-                 dn:linkable?_pdCode(row[cMD]):'', qty:(linkable&&cMQ>=0)?_pdN(row[cMQ]):null};
+                 dn:linkable?_pdDnKey(row[cMD]):'', qty:(linkable&&cMQ>=0)?_pdN(row[cMQ]):null};
       rec.thErr=_pdErrAt(aoa,r,cTh); rec.hsErr=_pdErrAt(aoa,r,cHs); rec.cooErr=_pdErrAt(aoa,r,cCo);
       rec.hs2Err=(cHs2>=0 && cHs2!==cHs) ? _pdErrAt(aoa,r,cHs2) : '';
       if(rec.thErr) rec.th=''; if(rec.hsErr) rec.hs=''; if(rec.cooErr) rec.coo=''; if(rec.hs2Err) rec.hs2='';
